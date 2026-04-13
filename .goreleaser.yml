@@ -1,26 +1,36 @@
 version: 2
+project_name: flashduty-cli
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
 
 builds:
-  - main: ./cmd/flashduty
-    binary: flashduty
-    env:
+  - env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
     goos:
       - linux
-      - darwin
       - windows
+      - darwin
     goarch:
       - amd64
       - arm64
-    ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}}
+    main: ./cmd/flashduty
 
 archives:
-  - format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+  - formats: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: zip
 
 changelog:
   sort: asc
@@ -28,4 +38,8 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
-      - "^chore:"
+
+release:
+  draft: true
+  prerelease: auto
+  name_template: "Flashduty CLI {{.Version}}"
