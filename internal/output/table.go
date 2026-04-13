@@ -25,7 +25,9 @@ func (p *TablePrinter) Print(data any, columns []Column) error {
 	for i, col := range columns {
 		headers[i] = col.Header
 	}
-	fmt.Fprintln(tw, strings.Join(headers, "\t"))
+	if _, err := fmt.Fprintln(tw, strings.Join(headers, "\t")); err != nil {
+		return err
+	}
 
 	// Rows
 	for _, item := range items {
@@ -37,7 +39,9 @@ func (p *TablePrinter) Print(data any, columns []Column) error {
 			}
 			vals[i] = v
 		}
-		fmt.Fprintln(tw, strings.Join(vals, "\t"))
+		if _, err := fmt.Fprintln(tw, strings.Join(vals, "\t")); err != nil {
+			return err
+		}
 	}
 
 	return tw.Flush()
