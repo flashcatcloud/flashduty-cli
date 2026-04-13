@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -349,11 +348,17 @@ func newStatusPageMigrateCancelCmd() *cobra.Command {
 			}
 
 			out := cmd.OutOrStdout()
-			fmt.Fprintln(out, "Cancellation requested.")
-			fmt.Fprintf(out, "Job ID: %s\n\n", jobID)
-			fmt.Fprintln(out, "Check progress with:")
-			fmt.Fprintf(out, "  flashduty statuspage migrate status --job-id %s\n", jobID)
-			return nil
+			if _, err := fmt.Fprintln(out, "Cancellation requested."); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "Job ID: %s\n\n", jobID); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out, "Check progress with:"); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(out, "  flashduty statuspage migrate status --job-id %s\n", jobID)
+			return err
 		},
 	}
 
@@ -386,17 +391,31 @@ func printMigrationStart(cmd *cobra.Command, migrationType, source, sourcePageID
 	}
 
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, "Migration started.")
-	fmt.Fprintf(out, "Type: %s\n", migrationType)
-	fmt.Fprintf(out, "Source: %s\n", source)
-	fmt.Fprintf(out, "Source page: %s\n", sourcePageID)
-	if targetPageID > 0 {
-		fmt.Fprintf(out, "Target page ID: %d\n", targetPageID)
+	if _, err := fmt.Fprintln(out, "Migration started."); err != nil {
+		return err
 	}
-	fmt.Fprintf(out, "Job ID: %s\n\n", result.JobID)
-	fmt.Fprintln(out, "Check progress with:")
-	fmt.Fprintf(out, "  flashduty statuspage migrate status --job-id %s\n", result.JobID)
-	return nil
+	if _, err := fmt.Fprintf(out, "Type: %s\n", migrationType); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Source: %s\n", source); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Source page: %s\n", sourcePageID); err != nil {
+		return err
+	}
+	if targetPageID > 0 {
+		if _, err := fmt.Fprintf(out, "Target page ID: %d\n", targetPageID); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(out, "Job ID: %s\n\n", result.JobID); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(out, "Check progress with:"); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(out, "  flashduty statuspage migrate status --job-id %s\n", result.JobID)
+	return err
 }
 
 func printMigrationStatus(cmd *cobra.Command, job *migrationJob) error {
@@ -405,37 +424,61 @@ func printMigrationStatus(cmd *cobra.Command, job *migrationJob) error {
 	}
 
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Job ID: %s\n", job.JobID)
-	fmt.Fprintf(out, "Source page: %s\n", job.SourcePageID)
-	if job.TargetPageID > 0 {
-		fmt.Fprintf(out, "Target page ID: %d\n", job.TargetPageID)
+	if _, err := fmt.Fprintf(out, "Job ID: %s\n", job.JobID); err != nil {
+		return err
 	}
-	fmt.Fprintf(out, "Phase: %s\n", job.Phase)
-	fmt.Fprintf(out, "Status: %s\n", job.Status)
-	fmt.Fprintf(out, "Progress: %d/%d\n", job.Progress.CompletedSteps, job.Progress.TotalSteps)
-	fmt.Fprintf(out, "Sections imported: %d\n", job.Progress.SectionsImported)
-	fmt.Fprintf(out, "Components imported: %d\n", job.Progress.ComponentsImported)
-	fmt.Fprintf(out, "Incidents imported: %d\n", job.Progress.IncidentsImported)
-	fmt.Fprintf(out, "Maintenances imported: %d\n", job.Progress.MaintenancesImported)
-	fmt.Fprintf(out, "Subscribers imported: %d\n", job.Progress.SubscribersImported)
-	fmt.Fprintf(out, "Subscribers skipped: %d\n", job.Progress.SubscribersSkipped)
-	fmt.Fprintf(out, "Templates imported: %d\n", job.Progress.TemplatesImported)
+	if _, err := fmt.Fprintf(out, "Source page: %s\n", job.SourcePageID); err != nil {
+		return err
+	}
+	if job.TargetPageID > 0 {
+		if _, err := fmt.Fprintf(out, "Target page ID: %d\n", job.TargetPageID); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(out, "Phase: %s\n", job.Phase); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Status: %s\n", job.Status); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Progress: %d/%d\n", job.Progress.CompletedSteps, job.Progress.TotalSteps); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Sections imported: %d\n", job.Progress.SectionsImported); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Components imported: %d\n", job.Progress.ComponentsImported); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Incidents imported: %d\n", job.Progress.IncidentsImported); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Maintenances imported: %d\n", job.Progress.MaintenancesImported); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Subscribers imported: %d\n", job.Progress.SubscribersImported); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Subscribers skipped: %d\n", job.Progress.SubscribersSkipped); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "Templates imported: %d\n", job.Progress.TemplatesImported); err != nil {
+		return err
+	}
 	if job.Error != "" {
-		fmt.Fprintf(out, "Error: %s\n", job.Error)
+		if _, err := fmt.Fprintf(out, "Error: %s\n", job.Error); err != nil {
+			return err
+		}
 	}
 	if len(job.Progress.Warnings) > 0 {
-		fmt.Fprintln(out, "Warnings:")
+		if _, err := fmt.Fprintln(out, "Warnings:"); err != nil {
+			return err
+		}
 		for _, warning := range job.Progress.Warnings {
-			fmt.Fprintf(out, "- %s\n", warning)
+			if _, err := fmt.Fprintf(out, "- %s\n", warning); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
-}
-
-func parseMigrationTargetPageID(value string) (int64, error) {
-	id, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid target page id: %w", err)
-	}
-	return id, nil
 }
