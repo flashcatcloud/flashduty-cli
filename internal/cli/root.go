@@ -6,9 +6,9 @@ import (
 	"io"
 	"os"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
+	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -20,9 +20,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flashduty",
-	Short: "Flashduty CLI - incident management from your terminal",
-	Long:  "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
+	Use:           "flashduty",
+	Short:         "Flashduty CLI - incident management from your terminal",
+	Long:          "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -55,16 +55,9 @@ func Execute() error {
 
 // newClient creates a Flashduty SDK client from resolved config + flag overrides.
 func newClient() (*flashduty.Client, error) {
-	cfg, err := config.Load()
+	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
-	}
-
-	if flagAppKey != "" {
-		cfg.AppKey = flagAppKey
-	}
-	if flagBaseURL != "" {
-		cfg.BaseURL = flagBaseURL
 	}
 
 	if cfg.AppKey == "" {
@@ -80,6 +73,22 @@ func newClient() (*flashduty.Client, error) {
 	}
 
 	return flashduty.NewClient(cfg.AppKey, opts...)
+}
+
+func loadResolvedConfig() (*config.Config, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if flagAppKey != "" {
+		cfg.AppKey = flagAppKey
+	}
+	if flagBaseURL != "" {
+		cfg.BaseURL = flagBaseURL
+	}
+
+	return cfg, nil
 }
 
 // newPrinter creates a Printer based on global flags.

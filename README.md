@@ -173,13 +173,32 @@ flashduty field list [flags]     # List custom field definitions
 
 Supports `--name`.
 
-### `statuspage` - Status Page Management (4 commands)
+### `statuspage` - Status Page Management (5 command groups)
 
 ```bash
 flashduty statuspage list [--id <ids>]                                  # List status pages
 flashduty statuspage changes --page-id <id> --type <incident|maintenance>  # List active changes
 flashduty statuspage create-incident --page-id <id> --title <title>     # Create status incident
 flashduty statuspage create-timeline --page-id <id> --change <id> --message <msg>  # Add timeline update
+flashduty statuspage migrate structure --from atlassian --source-page-id <id> --api-key <key>   # Start structure/history migration
+flashduty statuspage migrate email-subscribers --from atlassian --source-page-id <id> --target-page-id <id> --api-key <key>   # Start email subscriber migration
+flashduty statuspage migrate status --job-id <id>                       # Check migration job status
+flashduty statuspage migrate cancel --job-id <id>                       # Cancel a running migration job
+```
+
+Migration jobs are asynchronous. After starting `structure` or `email-subscribers`, use:
+
+```bash
+flashduty statuspage migrate status --job-id <job_id>
+```
+
+Typical flow:
+
+```bash
+flashduty statuspage migrate structure --from atlassian --source-page-id page_123 --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty statuspage migrate status --job-id <structure_job_id>
+flashduty statuspage migrate email-subscribers --from atlassian --source-page-id page_123 --target-page-id <target_page_id> --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty statuspage migrate status --job-id <subscriber_job_id>
 ```
 
 ### `template` - Notification Template Management (4 commands)

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
+	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +19,7 @@ func newStatusPageCmd() *cobra.Command {
 	cmd.AddCommand(newStatusPageChangesCmd())
 	cmd.AddCommand(newStatusPageCreateIncidentCmd())
 	cmd.AddCommand(newStatusPageCreateTimelineCmd())
+	cmd.AddCommand(newStatusPageMigrateCmd())
 	return cmd
 }
 
