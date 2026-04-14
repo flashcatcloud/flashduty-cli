@@ -105,7 +105,7 @@ func newTemplateValidateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required)")
+	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(flashduty.ChannelEnumValues(), ", "))
 	cmd.Flags().StringVar(&file, "file", "", "Path to template file (required)")
 	cmd.Flags().StringVar(&incidentID, "incident", "", "Real incident ID for preview (uses mock data if empty)")
 	_ = cmd.MarkFlagRequired("channel")

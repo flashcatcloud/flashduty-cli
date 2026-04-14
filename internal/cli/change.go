@@ -20,7 +20,7 @@ func newChangeCmd() *cobra.Command {
 
 func newChangeListCmd() *cobra.Command {
 	var channelID int64
-	var since, until, changeType string
+	var since, until string
 	var limit, page int
 
 	cmd := &cobra.Command{
@@ -45,7 +45,6 @@ func newChangeListCmd() *cobra.Command {
 				ChannelID: channelID,
 				StartTime: startTime,
 				EndTime:   endTime,
-				Type:      changeType,
 				Limit:     limit,
 				Page:      page,
 			})
@@ -56,7 +55,6 @@ func newChangeListCmd() *cobra.Command {
 			cols := []output.Column{
 				{Header: "ID", Field: func(v any) string { return v.(flashduty.Change).ChangeID }},
 				{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.Change).Title }},
-				{Header: "TYPE", Field: func(v any) string { return v.(flashduty.Change).Type }},
 				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.Change).Status }},
 				{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.Change).ChannelName }},
 				{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.Change).StartTime) }},
@@ -76,7 +74,6 @@ func newChangeListCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
-	cmd.Flags().StringVar(&changeType, "type", "", "Filter by change type")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 

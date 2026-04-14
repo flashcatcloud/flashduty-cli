@@ -292,7 +292,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&description, "description", "", "New description")
-	cmd.Flags().StringVar(&severity, "severity", "", "New severity")
+	cmd.Flags().StringVar(&severity, "severity", "", "New severity: Critical, Warning, Info")
 	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, "Custom field: key=value (repeatable)")
 
 	return cmd
