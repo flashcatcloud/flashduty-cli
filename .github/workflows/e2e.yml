@@ -1,0 +1,30 @@
+name: E2E Tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run E2E tests
+        env:
+          FLASHDUTY_E2E_APP_KEY: ${{ secrets.FLASHDUTY_E2E_APP_KEY }}
+          FLASHDUTY_E2E_BASE_URL: ${{ secrets.FLASHDUTY_E2E_BASE_URL }}
+        run: go test -tags e2e -race -v -timeout 10m ./e2e/

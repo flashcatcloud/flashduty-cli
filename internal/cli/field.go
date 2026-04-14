@@ -47,11 +47,13 @@ func newFieldListCmd() *cobra.Command {
 				}},
 			}
 
-			p := newPrinter(nil)
+			p := newPrinter(cmd.OutOrStdout())
 			if err := p.Print(result.Fields, cols); err != nil {
 				return err
 			}
-			fmt.Printf("Total: %d\n", result.Total)
+			if !flagJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
+			}
 			return nil
 		},
 	}

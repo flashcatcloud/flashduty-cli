@@ -22,6 +22,9 @@ func Parse(s string) (int64, error) {
 
 	// Try Go duration (relative)
 	if d, err := time.ParseDuration(s); err == nil {
+		if d < 0 {
+			return 0, fmt.Errorf("negative duration %q is not supported", s)
+		}
 		return time.Now().Add(-d).Unix(), nil
 	}
 

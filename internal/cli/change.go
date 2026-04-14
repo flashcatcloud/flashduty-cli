@@ -62,11 +62,13 @@ func newChangeListCmd() *cobra.Command {
 				{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.Change).StartTime) }},
 			}
 
-			p := newPrinter(nil)
+			p := newPrinter(cmd.OutOrStdout())
 			if err := p.Print(result.Changes, cols); err != nil {
 				return err
 			}
-			fmt.Printf("Showing %d results (page %d, total %d).\n", len(result.Changes), page, result.Total)
+			if !flagJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Changes), page, result.Total)
+			}
 			return nil
 		},
 	}

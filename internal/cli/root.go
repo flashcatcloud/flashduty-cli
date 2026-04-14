@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,33 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/spf13/cobra"
 )
+
+// flashdutyClient defines the SDK operations used by CLI commands.
+type flashdutyClient interface {
+	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
+	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
+	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
+	ListSimilarIncidents(ctx context.Context, incidentID string, limit int) (*flashduty.ListIncidentsOutput, error)
+	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (any, error)
+	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
+	AckIncidents(ctx context.Context, incidentIDs []string) error
+	CloseIncidents(ctx context.Context, incidentIDs []string) error
+	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
+	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
+	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
+	ListEscalationRules(ctx context.Context, channelID int64) (*flashduty.ListEscalationRulesOutput, error)
+	ListFields(ctx context.Context, input *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error)
+	ListChanges(ctx context.Context, input *flashduty.ListChangesInput) (*flashduty.ListChangesOutput, error)
+	GetPresetTemplate(ctx context.Context, input *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error)
+	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
+	ListStatusPages(ctx context.Context, pageIDs []int64) ([]flashduty.StatusPage, error)
+	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
+	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (any, error)
+	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
+}
+
+// newClientFn creates a flashdutyClient. Override in tests to inject a mock.
+var newClientFn = defaultNewClient
 
 var (
 	flagJSON    bool
@@ -53,8 +81,13 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// newClient creates a Flashduty SDK client from resolved config + flag overrides.
-func newClient() (*flashduty.Client, error) {
+// newClient creates a flashdutyClient using the current factory.
+func newClient() (flashdutyClient, error) {
+	return newClientFn()
+}
+
+// defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
+func defaultNewClient() (flashdutyClient, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return nil, err
@@ -93,6 +126,19 @@ func newPrinter(w io.Writer) output.Printer {
 // cmdContext returns the command's context.
 func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()
+}
+
+// writeResult prints a message as plain text or JSON depending on the --json flag.
+func writeResult(w io.Writer, message string) {
+	if w == nil {
+		w = os.Stdout
+	}
+	if flagJSON {
+		out, _ := json.MarshalIndent(map[string]string{"message": message}, "", "  ")
+		fmt.Fprintln(w, string(out))
+	} else {
+		fmt.Fprintln(w, message)
+	}
 }
 
 // silentLogger suppresses all SDK log output for CLI use.

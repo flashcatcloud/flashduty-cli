@@ -59,7 +59,7 @@ func newStatusPageListCmd() *cobra.Command {
 				}},
 			}
 
-			return newPrinter(nil).Print(pages, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(pages, cols)
 		},
 	}
 
@@ -98,7 +98,7 @@ func newStatusPageChangesCmd() *cobra.Command {
 				{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).UpdatedAt) }},
 			}
 
-			return newPrinter(nil).Print(result.Changes, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(result.Changes, cols)
 		},
 	}
 
@@ -137,11 +137,11 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 
 			if m, ok := result.(map[string]any); ok {
 				if id, ok := m["change_id"]; ok {
-					fmt.Printf("Status incident created: %v\n", id)
+					writeResult(cmd.OutOrStdout(), fmt.Sprintf("Status incident created: %v", id))
 					return nil
 				}
 			}
-			fmt.Println("Status incident created successfully.")
+			writeResult(cmd.OutOrStdout(), "Status incident created successfully.")
 			return nil
 		},
 	}
@@ -181,7 +181,7 @@ func newStatusPageCreateTimelineCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("Timeline update added.")
+			writeResult(cmd.OutOrStdout(), "Timeline update added.")
 			return nil
 		},
 	}

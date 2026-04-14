@@ -41,7 +41,10 @@ func newTemplateGetPresetCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println(result.TemplateCode)
+			if flagJSON {
+				return newPrinter(cmd.OutOrStdout()).Print(result, nil)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), result.TemplateCode)
 			return nil
 		},
 	}
@@ -79,24 +82,24 @@ func newTemplateValidateCmd() *cobra.Command {
 			}
 
 			if flagJSON {
-				return newPrinter(nil).Print(result, nil)
+				return newPrinter(cmd.OutOrStdout()).Print(result, nil)
 			}
 
 			if result.Success {
-				fmt.Println("Status: VALID")
+				fmt.Fprintln(cmd.OutOrStdout(), "Status: VALID")
 			} else {
-				fmt.Println("Status: INVALID")
+				fmt.Fprintln(cmd.OutOrStdout(), "Status: INVALID")
 			}
 			for _, e := range result.Errors {
-				fmt.Printf("Error: %s\n", e)
+				fmt.Fprintf(cmd.OutOrStdout(), "Error: %s\n", e)
 			}
 			for _, w := range result.Warnings {
-				fmt.Printf("Warning: %s\n", w)
+				fmt.Fprintf(cmd.OutOrStdout(), "Warning: %s\n", w)
 			}
-			fmt.Printf("Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
+			fmt.Fprintf(cmd.OutOrStdout(), "Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
 			if result.RenderedPreview != "" {
-				fmt.Println("\n--- Preview ---")
-				fmt.Println(result.RenderedPreview)
+				fmt.Fprintln(cmd.OutOrStdout(), "\n--- Preview ---")
+				fmt.Fprintln(cmd.OutOrStdout(), result.RenderedPreview)
 			}
 			return nil
 		},
@@ -137,7 +140,7 @@ func newTemplateVariablesCmd() *cobra.Command {
 				{Header: "EXAMPLE", MaxWidth: 40, Field: func(v any) string { return v.(flashduty.TemplateVariable).Example }},
 			}
 
-			return newPrinter(nil).Print(vars, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(vars, cols)
 		},
 	}
 
@@ -170,7 +173,7 @@ func newTemplateFunctionsCmd() *cobra.Command {
 				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(flashduty.TemplateFunction).Description }},
 			}
 
-			return newPrinter(nil).Print(funcs, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(funcs, cols)
 		},
 	}
 

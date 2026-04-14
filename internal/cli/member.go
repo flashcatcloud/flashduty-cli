@@ -49,7 +49,7 @@ func newMemberListCmd() *cobra.Command {
 					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.MemberItem).Status }},
 					{Header: "TIMEZONE", Field: func(v any) string { return v.(flashduty.MemberItem).TimeZone }},
 				}
-				p := newPrinter(nil)
+				p := newPrinter(cmd.OutOrStdout())
 				if err := p.Print(result.Members, cols); err != nil {
 					return err
 				}
@@ -59,16 +59,21 @@ func newMemberListCmd() *cobra.Command {
 					{Header: "NAME", Field: func(v any) string { return v.(flashduty.PersonInfo).PersonName }},
 					{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.PersonInfo).Email }},
 				}
-				p := newPrinter(nil)
+				p := newPrinter(cmd.OutOrStdout())
 				if err := p.Print(result.PersonInfos, cols); err != nil {
 					return err
 				}
 			} else {
-				fmt.Println("No members found.")
+				if flagJSON {
+					return newPrinter(cmd.OutOrStdout()).Print([]struct{}{}, nil)
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), "No members found.")
 				return nil
 			}
 
-			fmt.Printf("Total: %d\n", result.Total)
+			if !flagJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
+			}
 			return nil
 		},
 	}

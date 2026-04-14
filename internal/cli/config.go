@@ -32,8 +32,8 @@ func newConfigShowCmd() *cobra.Command {
 				displayKey = "(not set)"
 			}
 
-			fmt.Printf("app_key:  %s %s\n", displayKey, config.ConfigSource("app_key"))
-			fmt.Printf("base_url: %s %s\n", cfg.BaseURL, config.ConfigSource("base_url"))
+			fmt.Fprintf(cmd.OutOrStdout(), "app_key:  %s %s\n", displayKey, config.ConfigSource("app_key"))
+			fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s %s\n", cfg.BaseURL, config.ConfigSource("base_url"))
 			return nil
 		},
 	}
@@ -66,7 +66,7 @@ func newConfigSetCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Set %s successfully.\n", key)
+			fmt.Fprintf(cmd.OutOrStdout(), "Set %s successfully.\n", key)
 			return nil
 		},
 	}

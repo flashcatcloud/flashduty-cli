@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -80,11 +81,13 @@ func newIncidentListCmd() *cobra.Command {
 				return err
 			}
 
-			p := newPrinter(nil)
+			p := newPrinter(cmd.OutOrStdout())
 			if err := p.Print(result.Incidents, incidentColumns()); err != nil {
 				return err
 			}
-			fmt.Printf("Showing %d results (page %d, total %d).\n", len(result.Incidents), page, result.Total)
+			if !flagJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Incidents), page, result.Total)
+			}
 			return nil
 		},
 	}
@@ -121,22 +124,22 @@ func newIncidentGetCmd() *cobra.Command {
 			}
 
 			if flagJSON {
-				return newPrinter(nil).Print(result.Incidents, nil)
+				return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, nil)
 			}
 
 			// Single incident: vertical detail view
 			if len(args) == 1 && len(result.Incidents) == 1 {
-				printIncidentDetail(result.Incidents[0])
+				printIncidentDetail(cmd.OutOrStdout(), result.Incidents[0])
 				return nil
 			}
 
 			// Multiple: table
-			return newPrinter(nil).Print(result.Incidents, incidentColumns())
+			return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, incidentColumns())
 		},
 	}
 }
 
-func printIncidentDetail(inc flashduty.EnrichedIncident) {
+func printIncidentDetail(w io.Writer, inc flashduty.EnrichedIncident) {
 	responders := make([]string, 0, len(inc.Responders))
 	for _, r := range inc.Responders {
 		responders = append(responders, r.PersonName)
@@ -152,18 +155,18 @@ func printIncidentDetail(inc flashduty.EnrichedIncident) {
 		fields = append(fields, fmt.Sprintf("%s=%v", k, v))
 	}
 
-	fmt.Printf("ID:            %s\n", inc.IncidentID)
-	fmt.Printf("Title:         %s\n", inc.Title)
-	fmt.Printf("Severity:      %s\n", inc.Severity)
-	fmt.Printf("Progress:      %s\n", inc.Progress)
-	fmt.Printf("Channel:       %s\n", inc.ChannelName)
-	fmt.Printf("Created:       %s\n", output.FormatTime(inc.StartTime))
-	fmt.Printf("Creator:       %s (%s)\n", inc.CreatorName, inc.CreatorEmail)
-	fmt.Printf("Responders:    %s\n", orDash(strings.Join(responders, ", ")))
-	fmt.Printf("Description:   %s\n", orDash(inc.Description))
-	fmt.Printf("Labels:        %s\n", orDash(strings.Join(labels, ", ")))
-	fmt.Printf("Custom Fields: %s\n", orDash(strings.Join(fields, ", ")))
-	fmt.Printf("Alerts:        %d total\n", inc.AlertsTotal)
+	fmt.Fprintf(w, "ID:            %s\n", inc.IncidentID)
+	fmt.Fprintf(w, "Title:         %s\n", inc.Title)
+	fmt.Fprintf(w, "Severity:      %s\n", inc.Severity)
+	fmt.Fprintf(w, "Progress:      %s\n", inc.Progress)
+	fmt.Fprintf(w, "Channel:       %s\n", inc.ChannelName)
+	fmt.Fprintf(w, "Created:       %s\n", output.FormatTime(inc.StartTime))
+	fmt.Fprintf(w, "Creator:       %s (%s)\n", inc.CreatorName, inc.CreatorEmail)
+	fmt.Fprintf(w, "Responders:    %s\n", orDash(strings.Join(responders, ", ")))
+	fmt.Fprintf(w, "Description:   %s\n", orDash(inc.Description))
+	fmt.Fprintf(w, "Labels:        %s\n", orDash(strings.Join(labels, ", ")))
+	fmt.Fprintf(w, "Custom Fields: %s\n", orDash(strings.Join(fields, ", ")))
+	fmt.Fprintf(w, "Alerts:        %d total\n", inc.AlertsTotal)
 }
 
 func orDash(s string) string {
@@ -224,11 +227,11 @@ func newIncidentCreateCmd() *cobra.Command {
 
 			if m, ok := result.(map[string]any); ok {
 				if id, ok := m["incident_id"]; ok {
-					fmt.Printf("Incident created: %v\n", id)
+					writeResult(cmd.OutOrStdout(), fmt.Sprintf("Incident created: %v", id))
 					return nil
 				}
 			}
-			fmt.Println("Incident created successfully.")
+			writeResult(cmd.OutOrStdout(), "Incident created successfully.")
 			return nil
 		},
 	}
@@ -279,10 +282,10 @@ func newIncidentUpdateCmd() *cobra.Command {
 			}
 
 			if len(updated) == 0 {
-				fmt.Println("No fields were updated.")
+				writeResult(cmd.OutOrStdout(), "No fields were updated.")
 				return nil
 			}
-			fmt.Printf("Updated incident %s: %s.\n", args[0], strings.Join(updated, ", "))
+			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Updated incident %s: %s.", args[0], strings.Join(updated, ", ")))
 			return nil
 		},
 	}
@@ -308,7 +311,7 @@ func newIncidentAckCmd() *cobra.Command {
 			if err := client.AckIncidents(cmdContext(cmd), args); err != nil {
 				return err
 			}
-			fmt.Printf("Acknowledged %d incident(s).\n", len(args))
+			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Acknowledged %d incident(s).", len(args)))
 			return nil
 		},
 	}
@@ -327,7 +330,7 @@ func newIncidentCloseCmd() *cobra.Command {
 			if err := client.CloseIncidents(cmdContext(cmd), args); err != nil {
 				return err
 			}
-			fmt.Printf("Closed %d incident(s).\n", len(args))
+			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Closed %d incident(s).", len(args)))
 			return nil
 		},
 	}
@@ -350,7 +353,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 			}
 
 			if len(results) == 0 || len(results[0].Timeline) == 0 {
-				fmt.Println("No timeline events.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No timeline events.")
 				return nil
 			}
 
@@ -367,7 +370,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 				}},
 			}
 
-			return newPrinter(nil).Print(results[0].Timeline, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(results[0].Timeline, cols)
 		},
 	}
 }
@@ -391,7 +394,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 			}
 
 			if len(results) == 0 || len(results[0].Alerts) == 0 {
-				fmt.Println("No alerts.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No alerts.")
 				return nil
 			}
 
@@ -403,11 +406,13 @@ func newIncidentAlertsCmd() *cobra.Command {
 				{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertPreview).StartTime) }},
 			}
 
-			p := newPrinter(nil)
+			p := newPrinter(cmd.OutOrStdout())
 			if err := p.Print(results[0].Alerts, cols); err != nil {
 				return err
 			}
-			fmt.Printf("Total: %d\n", results[0].Total)
+			if !flagJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", results[0].Total)
+			}
 			return nil
 		},
 	}
@@ -435,11 +440,11 @@ func newIncidentSimilarCmd() *cobra.Command {
 			}
 
 			if len(result.Incidents) == 0 {
-				fmt.Println("No similar incidents found.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No similar incidents found.")
 				return nil
 			}
 
-			return newPrinter(nil).Print(result.Incidents, incidentColumns())
+			return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, incidentColumns())
 		},
 	}
 

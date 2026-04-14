@@ -58,7 +58,7 @@ func newEscalationRuleListCmd() *cobra.Command {
 				{Header: "LAYERS", Field: func(v any) string { return strconv.Itoa(len(v.(flashduty.EscalationRule).Layers)) }},
 			}
 
-			return newPrinter(nil).Print(result.Rules, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(result.Rules, cols)
 		},
 	}
 
@@ -69,7 +69,7 @@ func newEscalationRuleListCmd() *cobra.Command {
 }
 
 // resolveChannelID resolves a channel name to its ID.
-func resolveChannelID(cmd *cobra.Command, client *flashduty.Client, name string) (int64, error) {
+func resolveChannelID(cmd *cobra.Command, client flashdutyClient, name string) (int64, error) {
 	result, err := client.ListChannels(cmdContext(cmd), &flashduty.ListChannelsInput{
 		Name: name,
 	})
@@ -83,9 +83,9 @@ func resolveChannelID(cmd *cobra.Command, client *flashduty.Client, name string)
 	case 1:
 		return result.Channels[0].ChannelID, nil
 	default:
-		fmt.Println("Multiple channels match:")
+		fmt.Fprintln(cmd.OutOrStdout(), "Multiple channels match:")
 		for _, ch := range result.Channels {
-			fmt.Printf("  %d  %s\n", ch.ChannelID, ch.ChannelName)
+			fmt.Fprintf(cmd.OutOrStdout(), "  %d  %s\n", ch.ChannelID, ch.ChannelName)
 		}
 		return 0, fmt.Errorf("multiple channels match %q, use --channel <id> to specify", name)
 	}
