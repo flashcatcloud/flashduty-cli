@@ -112,7 +112,7 @@ func newStatusPageChangesCmd() *cobra.Command {
 
 func newStatusPageCreateIncidentCmd() *cobra.Command {
 	var pageID int64
-	var title, message, impact, components string
+	var title, message, components string
 	var notify bool
 
 	cmd := &cobra.Command{
@@ -149,7 +149,6 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&pageID, "page-id", 0, "Page ID (required)")
 	cmd.Flags().StringVar(&title, "title", "", "Title (required, max 255 chars)")
 	cmd.Flags().StringVar(&message, "message", "", "Initial update message")
-	cmd.Flags().StringVar(&impact, "impact", "", "Impact level")
 	cmd.Flags().StringVar(&components, "components", "", "Affected components: id1:degraded,id2:partial_outage")
 	cmd.Flags().BoolVar(&notify, "notify", false, "Notify subscribers")
 	_ = cmd.MarkFlagRequired("page-id")
