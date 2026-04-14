@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/cli"
 )
@@ -51,7 +52,7 @@ func readBuildInfo() {
 		case "vcs.time":
 			date = s.Value
 		case "vcs.modified":
-			if s.Value == "true" {
+			if s.Value == "true" && !strings.Contains(version, "dirty") {
 				version += "-dirty"
 			}
 		}
