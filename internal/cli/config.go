@@ -44,7 +44,7 @@ func newConfigSetCmd() *cobra.Command {
 		Use:   "set <key> <value>",
 		Short: "Set a configuration value",
 		Long:  "Supported keys: app_key, base_url",
-		Args:  cobra.ExactArgs(2),
+		Args:  requireArgs("key", "value"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
 

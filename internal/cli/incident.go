@@ -108,7 +108,7 @@ func newIncidentGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id> [<id2> ...]",
 		Short: "Get incident details",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -252,7 +252,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an incident",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -302,7 +302,7 @@ func newIncidentAckCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ack <id> [<id2> ...]",
 		Short: "Acknowledge incidents",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -321,7 +321,7 @@ func newIncidentCloseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "close <id> [<id2> ...]",
 		Short: "Close incidents",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -340,7 +340,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "timeline <id>",
 		Short: "View incident timeline",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -381,7 +381,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alerts <id>",
 		Short: "View incident alerts",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
@@ -427,7 +427,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "similar <id>",
 		Short: "Find similar incidents",
-		Args:  cobra.ExactArgs(1),
+		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := newClient()
 			if err != nil {
