@@ -135,9 +135,9 @@ func writeResult(w io.Writer, message string) {
 	}
 	if flagJSON {
 		out, _ := json.MarshalIndent(map[string]string{"message": message}, "", "  ")
-		fmt.Fprintln(w, string(out))
+		_, _ = fmt.Fprintln(w, string(out))
 	} else {
-		fmt.Fprintln(w, message)
+		_, _ = fmt.Fprintln(w, message)
 	}
 }
 

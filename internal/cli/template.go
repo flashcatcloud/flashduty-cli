@@ -44,7 +44,7 @@ func newTemplateGetPresetCmd() *cobra.Command {
 			if flagJSON {
 				return newPrinter(cmd.OutOrStdout()).Print(result, nil)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), result.TemplateCode)
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), result.TemplateCode)
 			return nil
 		},
 	}
@@ -86,20 +86,20 @@ func newTemplateValidateCmd() *cobra.Command {
 			}
 
 			if result.Success {
-				fmt.Fprintln(cmd.OutOrStdout(), "Status: VALID")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: VALID")
 			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), "Status: INVALID")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Status: INVALID")
 			}
 			for _, e := range result.Errors {
-				fmt.Fprintf(cmd.OutOrStdout(), "Error: %s\n", e)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Error: %s\n", e)
 			}
 			for _, w := range result.Warnings {
-				fmt.Fprintf(cmd.OutOrStdout(), "Warning: %s\n", w)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Warning: %s\n", w)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
 			if result.RenderedPreview != "" {
-				fmt.Fprintln(cmd.OutOrStdout(), "\n--- Preview ---")
-				fmt.Fprintln(cmd.OutOrStdout(), result.RenderedPreview)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "\n--- Preview ---")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), result.RenderedPreview)
 			}
 			return nil
 		},

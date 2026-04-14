@@ -83,9 +83,9 @@ func resolveChannelID(cmd *cobra.Command, client flashdutyClient, name string) (
 	case 1:
 		return result.Channels[0].ChannelID, nil
 	default:
-		fmt.Fprintln(cmd.OutOrStdout(), "Multiple channels match:")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Multiple channels match:")
 		for _, ch := range result.Channels {
-			fmt.Fprintf(cmd.OutOrStdout(), "  %d  %s\n", ch.ChannelID, ch.ChannelName)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %d  %s\n", ch.ChannelID, ch.ChannelName)
 		}
 		return 0, fmt.Errorf("multiple channels match %q, use --channel <id> to specify", name)
 	}

@@ -49,7 +49,7 @@ func newChannelListCmd() *cobra.Command {
 				return err
 			}
 			if !flagJSON {
-				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
 			}
 			return nil
 		},

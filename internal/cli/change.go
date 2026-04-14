@@ -67,7 +67,7 @@ func newChangeListCmd() *cobra.Command {
 				return err
 			}
 			if !flagJSON {
-				fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Changes), page, result.Total)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Changes), page, result.Total)
 			}
 			return nil
 		},

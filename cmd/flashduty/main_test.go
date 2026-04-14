@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -37,9 +39,9 @@ func TestErrorFormatToStderr(t *testing.T) {
 
 	// We use a different strategy: build the binary, run it with a bad
 	// subcommand, and inspect stderr.
-	binPath := t.TempDir() + "/flashduty-test"
+	binPath := filepath.Join(t.TempDir(), "flashduty-test")
 	build := exec.Command("go", "build", "-o", binPath, ".")
-	build.Dir = "/Users/bowen/go/src/github.com/flashcatcloud/flashduty-cli/cmd/flashduty"
+	build.Dir = testMainDir(t)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("[#77] failed to build test binary: %v\n%s", err, out)
 	}
@@ -81,15 +83,13 @@ func TestErrorFormatToStderr(t *testing.T) {
 // Test 78: SetVersionInfo before Execute -- version/commit/date set by main
 // are reflected in the `version` subcommand output.
 func TestSetVersionInfoBeforeExecute(t *testing.T) {
-	binPath := t.TempDir() + "/flashduty-test"
+	binPath := filepath.Join(t.TempDir(), "flashduty-test")
 
 	// Build with custom ldflags to inject known version info, just like the
 	// real release build does.
-	ldflags := fmt.Sprintf(
-		"-X main.version=1.2.3-test -X main.commit=abc1234 -X main.date=2026-04-13",
-	)
+	ldflags := "-X main.version=1.2.3-test -X main.commit=abc1234 -X main.date=2026-04-13"
 	build := exec.Command("go", "build", "-ldflags", ldflags, "-o", binPath, ".")
-	build.Dir = "/Users/bowen/go/src/github.com/flashcatcloud/flashduty-cli/cmd/flashduty"
+	build.Dir = testMainDir(t)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("[#78] failed to build test binary: %v\n%s", err, out)
 	}
@@ -113,4 +113,15 @@ func TestSetVersionInfoBeforeExecute(t *testing.T) {
 			t.Errorf("[#78] version output missing %q in %q", sub, got)
 		}
 	}
+}
+
+// testMainDir returns the directory of cmd/flashduty/main.go relative to this
+// test file, so it works both locally and in CI.
+func testMainDir(t *testing.T) string {
+	t.Helper()
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("could not determine test file path")
+	}
+	return filepath.Dir(filename)
 }

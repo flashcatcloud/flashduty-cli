@@ -67,12 +67,12 @@ func newMemberListCmd() *cobra.Command {
 				if flagJSON {
 					return newPrinter(cmd.OutOrStdout()).Print([]struct{}{}, nil)
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), "No members found.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No members found.")
 				return nil
 			}
 
 			if !flagJSON {
-				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
 			}
 			return nil
 		},

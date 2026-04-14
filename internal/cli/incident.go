@@ -86,7 +86,7 @@ func newIncidentListCmd() *cobra.Command {
 				return err
 			}
 			if !flagJSON {
-				fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Incidents), page, result.Total)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Incidents), page, result.Total)
 			}
 			return nil
 		},
@@ -155,18 +155,18 @@ func printIncidentDetail(w io.Writer, inc flashduty.EnrichedIncident) {
 		fields = append(fields, fmt.Sprintf("%s=%v", k, v))
 	}
 
-	fmt.Fprintf(w, "ID:            %s\n", inc.IncidentID)
-	fmt.Fprintf(w, "Title:         %s\n", inc.Title)
-	fmt.Fprintf(w, "Severity:      %s\n", inc.Severity)
-	fmt.Fprintf(w, "Progress:      %s\n", inc.Progress)
-	fmt.Fprintf(w, "Channel:       %s\n", inc.ChannelName)
-	fmt.Fprintf(w, "Created:       %s\n", output.FormatTime(inc.StartTime))
-	fmt.Fprintf(w, "Creator:       %s (%s)\n", inc.CreatorName, inc.CreatorEmail)
-	fmt.Fprintf(w, "Responders:    %s\n", orDash(strings.Join(responders, ", ")))
-	fmt.Fprintf(w, "Description:   %s\n", orDash(inc.Description))
-	fmt.Fprintf(w, "Labels:        %s\n", orDash(strings.Join(labels, ", ")))
-	fmt.Fprintf(w, "Custom Fields: %s\n", orDash(strings.Join(fields, ", ")))
-	fmt.Fprintf(w, "Alerts:        %d total\n", inc.AlertsTotal)
+	_, _ = fmt.Fprintf(w, "ID:            %s\n", inc.IncidentID)
+	_, _ = fmt.Fprintf(w, "Title:         %s\n", inc.Title)
+	_, _ = fmt.Fprintf(w, "Severity:      %s\n", inc.Severity)
+	_, _ = fmt.Fprintf(w, "Progress:      %s\n", inc.Progress)
+	_, _ = fmt.Fprintf(w, "Channel:       %s\n", inc.ChannelName)
+	_, _ = fmt.Fprintf(w, "Created:       %s\n", output.FormatTime(inc.StartTime))
+	_, _ = fmt.Fprintf(w, "Creator:       %s (%s)\n", inc.CreatorName, inc.CreatorEmail)
+	_, _ = fmt.Fprintf(w, "Responders:    %s\n", orDash(strings.Join(responders, ", ")))
+	_, _ = fmt.Fprintf(w, "Description:   %s\n", orDash(inc.Description))
+	_, _ = fmt.Fprintf(w, "Labels:        %s\n", orDash(strings.Join(labels, ", ")))
+	_, _ = fmt.Fprintf(w, "Custom Fields: %s\n", orDash(strings.Join(fields, ", ")))
+	_, _ = fmt.Fprintf(w, "Alerts:        %d total\n", inc.AlertsTotal)
 }
 
 func orDash(s string) string {
@@ -353,7 +353,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 			}
 
 			if len(results) == 0 || len(results[0].Timeline) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No timeline events.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No timeline events.")
 				return nil
 			}
 
@@ -394,7 +394,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 			}
 
 			if len(results) == 0 || len(results[0].Alerts) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No alerts.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No alerts.")
 				return nil
 			}
 
@@ -411,7 +411,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 				return err
 			}
 			if !flagJSON {
-				fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", results[0].Total)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", results[0].Total)
 			}
 			return nil
 		},
@@ -440,7 +440,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 			}
 
 			if len(result.Incidents) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No similar incidents found.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No similar incidents found.")
 				return nil
 			}
 
