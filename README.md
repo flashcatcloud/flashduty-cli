@@ -4,25 +4,34 @@ A command-line interface for the [Flashduty](https://flashcat.cloud) platform. M
 
 ## Installation
 
-### Pre-built binaries
+### macOS / Linux
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/flashcatcloud/flashduty-CLI/releases).
+```bash
+curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+```
 
-### Build from source
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
+```
+
+### Go Install
 
 ```bash
 go install github.com/flashcatcloud/flashduty-cli/cmd/flashduty@latest
 ```
 
-Or clone and build:
+### Manual Download
 
-```bash
-git clone https://github.com/flashcatcloud/flashduty-CLI.git
-cd flashduty-CLI
-make build
-```
+Download the latest release for your platform from [GitHub Releases](https://github.com/flashcatcloud/flashduty-cli/releases).
 
-The binary will be at `bin/flashduty`.
+### Options
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FLASHDUTY_VERSION` | Install a specific version (e.g. `v0.1.2`) | latest |
+| `FLASHDUTY_INSTALL_DIR` | Custom install directory | `/usr/local/bin` (shell), `~\.flashduty\bin` (PowerShell) |
 
 ## Quick Start
 
