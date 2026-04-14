@@ -114,6 +114,14 @@ main() {
     chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
 
     info "Installed to ${INSTALL_DIR}/${INSTALLED_NAME}"
+
+    # Warn if install dir is not in PATH
+    case ":${PATH}:" in
+        *":${INSTALL_DIR}:"*) ;;
+        *) info "WARNING: ${INSTALL_DIR} is not in your PATH. Add it with:"
+           info "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
+    esac
+
     info "Run 'flashduty version' to verify"
 }
 
