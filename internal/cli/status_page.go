@@ -29,37 +29,34 @@ func newStatusPageListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List status pages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				pageIDs, err := parseIntSlice(ids)
+				if err != nil {
+					return fmt.Errorf("invalid --id: %w", err)
+				}
 
-			pageIDs, err := parseIntSlice(ids)
-			if err != nil {
-				return fmt.Errorf("invalid --id: %w", err)
-			}
+				pages, err := ctx.Client.ListStatusPages(cmdContext(ctx.Cmd), pageIDs)
+				if err != nil {
+					return err
+				}
 
-			pages, err := client.ListStatusPages(cmdContext(cmd), pageIDs)
-			if err != nil {
-				return err
-			}
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusPage).PageID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.StatusPage).PageName }},
+					{Header: "SLUG", Field: func(v any) string { return v.(flashduty.StatusPage).Slug }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusPage).OverallStatus }},
+					{Header: "COMPONENTS", Field: func(v any) string {
+						comps := v.(flashduty.StatusPage).Components
+						names := make([]string, 0, len(comps))
+						for _, c := range comps {
+							names = append(names, c.ComponentName)
+						}
+						return strings.Join(names, ", ")
+					}},
+				}
 
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusPage).PageID, 10) }},
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.StatusPage).PageName }},
-				{Header: "SLUG", Field: func(v any) string { return v.(flashduty.StatusPage).Slug }},
-				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusPage).OverallStatus }},
-				{Header: "COMPONENTS", Field: func(v any) string {
-					comps := v.(flashduty.StatusPage).Components
-					names := make([]string, 0, len(comps))
-					for _, c := range comps {
-						names = append(names, c.ComponentName)
-					}
-					return strings.Join(names, ", ")
-				}},
-			}
-
-			return newPrinter(cmd.OutOrStdout()).Print(pages, cols)
+				return ctx.Printer.Print(pages, cols)
+			})
 		},
 	}
 
@@ -76,29 +73,26 @@ func newStatusPageChangesCmd() *cobra.Command {
 		Use:   "changes",
 		Short: "List active status page changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListStatusChanges(cmdContext(ctx.Cmd), &flashduty.ListStatusChangesInput{
+					PageID:     pageID,
+					ChangeType: changeType,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListStatusChanges(cmdContext(cmd), &flashduty.ListStatusChangesInput{
-				PageID:     pageID,
-				ChangeType: changeType,
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusChange).ChangeID, 10) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.StatusChange).Title }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.StatusChange).Type }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusChange).Status }},
+					{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).CreatedAt) }},
+					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).UpdatedAt) }},
+				}
+
+				return ctx.Printer.Print(result.Changes, cols)
 			})
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusChange).ChangeID, 10) }},
-				{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.StatusChange).Title }},
-				{Header: "TYPE", Field: func(v any) string { return v.(flashduty.StatusChange).Type }},
-				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusChange).Status }},
-				{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).CreatedAt) }},
-				{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).UpdatedAt) }},
-			}
-
-			return newPrinter(cmd.OutOrStdout()).Print(result.Changes, cols)
 		},
 	}
 
@@ -119,30 +113,27 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 		Use:   "create-incident",
 		Short: "Create a status page incident",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-
-			result, err := client.CreateStatusIncident(cmdContext(cmd), &flashduty.CreateStatusIncidentInput{
-				PageID:             pageID,
-				Title:              title,
-				Message:            message,
-				AffectedComponents: components,
-				NotifySubscribers:  notify,
-			})
-			if err != nil {
-				return err
-			}
-
-			if m, ok := result.(map[string]any); ok {
-				if id, ok := m["change_id"]; ok {
-					writeResult(cmd.OutOrStdout(), fmt.Sprintf("Status incident created: %v", id))
-					return nil
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.CreateStatusIncident(cmdContext(ctx.Cmd), &flashduty.CreateStatusIncidentInput{
+					PageID:             pageID,
+					Title:              title,
+					Message:            message,
+					AffectedComponents: components,
+					NotifySubscribers:  notify,
+				})
+				if err != nil {
+					return err
 				}
-			}
-			writeResult(cmd.OutOrStdout(), "Status incident created successfully.")
-			return nil
+
+				if m, ok := result.(map[string]any); ok {
+					if id, ok := m["change_id"]; ok {
+						ctx.WriteResult(fmt.Sprintf("Status incident created: %v", id))
+						return nil
+					}
+				}
+				ctx.WriteResult("Status incident created successfully.")
+				return nil
+			})
 		},
 	}
 
@@ -165,23 +156,20 @@ func newStatusPageCreateTimelineCmd() *cobra.Command {
 		Use:   "create-timeline",
 		Short: "Add a timeline update to a status page change",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				err := ctx.Client.CreateChangeTimeline(cmdContext(ctx.Cmd), &flashduty.CreateChangeTimelineInput{
+					PageID:   pageID,
+					ChangeID: changeID,
+					Message:  message,
+					Status:   status,
+				})
+				if err != nil {
+					return err
+				}
 
-			err = client.CreateChangeTimeline(cmdContext(cmd), &flashduty.CreateChangeTimelineInput{
-				PageID:   pageID,
-				ChangeID: changeID,
-				Message:  message,
-				Status:   status,
+				ctx.WriteResult("Timeline update added.")
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-
-			writeResult(cmd.OutOrStdout(), "Timeline update added.")
-			return nil
 		},
 	}
 

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -27,40 +26,30 @@ func newTeamListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List teams",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListTeams(cmdContext(ctx.Cmd), &flashduty.ListTeamsInput{
+					Name: name,
+					Page: page,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListTeams(cmdContext(cmd), &flashduty.ListTeamsInput{
-				Name: name,
-				Page: page,
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.TeamInfo).TeamID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamInfo).TeamName }},
+					{Header: "MEMBERS", MaxWidth: 50, Field: func(v any) string {
+						members := v.(flashduty.TeamInfo).Members
+						names := make([]string, 0, len(members))
+						for _, m := range members {
+							names = append(names, m.PersonName)
+						}
+						return strings.Join(names, ", ")
+					}},
+				}
+
+				return ctx.PrintTotal(result.Teams, cols, result.Total)
 			})
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.TeamInfo).TeamID, 10) }},
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamInfo).TeamName }},
-				{Header: "MEMBERS", MaxWidth: 50, Field: func(v any) string {
-					members := v.(flashduty.TeamInfo).Members
-					names := make([]string, 0, len(members))
-					for _, m := range members {
-						names = append(names, m.PersonName)
-					}
-					return strings.Join(names, ", ")
-				}},
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(result.Teams, cols); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
-			}
-			return nil
 		},
 	}
 

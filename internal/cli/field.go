@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
@@ -25,36 +24,26 @@ func newFieldListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List custom fields",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListFields(cmdContext(ctx.Cmd), &flashduty.ListFieldsInput{
+					FieldName: name,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListFields(cmdContext(cmd), &flashduty.ListFieldsInput{
-				FieldName: name,
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldID }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldName }},
+					{Header: "DISPLAY_NAME", Field: func(v any) string { return v.(flashduty.FieldInfo).DisplayName }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldType }},
+					{Header: "OPTIONS", MaxWidth: 50, Field: func(v any) string {
+						return strings.Join(v.(flashduty.FieldInfo).Options, ", ")
+					}},
+				}
+
+				return ctx.PrintTotal(result.Fields, cols, result.Total)
 			})
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldID }},
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldName }},
-				{Header: "DISPLAY_NAME", Field: func(v any) string { return v.(flashduty.FieldInfo).DisplayName }},
-				{Header: "TYPE", Field: func(v any) string { return v.(flashduty.FieldInfo).FieldType }},
-				{Header: "OPTIONS", MaxWidth: 50, Field: func(v any) string {
-					return strings.Join(v.(flashduty.FieldInfo).Options, ", ")
-				}},
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(result.Fields, cols); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
-			}
-			return nil
 		},
 	}
 

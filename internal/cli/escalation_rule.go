@@ -26,39 +26,36 @@ func newEscalationRuleListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List escalation rules for a channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				// Resolve channel name to ID if needed
+				if channelID == 0 && channelName != "" {
+					resolved, err := resolveChannelID(ctx.Cmd, ctx.Client, channelName)
+					if err != nil {
+						return err
+					}
+					channelID = resolved
+				}
 
-			// Resolve channel name to ID if needed
-			if channelID == 0 && channelName != "" {
-				resolved, err := resolveChannelID(cmd, client, channelName)
+				if channelID == 0 {
+					return fmt.Errorf("--channel or --channel-name is required")
+				}
+
+				result, err := ctx.Client.ListEscalationRules(cmdContext(ctx.Cmd), channelID)
 				if err != nil {
 					return err
 				}
-				channelID = resolved
-			}
 
-			if channelID == 0 {
-				return fmt.Errorf("--channel or --channel-name is required")
-			}
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleID }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleName }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.EscalationRule).ChannelName }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.EscalationRule).Status }},
+					{Header: "PRIORITY", Field: func(v any) string { return strconv.Itoa(v.(flashduty.EscalationRule).Priority) }},
+					{Header: "LAYERS", Field: func(v any) string { return strconv.Itoa(len(v.(flashduty.EscalationRule).Layers)) }},
+				}
 
-			result, err := client.ListEscalationRules(cmdContext(cmd), channelID)
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleID }},
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleName }},
-				{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.EscalationRule).ChannelName }},
-				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.EscalationRule).Status }},
-				{Header: "PRIORITY", Field: func(v any) string { return strconv.Itoa(v.(flashduty.EscalationRule).Priority) }},
-				{Header: "LAYERS", Field: func(v any) string { return strconv.Itoa(len(v.(flashduty.EscalationRule).Layers)) }},
-			}
-
-			return newPrinter(cmd.OutOrStdout()).Print(result.Rules, cols)
+				return ctx.Printer.Print(result.Rules, cols)
+			})
 		},
 	}
 

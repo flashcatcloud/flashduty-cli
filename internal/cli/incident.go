@@ -52,43 +52,33 @@ func newIncidentListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List incidents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				startTime, err := timeutil.Parse(since)
+				if err != nil {
+					return fmt.Errorf("invalid --since: %w", err)
+				}
+				endTime, err := timeutil.Parse(until)
+				if err != nil {
+					return fmt.Errorf("invalid --until: %w", err)
+				}
 
-			startTime, err := timeutil.Parse(since)
-			if err != nil {
-				return fmt.Errorf("invalid --since: %w", err)
-			}
-			endTime, err := timeutil.Parse(until)
-			if err != nil {
-				return fmt.Errorf("invalid --until: %w", err)
-			}
+				result, err := ctx.Client.ListIncidents(cmdContext(ctx.Cmd), &flashduty.ListIncidentsInput{
+					Progress:      progress,
+					Severity:      severity,
+					ChannelID:     channelID,
+					StartTime:     startTime,
+					EndTime:       endTime,
+					Title:         title,
+					Limit:         limit,
+					Page:          page,
+					IncludeAlerts: false,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListIncidents(cmdContext(cmd), &flashduty.ListIncidentsInput{
-				Progress:      progress,
-				Severity:      severity,
-				ChannelID:     channelID,
-				StartTime:     startTime,
-				EndTime:       endTime,
-				Title:         title,
-				Limit:         limit,
-				Page:          page,
-				IncludeAlerts: false,
+				return ctx.PrintList(result.Incidents, incidentColumns(), len(result.Incidents), page, result.Total)
 			})
-			if err != nil {
-				return err
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(result.Incidents, incidentColumns()); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Incidents), page, result.Total)
-			}
-			return nil
 		},
 	}
 
@@ -110,31 +100,28 @@ func newIncidentGetCmd() *cobra.Command {
 		Short: "Get incident details",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListIncidents(cmdContext(ctx.Cmd), &flashduty.ListIncidentsInput{
+					IncidentIDs:   ctx.Args,
+					IncludeAlerts: true,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListIncidents(cmdContext(cmd), &flashduty.ListIncidentsInput{
-				IncidentIDs:   args,
-				IncludeAlerts: true,
+				if ctx.JSON {
+					return ctx.Printer.Print(result.Incidents, nil)
+				}
+
+				// Single incident: vertical detail view
+				if len(ctx.Args) == 1 && len(result.Incidents) == 1 {
+					printIncidentDetail(ctx.Writer, result.Incidents[0])
+					return nil
+				}
+
+				// Multiple: table
+				return ctx.Printer.Print(result.Incidents, incidentColumns())
 			})
-			if err != nil {
-				return err
-			}
-
-			if flagJSON {
-				return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, nil)
-			}
-
-			// Single incident: vertical detail view
-			if len(args) == 1 && len(result.Incidents) == 1 {
-				printIncidentDetail(cmd.OutOrStdout(), result.Incidents[0])
-				return nil
-			}
-
-			// Multiple: table
-			return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, incidentColumns())
 		},
 	}
 }
@@ -209,30 +196,27 @@ func newIncidentCreateCmd() *cobra.Command {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
 
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-
-			result, err := client.CreateIncident(cmdContext(cmd), &flashduty.CreateIncidentInput{
-				Title:       title,
-				Severity:    severity,
-				ChannelID:   channelID,
-				Description: description,
-				AssignedTo:  assign,
-			})
-			if err != nil {
-				return err
-			}
-
-			if m, ok := result.(map[string]any); ok {
-				if id, ok := m["incident_id"]; ok {
-					writeResult(cmd.OutOrStdout(), fmt.Sprintf("Incident created: %v", id))
-					return nil
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.CreateIncident(cmdContext(ctx.Cmd), &flashduty.CreateIncidentInput{
+					Title:       title,
+					Severity:    severity,
+					ChannelID:   channelID,
+					Description: description,
+					AssignedTo:  assign,
+				})
+				if err != nil {
+					return err
 				}
-			}
-			writeResult(cmd.OutOrStdout(), "Incident created successfully.")
-			return nil
+
+				if m, ok := result.(map[string]any); ok {
+					if id, ok := m["incident_id"]; ok {
+						ctx.WriteResult(fmt.Sprintf("Incident created: %v", id))
+						return nil
+					}
+				}
+				ctx.WriteResult("Incident created successfully.")
+				return nil
+			})
 		},
 	}
 
@@ -254,11 +238,6 @@ func newIncidentUpdateCmd() *cobra.Command {
 		Short: "Update an incident",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-
 			customFields := make(map[string]any)
 			for _, f := range fieldFlags {
 				parts := strings.SplitN(f, "=", 2)
@@ -268,25 +247,27 @@ func newIncidentUpdateCmd() *cobra.Command {
 				customFields[parts[0]] = parts[1]
 			}
 
-			input := &flashduty.UpdateIncidentInput{
-				IncidentID:   args[0],
-				Title:        title,
-				Description:  description,
-				Severity:     severity,
-				CustomFields: customFields,
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				input := &flashduty.UpdateIncidentInput{
+					IncidentID:   ctx.Args[0],
+					Title:        title,
+					Description:  description,
+					Severity:     severity,
+					CustomFields: customFields,
+				}
 
-			updated, err := client.UpdateIncident(cmdContext(cmd), input)
-			if err != nil {
-				return err
-			}
+				updated, err := ctx.Client.UpdateIncident(cmdContext(ctx.Cmd), input)
+				if err != nil {
+					return err
+				}
 
-			if len(updated) == 0 {
-				writeResult(cmd.OutOrStdout(), "No fields were updated.")
+				if len(updated) == 0 {
+					ctx.WriteResult("No fields were updated.")
+					return nil
+				}
+				ctx.WriteResult(fmt.Sprintf("Updated incident %s: %s.", ctx.Args[0], strings.Join(updated, ", ")))
 				return nil
-			}
-			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Updated incident %s: %s.", args[0], strings.Join(updated, ", ")))
-			return nil
+			})
 		},
 	}
 
@@ -304,15 +285,13 @@ func newIncidentAckCmd() *cobra.Command {
 		Short: "Acknowledge incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-			if err := client.AckIncidents(cmdContext(cmd), args); err != nil {
-				return err
-			}
-			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Acknowledged %d incident(s).", len(args)))
-			return nil
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.AckIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Acknowledged %d incident(s).", len(ctx.Args)))
+				return nil
+			})
 		},
 	}
 }
@@ -323,15 +302,13 @@ func newIncidentCloseCmd() *cobra.Command {
 		Short: "Close incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-			if err := client.CloseIncidents(cmdContext(cmd), args); err != nil {
-				return err
-			}
-			writeResult(cmd.OutOrStdout(), fmt.Sprintf("Closed %d incident(s).", len(args)))
-			return nil
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.CloseIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Closed %d incident(s).", len(ctx.Args)))
+				return nil
+			})
 		},
 	}
 }
@@ -342,35 +319,32 @@ func newIncidentTimelineCmd() *cobra.Command {
 		Short: "View incident timeline",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				results, err := ctx.Client.GetIncidentTimelines(cmdContext(ctx.Cmd), []string{ctx.Args[0]})
+				if err != nil {
+					return err
+				}
 
-			results, err := client.GetIncidentTimelines(cmdContext(cmd), []string{args[0]})
-			if err != nil {
-				return err
-			}
+				if len(results) == 0 || len(results[0].Timeline) == 0 {
+					_, _ = fmt.Fprintln(ctx.Writer, "No timeline events.")
+					return nil
+				}
 
-			if len(results) == 0 || len(results[0].Timeline) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No timeline events.")
-				return nil
-			}
+				cols := []output.Column{
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.TimelineEvent).Timestamp) }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TimelineEvent).Type }},
+					{Header: "OPERATOR", Field: func(v any) string { return v.(flashduty.TimelineEvent).OperatorName }},
+					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
+						d := v.(flashduty.TimelineEvent).Detail
+						if d == nil {
+							return "-"
+						}
+						return fmt.Sprintf("%v", d)
+					}},
+				}
 
-			cols := []output.Column{
-				{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.TimelineEvent).Timestamp) }},
-				{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TimelineEvent).Type }},
-				{Header: "OPERATOR", Field: func(v any) string { return v.(flashduty.TimelineEvent).OperatorName }},
-				{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-					d := v.(flashduty.TimelineEvent).Detail
-					if d == nil {
-						return "-"
-					}
-					return fmt.Sprintf("%v", d)
-				}},
-			}
-
-			return newPrinter(cmd.OutOrStdout()).Print(results[0].Timeline, cols)
+				return ctx.Printer.Print(results[0].Timeline, cols)
+			})
 		},
 	}
 }
@@ -383,37 +357,27 @@ func newIncidentAlertsCmd() *cobra.Command {
 		Short: "View incident alerts",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				results, err := ctx.Client.ListIncidentAlerts(cmdContext(ctx.Cmd), []string{ctx.Args[0]}, limit)
+				if err != nil {
+					return err
+				}
 
-			results, err := client.ListIncidentAlerts(cmdContext(cmd), []string{args[0]}, limit)
-			if err != nil {
-				return err
-			}
+				if len(results) == 0 || len(results[0].Alerts) == 0 {
+					_, _ = fmt.Fprintln(ctx.Writer, "No alerts.")
+					return nil
+				}
 
-			if len(results) == 0 || len(results[0].Alerts) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No alerts.")
-				return nil
-			}
+				cols := []output.Column{
+					{Header: "ALERT_ID", Field: func(v any) string { return v.(flashduty.AlertPreview).AlertID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertPreview).Title }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertPreview).Severity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertPreview).Status }},
+					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertPreview).StartTime) }},
+				}
 
-			cols := []output.Column{
-				{Header: "ALERT_ID", Field: func(v any) string { return v.(flashduty.AlertPreview).AlertID }},
-				{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertPreview).Title }},
-				{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertPreview).Severity }},
-				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertPreview).Status }},
-				{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertPreview).StartTime) }},
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(results[0].Alerts, cols); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", results[0].Total)
-			}
-			return nil
+				return ctx.PrintTotal(results[0].Alerts, cols, results[0].Total)
+			})
 		},
 	}
 
@@ -429,22 +393,19 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Short: "Find similar incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListSimilarIncidents(cmdContext(ctx.Cmd), ctx.Args[0], limit)
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListSimilarIncidents(cmdContext(cmd), args[0], limit)
-			if err != nil {
-				return err
-			}
+				if len(result.Incidents) == 0 {
+					_, _ = fmt.Fprintln(ctx.Writer, "No similar incidents found.")
+					return nil
+				}
 
-			if len(result.Incidents) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No similar incidents found.")
-				return nil
-			}
-
-			return newPrinter(cmd.OutOrStdout()).Print(result.Incidents, incidentColumns())
+				return ctx.Printer.Print(result.Incidents, incidentColumns())
+			})
 		},
 	}
 

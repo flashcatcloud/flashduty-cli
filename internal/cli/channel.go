@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"strconv"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
@@ -25,33 +24,23 @@ func newChannelListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List channels",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListChannels(cmdContext(ctx.Cmd), &flashduty.ListChannelsInput{
+					Name: name,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListChannels(cmdContext(cmd), &flashduty.ListChannelsInput{
-				Name: name,
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.ChannelInfo).ChannelID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.ChannelInfo).ChannelName }},
+					{Header: "TEAM", Field: func(v any) string { return v.(flashduty.ChannelInfo).TeamName }},
+					{Header: "CREATOR", Field: func(v any) string { return v.(flashduty.ChannelInfo).CreatorName }},
+				}
+
+				return ctx.PrintTotal(result.Channels, cols, result.Total)
 			})
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.ChannelInfo).ChannelID, 10) }},
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.ChannelInfo).ChannelName }},
-				{Header: "TEAM", Field: func(v any) string { return v.(flashduty.ChannelInfo).TeamName }},
-				{Header: "CREATOR", Field: func(v any) string { return v.(flashduty.ChannelInfo).CreatorName }},
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(result.Channels, cols); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Total: %d\n", result.Total)
-			}
-			return nil
 		},
 	}
 

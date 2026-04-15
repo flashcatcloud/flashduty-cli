@@ -27,47 +27,37 @@ func newChangeListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				startTime, err := timeutil.Parse(since)
+				if err != nil {
+					return fmt.Errorf("invalid --since: %w", err)
+				}
+				endTime, err := timeutil.Parse(until)
+				if err != nil {
+					return fmt.Errorf("invalid --until: %w", err)
+				}
 
-			startTime, err := timeutil.Parse(since)
-			if err != nil {
-				return fmt.Errorf("invalid --since: %w", err)
-			}
-			endTime, err := timeutil.Parse(until)
-			if err != nil {
-				return fmt.Errorf("invalid --until: %w", err)
-			}
+				result, err := ctx.Client.ListChanges(cmdContext(ctx.Cmd), &flashduty.ListChangesInput{
+					ChannelID: channelID,
+					StartTime: startTime,
+					EndTime:   endTime,
+					Limit:     limit,
+					Page:      page,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.ListChanges(cmdContext(cmd), &flashduty.ListChangesInput{
-				ChannelID: channelID,
-				StartTime: startTime,
-				EndTime:   endTime,
-				Limit:     limit,
-				Page:      page,
+				cols := []output.Column{
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.Change).ChangeID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.Change).Title }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.Change).Status }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.Change).ChannelName }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.Change).StartTime) }},
+				}
+
+				return ctx.PrintList(result.Changes, cols, len(result.Changes), page, result.Total)
 			})
-			if err != nil {
-				return err
-			}
-
-			cols := []output.Column{
-				{Header: "ID", Field: func(v any) string { return v.(flashduty.Change).ChangeID }},
-				{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.Change).Title }},
-				{Header: "STATUS", Field: func(v any) string { return v.(flashduty.Change).Status }},
-				{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.Change).ChannelName }},
-				{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.Change).StartTime) }},
-			}
-
-			p := newPrinter(cmd.OutOrStdout())
-			if err := p.Print(result.Changes, cols); err != nil {
-				return err
-			}
-			if !flagJSON {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Showing %d results (page %d, total %d).\n", len(result.Changes), page, result.Total)
-			}
-			return nil
 		},
 	}
 
