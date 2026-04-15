@@ -8,14 +8,14 @@ import (
 
 func TestParse(t *testing.T) {
 	type testCase struct {
-		name      string
-		input     string
-		wantExact int64  // used when exactMatch is true
-		wantApprox int64 // used when approxMatch is true (expected unix timestamp)
-		exactMatch bool
+		name        string
+		input       string
+		wantExact   int64 // used when exactMatch is true
+		wantApprox  int64 // used when approxMatch is true (expected unix timestamp)
+		exactMatch  bool
 		approxMatch bool
-		wantErr    bool
-		tolerance  int64 // seconds of tolerance for approximate matches
+		wantErr     bool
+		tolerance   int64 // seconds of tolerance for approximate matches
 	}
 
 	now := time.Now().Unix()

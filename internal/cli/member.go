@@ -5,8 +5,9 @@ import (
 	"strconv"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
-	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
 func newMemberCmd() *cobra.Command {

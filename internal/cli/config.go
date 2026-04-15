@@ -3,8 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/config"
 )
 
 func newConfigCmd() *cobra.Command {

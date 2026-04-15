@@ -9,10 +9,11 @@ import (
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
-	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
+	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newIncidentCmd() *cobra.Command {

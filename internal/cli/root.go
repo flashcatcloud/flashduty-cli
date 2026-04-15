@@ -8,9 +8,10 @@ import (
 	"os"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/spf13/cobra"
+
 	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/spf13/cobra"
 )
 
 // flashdutyClient defines the SDK operations used by CLI commands.
@@ -48,9 +49,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "flashduty",
-	Short: "Flashduty CLI - incident management from your terminal",
-	Long:  "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
+	Use:           "flashduty",
+	Short:         "Flashduty CLI - incident management from your terminal",
+	Long:          "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
 // RunContext provides helpers for command execution. It is created by

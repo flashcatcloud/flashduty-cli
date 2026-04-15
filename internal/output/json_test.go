@@ -24,11 +24,11 @@ func TestJSONPrinter_Print(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		data      any
-		columns   []Column
-		wantErr   bool
-		validate  func(t *testing.T, output string)
+		name     string
+		data     any
+		columns  []Column
+		wantErr  bool
+		validate func(t *testing.T, output string)
 	}{
 		{
 			// Test 35: JSON outputs valid JSON

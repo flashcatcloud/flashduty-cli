@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/spf13/cobra"
+
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
-	"github.com/spf13/cobra"
 )
 
 func newChangeCmd() *cobra.Command {
