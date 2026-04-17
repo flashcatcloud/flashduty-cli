@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
@@ -30,6 +31,12 @@ func newIncidentCmd() *cobra.Command {
 	cmd.AddCommand(newIncidentTimelineCmd())
 	cmd.AddCommand(newIncidentAlertsCmd())
 	cmd.AddCommand(newIncidentSimilarCmd())
+	cmd.AddCommand(newIncidentMergeCmd())
+	cmd.AddCommand(newIncidentSnoozeCmd())
+	cmd.AddCommand(newIncidentReopenCmd())
+	cmd.AddCommand(newIncidentReassignCmd())
+	cmd.AddCommand(newIncidentFeedCmd())
+	cmd.AddCommand(newIncidentDetailCmd())
 	return cmd
 }
 
@@ -414,6 +421,9 @@ func newIncidentSimilarCmd() *cobra.Command {
 	return cmd
 }
 
+// boolPtr returns a pointer to the given bool value.
+func boolPtr(b bool) *bool { return &b }
+
 // parseIntSlice converts a comma-separated string to []int64.
 func parseIntSlice(s string) ([]int64, error) {
 	if s == "" {
@@ -433,4 +443,262 @@ func parseIntSlice(s string) ([]int64, error) {
 		result = append(result, v)
 	}
 	return result, nil
+}
+
+// parseStringSlice splits a comma-separated string into trimmed, non-empty strings.
+func parseStringSlice(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+func newIncidentMergeCmd() *cobra.Command {
+	var source string
+
+	cmd := &cobra.Command{
+		Use:   "merge <target_id>",
+		Short: "Merge incidents into a target incident",
+		Args:  requireArgs("target_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				sourceIDs := parseStringSlice(source)
+				if len(sourceIDs) == 0 {
+					return fmt.Errorf("--source is required")
+				}
+				if len(sourceIDs) > 100 {
+					return fmt.Errorf("--source accepts at most 100 incident IDs")
+				}
+
+				if err := ctx.Client.MergeIncidents(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsInput{
+					SourceIncidentIDs: sourceIDs,
+					TargetIncidentID:  ctx.Args[0],
+				}); err != nil {
+					return err
+				}
+
+				ctx.WriteResult(fmt.Sprintf("Merged %d incident(s) into %s.", len(sourceIDs), ctx.Args[0]))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&source, "source", "", "Comma-separated source incident IDs (max 100)")
+	_ = cmd.MarkFlagRequired("source")
+
+	return cmd
+}
+
+func newIncidentSnoozeCmd() *cobra.Command {
+	var duration string
+
+	cmd := &cobra.Command{
+		Use:   "snooze <id> [<id2> ...]",
+		Short: "Snooze incidents",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				d, err := time.ParseDuration(duration)
+				if err != nil {
+					return fmt.Errorf("invalid --duration: %w", err)
+				}
+				if d <= 0 || d > 24*time.Hour {
+					return fmt.Errorf("--duration must be between 1m and 24h")
+				}
+				if d%time.Minute != 0 {
+					return fmt.Errorf("--duration must be in whole minutes")
+				}
+
+				minutes := int64(d / time.Minute)
+
+				if err := ctx.Client.SnoozeIncidents(cmdContext(ctx.Cmd), &flashduty.SnoozeIncidentsInput{
+					IncidentIDs: ctx.Args,
+					Minutes:     minutes,
+				}); err != nil {
+					return err
+				}
+
+				ctx.WriteResult(fmt.Sprintf("Snoozed %d incident(s) for %s.", len(ctx.Args), duration))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&duration, "duration", "", "Snooze duration (e.g., \"2h\", \"30m\", max \"24h\")")
+	_ = cmd.MarkFlagRequired("duration")
+
+	return cmd
+}
+
+func newIncidentReopenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reopen <id> [<id2> ...]",
+		Short: "Reopen closed incidents",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.ReopenIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Reopened %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+}
+
+func newIncidentReassignCmd() *cobra.Command {
+	var person string
+
+	cmd := &cobra.Command{
+		Use:   "reassign <id>",
+		Short: "Reassign an incident to new responders",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				personIDs, err := parseIntSlice(person)
+				if err != nil {
+					return fmt.Errorf("invalid --person: %w", err)
+				}
+				if len(personIDs) == 0 {
+					return fmt.Errorf("--person is required")
+				}
+
+				if err := ctx.Client.ReassignIncidents(cmdContext(ctx.Cmd), &flashduty.ReassignIncidentsInput{
+					IncidentIDs: []string{ctx.Args[0]},
+					PersonIDs:   personIDs,
+				}); err != nil {
+					return err
+				}
+
+				ctx.WriteResult(fmt.Sprintf("Reassigned incident %s to %d responder(s).", ctx.Args[0], len(personIDs)))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&person, "person", "", "Comma-separated person IDs")
+	_ = cmd.MarkFlagRequired("person")
+
+	return cmd
+}
+
+func newIncidentFeedCmd() *cobra.Command {
+	var limit, page int
+
+	cmd := &cobra.Command{
+		Use:   "feed <id>",
+		Short: "View incident feed (paginated timeline)",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.GetIncidentFeed(cmdContext(ctx.Cmd), &flashduty.GetIncidentFeedInput{
+					IncidentID: ctx.Args[0],
+					Limit:      limit,
+					Page:       page,
+				})
+				if err != nil {
+					return err
+				}
+
+				if len(result.Items) == 0 {
+					ctx.WriteResult("No feed events.")
+					return nil
+				}
+
+				cols := []output.Column{
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.TimelineEvent).Timestamp) }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TimelineEvent).Type }},
+					{Header: "OPERATOR", Field: func(v any) string { return v.(flashduty.TimelineEvent).OperatorName }},
+					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
+						d := v.(flashduty.TimelineEvent).Detail
+						if d == nil {
+							return "-"
+						}
+						return fmt.Sprintf("%v", d)
+					}},
+				}
+
+				return ctx.Printer.Print(result.Items, cols)
+			})
+		},
+	}
+
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max events")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+
+	return cmd
+}
+
+func newIncidentDetailCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "detail <id>",
+		Short: "View full incident detail with AI summary",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.GetIncidentDetail(cmdContext(ctx.Cmd), &flashduty.GetIncidentDetailInput{
+					IncidentID: ctx.Args[0],
+				})
+				if err != nil {
+					return err
+				}
+
+				if ctx.JSON {
+					return ctx.Printer.Print(result.Incident, nil)
+				}
+
+				printIncidentFullDetail(ctx.Writer, result.Incident)
+				return nil
+			})
+		},
+	}
+}
+
+func printIncidentFullDetail(w io.Writer, inc flashduty.IncidentDetail) {
+	responders := make([]string, 0, len(inc.Responders))
+	for _, r := range inc.Responders {
+		name := r.PersonName
+		if name == "" {
+			name = strconv.FormatInt(r.PersonID, 10)
+		}
+		responders = append(responders, name)
+	}
+
+	labels := make([]string, 0, len(inc.Labels))
+	for k, v := range inc.Labels {
+		labels = append(labels, k+"="+v)
+	}
+
+	fields := make([]string, 0, len(inc.Fields))
+	for k, v := range inc.Fields {
+		fields = append(fields, fmt.Sprintf("%s=%v", k, v))
+	}
+
+	_, _ = fmt.Fprintf(w, "ID:            %s\n", inc.IncidentID)
+	_, _ = fmt.Fprintf(w, "Title:         %s\n", inc.Title)
+	_, _ = fmt.Fprintf(w, "Severity:      %s\n", inc.Severity)
+	_, _ = fmt.Fprintf(w, "Progress:      %s\n", inc.Progress)
+	_, _ = fmt.Fprintf(w, "Channel:       %s\n", inc.ChannelName)
+	_, _ = fmt.Fprintf(w, "Created:       %s\n", output.FormatTime(inc.StartTime))
+	_, _ = fmt.Fprintf(w, "Acknowledged:  %s\n", output.FormatTime(inc.AckTime))
+	_, _ = fmt.Fprintf(w, "Closed:        %s\n", output.FormatTime(inc.CloseTime))
+	_, _ = fmt.Fprintf(w, "Alerts:        %d alerts, %d events\n", inc.AlertCnt, inc.AlertEventCnt)
+	_, _ = fmt.Fprintf(w, "Frequency:     %s\n", orDash(inc.Frequency))
+	_, _ = fmt.Fprintf(w, "AI Summary:    %s\n", orDash(inc.AISummary))
+	_, _ = fmt.Fprintf(w, "Root Cause:    %s\n", orDash(inc.RootCause))
+	_, _ = fmt.Fprintf(w, "Resolution:    %s\n", orDash(inc.Resolution))
+	_, _ = fmt.Fprintf(w, "Impact:        %s\n", orDash(inc.Impact))
+	_, _ = fmt.Fprintf(w, "Description:   %s\n", orDash(inc.Description))
+	_, _ = fmt.Fprintf(w, "Labels:        %s\n", orDash(strings.Join(labels, ", ")))
+	_, _ = fmt.Fprintf(w, "Custom Fields: %s\n", orDash(strings.Join(fields, ", ")))
+	_, _ = fmt.Fprintf(w, "Responders:    %s\n", orDash(strings.Join(responders, ", ")))
 }

@@ -135,6 +135,36 @@ func TestParse(t *testing.T) {
 			wantExact:  1000000001,
 			exactMatch: true,
 		},
+		// 17. Future duration
+		{
+			name:        "future duration +24h",
+			input:       "+24h",
+			wantApprox:  now + int64(24*time.Hour/time.Second),
+			approxMatch: true,
+			tolerance:   2,
+		},
+		// 18. Future day shorthand
+		{
+			name:        "future day shorthand +7d",
+			input:       "+7d",
+			wantApprox:  now + int64(7*24*time.Hour/time.Second),
+			approxMatch: true,
+			tolerance:   2,
+		},
+		// 19. Past day shorthand
+		{
+			name:        "day shorthand 7d",
+			input:       "7d",
+			wantApprox:  now - int64(7*24*time.Hour/time.Second),
+			approxMatch: true,
+			tolerance:   2,
+		},
+		// 20. Invalid future duration
+		{
+			name:    "invalid future duration +garbage",
+			input:   "+garbage",
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range tests {

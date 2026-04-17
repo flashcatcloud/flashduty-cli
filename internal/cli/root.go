@@ -16,6 +16,7 @@ import (
 
 // flashdutyClient defines the SDK operations used by CLI commands.
 type flashdutyClient interface {
+	// === EXISTING ===
 	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
 	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
 	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
@@ -36,6 +37,37 @@ type flashdutyClient interface {
 	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
 	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (any, error)
 	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
+
+	// === PHASE 1: Incident additions ===
+	GetIncidentDetail(ctx context.Context, input *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error)
+	GetIncidentFeed(ctx context.Context, input *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error)
+	ListPostMortems(ctx context.Context, input *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error)
+	MergeIncidents(ctx context.Context, input *flashduty.MergeIncidentsInput) error
+	SnoozeIncidents(ctx context.Context, input *flashduty.SnoozeIncidentsInput) error
+	ReopenIncidents(ctx context.Context, incidentIDs []string) error
+	ReassignIncidents(ctx context.Context, input *flashduty.ReassignIncidentsInput) error
+
+	// === PHASE 1: Alert additions ===
+	ListAlerts(ctx context.Context, input *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error)
+	GetAlertDetail(ctx context.Context, input *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error)
+	ListAlertEvents(ctx context.Context, input *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error)
+	MergeAlertsToIncident(ctx context.Context, input *flashduty.MergeAlertsInput) error
+	GetAlertFeed(ctx context.Context, input *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error)
+	ListAlertEventsGlobal(ctx context.Context, input *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error)
+
+	// === PHASE 2: OnCall + Change ===
+	ListSchedulesWithSlots(ctx context.Context, input *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error)
+	GetScheduleDetail(ctx context.Context, input *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error)
+	QueryChangeTrend(ctx context.Context, input *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error)
+
+	// === PHASE 3: Insight + Admin ===
+	QueryInsightByTeam(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error)
+	QueryInsightByChannel(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error)
+	QueryInsightByResponder(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error)
+	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
+	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
+	QueryNotificationTrend(ctx context.Context, input *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error)
+	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
@@ -75,6 +107,18 @@ func init() {
 	rootCmd.AddCommand(newFieldCmd())
 	rootCmd.AddCommand(newStatusPageCmd())
 	rootCmd.AddCommand(newTemplateCmd())
+
+	// Phase 1
+	rootCmd.AddCommand(newAlertCmd())
+	rootCmd.AddCommand(newAlertEventCmd())
+	rootCmd.AddCommand(newPostmortemCmd())
+
+	// Phase 2
+	rootCmd.AddCommand(newOncallCmd())
+
+	// Phase 3
+	rootCmd.AddCommand(newInsightCmd())
+	rootCmd.AddCommand(newAuditCmd())
 }
 
 // Execute runs the root command.

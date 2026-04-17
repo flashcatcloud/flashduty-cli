@@ -16,6 +16,7 @@ func newChangeCmd() *cobra.Command {
 		Short: "Manage changes",
 	}
 	cmd.AddCommand(newChangeListCmd())
+	cmd.AddCommand(newChangeTrendCmd())
 	return cmd
 }
 
@@ -67,6 +68,56 @@ func newChangeListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+
+	return cmd
+}
+
+func newChangeTrendCmd() *cobra.Command {
+	var step, since, until string
+
+	cmd := &cobra.Command{
+		Use:   "trend",
+		Short: "Query change volume trends",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				startTime, err := timeutil.Parse(since)
+				if err != nil {
+					return fmt.Errorf("invalid --since: %w", err)
+				}
+				endTime, err := timeutil.Parse(until)
+				if err != nil {
+					return fmt.Errorf("invalid --until: %w", err)
+				}
+
+				result, err := ctx.Client.QueryChangeTrend(cmdContext(ctx.Cmd), &flashduty.QueryChangeTrendInput{
+					Step:      step,
+					StartTime: startTime,
+					EndTime:   endTime,
+				})
+				if err != nil {
+					return err
+				}
+
+				cols := []output.Column{
+					{Header: "DATE", Field: func(v any) string {
+						return output.FormatTime(v.(flashduty.ChangeTrendPoint).Timestamp)
+					}},
+					{Header: "CHANGES", Field: func(v any) string {
+						return fmt.Sprintf("%d", v.(flashduty.ChangeTrendPoint).ChangeCount)
+					}},
+					{Header: "EVENTS", Field: func(v any) string {
+						return fmt.Sprintf("%d", v.(flashduty.ChangeTrendPoint).ChangeEventCount)
+					}},
+				}
+
+				return ctx.PrintTotal(result.DataPoints, cols, len(result.DataPoints))
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&step, "step", "day", "Aggregation: day, week, month")
+	cmd.Flags().StringVar(&since, "since", "30d", "Start time")
+	cmd.Flags().StringVar(&until, "until", "now", "End time")
 
 	return cmd
 }

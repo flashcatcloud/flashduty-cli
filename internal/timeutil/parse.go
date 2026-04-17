@@ -11,6 +11,9 @@ import (
 // Supported formats:
 //   - Go duration (relative to now): "5m", "1h", "24h", "168h"
 //     Interpreted as "now minus duration"
+//   - Future duration with "+" prefix: "+24h", "+7d"
+//     Interpreted as "now plus duration"
+//   - Day shorthand: "7d", "30d" — converted to hours automatically
 //   - Date: "2026-04-01" (parsed as local midnight)
 //   - Datetime: "2026-04-01 10:00:00" (parsed as local time)
 //   - Unix timestamp: "1712000000" (passed through)
@@ -20,10 +23,22 @@ func Parse(s string) (int64, error) {
 		return time.Now().Unix(), nil
 	}
 
-	// Try Go duration (relative)
-	if d, err := time.ParseDuration(s); err == nil {
+	// Check for future duration prefix "+"
+	future := false
+	raw := s
+	if strings.HasPrefix(s, "+") {
+		future = true
+		raw = s[1:]
+	}
+
+	// Try Go duration (relative), expanding "d" shorthand first
+	durStr := expandDays(raw)
+	if d, err := time.ParseDuration(durStr); err == nil {
 		if d < 0 {
 			return 0, fmt.Errorf("negative duration %q is not supported", s)
+		}
+		if future {
+			return time.Now().Add(d).Unix(), nil
 		}
 		return time.Now().Add(-d).Unix(), nil
 	}
@@ -44,4 +59,17 @@ func Parse(s string) (int64, error) {
 	}
 
 	return 0, fmt.Errorf("unable to parse time %q: expected duration (24h), date (2006-01-02), datetime (2006-01-02 15:04:05), or unix timestamp", s)
+}
+
+// expandDays converts day shorthand (e.g. "7d", "30d") to hours for time.ParseDuration.
+// If the string does not end with "d" or is not purely numeric before it, returns as-is.
+func expandDays(s string) string {
+	if !strings.HasSuffix(s, "d") {
+		return s
+	}
+	numPart := s[:len(s)-1]
+	if days, err := strconv.Atoi(numPart); err == nil {
+		return fmt.Sprintf("%dh", days*24)
+	}
+	return s
 }

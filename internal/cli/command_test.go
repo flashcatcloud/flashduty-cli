@@ -95,6 +95,102 @@ func (m *mockClient) CreateChangeTimeline(context.Context, *flashduty.CreateChan
 	return fmt.Errorf("mockClient: CreateChangeTimeline not implemented")
 }
 
+// Phase 1: Incident additions
+func (m *mockClient) GetIncidentDetail(context.Context, *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error) {
+	return nil, fmt.Errorf("mockClient: GetIncidentDetail not implemented")
+}
+
+func (m *mockClient) GetIncidentFeed(context.Context, *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error) {
+	return nil, fmt.Errorf("mockClient: GetIncidentFeed not implemented")
+}
+
+func (m *mockClient) ListPostMortems(context.Context, *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListPostMortems not implemented")
+}
+
+func (m *mockClient) MergeIncidents(context.Context, *flashduty.MergeIncidentsInput) error {
+	return fmt.Errorf("mockClient: MergeIncidents not implemented")
+}
+
+func (m *mockClient) SnoozeIncidents(context.Context, *flashduty.SnoozeIncidentsInput) error {
+	return fmt.Errorf("mockClient: SnoozeIncidents not implemented")
+}
+
+func (m *mockClient) ReopenIncidents(context.Context, []string) error {
+	return fmt.Errorf("mockClient: ReopenIncidents not implemented")
+}
+
+func (m *mockClient) ReassignIncidents(context.Context, *flashduty.ReassignIncidentsInput) error {
+	return fmt.Errorf("mockClient: ReassignIncidents not implemented")
+}
+
+// Phase 1: Alert additions
+func (m *mockClient) ListAlerts(context.Context, *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListAlerts not implemented")
+}
+
+func (m *mockClient) GetAlertDetail(context.Context, *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error) {
+	return nil, fmt.Errorf("mockClient: GetAlertDetail not implemented")
+}
+
+func (m *mockClient) ListAlertEvents(context.Context, *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListAlertEvents not implemented")
+}
+
+func (m *mockClient) MergeAlertsToIncident(context.Context, *flashduty.MergeAlertsInput) error {
+	return fmt.Errorf("mockClient: MergeAlertsToIncident not implemented")
+}
+
+func (m *mockClient) GetAlertFeed(context.Context, *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error) {
+	return nil, fmt.Errorf("mockClient: GetAlertFeed not implemented")
+}
+
+func (m *mockClient) ListAlertEventsGlobal(context.Context, *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListAlertEventsGlobal not implemented")
+}
+
+// Phase 2: OnCall + Change
+func (m *mockClient) ListSchedulesWithSlots(context.Context, *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListSchedulesWithSlots not implemented")
+}
+
+func (m *mockClient) GetScheduleDetail(context.Context, *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error) {
+	return nil, fmt.Errorf("mockClient: GetScheduleDetail not implemented")
+}
+
+func (m *mockClient) QueryChangeTrend(context.Context, *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryChangeTrend not implemented")
+}
+
+// Phase 3: Insight + Admin
+func (m *mockClient) QueryInsightByTeam(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryInsightByTeam not implemented")
+}
+
+func (m *mockClient) QueryInsightByChannel(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryInsightByChannel not implemented")
+}
+
+func (m *mockClient) QueryInsightByResponder(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryInsightByResponder not implemented")
+}
+
+func (m *mockClient) QueryInsightAlertTopK(context.Context, *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryInsightAlertTopK not implemented")
+}
+
+func (m *mockClient) QueryInsightIncidentList(context.Context, *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryInsightIncidentList not implemented")
+}
+
+func (m *mockClient) QueryNotificationTrend(context.Context, *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error) {
+	return nil, fmt.Errorf("mockClient: QueryNotificationTrend not implemented")
+}
+
+func (m *mockClient) SearchAuditLogs(context.Context, *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error) {
+	return nil, fmt.Errorf("mockClient: SearchAuditLogs not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.
@@ -402,6 +498,144 @@ func TestCommandMemberListPersonInfos(t *testing.T) {
 	// Verify the total line.
 	if !strings.Contains(out, "Total: 2") {
 		t.Errorf("[#321] expected 'Total: 2' in output, got:\n%s", out)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Regression tests for new command batch review findings
+// ---------------------------------------------------------------------------
+
+type mockIncidentFeedEmpty struct{ mockClient }
+
+func (m *mockIncidentFeedEmpty) GetIncidentFeed(_ context.Context, _ *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error) {
+	return &flashduty.GetIncidentFeedOutput{Items: nil, HasNextPage: false}, nil
+}
+
+func TestCommandIncidentFeedEmpty_JSON(t *testing.T) {
+	saveAndResetGlobals(t)
+	newClientFn = func() (flashdutyClient, error) { return &mockIncidentFeedEmpty{}, nil }
+
+	out, err := execCommand("incident", "feed", "inc-1", "--json")
+	if err != nil {
+		t.Fatalf("[incident-feed-empty/json] unexpected error: %v", err)
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &parsed); err != nil {
+		t.Fatalf("[incident-feed-empty/json] failed to parse JSON output: %v\nraw output:\n%s", err, out)
+	}
+	if parsed["message"] != "No feed events." {
+		t.Errorf("[incident-feed-empty/json] expected message %q, got %q", "No feed events.", parsed["message"])
+	}
+}
+
+func TestCommandIncidentSnoozeRejectsSubMinuteDuration(t *testing.T) {
+	saveAndResetGlobals(t)
+	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+
+	_, err := execCommand("incident", "snooze", "inc-1", "--duration", "90s")
+	if err == nil {
+		t.Fatal("[incident-snooze-sub-minute] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "whole minutes") {
+		t.Fatalf("[incident-snooze-sub-minute] expected error containing %q, got %q", "whole minutes", err.Error())
+	}
+}
+
+func TestCommandIncidentSnoozeRejectsDurationOver24Hours(t *testing.T) {
+	saveAndResetGlobals(t)
+	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+
+	_, err := execCommand("incident", "snooze", "inc-1", "--duration", "25h")
+	if err == nil {
+		t.Fatal("[incident-snooze-max] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "24h") {
+		t.Fatalf("[incident-snooze-max] expected error containing %q, got %q", "24h", err.Error())
+	}
+}
+
+func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
+	saveAndResetGlobals(t)
+	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+
+	sourceIDs := make([]string, 101)
+	for i := range sourceIDs {
+		sourceIDs[i] = fmt.Sprintf("inc-%d", i+1)
+	}
+
+	_, err := execCommand("incident", "merge", "target-1", "--source", strings.Join(sourceIDs, ","))
+	if err == nil {
+		t.Fatal("[incident-merge-max-sources] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "at most 100") {
+		t.Fatalf("[incident-merge-max-sources] expected error containing %q, got %q", "at most 100", err.Error())
+	}
+}
+
+type mockAuditSearchPagination struct {
+	mockClient
+	calls []*flashduty.SearchAuditLogsInput
+}
+
+func (m *mockAuditSearchPagination) SearchAuditLogs(_ context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error) {
+	copied := *input
+	m.calls = append(m.calls, &copied)
+
+	if input.SearchAfterCtx == "" {
+		return &flashduty.SearchAuditLogsOutput{
+			AuditLogs: []flashduty.AuditLogRecord{
+				{CreatedAt: 1712000000, MemberName: "Alice", Operation: "incident.create", Body: "page-1"},
+			},
+			Total:          2,
+			SearchAfterCtx: "cursor-1",
+		}, nil
+	}
+
+	if input.SearchAfterCtx == "cursor-1" {
+		return &flashduty.SearchAuditLogsOutput{
+			AuditLogs: []flashduty.AuditLogRecord{
+				{CreatedAt: 1712003600, MemberName: "Bob", Operation: "incident.close", Body: "page-2"},
+			},
+			Total:          2,
+			SearchAfterCtx: "",
+		}, nil
+	}
+
+	return &flashduty.SearchAuditLogsOutput{
+		AuditLogs:      nil,
+		Total:          2,
+		SearchAfterCtx: "",
+	}, nil
+}
+
+func TestCommandAuditSearchPageUsesCursorPagination(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockAuditSearchPagination{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("audit", "search", "--limit", "1", "--page", "2")
+	if err != nil {
+		t.Fatalf("[audit-search-page] unexpected error: %v", err)
+	}
+
+	if !strings.Contains(out, "Bob") || !strings.Contains(out, "page-2") {
+		t.Fatalf("[audit-search-page] expected second page output, got:\n%s", out)
+	}
+	if strings.Contains(out, "Alice") || strings.Contains(out, "page-1") {
+		t.Fatalf("[audit-search-page] output should not contain first page rows, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Showing 1 results (page 2, total 2).") {
+		t.Fatalf("[audit-search-page] expected paginated footer, got:\n%s", out)
+	}
+	if len(mock.calls) != 2 {
+		t.Fatalf("[audit-search-page] expected 2 API calls, got %d", len(mock.calls))
+	}
+	if mock.calls[0].SearchAfterCtx != "" {
+		t.Fatalf("[audit-search-page] expected first call cursor to be empty, got %q", mock.calls[0].SearchAfterCtx)
+	}
+	if mock.calls[1].SearchAfterCtx != "cursor-1" {
+		t.Fatalf("[audit-search-page] expected second call cursor %q, got %q", "cursor-1", mock.calls[1].SearchAfterCtx)
 	}
 }
 
