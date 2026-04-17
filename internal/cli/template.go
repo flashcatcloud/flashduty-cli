@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
-	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
 func newTemplateCmd() *cobra.Command {
@@ -29,20 +30,20 @@ func newTemplateGetPresetCmd() *cobra.Command {
 		Use:   "get-preset",
 		Short: "Get the preset template for a channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.GetPresetTemplate(cmdContext(ctx.Cmd), &flashduty.GetPresetTemplateInput{
+					Channel: channel,
+				})
+				if err != nil {
+					return err
+				}
 
-			result, err := client.GetPresetTemplate(cmdContext(cmd), &flashduty.GetPresetTemplateInput{
-				Channel: channel,
+				if ctx.JSON {
+					return ctx.Printer.Print(result, nil)
+				}
+				_, _ = fmt.Fprintln(ctx.Writer, result.TemplateCode)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(result.TemplateCode)
-			return nil
 		},
 	}
 
@@ -59,50 +60,47 @@ func newTemplateValidateCmd() *cobra.Command {
 		Use:   "validate",
 		Short: "Validate and preview a template",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				return err
-			}
-
 			templateCode, err := os.ReadFile(file)
 			if err != nil {
 				return fmt.Errorf("failed to read template file: %w", err)
 			}
 
-			result, err := client.ValidateTemplate(cmdContext(cmd), &flashduty.ValidateTemplateInput{
-				Channel:      channel,
-				TemplateCode: string(templateCode),
-				IncidentID:   incidentID,
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ValidateTemplate(cmdContext(ctx.Cmd), &flashduty.ValidateTemplateInput{
+					Channel:      channel,
+					TemplateCode: string(templateCode),
+					IncidentID:   incidentID,
+				})
+				if err != nil {
+					return err
+				}
+
+				if ctx.JSON {
+					return ctx.Printer.Print(result, nil)
+				}
+
+				if result.Success {
+					_, _ = fmt.Fprintln(ctx.Writer, "Status: VALID")
+				} else {
+					_, _ = fmt.Fprintln(ctx.Writer, "Status: INVALID")
+				}
+				for _, e := range result.Errors {
+					_, _ = fmt.Fprintf(ctx.Writer, "Error: %s\n", e)
+				}
+				for _, w := range result.Warnings {
+					_, _ = fmt.Fprintf(ctx.Writer, "Warning: %s\n", w)
+				}
+				_, _ = fmt.Fprintf(ctx.Writer, "Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
+				if result.RenderedPreview != "" {
+					_, _ = fmt.Fprintln(ctx.Writer, "\n--- Preview ---")
+					_, _ = fmt.Fprintln(ctx.Writer, result.RenderedPreview)
+				}
+				return nil
 			})
-			if err != nil {
-				return err
-			}
-
-			if flagJSON {
-				return newPrinter(nil).Print(result, nil)
-			}
-
-			if result.Success {
-				fmt.Println("Status: VALID")
-			} else {
-				fmt.Println("Status: INVALID")
-			}
-			for _, e := range result.Errors {
-				fmt.Printf("Error: %s\n", e)
-			}
-			for _, w := range result.Warnings {
-				fmt.Printf("Warning: %s\n", w)
-			}
-			fmt.Printf("Size: %d / %d bytes\n", result.RenderedSize, result.SizeLimit)
-			if result.RenderedPreview != "" {
-				fmt.Println("\n--- Preview ---")
-				fmt.Println(result.RenderedPreview)
-			}
-			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required)")
+	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(flashduty.ChannelEnumValues(), ", "))
 	cmd.Flags().StringVar(&file, "file", "", "Path to template file (required)")
 	cmd.Flags().StringVar(&incidentID, "incident", "", "Real incident ID for preview (uses mock data if empty)")
 	_ = cmd.MarkFlagRequired("channel")
@@ -137,7 +135,7 @@ func newTemplateVariablesCmd() *cobra.Command {
 				{Header: "EXAMPLE", MaxWidth: 40, Field: func(v any) string { return v.(flashduty.TemplateVariable).Example }},
 			}
 
-			return newPrinter(nil).Print(vars, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(vars, cols)
 		},
 	}
 
@@ -170,7 +168,7 @@ func newTemplateFunctionsCmd() *cobra.Command {
 				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(flashduty.TemplateFunction).Description }},
 			}
 
-			return newPrinter(nil).Print(funcs, cols)
+			return newPrinter(cmd.OutOrStdout()).Print(funcs, cols)
 		},
 	}
 

@@ -7,9 +7,10 @@ import (
 	"time"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
-	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/config"
 )
 
 func newLoginCmd() *cobra.Command {

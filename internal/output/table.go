@@ -66,6 +66,29 @@ func FormatTime(ts int64) string {
 	return time.Unix(ts, 0).Local().Format("2006-01-02 15:04")
 }
 
+// FormatDuration formats seconds into human-readable duration (e.g., "2m 30s", "1h 15m").
+func FormatDuration(seconds int) string {
+	if seconds <= 0 {
+		return "-"
+	}
+	d := time.Duration(seconds) * time.Second
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	if h > 0 {
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
+}
+
+// FormatDurationFloat formats float64 seconds into human-readable duration.
+func FormatDurationFloat(seconds float64) string {
+	return FormatDuration(int(seconds))
+}
+
 // toSlice converts data to a []any using reflection.
 func toSlice(data any) []any {
 	v := reflect.ValueOf(data)

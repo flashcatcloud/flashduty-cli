@@ -2,15 +2,76 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/flashcatcloud/flashduty-cli/internal/config"
-	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/config"
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
+
+// flashdutyClient defines the SDK operations used by CLI commands.
+type flashdutyClient interface {
+	// === EXISTING ===
+	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
+	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
+	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
+	ListSimilarIncidents(ctx context.Context, incidentID string, limit int) (*flashduty.ListIncidentsOutput, error)
+	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (any, error)
+	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
+	AckIncidents(ctx context.Context, incidentIDs []string) error
+	CloseIncidents(ctx context.Context, incidentIDs []string) error
+	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
+	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
+	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
+	ListEscalationRules(ctx context.Context, channelID int64) (*flashduty.ListEscalationRulesOutput, error)
+	ListFields(ctx context.Context, input *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error)
+	ListChanges(ctx context.Context, input *flashduty.ListChangesInput) (*flashduty.ListChangesOutput, error)
+	GetPresetTemplate(ctx context.Context, input *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error)
+	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
+	ListStatusPages(ctx context.Context, pageIDs []int64) ([]flashduty.StatusPage, error)
+	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
+	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (any, error)
+	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
+
+	// === PHASE 1: Incident additions ===
+	GetIncidentDetail(ctx context.Context, input *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error)
+	GetIncidentFeed(ctx context.Context, input *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error)
+	ListPostMortems(ctx context.Context, input *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error)
+	MergeIncidents(ctx context.Context, input *flashduty.MergeIncidentsInput) error
+	SnoozeIncidents(ctx context.Context, input *flashduty.SnoozeIncidentsInput) error
+	ReopenIncidents(ctx context.Context, incidentIDs []string) error
+	ReassignIncidents(ctx context.Context, input *flashduty.ReassignIncidentsInput) error
+
+	// === PHASE 1: Alert additions ===
+	ListAlerts(ctx context.Context, input *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error)
+	GetAlertDetail(ctx context.Context, input *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error)
+	ListAlertEvents(ctx context.Context, input *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error)
+	MergeAlertsToIncident(ctx context.Context, input *flashduty.MergeAlertsInput) error
+	GetAlertFeed(ctx context.Context, input *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error)
+	ListAlertEventsGlobal(ctx context.Context, input *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error)
+
+	// === PHASE 2: OnCall + Change ===
+	ListSchedulesWithSlots(ctx context.Context, input *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error)
+	GetScheduleDetail(ctx context.Context, input *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error)
+	QueryChangeTrend(ctx context.Context, input *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error)
+
+	// === PHASE 3: Insight + Admin ===
+	QueryInsightByTeam(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error)
+	QueryInsightByChannel(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error)
+	QueryInsightByResponder(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error)
+	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
+	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
+	QueryNotificationTrend(ctx context.Context, input *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error)
+	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
+}
+
+// newClientFn creates a flashdutyClient. Override in tests to inject a mock.
+var newClientFn = defaultNewClient
 
 var (
 	flagJSON    bool
@@ -46,6 +107,18 @@ func init() {
 	rootCmd.AddCommand(newFieldCmd())
 	rootCmd.AddCommand(newStatusPageCmd())
 	rootCmd.AddCommand(newTemplateCmd())
+
+	// Phase 1
+	rootCmd.AddCommand(newAlertCmd())
+	rootCmd.AddCommand(newAlertEventCmd())
+	rootCmd.AddCommand(newPostmortemCmd())
+
+	// Phase 2
+	rootCmd.AddCommand(newOncallCmd())
+
+	// Phase 3
+	rootCmd.AddCommand(newInsightCmd())
+	rootCmd.AddCommand(newAuditCmd())
 }
 
 // Execute runs the root command.
@@ -53,8 +126,13 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// newClient creates a Flashduty SDK client from resolved config + flag overrides.
-func newClient() (*flashduty.Client, error) {
+// newClient creates a flashdutyClient using the current factory.
+func newClient() (flashdutyClient, error) {
+	return newClientFn()
+}
+
+// defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
+func defaultNewClient() (flashdutyClient, error) {
 	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
@@ -102,6 +180,19 @@ func newPrinter(w io.Writer) output.Printer {
 // cmdContext returns the command's context.
 func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()
+}
+
+// writeResult prints a message as plain text or JSON depending on the --json flag.
+func writeResult(w io.Writer, message string) {
+	if w == nil {
+		w = os.Stdout
+	}
+	if flagJSON {
+		out, _ := json.MarshalIndent(map[string]string{"message": message}, "", "  ")
+		_, _ = fmt.Fprintln(w, string(out))
+	} else {
+		_, _ = fmt.Fprintln(w, message)
+	}
 }
 
 // silentLogger suppresses all SDK log output for CLI use.

@@ -3,8 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/config"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -32,8 +33,8 @@ func newConfigShowCmd() *cobra.Command {
 				displayKey = "(not set)"
 			}
 
-			fmt.Printf("app_key:  %s %s\n", displayKey, config.ConfigSource("app_key"))
-			fmt.Printf("base_url: %s %s\n", cfg.BaseURL, config.ConfigSource("base_url"))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "app_key:  %s %s\n", displayKey, config.ConfigSource("app_key"))
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "base_url: %s %s\n", cfg.BaseURL, config.ConfigSource("base_url"))
 			return nil
 		},
 	}
@@ -44,7 +45,7 @@ func newConfigSetCmd() *cobra.Command {
 		Use:   "set <key> <value>",
 		Short: "Set a configuration value",
 		Long:  "Supported keys: app_key, base_url",
-		Args:  cobra.ExactArgs(2),
+		Args:  requireArgs("key", "value"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
 
@@ -66,7 +67,7 @@ func newConfigSetCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Set %s successfully.\n", key)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Set %s successfully.\n", key)
 			return nil
 		},
 	}

@@ -1,28 +1,70 @@
 # Flashduty CLI
 
+English | [中文](README_zh.md)
+
 A command-line interface for the [Flashduty](https://flashcat.cloud) platform. Manage incidents, on-call schedules, status pages, and more from your terminal.
 
 ## Installation
 
-### Pre-built binaries
+### macOS / Linux
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/flashcatcloud/flashduty-CLI/releases).
+```bash
+curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+```
 
-### Build from source
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
+```
+
+### Go Install
 
 ```bash
 go install github.com/flashcatcloud/flashduty-cli/cmd/flashduty@latest
 ```
 
-Or clone and build:
+> Make sure `$(go env GOPATH)/bin` is in your `PATH`. If `flashduty` is not found after install, run:
+> ```bash
+> export PATH="$(go env GOPATH)/bin:$PATH"
+> ```
+
+### Manual Download
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/flashcatcloud/flashduty-cli/releases).
+
+### Options
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FLASHDUTY_VERSION` | Install a specific version (e.g. `v0.1.2`) | latest |
+| `FLASHDUTY_INSTALL_DIR` | Custom install directory | `/usr/local/bin` (shell), `~\.flashduty\bin` (PowerShell) |
+
+## Agent Skills
+
+Flashduty CLI ships with 9 agent skills that teach AI coding agents how to operate Flashduty from your terminal. Compatible with 41+ agents including Claude Code, Cursor, GitHub Copilot, Codex, Gemini CLI, Windsurf, and more.
 
 ```bash
-git clone https://github.com/flashcatcloud/flashduty-CLI.git
-cd flashduty-CLI
-make build
+npx skills add flashcatcloud/flashduty-cli -y -g
 ```
 
-The binary will be at `bin/flashduty`.
+The installer auto-detects which agents you have and installs skills to all of them.
+
+### Available Skills
+
+| Skill | Scope |
+|-------|-------|
+| `flashduty-shared` | Foundation: authentication, 3-layer model, global flags, safety rules |
+| `flashduty-incident` | Incident lifecycle: triage, investigate, resolve, merge, snooze, reassign |
+| `flashduty-alert` | Alert and alert event investigation: drill down, trace, merge |
+| `flashduty-change` | Change event tracking and deployment frequency trends |
+| `flashduty-oncall` | On-call schedule queries: who is on call, shift details |
+| `flashduty-channel` | Channel and escalation rule lookups |
+| `flashduty-insight` | Analytics: MTTA/MTTR, noise reduction, notification trends |
+| `flashduty-admin` | Team/member lookups and audit log search |
+| `flashduty-template` | Notification template validation and preview |
+
+---
 
 ## Quick Start
 
