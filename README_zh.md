@@ -242,6 +242,32 @@ flashduty incident list --json | jq '.[].title'
 
 ---
 
+## Agent Skills（AI 代理技能）
+
+Flashduty CLI 内置 9 个 [Claude Code 代理技能](https://docs.anthropic.com/en/docs/claude-code)，让 AI 代理能够通过 CLI 操作 Flashduty 平台。全局安装技能：
+
+```bash
+npx skills add flashcatcloud/flashduty-cli -y -g
+```
+
+安装后，Claude Code 会根据你的请求自动发现并调用对应的技能。
+
+### 可用技能
+
+| 技能 | 范围 |
+|------|------|
+| `flashduty-shared` | 基础：认证、三层降噪模型、全局参数、安全规则 |
+| `flashduty-incident` | 故障生命周期：分诊、调查、解决、合并、暂停、转派 |
+| `flashduty-alert` | 告警与告警事件调查：下钻、追踪、合并 |
+| `flashduty-change` | 变更事件追踪与部署频率趋势 |
+| `flashduty-oncall` | 值班查询：当前值班人、排班详情 |
+| `flashduty-channel` | 协作空间与升级规则查询 |
+| `flashduty-insight` | 分析：MTTA/MTTR、降噪率、通知趋势 |
+| `flashduty-admin` | 团队/成员查询与审计日志搜索 |
+| `flashduty-template` | 通知模板验证与预览 |
+
+---
+
 ## 开发
 
 ### 前置条件

@@ -242,6 +242,32 @@ flashduty incident list --json | jq '.[].title'
 
 ---
 
+## Agent Skills
+
+Flashduty CLI ships with 9 [Claude Code agent skills](https://docs.anthropic.com/en/docs/claude-code) that teach AI agents how to operate Flashduty through the CLI. Install them globally to enable AI-assisted incident management:
+
+```bash
+npx skills add flashcatcloud/flashduty-cli -y -g
+```
+
+After installation, Claude Code will automatically discover and invoke the appropriate skill based on your requests.
+
+### Available Skills
+
+| Skill | Scope |
+|-------|-------|
+| `flashduty-shared` | Foundation: authentication, 3-layer model, global flags, safety rules |
+| `flashduty-incident` | Incident lifecycle: triage, investigate, resolve, merge, snooze, reassign |
+| `flashduty-alert` | Alert and alert event investigation: drill down, trace, merge |
+| `flashduty-change` | Change event tracking and deployment frequency trends |
+| `flashduty-oncall` | On-call schedule queries: who is on call, shift details |
+| `flashduty-channel` | Channel and escalation rule lookups |
+| `flashduty-insight` | Analytics: MTTA/MTTR, noise reduction, notification trends |
+| `flashduty-admin` | Team/member lookups and audit log search |
+| `flashduty-template` | Notification template validation and preview |
+
+---
+
 ## Development
 
 ### Prerequisites
