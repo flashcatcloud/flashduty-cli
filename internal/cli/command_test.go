@@ -191,6 +191,22 @@ func (m *mockClient) SearchAuditLogs(context.Context, *flashduty.SearchAuditLogs
 	return nil, fmt.Errorf("mockClient: SearchAuditLogs not implemented")
 }
 
+func (m *mockClient) StartStatusPageMigration(context.Context, *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+	return nil, fmt.Errorf("mockClient: StartStatusPageMigration not implemented")
+}
+
+func (m *mockClient) StartStatusPageEmailSubscriberMigration(context.Context, *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+	return nil, fmt.Errorf("mockClient: StartStatusPageEmailSubscriberMigration not implemented")
+}
+
+func (m *mockClient) GetStatusPageMigrationStatus(context.Context, string) (*flashduty.StatusPageMigrationJob, error) {
+	return nil, fmt.Errorf("mockClient: GetStatusPageMigrationStatus not implemented")
+}
+
+func (m *mockClient) CancelStatusPageMigration(context.Context, string) error {
+	return fmt.Errorf("mockClient: CancelStatusPageMigration not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.

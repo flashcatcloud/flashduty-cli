@@ -1,387 +1,414 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"testing"
+
+	flashduty "github.com/flashcatcloud/flashduty-sdk"
 )
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
+type mockStatusPageMigrate struct {
+	mockClient
 
-func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
-}
-
-func jsonResponse(statusCode int, body string) *http.Response {
-	return &http.Response{
-		StatusCode: statusCode,
-		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(body)),
-	}
-}
-
-func TestStatusPageMigrationAPIStartStructure(t *testing.T) {
-	t.Parallel()
-
-	var gotMethod string
-	var gotPath string
-	var gotAppKey string
-	var gotBody map[string]any
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				gotMethod = r.Method
-				gotPath = r.URL.Path
-				gotAppKey = r.URL.Query().Get("app_key")
-				if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-					t.Fatalf("decode body: %v", err)
-				}
-				return jsonResponse(http.StatusOK, `{"data":{"job_id":"job-1"}}`), nil
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "fd-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	out, err := api.StartStructure(context.Background(), "atlassian-key", "page_123")
-	if err != nil {
-		t.Fatalf("StartStructure() error = %v", err)
-	}
-
-	if gotMethod != http.MethodPost {
-		t.Fatalf("method = %s, want POST", gotMethod)
-	}
-	if gotPath != "/status-page/migrate-structure" {
-		t.Fatalf("path = %s", gotPath)
-	}
-	if gotAppKey != "fd-app-key" {
-		t.Fatalf("app_key = %s", gotAppKey)
-	}
-	if gotBody["api_key"] != "atlassian-key" || gotBody["source_page_id"] != "page_123" {
-		t.Fatalf("unexpected body: %#v", gotBody)
-	}
-	if out.JobID != "job-1" {
-		t.Fatalf("job_id = %s", out.JobID)
-	}
-}
-
-func TestStatusPageMigrationAPIGetStatus(t *testing.T) {
-	t.Parallel()
-
-	var gotMethod string
-	var gotPath string
-	var gotJobID string
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				gotMethod = r.Method
-				gotPath = r.URL.Path
-				gotJobID = r.URL.Query().Get("job_id")
-				return jsonResponse(http.StatusOK, `{"data":{"job_id":"job-2","source_page_id":"src-1","target_page_id":1024,"phase":"history","status":"running","progress":{"total_steps":5,"completed_steps":3}}}`), nil
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "fd-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	out, err := api.GetStatus(context.Background(), "job-2")
-	if err != nil {
-		t.Fatalf("GetStatus() error = %v", err)
-	}
-
-	if gotMethod != http.MethodGet {
-		t.Fatalf("method = %s, want GET", gotMethod)
-	}
-	if gotPath != "/status-page/migration/status" {
-		t.Fatalf("path = %s", gotPath)
-	}
-	if gotJobID != "job-2" {
-		t.Fatalf("job_id query = %s", gotJobID)
-	}
-	if out.JobID != "job-2" || out.TargetPageID != 1024 {
-		t.Fatalf("unexpected job: %#v", out)
-	}
-}
-
-func TestStatusPageMigrationAPIRedactsAppKeyFromTransportError(t *testing.T) {
-	t.Parallel()
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-				return nil, fmt.Errorf("transport failed for %s", req.URL.String())
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "secret-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	_, err := api.GetStatus(context.Background(), "job-4")
-	if err == nil {
-		t.Fatal("GetStatus() error = nil, want transport error")
-	}
-	if strings.Contains(err.Error(), "secret-app-key") {
-		t.Fatalf("transport error leaked app key: %v", err)
-	}
-}
-
-func TestStatusPageMigrationAPICapsErrorBodyReads(t *testing.T) {
-	t.Parallel()
-
-	largeBody := strings.Repeat("0123456789", 2000)
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				return jsonResponse(http.StatusBadGateway, largeBody), nil
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "fd-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	_, err := api.GetStatus(context.Background(), "job-5")
-	if err == nil {
-		t.Fatal("GetStatus() error = nil, want HTTP error")
-	}
-	if got := len(err.Error()); got > 5000 {
-		t.Fatalf("HTTP error too large: got %d chars, want <= 5000", got)
-	}
-}
-
-func TestStatusPageMigrationAPISanitizesErrorBodyFields(t *testing.T) {
-	t.Parallel()
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				return jsonResponse(http.StatusBadGateway, `{"error":{"message":"upstream failed","details":{"ApiKey":"response-secret","nested":[{"ACCESS_TOKEN":"response-token"}]}}}`), nil
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "fd-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	_, err := api.GetStatus(context.Background(), "job-6")
-	if err == nil {
-		t.Fatal("GetStatus() error = nil, want HTTP error")
-	}
-	if strings.Contains(err.Error(), "response-secret") || strings.Contains(err.Error(), "response-token") {
-		t.Fatalf("HTTP error leaked secret body fields: %v", err)
-	}
-	if !strings.Contains(err.Error(), "[REDACTED]") {
-		t.Fatalf("HTTP error missing redaction marker: %v", err)
-	}
-}
-
-func TestStatusPageMigrationAPICancel(t *testing.T) {
-	t.Parallel()
-
-	var gotMethod string
-	var gotPath string
-	var gotBody map[string]any
-
-	api := &statusPageMigrationAPI{
-		httpClient: &http.Client{
-			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-				gotMethod = r.Method
-				gotPath = r.URL.Path
-				if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-					t.Fatalf("decode body: %v", err)
-				}
-				return jsonResponse(http.StatusOK, `{"data":{}}`), nil
-			}),
-		},
-		baseURL:   "https://status.example.com",
-		appKey:    "fd-app-key",
-		userAgent: "flashduty-cli/test",
-	}
-
-	if err := api.Cancel(context.Background(), "job-3"); err != nil {
-		t.Fatalf("Cancel() error = %v", err)
-	}
-
-	if gotMethod != http.MethodPost {
-		t.Fatalf("method = %s, want POST", gotMethod)
-	}
-	if gotPath != "/status-page/migration/cancel" {
-		t.Fatalf("path = %s", gotPath)
-	}
-	if gotBody["job_id"] != "job-3" {
-		t.Fatalf("unexpected body: %#v", gotBody)
-	}
-}
-
-type stubMigrationService struct {
-	startStructure        func(ctx context.Context, sourceAPIKey, sourcePageID string) (*migrationStartResult, error)
-	startEmailSubscribers func(ctx context.Context, sourceAPIKey, sourcePageID string, targetPageID int64) (*migrationStartResult, error)
-	getStatus             func(ctx context.Context, jobID string) (*migrationJob, error)
+	startStructure        func(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
+	startEmailSubscribers func(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
+	getStatus             func(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
 	cancel                func(ctx context.Context, jobID string) error
 }
 
-func (s stubMigrationService) StartStructure(ctx context.Context, sourceAPIKey, sourcePageID string) (*migrationStartResult, error) {
-	return s.startStructure(ctx, sourceAPIKey, sourcePageID)
+func (m *mockStatusPageMigrate) StartStatusPageMigration(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+	if m.startStructure == nil {
+		return m.mockClient.StartStatusPageMigration(ctx, input)
+	}
+	return m.startStructure(ctx, input)
 }
 
-func (s stubMigrationService) StartEmailSubscribers(ctx context.Context, sourceAPIKey, sourcePageID string, targetPageID int64) (*migrationStartResult, error) {
-	return s.startEmailSubscribers(ctx, sourceAPIKey, sourcePageID, targetPageID)
+func (m *mockStatusPageMigrate) StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+	if m.startEmailSubscribers == nil {
+		return m.mockClient.StartStatusPageEmailSubscriberMigration(ctx, input)
+	}
+	return m.startEmailSubscribers(ctx, input)
 }
 
-func (s stubMigrationService) GetStatus(ctx context.Context, jobID string) (*migrationJob, error) {
-	return s.getStatus(ctx, jobID)
+func (m *mockStatusPageMigrate) GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error) {
+	if m.getStatus == nil {
+		return m.mockClient.GetStatusPageMigrationStatus(ctx, jobID)
+	}
+	return m.getStatus(ctx, jobID)
 }
 
-func (s stubMigrationService) Cancel(ctx context.Context, jobID string) error {
-	return s.cancel(ctx, jobID)
+func (m *mockStatusPageMigrate) CancelStatusPageMigration(ctx context.Context, jobID string) error {
+	if m.cancel == nil {
+		return m.mockClient.CancelStatusPageMigration(ctx, jobID)
+	}
+	return m.cancel(ctx, jobID)
 }
 
-func TestStatusPageMigrateStructureCommandPrintsStatusHint(t *testing.T) {
-	original := newStatusPageMigrationService
-	t.Cleanup(func() { newStatusPageMigrationService = original })
-	newStatusPageMigrationService = func() (statusPageMigrationService, error) {
-		return stubMigrationService{
-			startStructure: func(ctx context.Context, apiKey, pageID string) (*migrationStartResult, error) {
-				return &migrationStartResult{JobID: "job-123"}, nil
-			},
-		}, nil
+func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	var gotInput *flashduty.StartStatusPageMigrationInput
+	mock := &mockStatusPageMigrate{
+		startStructure: func(_ context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+			gotInput = input
+			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-1"}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("statuspage", "migrate", "structure",
+		"--from", "atlassian",
+		"--source-page-id", "src-1",
+		"--api-key", "atlassian-secret",
+	)
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
 	}
 
-	cmd := newStatusPageMigrateStructureCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--from", "atlassian", "--source-page-id", "src-1", "--api-key", "key-1"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
+	if gotInput == nil {
+		t.Fatal("expected input to be captured")
 	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Job ID: job-123") {
-		t.Fatalf("missing job id in output: %s", out)
+	if gotInput.SourceAPIKey != "atlassian-secret" {
+		t.Errorf("SourceAPIKey = %q, want atlassian-secret", gotInput.SourceAPIKey)
 	}
-	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-123") {
-		t.Fatalf("missing status hint in output: %s", out)
+	if gotInput.SourcePageID != "src-1" {
+		t.Errorf("SourcePageID = %q, want src-1", gotInput.SourcePageID)
+	}
+	if !strings.Contains(out, "Job ID: job-1") {
+		t.Errorf("missing job id in output:\n%s", out)
+	}
+	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-1") {
+		t.Errorf("missing status hint in output:\n%s", out)
 	}
 }
 
-func TestStatusPageMigrateEmailSubscribersCommandPrintsStatusHint(t *testing.T) {
-	original := newStatusPageMigrationService
-	t.Cleanup(func() { newStatusPageMigrationService = original })
-	newStatusPageMigrationService = func() (statusPageMigrationService, error) {
-		return stubMigrationService{
-			startEmailSubscribers: func(ctx context.Context, apiKey, pageID string, targetPageID int64) (*migrationStartResult, error) {
-				if targetPageID != 2048 {
-					t.Fatalf("target_page_id = %d, want 2048", targetPageID)
-				}
-				return &migrationStartResult{JobID: "job-456"}, nil
-			},
-		}, nil
+func TestCommandStatusPageMigrateStructureRejectsUnsupportedSource(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	called := false
+	mock := &mockStatusPageMigrate{
+		startStructure: func(context.Context, *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+			called = true
+			return nil, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	_, err := execCommand("statuspage", "migrate", "structure",
+		"--from", "pagerduty",
+		"--source-page-id", "src-1",
+		"--api-key", "x",
+	)
+	if err == nil {
+		t.Fatal("expected error for unsupported source")
+	}
+	if !strings.Contains(err.Error(), "unsupported migration source") {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "atlassian") {
+		t.Errorf("error should mention supported source 'atlassian': %v", err)
+	}
+	if called {
+		t.Error("SDK should not have been called for unsupported source")
+	}
+}
+
+// TestCommandStatusPageMigrateStructureValidatesBeforeClient locks ordering:
+// an invalid --from must surface its validation error before any
+// client-build / auth work — matching PR #1 behavior.
+func TestCommandStatusPageMigrateStructureValidatesBeforeClient(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	clientBuilt := false
+	newClientFn = func() (flashdutyClient, error) {
+		clientBuilt = true
+		return nil, fmt.Errorf("should not have been called")
 	}
 
-	cmd := newStatusPageMigrateEmailSubscribersCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--from", "atlassian", "--source-page-id", "src-1", "--target-page-id", "2048", "--api-key", "key-1"})
+	_, err := execCommand("statuspage", "migrate", "structure",
+		"--from", "pagerduty",
+		"--source-page-id", "src-1",
+		"--api-key", "x",
+	)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "unsupported migration source") {
+		t.Errorf("got %v; want validation error about source", err)
+	}
+	if clientBuilt {
+		t.Error("newClientFn must not run when --from is invalid")
+	}
+}
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
+// TestCommandStatusPageMigrateEmailSubscribersValidatesBeforeClient: same
+// ordering guarantee for the subscribers variant.
+func TestCommandStatusPageMigrateEmailSubscribersValidatesBeforeClient(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	clientBuilt := false
+	newClientFn = func() (flashdutyClient, error) {
+		clientBuilt = true
+		return nil, fmt.Errorf("should not have been called")
 	}
 
-	out := buf.String()
+	_, err := execCommand("statuspage", "migrate", "email-subscribers",
+		"--from", "pagerduty",
+		"--source-page-id", "src-1",
+		"--target-page-id", "1",
+		"--api-key", "x",
+	)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "unsupported migration source") {
+		t.Errorf("got %v; want validation error about source", err)
+	}
+	if clientBuilt {
+		t.Error("newClientFn must not run when --from is invalid")
+	}
+}
+
+func TestCommandStatusPageMigrateStructureJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	mock := &mockStatusPageMigrate{
+		startStructure: func(_ context.Context, _ *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-1"}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("--json", "statuspage", "migrate", "structure",
+		"--from", "atlassian",
+		"--source-page-id", "src-1",
+		"--api-key", "x",
+	)
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if payload["type"] != "structure" {
+		t.Errorf("type = %v, want structure", payload["type"])
+	}
+	if payload["source"] != "atlassian" {
+		t.Errorf("source = %v, want atlassian", payload["source"])
+	}
+	if payload["source_page_id"] != "src-1" {
+		t.Errorf("source_page_id = %v, want src-1", payload["source_page_id"])
+	}
+	if payload["job_id"] != "job-1" {
+		t.Errorf("job_id = %v, want job-1", payload["job_id"])
+	}
+	if next, _ := payload["next_command"].(string); !strings.Contains(next, "job-1") {
+		t.Errorf("next_command missing job id: %v", payload["next_command"])
+	}
+}
+
+func TestCommandStatusPageMigrateEmailSubscribersSendsSDKInput(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	var gotInput *flashduty.StartStatusPageEmailSubscriberMigrationInput
+	mock := &mockStatusPageMigrate{
+		startEmailSubscribers: func(_ context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+			gotInput = input
+			return &flashduty.StartStatusPageMigrationOutput{JobID: "sub-1"}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("statuspage", "migrate", "email-subscribers",
+		"--from", "atlassian",
+		"--source-page-id", "src-1",
+		"--target-page-id", "2048",
+		"--api-key", "atlassian-secret",
+	)
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+
+	if gotInput == nil {
+		t.Fatal("expected input to be captured")
+	}
+	if gotInput.TargetPageID != 2048 {
+		t.Errorf("TargetPageID = %d, want 2048", gotInput.TargetPageID)
+	}
 	if !strings.Contains(out, "Target page ID: 2048") {
-		t.Fatalf("missing target page id in output: %s", out)
+		t.Errorf("missing target page id line in output:\n%s", out)
 	}
-	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-456") {
-		t.Fatalf("missing status hint in output: %s", out)
-	}
-}
-
-func TestStatusPageMigrateStatusCommandPrintsJobDetails(t *testing.T) {
-	original := newStatusPageMigrationService
-	t.Cleanup(func() { newStatusPageMigrationService = original })
-	newStatusPageMigrationService = func() (statusPageMigrationService, error) {
-		return stubMigrationService{
-			getStatus: func(ctx context.Context, jobID string) (*migrationJob, error) {
-				return &migrationJob{
-					JobID:        jobID,
-					SourcePageID: "src-1",
-					TargetPageID: 1024,
-					Phase:        "history",
-					Status:       "completed",
-					Progress: migrationProgress{
-						TotalSteps:           5,
-						CompletedSteps:       5,
-						SectionsImported:     2,
-						ComponentsImported:   4,
-						IncidentsImported:    3,
-						MaintenancesImported: 1,
-						TemplatesImported:    2,
-						Warnings:             []string{"incident skipped"},
-					},
-				}, nil
-			},
-		}, nil
-	}
-
-	cmd := newStatusPageMigrateStatusCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--job-id", "job-123"})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Target page ID: 1024") || !strings.Contains(out, "Warnings:") {
-		t.Fatalf("unexpected output: %s", out)
+	if !strings.Contains(out, "Job ID: sub-1") {
+		t.Errorf("missing job id in output:\n%s", out)
 	}
 }
 
-func TestStatusPageMigrateCancelCommandPrintsStatusHint(t *testing.T) {
-	original := newStatusPageMigrationService
-	t.Cleanup(func() { newStatusPageMigrationService = original })
-	newStatusPageMigrationService = func() (statusPageMigrationService, error) {
-		return stubMigrationService{
-			cancel: func(ctx context.Context, jobID string) error {
-				if jobID != "job-789" {
-					t.Fatalf("jobID = %s, want job-789", jobID)
-				}
-				return nil
-			},
-		}, nil
+func TestCommandStatusPageMigrateStatusRendersJobFields(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	var gotJobID string
+	mock := &mockStatusPageMigrate{
+		getStatus: func(_ context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error) {
+			gotJobID = jobID
+			return &flashduty.StatusPageMigrationJob{
+				JobID:        "job-9",
+				SourcePageID: "src-9",
+				TargetPageID: 1024,
+				Phase:        "history",
+				Status:       "running",
+				Progress: flashduty.StatusPageMigrationProgress{
+					TotalSteps:           5,
+					CompletedSteps:       3,
+					ComponentsImported:   2,
+					SectionsImported:     1,
+					IncidentsImported:    4,
+					MaintenancesImported: 1,
+					SubscribersImported:  0,
+					SubscribersSkipped:   0,
+					TemplatesImported:    2,
+					Warnings:             []string{"missing field X"},
+				},
+			}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("statuspage", "migrate", "status", "--job-id", "job-9")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
 	}
 
-	cmd := newStatusPageMigrateCancelCmd()
-	buf := &bytes.Buffer{}
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--job-id", "job-789"})
+	if gotJobID != "job-9" {
+		t.Errorf("jobID passed to SDK = %q, want job-9", gotJobID)
+	}
+	for _, want := range []string{
+		"Job ID: job-9",
+		"Source page: src-9",
+		"Target page ID: 1024",
+		"Phase: history",
+		"Status: running",
+		"Progress: 3/5",
+		"Incidents imported: 4",
+		"Templates imported: 2",
+		"Warnings:",
+		"- missing field X",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+}
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("Execute() error = %v", err)
+func TestCommandStatusPageMigrateStatusJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	mock := &mockStatusPageMigrate{
+		getStatus: func(_ context.Context, _ string) (*flashduty.StatusPageMigrationJob, error) {
+			return &flashduty.StatusPageMigrationJob{
+				JobID:  "job-j",
+				Phase:  "completed",
+				Status: "completed",
+			}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("--json", "statuspage", "migrate", "status", "--job-id", "job-j")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
 	}
 
-	out := buf.String()
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if payload["job_id"] != "job-j" {
+		t.Errorf("job_id = %v, want job-j", payload["job_id"])
+	}
+	if payload["status"] != "completed" {
+		t.Errorf("status = %v, want completed", payload["status"])
+	}
+}
+
+func TestCommandStatusPageMigrateCancelIssuesCancelAndHint(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	var gotJobID string
+	mock := &mockStatusPageMigrate{
+		cancel: func(_ context.Context, jobID string) error {
+			gotJobID = jobID
+			return nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("statuspage", "migrate", "cancel", "--job-id", "job-c")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+
+	if gotJobID != "job-c" {
+		t.Errorf("SDK received jobID %q, want job-c", gotJobID)
+	}
 	if !strings.Contains(out, "Cancellation requested.") {
-		t.Fatalf("missing cancel message in output: %s", out)
+		t.Errorf("missing confirmation in output:\n%s", out)
 	}
-	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-789") {
-		t.Fatalf("missing status hint in output: %s", out)
+	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-c") {
+		t.Errorf("missing status hint in output:\n%s", out)
+	}
+}
+
+func TestCommandStatusPageMigrateCancelJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	mock := &mockStatusPageMigrate{
+		cancel: func(context.Context, string) error { return nil },
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("--json", "statuspage", "migrate", "cancel", "--job-id", "job-c")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if payload["job_id"] != "job-c" {
+		t.Errorf("job_id = %v, want job-c", payload["job_id"])
+	}
+	if payload["status"] != "cancel_requested" {
+		t.Errorf("status = %v, want cancel_requested", payload["status"])
+	}
+	if command, _ := payload["command"].(string); !strings.Contains(command, "job-c") {
+		t.Errorf("command missing job id: %v", payload["command"])
+	}
+	if next, _ := payload["next_command"].(string); !strings.Contains(next, "job-c") {
+		t.Errorf("next_command missing job id: %v", payload["next_command"])
+	}
+}
+
+func TestCommandStatusPageMigrateStatusPropagatesSDKError(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	mock := &mockStatusPageMigrate{
+		getStatus: func(context.Context, string) (*flashduty.StatusPageMigrationJob, error) {
+			return nil, &flashduty.DutyError{Code: "not_found", Message: "job missing"}
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	_, err := execCommand("statuspage", "migrate", "status", "--job-id", "nope")
+	if err == nil {
+		t.Fatal("expected SDK error to propagate")
+	}
+	if !strings.Contains(err.Error(), "not_found") || !strings.Contains(err.Error(), "job missing") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
