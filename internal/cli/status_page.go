@@ -20,6 +20,7 @@ func newStatusPageCmd() *cobra.Command {
 	cmd.AddCommand(newStatusPageChangesCmd())
 	cmd.AddCommand(newStatusPageCreateIncidentCmd())
 	cmd.AddCommand(newStatusPageCreateTimelineCmd())
+	cmd.AddCommand(newStatusPageMigrateCmd())
 	return cmd
 }
 

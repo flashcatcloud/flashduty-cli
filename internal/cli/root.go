@@ -133,16 +133,9 @@ func newClient() (flashdutyClient, error) {
 
 // defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
 func defaultNewClient() (flashdutyClient, error) {
-	cfg, err := config.Load()
+	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
-	}
-
-	if flagAppKey != "" {
-		cfg.AppKey = flagAppKey
-	}
-	if flagBaseURL != "" {
-		cfg.BaseURL = flagBaseURL
 	}
 
 	if cfg.AppKey == "" {
@@ -158,6 +151,22 @@ func defaultNewClient() (flashdutyClient, error) {
 	}
 
 	return flashduty.NewClient(cfg.AppKey, opts...)
+}
+
+func loadResolvedConfig() (*config.Config, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if flagAppKey != "" {
+		cfg.AppKey = flagAppKey
+	}
+	if flagBaseURL != "" {
+		cfg.BaseURL = flagBaseURL
+	}
+
+	return cfg, nil
 }
 
 // newPrinter creates a Printer based on global flags.
