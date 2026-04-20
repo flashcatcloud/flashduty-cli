@@ -4,11 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func jsonResponse(statusCode int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: statusCode,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}
 
 func TestStatusPageMigrationAPIStartStructure(t *testing.T) {
 	t.Parallel()
@@ -18,25 +33,21 @@ func TestStatusPageMigrationAPIStartStructure(t *testing.T) {
 	var gotAppKey string
 	var gotBody map[string]any
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotPath = r.URL.Path
-		gotAppKey = r.URL.Query().Get("app_key")
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"data": map[string]any{"job_id": "job-1"},
-		})
-	}))
-	defer ts.Close()
-
 	api := &statusPageMigrationAPI{
-		httpClient: ts.Client(),
-		baseURL:    ts.URL,
-		appKey:     "fd-app-key",
-		userAgent:  "flashduty-cli/test",
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				gotMethod = r.Method
+				gotPath = r.URL.Path
+				gotAppKey = r.URL.Query().Get("app_key")
+				if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+					t.Fatalf("decode body: %v", err)
+				}
+				return jsonResponse(http.StatusOK, `{"data":{"job_id":"job-1"}}`), nil
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "fd-app-key",
+		userAgent: "flashduty-cli/test",
 	}
 
 	out, err := api.StartStructure(context.Background(), "atlassian-key", "page_123")
@@ -68,32 +79,18 @@ func TestStatusPageMigrationAPIGetStatus(t *testing.T) {
 	var gotPath string
 	var gotJobID string
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotPath = r.URL.Path
-		gotJobID = r.URL.Query().Get("job_id")
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"data": map[string]any{
-				"job_id":         "job-2",
-				"source_page_id": "src-1",
-				"target_page_id": 1024,
-				"phase":          "history",
-				"status":         "running",
-				"progress": map[string]any{
-					"total_steps":     5,
-					"completed_steps": 3,
-				},
-			},
-		})
-	}))
-	defer ts.Close()
-
 	api := &statusPageMigrationAPI{
-		httpClient: ts.Client(),
-		baseURL:    ts.URL,
-		appKey:     "fd-app-key",
-		userAgent:  "flashduty-cli/test",
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				gotMethod = r.Method
+				gotPath = r.URL.Path
+				gotJobID = r.URL.Query().Get("job_id")
+				return jsonResponse(http.StatusOK, `{"data":{"job_id":"job-2","source_page_id":"src-1","target_page_id":1024,"phase":"history","status":"running","progress":{"total_steps":5,"completed_steps":3}}}`), nil
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "fd-app-key",
+		userAgent: "flashduty-cli/test",
 	}
 
 	out, err := api.GetStatus(context.Background(), "job-2")
@@ -115,6 +112,80 @@ func TestStatusPageMigrationAPIGetStatus(t *testing.T) {
 	}
 }
 
+func TestStatusPageMigrationAPIRedactsAppKeyFromTransportError(t *testing.T) {
+	t.Parallel()
+
+	api := &statusPageMigrationAPI{
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("transport failed for %s", req.URL.String())
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "secret-app-key",
+		userAgent: "flashduty-cli/test",
+	}
+
+	_, err := api.GetStatus(context.Background(), "job-4")
+	if err == nil {
+		t.Fatal("GetStatus() error = nil, want transport error")
+	}
+	if strings.Contains(err.Error(), "secret-app-key") {
+		t.Fatalf("transport error leaked app key: %v", err)
+	}
+}
+
+func TestStatusPageMigrationAPICapsErrorBodyReads(t *testing.T) {
+	t.Parallel()
+
+	largeBody := strings.Repeat("0123456789", 2000)
+
+	api := &statusPageMigrationAPI{
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusBadGateway, largeBody), nil
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "fd-app-key",
+		userAgent: "flashduty-cli/test",
+	}
+
+	_, err := api.GetStatus(context.Background(), "job-5")
+	if err == nil {
+		t.Fatal("GetStatus() error = nil, want HTTP error")
+	}
+	if got := len(err.Error()); got > 5000 {
+		t.Fatalf("HTTP error too large: got %d chars, want <= 5000", got)
+	}
+}
+
+func TestStatusPageMigrationAPISanitizesErrorBodyFields(t *testing.T) {
+	t.Parallel()
+
+	api := &statusPageMigrationAPI{
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				return jsonResponse(http.StatusBadGateway, `{"error":{"message":"upstream failed","details":{"ApiKey":"response-secret","nested":[{"ACCESS_TOKEN":"response-token"}]}}}`), nil
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "fd-app-key",
+		userAgent: "flashduty-cli/test",
+	}
+
+	_, err := api.GetStatus(context.Background(), "job-6")
+	if err == nil {
+		t.Fatal("GetStatus() error = nil, want HTTP error")
+	}
+	if strings.Contains(err.Error(), "response-secret") || strings.Contains(err.Error(), "response-token") {
+		t.Fatalf("HTTP error leaked secret body fields: %v", err)
+	}
+	if !strings.Contains(err.Error(), "[REDACTED]") {
+		t.Fatalf("HTTP error missing redaction marker: %v", err)
+	}
+}
+
 func TestStatusPageMigrationAPICancel(t *testing.T) {
 	t.Parallel()
 
@@ -122,22 +193,20 @@ func TestStatusPageMigrationAPICancel(t *testing.T) {
 	var gotPath string
 	var gotBody map[string]any
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotPath = r.URL.Path
-		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{}})
-	}))
-	defer ts.Close()
-
 	api := &statusPageMigrationAPI{
-		httpClient: ts.Client(),
-		baseURL:    ts.URL,
-		appKey:     "fd-app-key",
-		userAgent:  "flashduty-cli/test",
+		httpClient: &http.Client{
+			Transport: roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+				gotMethod = r.Method
+				gotPath = r.URL.Path
+				if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+					t.Fatalf("decode body: %v", err)
+				}
+				return jsonResponse(http.StatusOK, `{"data":{}}`), nil
+			}),
+		},
+		baseURL:   "https://status.example.com",
+		appKey:    "fd-app-key",
+		userAgent: "flashduty-cli/test",
 	}
 
 	if err := api.Cancel(context.Background(), "job-3"); err != nil {

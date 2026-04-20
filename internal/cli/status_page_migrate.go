@@ -15,6 +15,33 @@ import (
 )
 
 const migrationSourceAtlassian = "atlassian"
+const migrationErrorBodyLimit = 4096
+
+var migrationSensitiveBodyKeys = map[string]struct{}{
+	"apikey":        {},
+	"xapikey":       {},
+	"accesskey":     {},
+	"password":      {},
+	"passwd":        {},
+	"pwd":           {},
+	"token":         {},
+	"accesstoken":   {},
+	"refreshtoken":  {},
+	"idtoken":       {},
+	"sessiontoken":  {},
+	"authtoken":     {},
+	"oauthtoken":    {},
+	"bearertoken":   {},
+	"authorization": {},
+	"auth":          {},
+	"secret":        {},
+	"clientsecret":  {},
+	"secretkey":     {},
+	"privatekey":    {},
+	"signingkey":    {},
+	"credential":    {},
+	"credentials":   {},
+}
 
 type statusPageMigrationService interface {
 	StartStructure(ctx context.Context, sourceAPIKey, sourcePageID string) (*migrationStartResult, error)
@@ -173,16 +200,16 @@ func (a *statusPageMigrationAPI) do(ctx context.Context, method, path string, qu
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("request failed: %s", redactAppKey(err.Error(), a.appKey))
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, readErr := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, migrationErrorBodyLimit))
 		if readErr != nil {
 			return fmt.Errorf("API client error (HTTP %d)", resp.StatusCode)
 		}
-		return fmt.Errorf("API client error (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(bodyBytes)))
+		return fmt.Errorf("API client error (HTTP %d): %s", resp.StatusCode, sanitizeMigrationBody(string(bodyBytes)))
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
@@ -205,6 +232,85 @@ func (a *statusPageMigrationAPI) do(ctx context.Context, method, path string, qu
 	}
 
 	return nil
+}
+
+func redactAppKey(message, appKey string) string {
+	if appKey == "" {
+		return message
+	}
+
+	redacted := strings.ReplaceAll(message, appKey, "[redacted]")
+	redacted = strings.ReplaceAll(redacted, url.QueryEscape(appKey), "[redacted]")
+	return redacted
+}
+
+func sanitizeMigrationBody(body string) string {
+	if body == "" {
+		return body
+	}
+
+	var v any
+	if err := json.Unmarshal([]byte(body), &v); err != nil {
+		return body
+	}
+
+	sanitized, redacted := sanitizeMigrationJSONValue(v)
+	if !redacted {
+		return body
+	}
+
+	out, err := json.Marshal(sanitized)
+	if err != nil {
+		return body
+	}
+	return string(out)
+}
+
+func sanitizeMigrationJSONValue(v any) (any, bool) {
+	switch value := v.(type) {
+	case map[string]any:
+		sanitized := make(map[string]any, len(value))
+		redacted := false
+		for key, item := range value {
+			if isMigrationSensitiveBodyKey(key) {
+				sanitized[key] = "[REDACTED]"
+				redacted = true
+				continue
+			}
+
+			sanitizedItem, itemRedacted := sanitizeMigrationJSONValue(item)
+			sanitized[key] = sanitizedItem
+			redacted = redacted || itemRedacted
+		}
+		return sanitized, redacted
+	case []any:
+		sanitized := make([]any, len(value))
+		redacted := false
+		for i, item := range value {
+			sanitizedItem, itemRedacted := sanitizeMigrationJSONValue(item)
+			sanitized[i] = sanitizedItem
+			redacted = redacted || itemRedacted
+		}
+		return sanitized, redacted
+	default:
+		return v, false
+	}
+}
+
+func isMigrationSensitiveBodyKey(key string) bool {
+	_, ok := migrationSensitiveBodyKeys[normalizeMigrationSensitiveBodyKey(key)]
+	return ok
+}
+
+func normalizeMigrationSensitiveBodyKey(key string) string {
+	var b strings.Builder
+	b.Grow(len(key))
+	for _, r := range strings.ToLower(strings.TrimSpace(key)) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func newStatusPageMigrateCmd() *cobra.Command {
