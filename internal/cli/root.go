@@ -68,6 +68,12 @@ type flashdutyClient interface {
 	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
 	QueryNotificationTrend(ctx context.Context, input *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error)
 	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
+
+	// === PHASE 4: Status Page Migration ===
+	StartStatusPageMigration(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
+	StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
+	GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
+	CancelStatusPageMigration(ctx context.Context, jobID string) error
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
