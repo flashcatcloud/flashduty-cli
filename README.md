@@ -42,7 +42,7 @@ Download the latest release for your platform from [GitHub Releases](https://git
 
 ## Agent Skills
 
-Flashduty CLI ships with 9 agent skills that teach AI coding agents how to operate Flashduty from your terminal. Compatible with 41+ agents including Claude Code, Cursor, GitHub Copilot, Codex, Gemini CLI, Windsurf, and more.
+Flashduty CLI ships with 10 agent skills that teach AI coding agents how to operate Flashduty from your terminal. Compatible with 41+ agents including Claude Code, Cursor, GitHub Copilot, Codex, Gemini CLI, Windsurf, and more.
 
 ```bash
 npx skills add flashcatcloud/flashduty-cli -y -g
@@ -60,6 +60,7 @@ The installer auto-detects which agents you have and installs skills to all of t
 | `flashduty-change` | Change event tracking and deployment frequency trends |
 | `flashduty-oncall` | On-call schedule queries: who is on call, shift details |
 | `flashduty-channel` | Channel and escalation rule lookups |
+| `flashduty-statuspage` | Status page management and Atlassian → Flashduty migration |
 | `flashduty-insight` | Analytics: MTTA/MTTR, noise reduction, notification trends |
 | `flashduty-admin` | Team/member lookups and audit log search |
 | `flashduty-template` | Notification template validation and preview |
