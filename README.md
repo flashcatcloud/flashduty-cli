@@ -2,6 +2,8 @@
 
 English | [中文](README_zh.md)
 
+[![License](https://img.shields.io/github/license/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5&label=License)](LICENSE)
+
 A command-line interface for the [Flashduty](https://flashcat.cloud) platform. Manage incidents, on-call schedules, status pages, and more from your terminal.
 
 ## Installation
