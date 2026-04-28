@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+[![License](https://img.shields.io/github/license/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5&label=License)](LICENSE)
+
 [Flashduty](https://flashcat.cloud) 平台的命令行工具。在终端中管理故障、值班、状态页等。
 
 ## 安装
