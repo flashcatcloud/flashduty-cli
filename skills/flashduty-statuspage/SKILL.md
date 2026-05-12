@@ -117,6 +117,7 @@ flashduty statuspage migrate structure --from atlassian --source-page-id <id> --
 | `--from` | string | Source provider, currently only `atlassian` (**required**) |
 | `--source-page-id` | string | Page ID in the source provider (**required**) |
 | `--api-key` | string | Source provider API key (**required**) |
+| `--url-name` | string | Optional URL name for the newly created Flashduty public page. It is normalized with the same slug rules as page creation and only applies when the source page is not already mapped. If the source page already maps to a different Flashduty URL name, the command fails instead of changing the existing page. |
 
 Returns a job ID plus the command to poll its status. Human output shows the new Flashduty `target_page_id` once the job reaches the `completed` phase — capture that for the subscriber migration.
 
@@ -210,6 +211,7 @@ Import structure first, verify, then import subscribers.
 flashduty statuspage migrate structure \
   --from atlassian \
   --source-page-id page_atl_123 \
+  --url-name customer-facing-status \
   --api-key "$ATLASSIAN_STATUSPAGE_API_KEY"
 # → captures Job ID: str_abc
 
@@ -250,6 +252,7 @@ flashduty statuspage migrate status --job-id str_abc
 - **Page ID** (int) is the Flashduty status page primary key. **Change ID** (int) is the ID of an incident/maintenance within a page. Don't confuse them.
 - **Migration is async.** `migrate structure` and `migrate email-subscribers` return immediately with a job ID; the actual work happens on the backend.
 - **Two migration jobs, not one.** Structure + history run separately from subscribers. This is deliberate — subscriber import triggers verification emails, so operators verify content first.
+- **`--url-name` is create-only.** Use it to choose the public URL slug for a newly created Flashduty page. It does not rename an existing mapped target page; if the Atlassian page has already been migrated to another URL name, retry without `--url-name` or use the mapped page.
 - **Migration phases** for the structure job progress in order: `components` → `sections` → `history` (incidents + maintenances) → `templates`. The subscribers job has a single `subscribers` phase.
 - **Terminal statuses:** `completed`, `failed`, `cancelled`. Stop polling once any of these appears.
 - **`--notify` is subscriber-visible.** In `create-incident`, omit or set `--notify=false` for silent incidents; set `--notify` when you want an announcement.

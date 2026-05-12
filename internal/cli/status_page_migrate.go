@@ -25,6 +25,7 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 	var source string
 	var sourcePageID string
 	var sourceAPIKey string
+	var urlName string
 
 	cmd := &cobra.Command{
 		Use:   "structure",
@@ -37,6 +38,7 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 				result, err := ctx.Client.StartStatusPageMigration(cmdContext(ctx.Cmd), &flashduty.StartStatusPageMigrationInput{
 					SourceAPIKey: sourceAPIKey,
 					SourcePageID: sourcePageID,
+					URLName:      urlName,
 				})
 				if err != nil {
 					return err
@@ -50,6 +52,7 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 	cmd.Flags().StringVar(&source, "from", "", "Migration source provider (required)")
 	cmd.Flags().StringVar(&sourcePageID, "source-page-id", "", "Source page ID in the provider (required)")
 	cmd.Flags().StringVar(&sourceAPIKey, "api-key", "", "Source provider API key (required)")
+	cmd.Flags().StringVar(&urlName, "url-name", "", "Optional URL name for a newly created Flashduty public status page; fails if the source page is already mapped to a different URL name")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("source-page-id")
 	_ = cmd.MarkFlagRequired("api-key")

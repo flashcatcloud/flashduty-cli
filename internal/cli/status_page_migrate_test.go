@@ -77,11 +77,61 @@ func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 	if gotInput.SourcePageID != "src-1" {
 		t.Errorf("SourcePageID = %q, want src-1", gotInput.SourcePageID)
 	}
+	if gotInput.URLName != "" {
+		t.Errorf("URLName = %q, want empty", gotInput.URLName)
+	}
 	if !strings.Contains(out, "Job ID: job-1") {
 		t.Errorf("missing job id in output:\n%s", out)
 	}
 	if !strings.Contains(out, "flashduty statuspage migrate status --job-id job-1") {
 		t.Errorf("missing status hint in output:\n%s", out)
+	}
+}
+
+func TestCommandStatusPageMigrateStructureSendsURLName(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	var gotInput *flashduty.StartStatusPageMigrationInput
+	mock := &mockStatusPageMigrate{
+		startStructure: func(_ context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
+			gotInput = input
+			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-url"}, nil
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	_, err := execCommand("statuspage", "migrate", "structure",
+		"--from", "atlassian",
+		"--source-page-id", "src-1",
+		"--api-key", "atlassian-secret",
+		"--url-name", "customer-facing-status",
+	)
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+
+	if gotInput == nil {
+		t.Fatal("expected input to be captured")
+	}
+	if gotInput.URLName != "customer-facing-status" {
+		t.Errorf("URLName = %q, want customer-facing-status", gotInput.URLName)
+	}
+}
+
+func TestCommandStatusPageMigrateStructureHelpDescribesURLNameBehavior(t *testing.T) {
+	cmd := newStatusPageMigrateStructureCmd()
+	flag := cmd.Flags().Lookup("url-name")
+	if flag == nil {
+		t.Fatal("expected --url-name flag to be registered")
+	}
+
+	for _, want := range []string{
+		"newly created Flashduty public status page",
+		"already mapped to a different URL name",
+	} {
+		if !strings.Contains(flag.Usage, want) {
+			t.Errorf("--url-name usage missing %q: %s", want, flag.Usage)
+		}
 	}
 }
 
