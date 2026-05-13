@@ -197,3 +197,22 @@ func CheckForUpdate(currentVersion string) (*CheckResult, error) {
 		UpdateAvailable: IsNewer(tag, currentVersion),
 	}, nil
 }
+
+func StateHasUpdate(currentVersion string) *CheckResult {
+	if currentVersion == "dev" || currentVersion == "(devel)" {
+		return nil
+	}
+	state := loadState()
+	if state.LatestVersion == "" {
+		return nil
+	}
+	if !IsNewer(state.LatestVersion, currentVersion) {
+		return nil
+	}
+	return &CheckResult{
+		CurrentVersion:  currentVersion,
+		LatestVersion:   state.LatestVersion,
+		LatestURL:       state.LatestURL,
+		UpdateAvailable: true,
+	}
+}

@@ -306,3 +306,61 @@ func TestCheckForUpdate(t *testing.T) {
 		t.Errorf("state.LatestVersion = %q, want %q", state.LatestVersion, "v0.7.0")
 	}
 }
+
+func TestStateHasUpdate(t *testing.T) {
+	tmp := t.TempDir()
+	setTestHome(t, tmp)
+
+	if got := StateHasUpdate("0.6.0"); got != nil {
+		t.Error("StateHasUpdate should return nil when no state file exists")
+	}
+
+	_ = saveState(&State{
+		CheckedAt:     time.Now(),
+		LatestVersion: "v0.7.0",
+		LatestURL:     "https://example.com/v0.7.0",
+	})
+
+	got := StateHasUpdate("0.6.0")
+	if got == nil {
+		t.Fatal("StateHasUpdate should return non-nil when update is available")
+	}
+	if !got.UpdateAvailable {
+		t.Error("UpdateAvailable = false, want true")
+	}
+	if got.LatestVersion != "v0.7.0" {
+		t.Errorf("LatestVersion = %q, want %q", got.LatestVersion, "v0.7.0")
+	}
+}
+
+func TestStateHasUpdate_AlreadyCurrent(t *testing.T) {
+	tmp := t.TempDir()
+	setTestHome(t, tmp)
+
+	_ = saveState(&State{
+		CheckedAt:     time.Now(),
+		LatestVersion: "v0.6.0",
+		LatestURL:     "https://example.com/v0.6.0",
+	})
+
+	if got := StateHasUpdate("0.6.0"); got != nil {
+		t.Error("StateHasUpdate should return nil when already up to date")
+	}
+}
+
+func TestStateHasUpdate_DevVersion(t *testing.T) {
+	tmp := t.TempDir()
+	setTestHome(t, tmp)
+
+	_ = saveState(&State{
+		CheckedAt:     time.Now(),
+		LatestVersion: "v1.0.0",
+	})
+
+	if got := StateHasUpdate("dev"); got != nil {
+		t.Error("StateHasUpdate should return nil for dev version")
+	}
+	if got := StateHasUpdate("(devel)"); got != nil {
+		t.Error("StateHasUpdate should return nil for (devel) version")
+	}
+}

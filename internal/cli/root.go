@@ -91,7 +91,7 @@ var (
 	flagBaseURL string
 )
 
-var updateResultCh chan *update.CheckResult
+var updateNotice *update.CheckResult
 
 var rootCmd = &cobra.Command{
 	Use:           "flashduty",
@@ -100,38 +100,26 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-		path := cmd.CommandPath()
-		if path == "flashduty update" || path == "flashduty version" {
-			return
-		}
-		if !update.ShouldCheck(versionStr) {
+		if cmd.CommandPath() == "flashduty update" {
 			return
 		}
 		if !term.IsTerminal(int(os.Stderr.Fd())) {
 			return
 		}
-		updateResultCh = make(chan *update.CheckResult, 1)
-		go func() {
-			result, err := update.CheckForUpdate(versionStr)
-			if err != nil {
-				return
-			}
-			updateResultCh <- result
-		}()
+		updateNotice = update.StateHasUpdate(versionStr)
+		if update.ShouldCheck(versionStr) {
+			go func() {
+				_, _ = update.CheckForUpdate(versionStr)
+			}()
+		}
 	},
 	PersistentPostRun: func(_ *cobra.Command, _ []string) {
-		if updateResultCh == nil {
+		if updateNotice == nil {
 			return
 		}
-		select {
-		case result := <-updateResultCh:
-			if result != nil && result.UpdateAvailable {
-				fmt.Fprintf(os.Stderr, "\nA new version of flashduty is available: v%s -> %s\n",
-					update.StripV(result.CurrentVersion), result.LatestVersion)
-				fmt.Fprintf(os.Stderr, "To update, run: flashduty update\n")
-			}
-		default:
-		}
+		_, _ = fmt.Fprintf(os.Stderr, "\nA new version of flashduty is available: v%s -> %s\n",
+			update.StripV(updateNotice.CurrentVersion), updateNotice.LatestVersion)
+		_, _ = fmt.Fprintf(os.Stderr, "To update, run: flashduty update\n")
 	},
 }
 
