@@ -9,9 +9,11 @@ import (
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/config"
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
+	"github.com/flashcatcloud/flashduty-cli/internal/update"
 )
 
 // flashdutyClient defines the SDK operations used by CLI commands.
@@ -86,12 +88,48 @@ var (
 	flagBaseURL string
 )
 
+var updateResultCh chan *update.CheckResult
+
 var rootCmd = &cobra.Command{
 	Use:           "flashduty",
 	Short:         "Flashduty CLI - incident management from your terminal",
 	Long:          "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
+	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+		path := cmd.CommandPath()
+		if path == "flashduty update" || path == "flashduty version" {
+			return
+		}
+		if !update.ShouldCheck(versionStr) {
+			return
+		}
+		if !term.IsTerminal(int(os.Stderr.Fd())) {
+			return
+		}
+		updateResultCh = make(chan *update.CheckResult, 1)
+		go func() {
+			result, err := update.CheckForUpdate(versionStr)
+			if err != nil {
+				return
+			}
+			updateResultCh <- result
+		}()
+	},
+	PersistentPostRun: func(_ *cobra.Command, _ []string) {
+		if updateResultCh == nil {
+			return
+		}
+		select {
+		case result := <-updateResultCh:
+			if result != nil && result.UpdateAvailable {
+				fmt.Fprintf(os.Stderr, "\nA new version of flashduty is available: v%s -> %s\n",
+					update.StripV(result.CurrentVersion), result.LatestVersion)
+				fmt.Fprintf(os.Stderr, "To update, run: flashduty update\n")
+			}
+		default:
+		}
+	},
 }
 
 func init() {
@@ -125,6 +163,8 @@ func init() {
 	// Phase 3
 	rootCmd.AddCommand(newInsightCmd())
 	rootCmd.AddCommand(newAuditCmd())
+
+	rootCmd.AddCommand(newUpdateCmd())
 }
 
 // Execute runs the root command.
