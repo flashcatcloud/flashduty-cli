@@ -20,17 +20,6 @@ curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/ins
 irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
 ```
 
-### Go Install
-
-```bash
-go install github.com/flashcatcloud/flashduty-cli/cmd/flashduty@latest
-```
-
-> 确保 `$(go env GOPATH)/bin` 在您的 `PATH` 中。如果安装后找不到 `flashduty`，请运行：
-> ```bash
-> export PATH="$(go env GOPATH)/bin:$PATH"
-> ```
-
 ### 手动下载
 
 从 [GitHub Releases](https://github.com/flashcatcloud/flashduty-cli/releases) 下载适合您平台的最新版本。
