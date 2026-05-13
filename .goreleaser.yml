@@ -40,6 +40,6 @@ changelog:
       - "^test:"
 
 release:
-  draft: true
+  draft: false
   prerelease: auto
   name_template: "Flashduty CLI {{.Version}}"
