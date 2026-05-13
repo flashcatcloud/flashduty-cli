@@ -6,11 +6,31 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// setTestHome overrides the home directory for testing across all platforms.
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+	}
+}
+
+// clearCIEnv clears CI-related env vars so ShouldCheck doesn't short-circuit.
+func clearCIEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_ACTIONS", "")
+	t.Setenv("JENKINS_URL", "")
+	t.Setenv("GITLAB_CI", "")
+	t.Setenv("FLASHDUTY_NO_UPDATE_CHECK", "")
+}
 
 func TestStripV(t *testing.T) {
 	tests := []struct {
@@ -101,7 +121,8 @@ func TestShouldCheck_CI(t *testing.T) {
 
 func TestShouldCheck_RecentCheck(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
+	clearCIEnv(t)
 
 	dir := filepath.Join(tmp, ".flashduty")
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -124,7 +145,8 @@ func TestShouldCheck_RecentCheck(t *testing.T) {
 
 func TestShouldCheck_StaleCheck(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
+	clearCIEnv(t)
 
 	dir := filepath.Join(tmp, ".flashduty")
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -147,7 +169,7 @@ func TestShouldCheck_StaleCheck(t *testing.T) {
 
 func TestLoadSaveState(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 
 	now := time.Now().Truncate(time.Second)
 	want := &State{
@@ -174,13 +196,13 @@ func TestLoadSaveState(t *testing.T) {
 
 func TestLoadState_CorruptFile(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 
 	dir := filepath.Join(tmp, ".flashduty")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, stateFileName), []byte(":::invalid yaml"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, stateFileName), []byte("{[invalid yaml"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -252,7 +274,7 @@ func TestFetchLatestVersion_InvalidJSON(t *testing.T) {
 
 func TestCheckForUpdate(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		rel := githubRelease{
