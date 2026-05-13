@@ -156,6 +156,7 @@ func init() {
 	rootCmd.AddCommand(newInsightCmd())
 	rootCmd.AddCommand(newAuditCmd())
 
+	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 }
 
