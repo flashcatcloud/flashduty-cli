@@ -38,12 +38,6 @@ func newLoginCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			// Validate by fetching account info
-			account, err := client.GetAccountInfo(ctx)
-			if err != nil {
-				return fmt.Errorf("authentication failed: %w", err)
-			}
-
 			// Save to config
 			cfg, _ := config.Load()
 			cfg.AppKey = appKey
@@ -52,16 +46,36 @@ func newLoginCmd() *cobra.Command {
 			}
 
 			w := cmd.OutOrStdout()
-			_, _ = fmt.Fprintf(w, "Logged in successfully.\n")
-			_, _ = fmt.Fprintf(w, "  Account:  %s\n", account.AccountName)
-			if account.Email != "" {
-				_, _ = fmt.Fprintf(w, "  Email:    %s\n", account.Email)
-			}
-			if account.TimeZone != "" {
-				_, _ = fmt.Fprintf(w, "  Timezone: %s\n", account.TimeZone)
+
+			// Try member-level key first, fall back to account-level key
+			member, memberErr := client.GetMemberInfo(ctx)
+			if memberErr == nil {
+				_, _ = fmt.Fprintf(w, "Logged in successfully.\n")
+				_, _ = fmt.Fprintf(w, "  Account:  %s\n", member.AccountName)
+				_, _ = fmt.Fprintf(w, "  Member:   %s\n", member.MemberName)
+				if member.Email != "" {
+					_, _ = fmt.Fprintf(w, "  Email:    %s\n", member.Email)
+				}
+				if member.TimeZone != "" {
+					_, _ = fmt.Fprintf(w, "  Timezone: %s\n", member.TimeZone)
+				}
+				return nil
 			}
 
-			return nil
+			account, accountErr := client.GetAccountInfo(ctx)
+			if accountErr == nil {
+				_, _ = fmt.Fprintf(w, "Logged in successfully.\n")
+				_, _ = fmt.Fprintf(w, "  Account:  %s\n", account.AccountName)
+				if account.Email != "" {
+					_, _ = fmt.Fprintf(w, "  Email:    %s\n", account.Email)
+				}
+				if account.TimeZone != "" {
+					_, _ = fmt.Fprintf(w, "  Timezone: %s\n", account.TimeZone)
+				}
+				return nil
+			}
+
+			return fmt.Errorf("authentication failed: %w", memberErr)
 		},
 	}
 }

@@ -19,6 +19,10 @@ func (m *mockClient) GetAccountInfo(context.Context) (*flashduty.AccountInfo, er
 	return nil, fmt.Errorf("mockClient: GetAccountInfo not implemented")
 }
 
+func (m *mockClient) GetMemberInfo(context.Context) (*flashduty.MemberInfo, error) {
+	return nil, fmt.Errorf("mockClient: GetMemberInfo not implemented")
+}
+
 func (m *mockClient) ListIncidents(context.Context, *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error) {
 	return nil, fmt.Errorf("mockClient: ListIncidents not implemented")
 }
