@@ -18,6 +18,9 @@ import (
 
 // flashdutyClient defines the SDK operations used by CLI commands.
 type flashdutyClient interface {
+	// === Account ===
+	GetAccountInfo(ctx context.Context) (*flashduty.AccountInfo, error)
+
 	// === EXISTING ===
 	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
 	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)

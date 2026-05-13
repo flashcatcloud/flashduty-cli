@@ -15,6 +15,10 @@ import (
 // methods. Embed it in per-test mocks and override only the methods under test.
 type mockClient struct{}
 
+func (m *mockClient) GetAccountInfo(context.Context) (*flashduty.AccountInfo, error) {
+	return nil, fmt.Errorf("mockClient: GetAccountInfo not implemented")
+}
+
 func (m *mockClient) ListIncidents(context.Context, *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error) {
 	return nil, fmt.Errorf("mockClient: ListIncidents not implemented")
 }

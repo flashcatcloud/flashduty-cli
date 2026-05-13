@@ -30,7 +30,6 @@ func newLoginCmd() *cobra.Command {
 				return fmt.Errorf("app key cannot be empty")
 			}
 
-			// Validate by making a test API call
 			client, err := flashduty.NewClient(appKey, flashduty.WithLogger(&silentLogger{}))
 			if err != nil {
 				return fmt.Errorf("invalid app key: %w", err)
@@ -39,7 +38,8 @@ func newLoginCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			result, err := client.ListMembers(ctx, &flashduty.ListMembersInput{})
+			// Validate by fetching account info
+			account, err := client.GetAccountInfo(ctx)
 			if err != nil {
 				return fmt.Errorf("authentication failed: %w", err)
 			}
@@ -51,7 +51,16 @@ func newLoginCmd() *cobra.Command {
 				return fmt.Errorf("failed to save config: %w", err)
 			}
 
-			fmt.Printf("Logged in successfully. Account has %d members.\n", result.Total)
+			w := cmd.OutOrStdout()
+			_, _ = fmt.Fprintf(w, "Logged in successfully.\n")
+			_, _ = fmt.Fprintf(w, "  Account:  %s\n", account.AccountName)
+			if account.Email != "" {
+				_, _ = fmt.Fprintf(w, "  Email:    %s\n", account.Email)
+			}
+			if account.TimeZone != "" {
+				_, _ = fmt.Fprintf(w, "  Timezone: %s\n", account.TimeZone)
+			}
+
 			return nil
 		},
 	}
