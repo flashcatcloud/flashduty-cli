@@ -49,7 +49,7 @@ func confirmAction(cmd *cobra.Command, message string) bool {
 		return true
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return true
+		return false
 	}
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s [y/N]: ", message)
 	scanner := bufio.NewScanner(cmd.InOrStdin())
