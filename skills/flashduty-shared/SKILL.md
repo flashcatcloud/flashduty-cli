@@ -179,6 +179,9 @@ flashduty member list --email "john@example.com"
 # Find a team ID
 flashduty team list --name "SRE"
 
+# Get full team detail by ID, name, or ref-id
+flashduty team get --id 123
+
 # Find a channel (collaboration space) ID
 flashduty channel list --name "Production"
 
@@ -202,10 +205,12 @@ flashduty status-page list
 2. **NEVER** merge incidents or alerts without user confirmation -- merges are **irreversible**.
 3. **NEVER** snooze incidents unless the user specifies a duration.
 4. **NEVER** reassign or reopen incidents without user confirmation.
-5. **Always** show what will be affected before executing destructive or mutating operations.
-6. When in doubt about severity or scope, **list first, then act**.
-7. Prefer **read-only** operations (`list`, `get`, `detail`) unless the user explicitly requests a mutation.
-8. For bulk operations (multiple IDs), enumerate the targets and confirm before proceeding.
+5. **NEVER** delete a team without explicit user confirmation -- deletion is **irreversible**.
+6. **NEVER** update a team's member list without showing the current members first -- `--person-ids` replaces the entire list.
+7. **Always** show what will be affected before executing destructive or mutating operations.
+8. When in doubt about severity or scope, **list first, then act**.
+9. Prefer **read-only** operations (`list`, `get`, `detail`) unless the user explicitly requests a mutation.
+10. For bulk operations (multiple IDs), enumerate the targets and confirm before proceeding.
 
 ---
 
