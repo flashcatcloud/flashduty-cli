@@ -224,11 +224,22 @@ Examples:
 					return fmt.Errorf("invalid --person-ids: %w", err)
 				}
 
-				input := &flashduty.TeamUpsertInput{
-					TeamID: teamID,
+				// The API requires team_name on every upsert. If the user didn't
+				// provide --name, fetch the current name so we don't clear it.
+				teamName := name
+				if !cmd.Flags().Changed("name") {
+					existing, err := ctx.Client.GetTeamInfo(cmdContext(ctx.Cmd), &flashduty.TeamGetInput{
+						TeamID: teamID,
+					})
+					if err != nil {
+						return fmt.Errorf("failed to fetch current team: %w", err)
+					}
+					teamName = existing.TeamName
 				}
-				if cmd.Flags().Changed("name") {
-					input.TeamName = name
+
+				input := &flashduty.TeamUpsertInput{
+					TeamID:   teamID,
+					TeamName: teamName,
 				}
 				if cmd.Flags().Changed("description") {
 					input.Description = description
