@@ -3,7 +3,7 @@ module github.com/flashcatcloud/flashduty-cli
 go 1.25.1
 
 require (
-	github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260513121733-bf978e2213f5
+	github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260514040822-dbac13398b6c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
