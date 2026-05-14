@@ -1,6 +1,6 @@
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260514040822-dbac13398b6c h1:rGRydfWe+Sao/aEzFKz+CtWgTINTAa0+QLFQG5pA4JU=
-github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260514040822-dbac13398b6c/go.mod h1:dG4eJfdZaj4jNBMwEexbfK/3PmcIMhNeJ88L/DcZzUY=
+github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260514094839-5405a3ab38b1 h1:Q9FJkGSAQCXCjjnjS18QYMNpHT8O27oRj9kd13tUeiI=
+github.com/flashcatcloud/flashduty-sdk v0.8.1-0.20260514094839-5405a3ab38b1/go.mod h1:dG4eJfdZaj4jNBMwEexbfK/3PmcIMhNeJ88L/DcZzUY=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
