@@ -5,9 +5,12 @@ import (
 	"io"
 	"reflect"
 	"strings"
-	"text/tabwriter"
 	"time"
+
+	"github.com/mattn/go-runewidth"
 )
+
+const columnGap = 2
 
 // TablePrinter prints data as aligned tables.
 type TablePrinter struct {
@@ -18,19 +21,14 @@ type TablePrinter struct {
 func (p *TablePrinter) Print(data any, columns []Column) error {
 	items := toSlice(data)
 
-	tw := tabwriter.NewWriter(p.w, 0, 4, 2, ' ', 0)
-
-	// Header
+	// Build all cell values and compute column widths using display width.
 	headers := make([]string, len(columns))
 	for i, col := range columns {
 		headers[i] = col.Header
 	}
-	if _, err := fmt.Fprintln(tw, strings.Join(headers, "\t")); err != nil {
-		return err
-	}
 
-	// Rows
-	for _, item := range items {
+	rows := make([][]string, len(items))
+	for r, item := range items {
 		vals := make([]string, len(columns))
 		for i, col := range columns {
 			v := col.Field(item)
@@ -39,23 +37,57 @@ func (p *TablePrinter) Print(data any, columns []Column) error {
 			}
 			vals[i] = v
 		}
-		if _, err := fmt.Fprintln(tw, strings.Join(vals, "\t")); err != nil {
-			return err
+		rows[r] = vals
+	}
+
+	// Compute max display width per column.
+	colWidths := make([]int, len(columns))
+	for i, h := range headers {
+		colWidths[i] = runewidth.StringWidth(h)
+	}
+	for _, row := range rows {
+		for i, v := range row {
+			if w := runewidth.StringWidth(v); w > colWidths[i] {
+				colWidths[i] = w
+			}
 		}
 	}
 
-	return tw.Flush()
+	// Print header.
+	if err := p.printRow(headers, colWidths); err != nil {
+		return err
+	}
+	// Print data rows.
+	for _, row := range rows {
+		if err := p.printRow(row, colWidths); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// Truncate shortens s to maxLen, appending "..." if truncated.
+func (p *TablePrinter) printRow(cells []string, colWidths []int) error {
+	var sb strings.Builder
+	for i, cell := range cells {
+		sb.WriteString(cell)
+		if i < len(cells)-1 {
+			pad := colWidths[i] - runewidth.StringWidth(cell) + columnGap
+			sb.WriteString(strings.Repeat(" ", pad))
+		}
+	}
+	_, err := fmt.Fprintln(p.w, sb.String())
+	return err
+}
+
+// Truncate shortens s to maxLen display columns, appending "..." if truncated.
 func Truncate(s string, maxLen int) string {
-	if maxLen <= 0 || len(s) <= maxLen {
+	if maxLen <= 0 || runewidth.StringWidth(s) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return runewidth.Truncate(s, maxLen, "")
 	}
-	return s[:maxLen-3] + "..."
+	return runewidth.Truncate(s, maxLen, "...")
 }
 
 // FormatTime formats a unix timestamp as local time.
