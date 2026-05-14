@@ -80,6 +80,11 @@ type flashdutyClient interface {
 	StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
 	GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
 	CancelStatusPageMigration(ctx context.Context, jobID string) error
+
+	// === PHASE 5: Team Management ===
+	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
+	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
+	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -63,4 +64,19 @@ func (ctx *RunContext) PrintTotal(items any, cols []output.Column, total int) er
 // WriteResult prints a success message as plain text or JSON.
 func (ctx *RunContext) WriteResult(message string) {
 	writeResult(ctx.Writer, message)
+}
+
+// WriteResultJSON outputs structured data as JSON in --json mode,
+// or a human-readable message in table mode.
+func (ctx *RunContext) WriteResultJSON(data any, humanMessage string) error {
+	if ctx.JSON {
+		out, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		_, _ = fmt.Fprintln(ctx.Writer, string(out))
+		return nil
+	}
+	_, _ = fmt.Fprintln(ctx.Writer, humanMessage)
+	return nil
 }

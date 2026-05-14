@@ -215,6 +215,19 @@ func (m *mockClient) CancelStatusPageMigration(context.Context, string) error {
 	return fmt.Errorf("mockClient: CancelStatusPageMigration not implemented")
 }
 
+// Phase 5: Team Management
+func (m *mockClient) GetTeamInfo(context.Context, *flashduty.TeamGetInput) (*flashduty.TeamItem, error) {
+	return nil, fmt.Errorf("mockClient: GetTeamInfo not implemented")
+}
+
+func (m *mockClient) UpsertTeam(context.Context, *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error) {
+	return nil, fmt.Errorf("mockClient: UpsertTeam not implemented")
+}
+
+func (m *mockClient) DeleteTeam(context.Context, *flashduty.TeamDeleteInput) error {
+	return fmt.Errorf("mockClient: DeleteTeam not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.
