@@ -662,9 +662,9 @@ func newIncidentAddResponderCmd() *cobra.Command {
 				return fmt.Errorf("--person is required")
 			}
 
-			var notify *IncidentNotifyInput
+			var notify *flashduty.IncidentNotifyInput
 			if followPreference || notifyChannel != "" || templateID != "" {
-				notify = &IncidentNotifyInput{
+				notify = &flashduty.IncidentNotifyInput{
 					FollowPreference: followPreference,
 					PersonalChannels: parseStringSlice(notifyChannel),
 					TemplateID:       templateID,
@@ -672,7 +672,7 @@ func newIncidentAddResponderCmd() *cobra.Command {
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.AddIncidentResponders(cmdContext(ctx.Cmd), &IncidentAddResponderInput{
+				if err := ctx.Client.AddIncidentResponders(cmdContext(ctx.Cmd), &flashduty.IncidentAddResponderInput{
 					IncidentID: ctx.Args[0],
 					PersonIDs:  personIDs,
 					Notify:     notify,
@@ -715,7 +715,7 @@ func newIncidentCommentCmd() *cobra.Command {
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.CommentIncidents(cmdContext(ctx.Cmd), &IncidentCommentInput{
+				if err := ctx.Client.CommentIncidents(cmdContext(ctx.Cmd), &flashduty.IncidentCommentInput{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
 					MuteReply:   muteReply,
@@ -812,9 +812,13 @@ func newIncidentWarRoomCreateCmd() *cobra.Command {
 				return fmt.Errorf("invalid --member: %w", err)
 			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				warRoom, err := ctx.Client.CreateIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomCreateInput{
+				resolvedIntegrationID, err := resolveWarRoomIntegrationID(ctx)
+				if err != nil {
+					return err
+				}
+				warRoom, err := ctx.Client.CreateIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomCreateInput{
 					IncidentID:    ctx.Args[0],
-					IntegrationID: integrationID,
+					IntegrationID: resolvedIntegrationID,
 					MemberIDs:     memberIDs,
 					AddObservers:  addObservers,
 				})
@@ -834,8 +838,26 @@ func newIncidentWarRoomCreateCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
 	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs to invite")
 	cmd.Flags().BoolVar(&addObservers, "add-observers", false, "Invite historical responders as extra war-room members")
-	_ = cmd.MarkFlagRequired("integration")
 	return cmd
+}
+
+func resolveWarRoomIntegrationID(ctx *RunContext) (int64, error) {
+	integrationID, err := ctx.Cmd.Flags().GetInt64("integration")
+	if err != nil {
+		return 0, err
+	}
+	if integrationID > 0 {
+		return integrationID, nil
+	}
+
+	result, err := ctx.Client.ListWarRoomEnabledDataSources(cmdContext(ctx.Cmd))
+	if err != nil {
+		return 0, err
+	}
+	if result == nil || len(result.Items) == 0 {
+		return 0, fmt.Errorf("no IM integration has war-room enabled; enable one in integration settings or pass --integration")
+	}
+	return result.Items[0].DataSourceID, nil
 }
 
 func newIncidentWarRoomListCmd() *cobra.Command {
@@ -847,7 +869,7 @@ func newIncidentWarRoomListCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListIncidentWarRooms(cmdContext(ctx.Cmd), &IncidentWarRoomListInput{
+				result, err := ctx.Client.ListIncidentWarRooms(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomListInput{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				})
@@ -872,7 +894,7 @@ func newIncidentWarRoomGetCmd() *cobra.Command {
 		Args:  requireArgs("chat_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				warRoom, err := ctx.Client.GetIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomDetailInput{
+				warRoom, err := ctx.Client.GetIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomDetailInput{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 				})
@@ -907,7 +929,7 @@ func newIncidentWarRoomDeleteCmd() *cobra.Command {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
-				if err := ctx.Client.DeleteIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomDeleteInput{
+				if err := ctx.Client.DeleteIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomDeleteInput{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				}); err != nil {
@@ -942,7 +964,7 @@ func newIncidentWarRoomAddMemberCmd() *cobra.Command {
 				return fmt.Errorf("--member is required")
 			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.AddIncidentWarRoomMembers(cmdContext(ctx.Cmd), &IncidentWarRoomAddMemberInput{
+				if err := ctx.Client.AddIncidentWarRoomMembers(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomAddMemberInput{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 					MemberIDs:     memberIDs,
@@ -981,25 +1003,25 @@ func newIncidentWarRoomDefaultObserversCmd() *cobra.Command {
 
 func incidentWarRoomColumns() []output.Column {
 	return []output.Column{
-		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(IncidentWarRoomItem).IntegrationID) }},
-		{Header: "CHAT_ID", Field: func(v any) string { return v.(IncidentWarRoomItem).ChatID }},
-		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(IncidentWarRoomItem).IncidentID }},
-		{Header: "STATUS", Field: func(v any) string { return v.(IncidentWarRoomItem).Status }},
-		{Header: "PLUGIN", Field: func(v any) string { return v.(IncidentWarRoomItem).PluginType }},
-		{Header: "CREATED", Field: func(v any) string { return formatWarRoomCreatedAt(v.(IncidentWarRoomItem).CreatedAt) }},
+		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(flashduty.IncidentWarRoomItem).IntegrationID) }},
+		{Header: "CHAT_ID", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).ChatID }},
+		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).IncidentID }},
+		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).Status }},
+		{Header: "PLUGIN", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).PluginType }},
+		{Header: "CREATED", Field: func(v any) string { return formatWarRoomCreatedAt(v.(flashduty.IncidentWarRoomItem).CreatedAt) }},
 	}
 }
 
 func incidentWarRoomObserverColumns() []output.Column {
 	return []output.Column{
-		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(IncidentWarRoomObserver).PersonID) }},
-		{Header: "NAME", Field: func(v any) string { return v.(IncidentWarRoomObserver).DisplayName() }},
-		{Header: "EMAIL", Field: func(v any) string { return v.(IncidentWarRoomObserver).Email }},
-		{Header: "STATUS", Field: func(v any) string { return v.(IncidentWarRoomObserver).Status }},
+		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(flashduty.IncidentWarRoomObserver).PersonID) }},
+		{Header: "NAME", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).DisplayName() }},
+		{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).Email }},
+		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).Status }},
 	}
 }
 
-func printWarRoomDetail(w io.Writer, warRoom *IncidentWarRoom) {
+func printWarRoomDetail(w io.Writer, warRoom *flashduty.IncidentWarRoom) {
 	if warRoom == nil {
 		return
 	}

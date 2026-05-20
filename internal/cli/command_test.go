@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // mockClient provides default "not implemented" stubs for all flashdutyClient
@@ -71,36 +73,40 @@ func (m *mockClient) DisableIncidentMerge(context.Context, []string) error {
 	return fmt.Errorf("mockClient: DisableIncidentMerge not implemented")
 }
 
-func (m *mockClient) CommentIncidents(context.Context, *IncidentCommentInput) error {
+func (m *mockClient) CommentIncidents(context.Context, *flashduty.IncidentCommentInput) error {
 	return fmt.Errorf("mockClient: CommentIncidents not implemented")
 }
 
-func (m *mockClient) AddIncidentResponders(context.Context, *IncidentAddResponderInput) error {
+func (m *mockClient) AddIncidentResponders(context.Context, *flashduty.IncidentAddResponderInput) error {
 	return fmt.Errorf("mockClient: AddIncidentResponders not implemented")
 }
 
-func (m *mockClient) CreateIncidentWarRoom(context.Context, *IncidentWarRoomCreateInput) (*IncidentWarRoom, error) {
+func (m *mockClient) CreateIncidentWarRoom(context.Context, *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error) {
 	return nil, fmt.Errorf("mockClient: CreateIncidentWarRoom not implemented")
 }
 
-func (m *mockClient) ListIncidentWarRooms(context.Context, *IncidentWarRoomListInput) (*IncidentWarRoomListOutput, error) {
+func (m *mockClient) ListIncidentWarRooms(context.Context, *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error) {
 	return nil, fmt.Errorf("mockClient: ListIncidentWarRooms not implemented")
 }
 
-func (m *mockClient) GetIncidentWarRoom(context.Context, *IncidentWarRoomDetailInput) (*IncidentWarRoom, error) {
+func (m *mockClient) GetIncidentWarRoom(context.Context, *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error) {
 	return nil, fmt.Errorf("mockClient: GetIncidentWarRoom not implemented")
 }
 
-func (m *mockClient) DeleteIncidentWarRoom(context.Context, *IncidentWarRoomDeleteInput) error {
+func (m *mockClient) DeleteIncidentWarRoom(context.Context, *flashduty.IncidentWarRoomDeleteInput) error {
 	return fmt.Errorf("mockClient: DeleteIncidentWarRoom not implemented")
 }
 
-func (m *mockClient) AddIncidentWarRoomMembers(context.Context, *IncidentWarRoomAddMemberInput) error {
+func (m *mockClient) AddIncidentWarRoomMembers(context.Context, *flashduty.IncidentWarRoomAddMemberInput) error {
 	return fmt.Errorf("mockClient: AddIncidentWarRoomMembers not implemented")
 }
 
-func (m *mockClient) GetIncidentWarRoomDefaultObservers(context.Context, string) ([]IncidentWarRoomObserver, error) {
+func (m *mockClient) GetIncidentWarRoomDefaultObservers(context.Context, string) ([]flashduty.IncidentWarRoomObserver, error) {
 	return nil, fmt.Errorf("mockClient: GetIncidentWarRoomDefaultObservers not implemented")
+}
+
+func (m *mockClient) ListWarRoomEnabledDataSources(context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListWarRoomEnabledDataSources not implemented")
 }
 
 func (m *mockClient) ListChannels(context.Context, *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error) {
@@ -307,6 +313,8 @@ func saveAndResetGlobals(t *testing.T) {
 // and returns (stdout string, error). It also resets cobra flag state after
 // execution.
 func execCommand(args ...string) (string, error) {
+	resetCommandFlags(rootCmd)
+
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -319,8 +327,33 @@ func execCommand(args ...string) (string, error) {
 	rootCmd.SetArgs(nil)
 	rootCmd.SetOut(nil)
 	rootCmd.SetErr(nil)
+	resetCommandFlags(rootCmd)
 
 	return buf.String(), err
+}
+
+func resetCommandFlags(cmd *cobra.Command) {
+	if cmd == nil {
+		return
+	}
+	resetFlagSet(cmd.Flags())
+	resetFlagSet(cmd.PersistentFlags())
+	for _, child := range cmd.Commands() {
+		resetCommandFlags(child)
+	}
+}
+
+func resetFlagSet(flags *pflag.FlagSet) {
+	if flags == nil {
+		return
+	}
+	flags.VisitAll(func(flag *pflag.Flag) {
+		switch flag.Value.Type() {
+		case "bool", "int", "int64", "string":
+			_ = flag.Value.Set(flag.DefValue)
+			flag.Changed = false
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -665,8 +698,8 @@ type mockIncidentLifecycle struct {
 	wakeIDs         []string
 	removeIDs       []string
 	disableMergeIDs []string
-	commentInput    *IncidentCommentInput
-	responderInput  *IncidentAddResponderInput
+	commentInput    *flashduty.IncidentCommentInput
+	responderInput  *flashduty.IncidentAddResponderInput
 }
 
 func (m *mockIncidentLifecycle) UnackIncidents(_ context.Context, incidentIDs []string) error {
@@ -689,14 +722,14 @@ func (m *mockIncidentLifecycle) DisableIncidentMerge(_ context.Context, incident
 	return nil
 }
 
-func (m *mockIncidentLifecycle) CommentIncidents(_ context.Context, input *IncidentCommentInput) error {
+func (m *mockIncidentLifecycle) CommentIncidents(_ context.Context, input *flashduty.IncidentCommentInput) error {
 	copied := *input
 	copied.IncidentIDs = append([]string(nil), input.IncidentIDs...)
 	m.commentInput = &copied
 	return nil
 }
 
-func (m *mockIncidentLifecycle) AddIncidentResponders(_ context.Context, input *IncidentAddResponderInput) error {
+func (m *mockIncidentLifecycle) AddIncidentResponders(_ context.Context, input *flashduty.IncidentAddResponderInput) error {
 	copied := *input
 	copied.PersonIDs = append([]int64(nil), input.PersonIDs...)
 	if input.Notify != nil {
@@ -907,54 +940,59 @@ func TestCommandIncidentDisableMerge(t *testing.T) {
 type mockIncidentWarRoom struct {
 	mockClient
 
-	createInput           *IncidentWarRoomCreateInput
-	listInput             *IncidentWarRoomListInput
-	getInput              *IncidentWarRoomDetailInput
-	deleteInput           *IncidentWarRoomDeleteInput
-	addMemberInput        *IncidentWarRoomAddMemberInput
+	createInput           *flashduty.IncidentWarRoomCreateInput
+	listInput             *flashduty.IncidentWarRoomListInput
+	getInput              *flashduty.IncidentWarRoomDetailInput
+	deleteInput           *flashduty.IncidentWarRoomDeleteInput
+	addMemberInput        *flashduty.IncidentWarRoomAddMemberInput
 	defaultObserverIncID  string
-	defaultObserverOutput []IncidentWarRoomObserver
+	defaultObserverOutput []flashduty.IncidentWarRoomObserver
+	enabledDataSources    []flashduty.DataSourceIntegration
 }
 
-func (m *mockIncidentWarRoom) CreateIncidentWarRoom(_ context.Context, input *IncidentWarRoomCreateInput) (*IncidentWarRoom, error) {
+func (m *mockIncidentWarRoom) CreateIncidentWarRoom(_ context.Context, input *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error) {
 	copied := *input
 	copied.MemberIDs = append([]int64(nil), input.MemberIDs...)
 	m.createInput = &copied
-	return &IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
+	return &flashduty.IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
 }
 
-func (m *mockIncidentWarRoom) ListIncidentWarRooms(_ context.Context, input *IncidentWarRoomListInput) (*IncidentWarRoomListOutput, error) {
+func (m *mockIncidentWarRoom) ListIncidentWarRooms(_ context.Context, input *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error) {
 	copied := *input
 	m.listInput = &copied
-	return &IncidentWarRoomListOutput{
-		Items: []IncidentWarRoomItem{
+	return &flashduty.IncidentWarRoomListOutput{
+		Items: []flashduty.IncidentWarRoomItem{
 			{IntegrationID: 42, ChatID: "chat-1", IncidentID: "inc-1", Status: "enabled", PluginType: "feishu"},
 		},
 	}, nil
 }
 
-func (m *mockIncidentWarRoom) GetIncidentWarRoom(_ context.Context, input *IncidentWarRoomDetailInput) (*IncidentWarRoom, error) {
+func (m *mockIncidentWarRoom) GetIncidentWarRoom(_ context.Context, input *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error) {
 	copied := *input
 	m.getInput = &copied
-	return &IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
+	return &flashduty.IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
 }
 
-func (m *mockIncidentWarRoom) DeleteIncidentWarRoom(_ context.Context, input *IncidentWarRoomDeleteInput) error {
+func (m *mockIncidentWarRoom) DeleteIncidentWarRoom(_ context.Context, input *flashduty.IncidentWarRoomDeleteInput) error {
 	copied := *input
 	m.deleteInput = &copied
 	return nil
 }
 
-func (m *mockIncidentWarRoom) AddIncidentWarRoomMembers(_ context.Context, input *IncidentWarRoomAddMemberInput) error {
+func (m *mockIncidentWarRoom) AddIncidentWarRoomMembers(_ context.Context, input *flashduty.IncidentWarRoomAddMemberInput) error {
 	copied := *input
 	copied.MemberIDs = append([]int64(nil), input.MemberIDs...)
 	m.addMemberInput = &copied
 	return nil
 }
 
-func (m *mockIncidentWarRoom) GetIncidentWarRoomDefaultObservers(_ context.Context, incidentID string) ([]IncidentWarRoomObserver, error) {
+func (m *mockIncidentWarRoom) GetIncidentWarRoomDefaultObservers(_ context.Context, incidentID string) ([]flashduty.IncidentWarRoomObserver, error) {
 	m.defaultObserverIncID = incidentID
 	return m.defaultObserverOutput, nil
+}
+
+func (m *mockIncidentWarRoom) ListWarRoomEnabledDataSources(context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error) {
+	return &flashduty.ListWarRoomEnabledDataSourcesOutput{Items: m.enabledDataSources}, nil
 }
 
 func TestCommandIncidentWarRoomCreateWithObservers(t *testing.T) {
@@ -980,10 +1018,48 @@ func TestCommandIncidentWarRoomCreateWithObservers(t *testing.T) {
 	}
 }
 
+func TestCommandIncidentWarRoomCreateAutoDiscoversIntegration(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{
+		enabledDataSources: []flashduty.DataSourceIntegration{
+			{DataSourceID: 42, Name: "Feishu", PluginType: "feishu_app"},
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "create", "inc-1", "--member", "101")
+	if err != nil {
+		t.Fatalf("[incident-war-room-create-autodiscover] unexpected error: %v", err)
+	}
+	if mock.createInput == nil {
+		t.Fatal("[incident-war-room-create-autodiscover] expected CreateIncidentWarRoom to be called")
+	}
+	if mock.createInput.IntegrationID != 42 {
+		t.Fatalf("[incident-war-room-create-autodiscover] expected integration 42, got %#v", mock.createInput)
+	}
+	if !strings.Contains(out, "War room created: chat-1") {
+		t.Fatalf("[incident-war-room-create-autodiscover] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomCreateRequiresEnabledIntegration(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	_, err := execCommand("incident", "war-room", "create", "inc-1")
+	if err == nil || !strings.Contains(err.Error(), "no IM integration has war-room enabled") {
+		t.Fatalf("[incident-war-room-create-no-enabled-integration] expected enabled integration error, got %v", err)
+	}
+	if mock.createInput != nil {
+		t.Fatalf("[incident-war-room-create-no-enabled-integration] did not expect create call: %#v", mock.createInput)
+	}
+}
+
 func TestCommandIncidentWarRoomDefaultObservers(t *testing.T) {
 	saveAndResetGlobals(t)
 	mock := &mockIncidentWarRoom{
-		defaultObserverOutput: []IncidentWarRoomObserver{
+		defaultObserverOutput: []flashduty.IncidentWarRoomObserver{
 			{PersonID: 101, PersonName: "Alice", Email: "alice@example.com"},
 		},
 	}

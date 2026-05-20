@@ -35,14 +35,15 @@ type flashdutyClient interface {
 	WakeIncidents(ctx context.Context, incidentIDs []string) error
 	RemoveIncidents(ctx context.Context, incidentIDs []string) error
 	DisableIncidentMerge(ctx context.Context, incidentIDs []string) error
-	CommentIncidents(ctx context.Context, input *IncidentCommentInput) error
-	AddIncidentResponders(ctx context.Context, input *IncidentAddResponderInput) error
-	CreateIncidentWarRoom(ctx context.Context, input *IncidentWarRoomCreateInput) (*IncidentWarRoom, error)
-	ListIncidentWarRooms(ctx context.Context, input *IncidentWarRoomListInput) (*IncidentWarRoomListOutput, error)
-	GetIncidentWarRoom(ctx context.Context, input *IncidentWarRoomDetailInput) (*IncidentWarRoom, error)
-	DeleteIncidentWarRoom(ctx context.Context, input *IncidentWarRoomDeleteInput) error
-	AddIncidentWarRoomMembers(ctx context.Context, input *IncidentWarRoomAddMemberInput) error
-	GetIncidentWarRoomDefaultObservers(ctx context.Context, incidentID string) ([]IncidentWarRoomObserver, error)
+	CommentIncidents(ctx context.Context, input *flashduty.IncidentCommentInput) error
+	AddIncidentResponders(ctx context.Context, input *flashduty.IncidentAddResponderInput) error
+	CreateIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error)
+	ListIncidentWarRooms(ctx context.Context, input *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error)
+	GetIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error)
+	DeleteIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDeleteInput) error
+	AddIncidentWarRoomMembers(ctx context.Context, input *flashduty.IncidentWarRoomAddMemberInput) error
+	GetIncidentWarRoomDefaultObservers(ctx context.Context, incidentID string) ([]flashduty.IncidentWarRoomObserver, error)
+	ListWarRoomEnabledDataSources(ctx context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error)
 	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
 	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
 	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
@@ -211,10 +212,7 @@ func defaultNewClient() (flashdutyClient, error) {
 		return nil, err
 	}
 
-	return &flashdutyCLIClient{
-		Client:   sdkClient,
-		incident: newIncidentAPIClient(cfg.AppKey, cfg.BaseURL, "flashduty-cli/"+versionStr),
-	}, nil
+	return sdkClient, nil
 }
 
 func loadResolvedConfig() (*config.Config, error) {
