@@ -27,7 +27,9 @@ func newIncidentCmd() *cobra.Command {
 	cmd.AddCommand(newIncidentCreateCmd())
 	cmd.AddCommand(newIncidentUpdateCmd())
 	cmd.AddCommand(newIncidentAckCmd())
+	cmd.AddCommand(newIncidentUnackCmd())
 	cmd.AddCommand(newIncidentCloseCmd())
+	cmd.AddCommand(newIncidentWakeCmd())
 	cmd.AddCommand(newIncidentTimelineCmd())
 	cmd.AddCommand(newIncidentAlertsCmd())
 	cmd.AddCommand(newIncidentSimilarCmd())
@@ -35,6 +37,11 @@ func newIncidentCmd() *cobra.Command {
 	cmd.AddCommand(newIncidentSnoozeCmd())
 	cmd.AddCommand(newIncidentReopenCmd())
 	cmd.AddCommand(newIncidentReassignCmd())
+	cmd.AddCommand(newIncidentAddResponderCmd())
+	cmd.AddCommand(newIncidentCommentCmd())
+	cmd.AddCommand(newIncidentDisableMergeCmd())
+	cmd.AddCommand(newIncidentRemoveCmd())
+	cmd.AddCommand(newIncidentWarRoomCmd())
 	cmd.AddCommand(newIncidentFeedCmd())
 	cmd.AddCommand(newIncidentDetailCmd())
 	return cmd
@@ -304,6 +311,26 @@ func newIncidentAckCmd() *cobra.Command {
 	}
 }
 
+func newIncidentUnackCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unack <id> [<id2> ...]",
+		Short: "Cancel incident acknowledgement",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateIncidentIDBatch(args); err != nil {
+				return err
+			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.UnackIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Unacknowledged %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+}
+
 func newIncidentCloseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "close <id> [<id2> ...]",
@@ -315,6 +342,26 @@ func newIncidentCloseCmd() *cobra.Command {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Closed %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+}
+
+func newIncidentWakeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "wake <id> [<id2> ...]",
+		Short: "Restore notifications for snoozed incidents",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateIncidentIDBatch(args); err != nil {
+				return err
+			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.WakeIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Restored notifications for %d incident(s).", len(ctx.Args)))
 				return nil
 			})
 		},
@@ -461,6 +508,13 @@ func parseStringSlice(s string) []string {
 	return result
 }
 
+func validateIncidentIDBatch(incidentIDs []string) error {
+	if len(incidentIDs) > 100 {
+		return fmt.Errorf("command accepts at most 100 incident IDs")
+	}
+	return nil
+}
+
 func newIncidentMergeCmd() *cobra.Command {
 	var source string
 
@@ -589,6 +643,376 @@ func newIncidentReassignCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("person")
 
 	return cmd
+}
+
+func newIncidentAddResponderCmd() *cobra.Command {
+	var person, notifyChannel, templateID string
+	var followPreference bool
+
+	cmd := &cobra.Command{
+		Use:   "add-responder <id>",
+		Short: "Add responders to an incident",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			personIDs, err := parseIntSlice(person)
+			if err != nil {
+				return fmt.Errorf("invalid --person: %w", err)
+			}
+			if len(personIDs) == 0 {
+				return fmt.Errorf("--person is required")
+			}
+
+			var notify *IncidentNotifyInput
+			if followPreference || notifyChannel != "" || templateID != "" {
+				notify = &IncidentNotifyInput{
+					FollowPreference: followPreference,
+					PersonalChannels: parseStringSlice(notifyChannel),
+					TemplateID:       templateID,
+				}
+			}
+
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.AddIncidentResponders(cmdContext(ctx.Cmd), &IncidentAddResponderInput{
+					IncidentID: ctx.Args[0],
+					PersonIDs:  personIDs,
+					Notify:     notify,
+				}); err != nil {
+					return err
+				}
+
+				ctx.WriteResult(fmt.Sprintf("Added %d responder(s) to incident %s.", len(personIDs), ctx.Args[0]))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&person, "person", "", "Comma-separated person IDs to add")
+	cmd.Flags().BoolVar(&followPreference, "follow-preference", false, "Follow each responder's notification preferences")
+	cmd.Flags().StringVar(&notifyChannel, "notify-channel", "", "Comma-separated notification channels, e.g. voice,sms,email")
+	cmd.Flags().StringVar(&templateID, "template-id", "", "Notification template ID")
+	_ = cmd.MarkFlagRequired("person")
+
+	return cmd
+}
+
+func newIncidentCommentCmd() *cobra.Command {
+	var comment string
+	var muteReply bool
+
+	cmd := &cobra.Command{
+		Use:   "comment <id> [<id2> ...]",
+		Short: "Add a comment to incident timelines",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateIncidentIDBatch(args); err != nil {
+				return err
+			}
+			if strings.TrimSpace(comment) == "" {
+				return fmt.Errorf("--comment is required")
+			}
+			if len([]rune(comment)) > 1024 {
+				return fmt.Errorf("--comment must be at most 1024 characters")
+			}
+
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.CommentIncidents(cmdContext(ctx.Cmd), &IncidentCommentInput{
+					IncidentIDs: ctx.Args,
+					Comment:     comment,
+					MuteReply:   muteReply,
+				}); err != nil {
+					return err
+				}
+
+				ctx.WriteResult(fmt.Sprintf("Commented on %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().StringVar(&comment, "comment", "", "Comment text")
+	cmd.Flags().BoolVar(&muteReply, "mute-reply", false, "Do not trigger webhook reply behavior for this comment")
+	_ = cmd.MarkFlagRequired("comment")
+
+	return cmd
+}
+
+func newIncidentDisableMergeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "disable-merge <id> [<id2> ...]",
+		Short: "Disable automatic merging for incidents",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.DisableIncidentMerge(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Disabled auto-merge for %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+}
+
+func newIncidentRemoveCmd() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "remove <id> [<id2> ...]",
+		Short: "Permanently remove incidents",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateIncidentIDBatch(args); err != nil {
+				return err
+			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to remove %d incident(s)?", len(ctx.Args))) {
+					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
+					return nil
+				}
+
+				if err := ctx.Client.RemoveIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Removed %d incident(s).", len(ctx.Args)))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	return cmd
+}
+
+func newIncidentWarRoomCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "war-room",
+		Short: "Manage incident war rooms",
+	}
+	cmd.AddCommand(newIncidentWarRoomCreateCmd())
+	cmd.AddCommand(newIncidentWarRoomListCmd())
+	cmd.AddCommand(newIncidentWarRoomGetCmd())
+	cmd.AddCommand(newIncidentWarRoomDeleteCmd())
+	cmd.AddCommand(newIncidentWarRoomAddMemberCmd())
+	cmd.AddCommand(newIncidentWarRoomDefaultObserversCmd())
+	return cmd
+}
+
+func newIncidentWarRoomCreateCmd() *cobra.Command {
+	var integrationID int64
+	var member string
+	var addObservers bool
+
+	cmd := &cobra.Command{
+		Use:   "create <incident_id>",
+		Short: "Create an incident war room",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			memberIDs, err := parseIntSlice(member)
+			if err != nil {
+				return fmt.Errorf("invalid --member: %w", err)
+			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				warRoom, err := ctx.Client.CreateIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomCreateInput{
+					IncidentID:    ctx.Args[0],
+					IntegrationID: integrationID,
+					MemberIDs:     memberIDs,
+					AddObservers:  addObservers,
+				})
+				if err != nil {
+					return err
+				}
+
+				message := fmt.Sprintf("War room created: %s", warRoom.ChatID)
+				if warRoom.ShareLink != "" {
+					message += fmt.Sprintf("\nShare link: %s", warRoom.ShareLink)
+				}
+				return ctx.WriteResultJSON(warRoom, message)
+			})
+		},
+	}
+
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs to invite")
+	cmd.Flags().BoolVar(&addObservers, "add-observers", false, "Invite historical responders as extra war-room members")
+	_ = cmd.MarkFlagRequired("integration")
+	return cmd
+}
+
+func newIncidentWarRoomListCmd() *cobra.Command {
+	var integrationID int64
+
+	cmd := &cobra.Command{
+		Use:   "list <incident_id>",
+		Short: "List incident war rooms",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, err := ctx.Client.ListIncidentWarRooms(cmdContext(ctx.Cmd), &IncidentWarRoomListInput{
+					IncidentID:    ctx.Args[0],
+					IntegrationID: integrationID,
+				})
+				if err != nil {
+					return err
+				}
+				return ctx.PrintTotal(result.Items, incidentWarRoomColumns(), len(result.Items))
+			})
+		},
+	}
+
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "Filter by IM integration ID")
+	return cmd
+}
+
+func newIncidentWarRoomGetCmd() *cobra.Command {
+	var integrationID int64
+
+	cmd := &cobra.Command{
+		Use:   "get <chat_id>",
+		Short: "Get incident war room details",
+		Args:  requireArgs("chat_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				warRoom, err := ctx.Client.GetIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomDetailInput{
+					IntegrationID: integrationID,
+					ChatID:        ctx.Args[0],
+				})
+				if err != nil {
+					return err
+				}
+				if ctx.JSON {
+					return ctx.Printer.Print(warRoom, nil)
+				}
+				printWarRoomDetail(ctx.Writer, warRoom)
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	_ = cmd.MarkFlagRequired("integration")
+	return cmd
+}
+
+func newIncidentWarRoomDeleteCmd() *cobra.Command {
+	var integrationID int64
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "delete <incident_id>",
+		Short: "Delete an incident war room",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0])) {
+					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
+					return nil
+				}
+				if err := ctx.Client.DeleteIncidentWarRoom(cmdContext(ctx.Cmd), &IncidentWarRoomDeleteInput{
+					IncidentID:    ctx.Args[0],
+					IntegrationID: integrationID,
+				}); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Deleted war room for incident %s.", ctx.Args[0]))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	_ = cmd.MarkFlagRequired("integration")
+	return cmd
+}
+
+func newIncidentWarRoomAddMemberCmd() *cobra.Command {
+	var integrationID int64
+	var member string
+
+	cmd := &cobra.Command{
+		Use:   "add-member <chat_id>",
+		Short: "Add members to an incident war room",
+		Args:  requireArgs("chat_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			memberIDs, err := parseIntSlice(member)
+			if err != nil {
+				return fmt.Errorf("invalid --member: %w", err)
+			}
+			if len(memberIDs) == 0 {
+				return fmt.Errorf("--member is required")
+			}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := ctx.Client.AddIncidentWarRoomMembers(cmdContext(ctx.Cmd), &IncidentWarRoomAddMemberInput{
+					IntegrationID: integrationID,
+					ChatID:        ctx.Args[0],
+					MemberIDs:     memberIDs,
+				}); err != nil {
+					return err
+				}
+				ctx.WriteResult(fmt.Sprintf("Added %d member(s) to war room %s.", len(memberIDs), ctx.Args[0]))
+				return nil
+			})
+		},
+	}
+
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs")
+	_ = cmd.MarkFlagRequired("integration")
+	_ = cmd.MarkFlagRequired("member")
+	return cmd
+}
+
+func newIncidentWarRoomDefaultObserversCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "default-observers <incident_id>",
+		Short: "Preview historical responders for war-room observer invitation",
+		Args:  requireArgs("incident_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				observers, err := ctx.Client.GetIncidentWarRoomDefaultObservers(cmdContext(ctx.Cmd), ctx.Args[0])
+				if err != nil {
+					return err
+				}
+				return ctx.PrintTotal(observers, incidentWarRoomObserverColumns(), len(observers))
+			})
+		},
+	}
+}
+
+func incidentWarRoomColumns() []output.Column {
+	return []output.Column{
+		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(IncidentWarRoomItem).IntegrationID) }},
+		{Header: "CHAT_ID", Field: func(v any) string { return v.(IncidentWarRoomItem).ChatID }},
+		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(IncidentWarRoomItem).IncidentID }},
+		{Header: "STATUS", Field: func(v any) string { return v.(IncidentWarRoomItem).Status }},
+		{Header: "PLUGIN", Field: func(v any) string { return v.(IncidentWarRoomItem).PluginType }},
+		{Header: "CREATED", Field: func(v any) string { return formatWarRoomCreatedAt(v.(IncidentWarRoomItem).CreatedAt) }},
+	}
+}
+
+func incidentWarRoomObserverColumns() []output.Column {
+	return []output.Column{
+		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(IncidentWarRoomObserver).PersonID) }},
+		{Header: "NAME", Field: func(v any) string { return v.(IncidentWarRoomObserver).DisplayName() }},
+		{Header: "EMAIL", Field: func(v any) string { return v.(IncidentWarRoomObserver).Email }},
+		{Header: "STATUS", Field: func(v any) string { return v.(IncidentWarRoomObserver).Status }},
+	}
+}
+
+func printWarRoomDetail(w io.Writer, warRoom *IncidentWarRoom) {
+	if warRoom == nil {
+		return
+	}
+	_, _ = fmt.Fprintf(w, "Chat ID:    %s\n", warRoom.ChatID)
+	_, _ = fmt.Fprintf(w, "Chat Name:  %s\n", orDash(warRoom.ChatName))
+	_, _ = fmt.Fprintf(w, "Share Link: %s\n", orDash(warRoom.ShareLink))
+}
+
+func formatWarRoomCreatedAt(ts int64) string {
+	if ts > 1_000_000_000_000 {
+		ts /= 1000
+	}
+	return output.FormatTime(ts)
 }
 
 func newIncidentFeedCmd() *cobra.Command {

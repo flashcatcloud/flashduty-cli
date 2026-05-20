@@ -51,8 +51,56 @@ func (m *mockClient) AckIncidents(context.Context, []string) error {
 	return fmt.Errorf("mockClient: AckIncidents not implemented")
 }
 
+func (m *mockClient) UnackIncidents(context.Context, []string) error {
+	return fmt.Errorf("mockClient: UnackIncidents not implemented")
+}
+
 func (m *mockClient) CloseIncidents(context.Context, []string) error {
 	return fmt.Errorf("mockClient: CloseIncidents not implemented")
+}
+
+func (m *mockClient) WakeIncidents(context.Context, []string) error {
+	return fmt.Errorf("mockClient: WakeIncidents not implemented")
+}
+
+func (m *mockClient) RemoveIncidents(context.Context, []string) error {
+	return fmt.Errorf("mockClient: RemoveIncidents not implemented")
+}
+
+func (m *mockClient) DisableIncidentMerge(context.Context, []string) error {
+	return fmt.Errorf("mockClient: DisableIncidentMerge not implemented")
+}
+
+func (m *mockClient) CommentIncidents(context.Context, *IncidentCommentInput) error {
+	return fmt.Errorf("mockClient: CommentIncidents not implemented")
+}
+
+func (m *mockClient) AddIncidentResponders(context.Context, *IncidentAddResponderInput) error {
+	return fmt.Errorf("mockClient: AddIncidentResponders not implemented")
+}
+
+func (m *mockClient) CreateIncidentWarRoom(context.Context, *IncidentWarRoomCreateInput) (*IncidentWarRoom, error) {
+	return nil, fmt.Errorf("mockClient: CreateIncidentWarRoom not implemented")
+}
+
+func (m *mockClient) ListIncidentWarRooms(context.Context, *IncidentWarRoomListInput) (*IncidentWarRoomListOutput, error) {
+	return nil, fmt.Errorf("mockClient: ListIncidentWarRooms not implemented")
+}
+
+func (m *mockClient) GetIncidentWarRoom(context.Context, *IncidentWarRoomDetailInput) (*IncidentWarRoom, error) {
+	return nil, fmt.Errorf("mockClient: GetIncidentWarRoom not implemented")
+}
+
+func (m *mockClient) DeleteIncidentWarRoom(context.Context, *IncidentWarRoomDeleteInput) error {
+	return fmt.Errorf("mockClient: DeleteIncidentWarRoom not implemented")
+}
+
+func (m *mockClient) AddIncidentWarRoomMembers(context.Context, *IncidentWarRoomAddMemberInput) error {
+	return fmt.Errorf("mockClient: AddIncidentWarRoomMembers not implemented")
+}
+
+func (m *mockClient) GetIncidentWarRoomDefaultObservers(context.Context, string) ([]IncidentWarRoomObserver, error) {
+	return nil, fmt.Errorf("mockClient: GetIncidentWarRoomDefaultObservers not implemented")
 }
 
 func (m *mockClient) ListChannels(context.Context, *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error) {
@@ -607,6 +655,420 @@ func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at most 100") {
 		t.Fatalf("[incident-merge-max-sources] expected error containing %q, got %q", "at most 100", err.Error())
+	}
+}
+
+type mockIncidentLifecycle struct {
+	mockClient
+
+	unackIDs        []string
+	wakeIDs         []string
+	removeIDs       []string
+	disableMergeIDs []string
+	commentInput    *IncidentCommentInput
+	responderInput  *IncidentAddResponderInput
+}
+
+func (m *mockIncidentLifecycle) UnackIncidents(_ context.Context, incidentIDs []string) error {
+	m.unackIDs = append([]string(nil), incidentIDs...)
+	return nil
+}
+
+func (m *mockIncidentLifecycle) WakeIncidents(_ context.Context, incidentIDs []string) error {
+	m.wakeIDs = append([]string(nil), incidentIDs...)
+	return nil
+}
+
+func (m *mockIncidentLifecycle) RemoveIncidents(_ context.Context, incidentIDs []string) error {
+	m.removeIDs = append([]string(nil), incidentIDs...)
+	return nil
+}
+
+func (m *mockIncidentLifecycle) DisableIncidentMerge(_ context.Context, incidentIDs []string) error {
+	m.disableMergeIDs = append([]string(nil), incidentIDs...)
+	return nil
+}
+
+func (m *mockIncidentLifecycle) CommentIncidents(_ context.Context, input *IncidentCommentInput) error {
+	copied := *input
+	copied.IncidentIDs = append([]string(nil), input.IncidentIDs...)
+	m.commentInput = &copied
+	return nil
+}
+
+func (m *mockIncidentLifecycle) AddIncidentResponders(_ context.Context, input *IncidentAddResponderInput) error {
+	copied := *input
+	copied.PersonIDs = append([]int64(nil), input.PersonIDs...)
+	if input.Notify != nil {
+		notify := *input.Notify
+		notify.PersonalChannels = append([]string(nil), input.Notify.PersonalChannels...)
+		copied.Notify = &notify
+	}
+	m.responderInput = &copied
+	return nil
+}
+
+func TestCommandIncidentUnack(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "unack", "inc-1", "inc-2")
+	if err != nil {
+		t.Fatalf("[incident-unack] unexpected error: %v", err)
+	}
+	if got, want := strings.Join(mock.unackIDs, ","), "inc-1,inc-2"; got != want {
+		t.Fatalf("[incident-unack] expected ids %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "Unacknowledged 2 incident(s).") {
+		t.Fatalf("[incident-unack] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWake(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "wake", "inc-1")
+	if err != nil {
+		t.Fatalf("[incident-wake] unexpected error: %v", err)
+	}
+	if got, want := strings.Join(mock.wakeIDs, ","), "inc-1"; got != want {
+		t.Fatalf("[incident-wake] expected ids %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "Restored notifications for 1 incident(s).") {
+		t.Fatalf("[incident-wake] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentComment(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "--comment", "rollback started", "--mute-reply")
+	if err != nil {
+		t.Fatalf("[incident-comment] unexpected error: %v", err)
+	}
+	if mock.commentInput == nil {
+		t.Fatal("[incident-comment] expected CommentIncidents to be called")
+	}
+	if got, want := strings.Join(mock.commentInput.IncidentIDs, ","), "inc-1,inc-2"; got != want {
+		t.Fatalf("[incident-comment] expected ids %q, got %q", want, got)
+	}
+	if mock.commentInput.Comment != "rollback started" || !mock.commentInput.MuteReply {
+		t.Fatalf("[incident-comment] unexpected input: %#v", mock.commentInput)
+	}
+	if !strings.Contains(out, "Commented on 2 incident(s).") {
+		t.Fatalf("[incident-comment] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentCommentAllows1024UnicodeRunes(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	comment := strings.Repeat("界", 1024)
+	_, err := execCommand("incident", "comment", "inc-1", "--comment", comment)
+	if err != nil {
+		t.Fatalf("[incident-comment-unicode] unexpected error: %v", err)
+	}
+	if mock.commentInput == nil || mock.commentInput.Comment != comment {
+		t.Fatalf("[incident-comment-unicode] unexpected input: %#v", mock.commentInput)
+	}
+}
+
+func TestCommandIncidentLifecycleRejectsMoreThan100IDs(t *testing.T) {
+	commands := []struct {
+		name string
+		args []string
+	}{
+		{name: "unack", args: []string{"incident", "unack"}},
+		{name: "wake", args: []string{"incident", "wake"}},
+		{name: "comment", args: []string{"incident", "comment", "--comment", "too many"}},
+		{name: "remove", args: []string{"incident", "remove"}},
+	}
+
+	incidentIDs := make([]string, 101)
+	for i := range incidentIDs {
+		incidentIDs[i] = fmt.Sprintf("inc-%d", i+1)
+	}
+
+	for _, tc := range commands {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			mock := &mockIncidentLifecycle{}
+			newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+			args := append([]string(nil), tc.args...)
+			args = append(args, incidentIDs...)
+			_, err := execCommand(args...)
+			if err == nil {
+				t.Fatal("expected too-many-ids error, got nil")
+			}
+			if !strings.Contains(err.Error(), "at most 100 incident IDs") {
+				t.Fatalf("expected max-id error, got %q", err.Error())
+			}
+		})
+	}
+}
+
+func TestCommandIncidentAddResponder(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand(
+		"incident", "add-responder", "inc-1",
+		"--person", "101,202",
+		"--follow-preference",
+		"--notify-channel", "voice,sms",
+		"--template-id", "6321aad26c12104586a88916",
+	)
+	if err != nil {
+		t.Fatalf("[incident-add-responder] unexpected error: %v", err)
+	}
+	if mock.responderInput == nil {
+		t.Fatal("[incident-add-responder] expected AddIncidentResponders to be called")
+	}
+	if mock.responderInput.IncidentID != "inc-1" {
+		t.Fatalf("[incident-add-responder] expected incident inc-1, got %q", mock.responderInput.IncidentID)
+	}
+	if got, want := fmt.Sprint(mock.responderInput.PersonIDs), "[101 202]"; got != want {
+		t.Fatalf("[incident-add-responder] expected people %q, got %q", want, got)
+	}
+	if mock.responderInput.Notify == nil || !mock.responderInput.Notify.FollowPreference {
+		t.Fatalf("[incident-add-responder] expected follow preference notify, got %#v", mock.responderInput.Notify)
+	}
+	if got, want := strings.Join(mock.responderInput.Notify.PersonalChannels, ","), "voice,sms"; got != want {
+		t.Fatalf("[incident-add-responder] expected channels %q, got %q", want, got)
+	}
+	if mock.responderInput.Notify.TemplateID != "6321aad26c12104586a88916" {
+		t.Fatalf("[incident-add-responder] unexpected template id: %#v", mock.responderInput.Notify)
+	}
+	if !strings.Contains(out, "Added 2 responder(s) to incident inc-1.") {
+		t.Fatalf("[incident-add-responder] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentRemoveRequiresForceWhenNonInteractive(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "remove", "inc-1")
+	if err != nil {
+		t.Fatalf("[incident-remove-abort] unexpected error: %v", err)
+	}
+	if len(mock.removeIDs) != 0 {
+		t.Fatalf("[incident-remove-abort] remove should not be called, got ids %#v", mock.removeIDs)
+	}
+	if !strings.Contains(out, "Aborted.") {
+		t.Fatalf("[incident-remove-abort] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentRemoveWithForce(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "remove", "inc-1", "inc-2", "--force")
+	if err != nil {
+		t.Fatalf("[incident-remove-force] unexpected error: %v", err)
+	}
+	if got, want := strings.Join(mock.removeIDs, ","), "inc-1,inc-2"; got != want {
+		t.Fatalf("[incident-remove-force] expected ids %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "Removed 2 incident(s).") {
+		t.Fatalf("[incident-remove-force] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentDisableMerge(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentLifecycle{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "disable-merge", "inc-1", "inc-2")
+	if err != nil {
+		t.Fatalf("[incident-disable-merge] unexpected error: %v", err)
+	}
+	if got, want := strings.Join(mock.disableMergeIDs, ","), "inc-1,inc-2"; got != want {
+		t.Fatalf("[incident-disable-merge] expected ids %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "Disabled auto-merge for 2 incident(s).") {
+		t.Fatalf("[incident-disable-merge] unexpected output:\n%s", out)
+	}
+}
+
+type mockIncidentWarRoom struct {
+	mockClient
+
+	createInput           *IncidentWarRoomCreateInput
+	listInput             *IncidentWarRoomListInput
+	getInput              *IncidentWarRoomDetailInput
+	deleteInput           *IncidentWarRoomDeleteInput
+	addMemberInput        *IncidentWarRoomAddMemberInput
+	defaultObserverIncID  string
+	defaultObserverOutput []IncidentWarRoomObserver
+}
+
+func (m *mockIncidentWarRoom) CreateIncidentWarRoom(_ context.Context, input *IncidentWarRoomCreateInput) (*IncidentWarRoom, error) {
+	copied := *input
+	copied.MemberIDs = append([]int64(nil), input.MemberIDs...)
+	m.createInput = &copied
+	return &IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
+}
+
+func (m *mockIncidentWarRoom) ListIncidentWarRooms(_ context.Context, input *IncidentWarRoomListInput) (*IncidentWarRoomListOutput, error) {
+	copied := *input
+	m.listInput = &copied
+	return &IncidentWarRoomListOutput{
+		Items: []IncidentWarRoomItem{
+			{IntegrationID: 42, ChatID: "chat-1", IncidentID: "inc-1", Status: "enabled", PluginType: "feishu"},
+		},
+	}, nil
+}
+
+func (m *mockIncidentWarRoom) GetIncidentWarRoom(_ context.Context, input *IncidentWarRoomDetailInput) (*IncidentWarRoom, error) {
+	copied := *input
+	m.getInput = &copied
+	return &IncidentWarRoom{ChatID: "chat-1", ChatName: "INC outage", ShareLink: "https://chat.example/1"}, nil
+}
+
+func (m *mockIncidentWarRoom) DeleteIncidentWarRoom(_ context.Context, input *IncidentWarRoomDeleteInput) error {
+	copied := *input
+	m.deleteInput = &copied
+	return nil
+}
+
+func (m *mockIncidentWarRoom) AddIncidentWarRoomMembers(_ context.Context, input *IncidentWarRoomAddMemberInput) error {
+	copied := *input
+	copied.MemberIDs = append([]int64(nil), input.MemberIDs...)
+	m.addMemberInput = &copied
+	return nil
+}
+
+func (m *mockIncidentWarRoom) GetIncidentWarRoomDefaultObservers(_ context.Context, incidentID string) ([]IncidentWarRoomObserver, error) {
+	m.defaultObserverIncID = incidentID
+	return m.defaultObserverOutput, nil
+}
+
+func TestCommandIncidentWarRoomCreateWithObservers(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "create", "inc-1", "--integration", "42", "--member", "101,202", "--add-observers")
+	if err != nil {
+		t.Fatalf("[incident-war-room-create] unexpected error: %v", err)
+	}
+	if mock.createInput == nil {
+		t.Fatal("[incident-war-room-create] expected CreateIncidentWarRoom to be called")
+	}
+	if mock.createInput.IncidentID != "inc-1" || mock.createInput.IntegrationID != 42 || !mock.createInput.AddObservers {
+		t.Fatalf("[incident-war-room-create] unexpected input: %#v", mock.createInput)
+	}
+	if got, want := fmt.Sprint(mock.createInput.MemberIDs), "[101 202]"; got != want {
+		t.Fatalf("[incident-war-room-create] expected member ids %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "War room created: chat-1") {
+		t.Fatalf("[incident-war-room-create] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomDefaultObservers(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{
+		defaultObserverOutput: []IncidentWarRoomObserver{
+			{PersonID: 101, PersonName: "Alice", Email: "alice@example.com"},
+		},
+	}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "default-observers", "inc-1")
+	if err != nil {
+		t.Fatalf("[incident-war-room-default-observers] unexpected error: %v", err)
+	}
+	if mock.defaultObserverIncID != "inc-1" {
+		t.Fatalf("[incident-war-room-default-observers] expected incident inc-1, got %q", mock.defaultObserverIncID)
+	}
+	if !strings.Contains(out, "Alice") || !strings.Contains(out, "alice@example.com") || !strings.Contains(out, "Total: 1") {
+		t.Fatalf("[incident-war-room-default-observers] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomList(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "list", "inc-1", "--integration", "42")
+	if err != nil {
+		t.Fatalf("[incident-war-room-list] unexpected error: %v", err)
+	}
+	if mock.listInput == nil || mock.listInput.IncidentID != "inc-1" || mock.listInput.IntegrationID != 42 {
+		t.Fatalf("[incident-war-room-list] unexpected input: %#v", mock.listInput)
+	}
+	if !strings.Contains(out, "chat-1") || !strings.Contains(out, "Total: 1") {
+		t.Fatalf("[incident-war-room-list] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomGet(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "get", "chat-1", "--integration", "42")
+	if err != nil {
+		t.Fatalf("[incident-war-room-get] unexpected error: %v", err)
+	}
+	if mock.getInput == nil || mock.getInput.ChatID != "chat-1" || mock.getInput.IntegrationID != 42 {
+		t.Fatalf("[incident-war-room-get] unexpected input: %#v", mock.getInput)
+	}
+	if !strings.Contains(out, "Chat ID:") || !strings.Contains(out, "chat-1") {
+		t.Fatalf("[incident-war-room-get] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomAddMember(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "add-member", "chat-1", "--integration", "42", "--member", "101,202")
+	if err != nil {
+		t.Fatalf("[incident-war-room-add-member] unexpected error: %v", err)
+	}
+	if mock.addMemberInput == nil || mock.addMemberInput.ChatID != "chat-1" || mock.addMemberInput.IntegrationID != 42 {
+		t.Fatalf("[incident-war-room-add-member] unexpected input: %#v", mock.addMemberInput)
+	}
+	if got, want := fmt.Sprint(mock.addMemberInput.MemberIDs), "[101 202]"; got != want {
+		t.Fatalf("[incident-war-room-add-member] expected members %q, got %q", want, got)
+	}
+	if !strings.Contains(out, "Added 2 member(s) to war room chat-1.") {
+		t.Fatalf("[incident-war-room-add-member] unexpected output:\n%s", out)
+	}
+}
+
+func TestCommandIncidentWarRoomDeleteWithForce(t *testing.T) {
+	saveAndResetGlobals(t)
+	mock := &mockIncidentWarRoom{}
+	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+
+	out, err := execCommand("incident", "war-room", "delete", "inc-1", "--integration", "42", "--force")
+	if err != nil {
+		t.Fatalf("[incident-war-room-delete] unexpected error: %v", err)
+	}
+	if mock.deleteInput == nil || mock.deleteInput.IncidentID != "inc-1" || mock.deleteInput.IntegrationID != 42 {
+		t.Fatalf("[incident-war-room-delete] unexpected input: %#v", mock.deleteInput)
+	}
+	if !strings.Contains(out, "Deleted war room for incident inc-1.") {
+		t.Fatalf("[incident-war-room-delete] unexpected output:\n%s", out)
 	}
 }
 

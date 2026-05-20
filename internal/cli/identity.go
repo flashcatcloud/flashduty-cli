@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	flashduty "github.com/flashcatcloud/flashduty-sdk"
 )
 
 type identityResult struct {
@@ -13,7 +15,12 @@ type identityResult struct {
 	Email       string `json:"email,omitempty"`
 }
 
-func resolveIdentity(ctx context.Context, client flashdutyClient) (*identityResult, error) {
+type identityClient interface {
+	GetAccountInfo(ctx context.Context) (*flashduty.AccountInfo, error)
+	GetMemberInfo(ctx context.Context) (*flashduty.MemberInfo, error)
+}
+
+func resolveIdentity(ctx context.Context, client identityClient) (*identityResult, error) {
 	member, memberErr := client.GetMemberInfo(ctx)
 	if memberErr == nil {
 		return &identityResult{
