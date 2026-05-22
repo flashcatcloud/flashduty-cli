@@ -691,6 +691,65 @@ func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
 	}
 }
 
+func TestCommandIncidentLifecycleHelpDocumentsSafetyAndLookupHints(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	tests := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{
+			name: "war-room create integration discovery",
+			args: []string{"incident", "war-room", "create", "--help"},
+			want: []string{
+				"If --integration is omitted",
+				"first war-room-enabled IM integration",
+				"Use 'flashduty member list'",
+			},
+		},
+		{
+			name: "war-room get required integration",
+			args: []string{"incident", "war-room", "get", "--help"},
+			want: []string{
+				"requires --integration",
+				"Use 'flashduty incident war-room list'",
+			},
+		},
+		{
+			name: "remove destructive behavior",
+			args: []string{"incident", "remove", "--help"},
+			want: []string{
+				"Permanently removes incidents",
+				"Prompts for confirmation",
+				"--force",
+			},
+		},
+		{
+			name: "comment limit",
+			args: []string{"incident", "comment", "--help"},
+			want: []string{
+				"up to 100 incidents",
+				"1024 characters",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := execCommand(tt.args...)
+			if err != nil {
+				t.Fatalf("help command returned error: %v", err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(out, want) {
+					t.Fatalf("help output missing %q:\n%s", want, out)
+				}
+			}
+		})
+	}
+}
+
 type mockIncidentLifecycle struct {
 	mockClient
 

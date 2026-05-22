@@ -315,7 +315,13 @@ func newIncidentUnackCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "unack <id> [<id2> ...]",
 		Short: "Cancel incident acknowledgement",
-		Args:  requireArgs("incident_id"),
+		Long: `Cancel acknowledgement for one or more incidents.
+
+Use this when an incident was acknowledged by mistake and should return to the
+unacknowledged state. The command accepts up to 100 incident IDs.`,
+		Example: `  flashduty incident unack inc_123
+  flashduty incident unack inc_123 inc_456`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
@@ -352,7 +358,13 @@ func newIncidentWakeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "wake <id> [<id2> ...]",
 		Short: "Restore notifications for snoozed incidents",
-		Args:  requireArgs("incident_id"),
+		Long: `Wake one or more snoozed incidents.
+
+This cancels snooze and restores normal incident notifications. The command
+accepts up to 100 incident IDs.`,
+		Example: `  flashduty incident wake inc_123
+  flashduty incident wake inc_123 inc_456`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
@@ -652,7 +664,17 @@ func newIncidentAddResponderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-responder <id>",
 		Short: "Add responders to an incident",
-		Args:  requireArgs("incident_id"),
+		Long: `Add one or more responders to an incident.
+
+Responder IDs are person IDs. Use 'flashduty member list' to find the right
+person ID before running this command. Optional notification flags let you ask
+FlashDuty to notify added responders through their preferences, explicit
+personal channels, or a template.`,
+		Example: `  flashduty member list --name "Ada"
+  flashduty incident add-responder inc_123 --person 101,202
+  flashduty incident add-responder inc_123 --person 101 --follow-preference
+  flashduty incident add-responder inc_123 --person 101 --notify-channel voice,sms,email`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			personIDs, err := parseIntSlice(person)
 			if err != nil {
@@ -702,7 +724,14 @@ func newIncidentCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "comment <id> [<id2> ...]",
 		Short: "Add a comment to incident timelines",
-		Args:  requireArgs("incident_id"),
+		Long: `Add a comment to one or more incident timelines.
+
+The command accepts up to 100 incidents. Comment text is required and must be
+at most 1024 characters. Use --mute-reply when the comment should not trigger
+webhook reply behavior.`,
+		Example: `  flashduty incident comment inc_123 --comment "Rollback started"
+  flashduty incident comment inc_123 inc_456 --comment "Mitigation deployed" --mute-reply`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
@@ -740,7 +769,13 @@ func newIncidentDisableMergeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "disable-merge <id> [<id2> ...]",
 		Short: "Disable automatic merging for incidents",
-		Args:  requireArgs("incident_id"),
+		Long: `Disable automatic alert merging for one or more incidents.
+
+Use this when an incident should stay isolated and must not absorb additional
+matching alerts automatically. The command accepts up to 100 incident IDs.`,
+		Example: `  flashduty incident disable-merge inc_123
+  flashduty incident disable-merge inc_123 inc_456`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if err := ctx.Client.DisableIncidentMerge(cmdContext(ctx.Cmd), ctx.Args); err != nil {
@@ -759,7 +794,14 @@ func newIncidentRemoveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <id> [<id2> ...]",
 		Short: "Permanently remove incidents",
-		Args:  requireArgs("incident_id"),
+		Long: `Permanently removes incidents from FlashDuty.
+
+This is a destructive operation. Prompts for confirmation in an interactive
+terminal unless --force is set. In non-interactive mode the command aborts
+unless --force is provided. The command accepts up to 100 incident IDs.`,
+		Example: `  flashduty incident remove inc_123
+  flashduty incident remove inc_123 inc_456 --force`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
@@ -787,6 +829,14 @@ func newIncidentWarRoomCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "war-room",
 		Short: "Manage incident war rooms",
+		Long: `Manage incident war rooms.
+
+War rooms are IM chats attached to incidents. Creating a war room can invite
+explicit members and, when requested, historical responders as observers.
+Commands that operate on an existing IM chat require the IM integration ID.`,
+		Example: `  flashduty incident war-room create inc_123 --add-observers
+  flashduty incident war-room list inc_123
+  flashduty incident war-room get chat_123 --integration 42`,
 	}
 	cmd.AddCommand(newIncidentWarRoomCreateCmd())
 	cmd.AddCommand(newIncidentWarRoomListCmd())
@@ -805,7 +855,16 @@ func newIncidentWarRoomCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <incident_id>",
 		Short: "Create an incident war room",
-		Args:  requireArgs("incident_id"),
+		Long: `Create an incident war room in a configured IM integration.
+
+If --integration is omitted, the CLI uses the first war-room-enabled IM
+integration returned by FlashDuty. Use --member to invite person IDs directly.
+Use 'flashduty member list' to find person IDs. Use --add-observers to also
+invite historical responders selected by FlashDuty.`,
+		Example: `  flashduty incident war-room create inc_123
+  flashduty incident war-room create inc_123 --integration 42 --member 101,202
+  flashduty incident war-room create inc_123 --add-observers`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memberIDs, err := parseIntSlice(member)
 			if err != nil {
@@ -835,7 +894,7 @@ func newIncidentWarRoomCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID; if omitted, first war-room-enabled IM integration is used")
 	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs to invite")
 	cmd.Flags().BoolVar(&addObservers, "add-observers", false, "Invite historical responders as extra war-room members")
 	return cmd
@@ -866,7 +925,13 @@ func newIncidentWarRoomListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <incident_id>",
 		Short: "List incident war rooms",
-		Args:  requireArgs("incident_id"),
+		Long: `List war rooms attached to an incident.
+
+Use this to discover chat IDs and integration IDs for follow-up commands such
+as get, delete, and add-member.`,
+		Example: `  flashduty incident war-room list inc_123
+  flashduty incident war-room list inc_123 --integration 42`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				result, err := ctx.Client.ListIncidentWarRooms(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomListInput{
@@ -891,7 +956,14 @@ func newIncidentWarRoomGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <chat_id>",
 		Short: "Get incident war room details",
-		Args:  requireArgs("chat_id"),
+		Long: `Get incident war room details by IM chat ID.
+
+This command requires --integration because chat IDs are scoped to an IM
+integration. Use 'flashduty incident war-room list' with an incident ID to find
+the chat ID and integration ID for an incident.`,
+		Example: `  flashduty incident war-room list inc_123
+  flashduty incident war-room get chat_123 --integration 42`,
+		Args: requireArgs("chat_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				warRoom, err := ctx.Client.GetIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomDetailInput{
@@ -910,7 +982,7 @@ func newIncidentWarRoomGetCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID (required)")
 	_ = cmd.MarkFlagRequired("integration")
 	return cmd
 }
@@ -922,7 +994,16 @@ func newIncidentWarRoomDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <incident_id>",
 		Short: "Delete an incident war room",
-		Args:  requireArgs("incident_id"),
+		Long: `Delete the war room attached to an incident for an IM integration.
+
+This is a destructive operation. Prompts for confirmation in an interactive
+terminal unless --force is set. In non-interactive mode the command aborts
+unless --force is provided. Use 'flashduty incident war-room list' to find the
+integration ID.`,
+		Example: `  flashduty incident war-room list inc_123
+  flashduty incident war-room delete inc_123 --integration 42
+  flashduty incident war-room delete inc_123 --integration 42 --force`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0])) {
@@ -941,7 +1022,7 @@ func newIncidentWarRoomDeleteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
 	_ = cmd.MarkFlagRequired("integration")
 	return cmd
@@ -954,7 +1035,16 @@ func newIncidentWarRoomAddMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-member <chat_id>",
 		Short: "Add members to an incident war room",
-		Args:  requireArgs("chat_id"),
+		Long: `Add members to an existing incident war room by IM chat ID.
+
+This command requires --integration because chat IDs are scoped to an IM
+integration. Member IDs are person IDs. Use 'flashduty member list' to find
+person IDs, and 'flashduty incident war-room list' to find chat and integration
+IDs.`,
+		Example: `  flashduty member list --name "Ada"
+  flashduty incident war-room list inc_123
+  flashduty incident war-room add-member chat_123 --integration 42 --member 101,202`,
+		Args: requireArgs("chat_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memberIDs, err := parseIntSlice(member)
 			if err != nil {
@@ -977,8 +1067,8 @@ func newIncidentWarRoomAddMemberCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID")
-	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs")
+	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID (required)")
+	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs (required)")
 	_ = cmd.MarkFlagRequired("integration")
 	_ = cmd.MarkFlagRequired("member")
 	return cmd
@@ -988,7 +1078,13 @@ func newIncidentWarRoomDefaultObserversCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "default-observers <incident_id>",
 		Short: "Preview historical responders for war-room observer invitation",
-		Args:  requireArgs("incident_id"),
+		Long: `Preview historical responders eligible for war-room observer invitation.
+
+This is a read-only preview of the users FlashDuty would add when
+--add-observers is used during war-room creation.`,
+		Example: `  flashduty incident war-room default-observers inc_123
+  flashduty incident war-room create inc_123 --add-observers`,
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				observers, err := ctx.Client.GetIncidentWarRoomDefaultObservers(cmdContext(ctx.Cmd), ctx.Args[0])
