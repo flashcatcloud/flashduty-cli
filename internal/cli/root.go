@@ -30,7 +30,20 @@ type flashdutyClient interface {
 	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (any, error)
 	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
 	AckIncidents(ctx context.Context, incidentIDs []string) error
+	UnackIncidents(ctx context.Context, incidentIDs []string) error
 	CloseIncidents(ctx context.Context, incidentIDs []string) error
+	WakeIncidents(ctx context.Context, incidentIDs []string) error
+	RemoveIncidents(ctx context.Context, incidentIDs []string) error
+	DisableIncidentMerge(ctx context.Context, incidentIDs []string) error
+	CommentIncidents(ctx context.Context, input *flashduty.IncidentCommentInput) error
+	AddIncidentResponders(ctx context.Context, input *flashduty.IncidentAddResponderInput) error
+	CreateIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error)
+	ListIncidentWarRooms(ctx context.Context, input *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error)
+	GetIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error)
+	DeleteIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDeleteInput) error
+	AddIncidentWarRoomMembers(ctx context.Context, input *flashduty.IncidentWarRoomAddMemberInput) error
+	GetIncidentWarRoomDefaultObservers(ctx context.Context, incidentID string) ([]flashduty.IncidentWarRoomObserver, error)
+	ListWarRoomEnabledDataSources(ctx context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error)
 	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
 	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
 	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
@@ -194,7 +207,12 @@ func defaultNewClient() (flashdutyClient, error) {
 		opts = append(opts, flashduty.WithBaseURL(cfg.BaseURL))
 	}
 
-	return flashduty.NewClient(cfg.AppKey, opts...)
+	sdkClient, err := flashduty.NewClient(cfg.AppKey, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return sdkClient, nil
 }
 
 func loadResolvedConfig() (*config.Config, error) {
