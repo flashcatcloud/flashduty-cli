@@ -98,6 +98,9 @@ type flashdutyClient interface {
 	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
 	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
 	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
+
+	// === CLI Phase 1: MCP ===
+	CreateMCPServer(ctx context.Context, input *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error)
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
@@ -176,6 +179,9 @@ func init() {
 
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newUpdateCmd())
+
+	// CLI Phase 1
+	rootCmd.AddCommand(newMCPCmd())
 }
 
 // Execute runs the root command.

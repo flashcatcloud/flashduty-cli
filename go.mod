@@ -2,6 +2,8 @@ module github.com/flashcatcloud/flashduty-cli
 
 go 1.25.1
 
+replace github.com/flashcatcloud/flashduty-sdk => /Users/ysy/go/src/github.com/flashcatcloud/flashduty-sdk
+
 require (
 	github.com/flashcatcloud/flashduty-sdk v0.9.0
 	github.com/mattn/go-runewidth v0.0.23

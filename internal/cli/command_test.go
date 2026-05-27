@@ -282,6 +282,10 @@ func (m *mockClient) DeleteTeam(context.Context, *flashduty.TeamDeleteInput) err
 	return fmt.Errorf("mockClient: DeleteTeam not implemented")
 }
 
+func (m *mockClient) CreateMCPServer(context.Context, *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error) {
+	return nil, fmt.Errorf("mockClient: CreateMCPServer not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.
