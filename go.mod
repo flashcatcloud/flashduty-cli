@@ -2,10 +2,8 @@ module github.com/flashcatcloud/flashduty-cli
 
 go 1.25.1
 
-replace github.com/flashcatcloud/flashduty-sdk => /Users/ysy/go/src/github.com/flashcatcloud/flashduty-sdk
-
 require (
-	github.com/flashcatcloud/flashduty-sdk v0.9.0
+	github.com/flashcatcloud/flashduty-sdk v0.9.1-0.20260527160039-3203385df5ad
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
