@@ -59,7 +59,7 @@ func incidentColumns() []output.Column {
 }
 
 func newIncidentListCmd() *cobra.Command {
-	var progress, severity, title, since, until string
+	var progress, severity, query, since, until string
 	var channelID int64
 	var limit, page int
 
@@ -83,7 +83,7 @@ func newIncidentListCmd() *cobra.Command {
 					ChannelID:     channelID,
 					StartTime:     startTime,
 					EndTime:       endTime,
-					Title:         title,
+					Query:         query,
 					Limit:         limit,
 					Page:          page,
 					IncludeAlerts: false,
@@ -100,7 +100,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&progress, "progress", "", "Filter: Triggered,Processing,Closed")
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
-	cmd.Flags().StringVar(&title, "title", "", "Search by title keyword")
+	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
