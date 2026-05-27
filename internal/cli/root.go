@@ -105,6 +105,10 @@ type flashdutyClient interface {
 	// === CLI Phase 2: monit-query ===
 	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)
 	MonitQueryRows(ctx context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error)
+
+	// === CLI Phase 2: monit-agent ===
+	MonitAgentCatalog(ctx context.Context, input *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error)
+	MonitAgentInvoke(ctx context.Context, input *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error)
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
@@ -189,6 +193,7 @@ func init() {
 
 	// CLI Phase 2
 	rootCmd.AddCommand(newMonitQueryCmd())
+	rootCmd.AddCommand(newMonitAgentCmd())
 }
 
 // Execute runs the root command.
