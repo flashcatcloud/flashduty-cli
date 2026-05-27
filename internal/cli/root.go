@@ -101,6 +101,10 @@ type flashdutyClient interface {
 
 	// === CLI Phase 1: MCP ===
 	CreateMCPServer(ctx context.Context, input *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error)
+
+	// === CLI Phase 2: monit-query ===
+	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)
+	MonitQueryRows(ctx context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error)
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
@@ -182,6 +186,9 @@ func init() {
 
 	// CLI Phase 1
 	rootCmd.AddCommand(newMCPCmd())
+
+	// CLI Phase 2
+	rootCmd.AddCommand(newMonitQueryCmd())
 }
 
 // Execute runs the root command.

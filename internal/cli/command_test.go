@@ -286,6 +286,15 @@ func (m *mockClient) CreateMCPServer(context.Context, *flashduty.CreateMCPServer
 	return nil, fmt.Errorf("mockClient: CreateMCPServer not implemented")
 }
 
+// CLI Phase 2: monit-query
+func (m *mockClient) MonitQueryDiagnose(context.Context, *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitQueryDiagnose not implemented")
+}
+
+func (m *mockClient) MonitQueryRows(context.Context, *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitQueryRows not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.
