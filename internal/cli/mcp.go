@@ -36,10 +36,10 @@ func newMCPCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Register an MCP server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(serverName) == "" {
-				return fmt.Errorf("--server-name is required")
-			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if strings.TrimSpace(serverName) == "" {
+					return fmt.Errorf("--server-name is required")
+				}
 				envMap, err := parseKVSlice(envEntries)
 				if err != nil {
 					return fmt.Errorf("invalid --env: %w", err)
