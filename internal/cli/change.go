@@ -21,7 +21,7 @@ func newChangeCmd() *cobra.Command {
 }
 
 func newChangeListCmd() *cobra.Command {
-	var channelID int64
+	var channel string
 	var since, until string
 	var limit, page int
 
@@ -39,13 +39,22 @@ func newChangeListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.ListChanges(cmdContext(ctx.Cmd), &flashduty.ListChangesInput{
-					ChannelID: channelID,
+				input := &flashduty.ListChangesInput{
 					StartTime: startTime,
 					EndTime:   endTime,
 					Limit:     limit,
 					Page:      page,
-				})
+				}
+
+				if channel != "" {
+					channelIDs, err := parseIntSlice(channel)
+					if err != nil {
+						return fmt.Errorf("invalid --channel: %w", err)
+					}
+					input.ChannelIDs = channelIDs
+				}
+
+				result, err := ctx.Client.ListChanges(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -63,7 +72,7 @@ func newChangeListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
+	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
