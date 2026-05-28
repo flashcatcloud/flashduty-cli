@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,8 +22,11 @@ func newWhoamiCmd() *cobra.Command {
 			}
 
 			w := cmd.OutOrStdout()
-			if flagJSON {
-				out, _ := json.MarshalIndent(id, "", "  ")
+			if currentOutputFormat().Structured() {
+				out, err := marshalStructured(id)
+				if err != nil {
+					return err
+				}
 				_, _ = fmt.Fprintln(w, string(out))
 				return nil
 			}

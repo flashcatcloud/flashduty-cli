@@ -124,7 +124,7 @@ func newIncidentGetCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(result.Incidents, nil)
 				}
 
@@ -973,7 +973,7 @@ the chat ID and integration ID for an incident.`,
 				if err != nil {
 					return err
 				}
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(warRoom, nil)
 				}
 				printWarRoomDetail(ctx.Writer, warRoom)
@@ -1194,7 +1194,7 @@ func newIncidentDetailCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(result.Incident, nil)
 				}
 

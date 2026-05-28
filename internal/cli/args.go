@@ -39,9 +39,10 @@ func requireExactlyOneFlag(cmd *cobra.Command, flagNames ...string) error {
 }
 
 // confirmAction prompts the user for confirmation in interactive terminals.
-// Returns true if the user confirms, or if running in non-interactive / JSON / --force mode.
+// Returns true if the user confirms, or if running in non-interactive /
+// structured-output (JSON/TOON) / --force mode.
 func confirmAction(cmd *cobra.Command, message string) bool {
-	if flagJSON {
+	if currentOutputFormat().Structured() {
 		return true
 	}
 	force, _ := cmd.Flags().GetBool("force")
