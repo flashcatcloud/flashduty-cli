@@ -3,6 +3,9 @@
 [English](README.md) | 中文
 
 [![License](https://img.shields.io/github/license/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5&label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5)](https://github.com/flashcatcloud/flashduty-cli/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/flashcatcloud/flashduty-cli/ci.yml?style=flat-square&branch=main&label=CI)](https://github.com/flashcatcloud/flashduty-cli/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/flashcatcloud/flashduty-cli?style=flat-square)](https://goreportcard.com/report/github.com/flashcatcloud/flashduty-cli)
 
 [Flashduty](https://flashcat.cloud) 平台的命令行工具。在终端中管理故障、值班、状态页等。
 
@@ -285,6 +288,16 @@ make help        # 显示所有可用目标
 | [cobra](https://github.com/spf13/cobra) | CLI 框架 |
 | [yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | 配置文件解析 |
 | [x/term](https://pkg.go.dev/golang.org/x/term) | 密码输入脱敏 |
+
+---
+
+## 参与贡献
+
+欢迎贡献代码！提交 Pull Request 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并遵守我们的[行为准则](CODE_OF_CONDUCT.md)。
+
+- [报告缺陷或提交需求](https://github.com/flashcatcloud/flashduty-cli/issues/new/choose)
+- [获取帮助与支持](SUPPORT.md)
+- [报告安全漏洞](SECURITY.md)
 
 ---
 

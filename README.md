@@ -3,6 +3,9 @@
 English | [中文](README_zh.md)
 
 [![License](https://img.shields.io/github/license/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5&label=License)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/flashcatcloud/flashduty-cli?style=flat-square&color=24bfa5)](https://github.com/flashcatcloud/flashduty-cli/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/flashcatcloud/flashduty-cli/ci.yml?style=flat-square&branch=main&label=CI)](https://github.com/flashcatcloud/flashduty-cli/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/flashcatcloud/flashduty-cli?style=flat-square)](https://goreportcard.com/report/github.com/flashcatcloud/flashduty-cli)
 
 A command-line interface for the [Flashduty](https://flashcat.cloud) platform. Manage incidents, on-call schedules, status pages, and more from your terminal.
 
@@ -304,6 +307,16 @@ make help        # Show all available targets
 | [cobra](https://github.com/spf13/cobra) | CLI framework |
 | [yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | Config file parsing |
 | [x/term](https://pkg.go.dev/golang.org/x/term) | Masked password input |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and note our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+- [Report a bug or request a feature](https://github.com/flashcatcloud/flashduty-cli/issues/new/choose)
+- [Get help and support](SUPPORT.md)
+- [Report a security vulnerability](SECURITY.md)
 
 ---
 
