@@ -290,6 +290,7 @@ func currentOutputFormat() output.Format {
 // FormatJSON (byte-compatible with the legacy --json path) and TOON via the SDK
 // for FormatTOON.
 func marshalStructured(v any) ([]byte, error) {
+	v = output.HumanizeTimestamps(v)
 	if currentOutputFormat() == output.FormatTOON {
 		return flashduty.Marshal(v, flashduty.OutputFormatTOON)
 	}

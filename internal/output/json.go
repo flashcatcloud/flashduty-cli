@@ -12,7 +12,7 @@ type JSONPrinter struct {
 }
 
 func (p *JSONPrinter) Print(data any, columns []Column) error {
-	out, err := json.MarshalIndent(data, "", "  ")
+	out, err := json.MarshalIndent(HumanizeTimestamps(data), "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}

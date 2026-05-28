@@ -16,7 +16,7 @@ type TOONPrinter struct {
 }
 
 func (p *TOONPrinter) Print(data any, _ []Column) error {
-	out, err := sdk.Marshal(data, sdk.OutputFormatTOON)
+	out, err := sdk.Marshal(HumanizeTimestamps(data), sdk.OutputFormatTOON)
 	if err != nil {
 		return fmt.Errorf("failed to marshal TOON: %w", err)
 	}
