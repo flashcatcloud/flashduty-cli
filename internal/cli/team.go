@@ -114,7 +114,7 @@ Examples:
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(team, nil)
 				}
 

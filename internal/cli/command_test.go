@@ -282,6 +282,28 @@ func (m *mockClient) DeleteTeam(context.Context, *flashduty.TeamDeleteInput) err
 	return fmt.Errorf("mockClient: DeleteTeam not implemented")
 }
 
+func (m *mockClient) CreateMCPServer(context.Context, *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error) {
+	return nil, fmt.Errorf("mockClient: CreateMCPServer not implemented")
+}
+
+// CLI Phase 2: monit-query
+func (m *mockClient) MonitQueryDiagnose(context.Context, *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitQueryDiagnose not implemented")
+}
+
+func (m *mockClient) MonitQueryRows(context.Context, *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitQueryRows not implemented")
+}
+
+// CLI Phase 2: monit-agent
+func (m *mockClient) MonitAgentCatalog(context.Context, *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitAgentCatalog not implemented")
+}
+
+func (m *mockClient) MonitAgentInvoke(context.Context, *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error) {
+	return nil, fmt.Errorf("mockClient: MonitAgentInvoke not implemented")
+}
+
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
 // t.Cleanup.
@@ -352,6 +374,16 @@ func resetFlagSet(flags *pflag.FlagSet) {
 		case "bool", "int", "int64", "string":
 			_ = flag.Value.Set(flag.DefValue)
 			flag.Changed = false
+		case "stringSlice", "stringArray":
+			// Slice-valued flags accumulate across Parse() calls; clear them
+			// explicitly so a later test isn't observing the previous test's
+			// repeated --flag entries. pflag's SliceValue / Append interfaces
+			// don't expose a "reset to default" — Set("") would append an
+			// empty entry, so we use Replace([]) to truly empty the slice.
+			if sv, ok := flag.Value.(pflag.SliceValue); ok {
+				_ = sv.Replace([]string{})
+				flag.Changed = false
+			}
 		}
 	})
 }

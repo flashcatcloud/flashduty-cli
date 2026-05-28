@@ -136,7 +136,7 @@ func newStatusPageMigrateCancelCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					statusCmd := "flashduty statuspage migrate status --job-id " + jobID
 					return ctx.Printer.Print(map[string]any{
 						"job_id":       jobID,
@@ -176,7 +176,7 @@ func validateMigrationSource(source string) error {
 }
 
 func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID string, targetPageID int64, result *flashduty.StartStatusPageMigrationOutput) error {
-	if ctx.JSON {
+	if ctx.Structured() {
 		payload := map[string]any{
 			"type":           migrationType,
 			"source":         source,
@@ -219,7 +219,7 @@ func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID st
 }
 
 func printMigrationStatus(ctx *RunContext, job *flashduty.StatusPageMigrationJob) error {
-	if ctx.JSON {
+	if ctx.Structured() {
 		return ctx.Printer.Print(job, nil)
 	}
 

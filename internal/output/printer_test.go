@@ -21,7 +21,7 @@ func testColumns() []Column {
 // Test 43: NewPrinter with jsonMode=true returns a JSONPrinter and produces valid JSON output.
 func TestNewPrinter_JSONMode(t *testing.T) {
 	var buf bytes.Buffer
-	p := NewPrinter(true, false, &buf)
+	p := NewPrinter(FormatJSON, false, &buf)
 
 	// Verify the concrete type is *JSONPrinter.
 	if _, ok := p.(*JSONPrinter); !ok {
@@ -51,7 +51,7 @@ func TestNewPrinter_JSONMode(t *testing.T) {
 // Test 44: NewPrinter with jsonMode=false returns a TablePrinter and produces tab-separated header output.
 func TestNewPrinter_TableMode(t *testing.T) {
 	var buf bytes.Buffer
-	p := NewPrinter(false, false, &buf)
+	p := NewPrinter(FormatTable, false, &buf)
 
 	// Verify the concrete type is *TablePrinter.
 	if _, ok := p.(*TablePrinter); !ok {
@@ -91,13 +91,13 @@ func TestNewPrinter_NilWriterDefaults(t *testing.T) {
 		}
 	}()
 
-	p := NewPrinter(false, false, nil)
+	p := NewPrinter(FormatTable, false, nil)
 	if p == nil {
 		t.Fatal("expected non-nil Printer, got nil")
 	}
 
 	// Also verify the JSON path with nil writer.
-	pJSON := NewPrinter(true, false, nil)
+	pJSON := NewPrinter(FormatJSON, false, nil)
 	if pJSON == nil {
 		t.Fatal("expected non-nil JSON Printer, got nil")
 	}
@@ -107,7 +107,7 @@ func TestNewPrinter_NilWriterDefaults(t *testing.T) {
 // (noTrunc is irrelevant for JSON mode).
 func TestNewPrinter_NoTruncIrrelevantForJSON(t *testing.T) {
 	var buf bytes.Buffer
-	p := NewPrinter(true, true, &buf)
+	p := NewPrinter(FormatJSON, true, &buf)
 
 	// Verify it is still a JSONPrinter regardless of noTrunc.
 	if _, ok := p.(*JSONPrinter); !ok {

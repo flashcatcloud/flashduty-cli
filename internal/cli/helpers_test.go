@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -124,4 +125,41 @@ func TestOrDash(t *testing.T) {
 // addressed in Phase 3 when an injection seam is introduced.
 func TestMemberPersonInfosDisplay(t *testing.T) {
 	t.Skip("requires injection seam for fake client (Phase 3)")
+}
+
+func TestParseKVSlice(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   []string
+		want    map[string]string
+		wantErr bool
+	}{
+		{"nil input", nil, nil, false},
+		{"empty input", []string{}, nil, false},
+		{"single pair", []string{"K=V"}, map[string]string{"K": "V"}, false},
+		{"multiple pairs", []string{"A=1", "B=2"}, map[string]string{"A": "1", "B": "2"}, false},
+		// Value contains additional '=' signs — only the first splits key from value.
+		{"value contains equals", []string{"K=a=b=c"}, map[string]string{"K": "a=b=c"}, false},
+		{"empty value", []string{"K="}, map[string]string{"K": ""}, false},
+		// Empty-key is the current behaviour when the entry starts with '='; documented here.
+		{"empty key", []string{"=V"}, map[string]string{"": "V"}, false},
+		{"missing equals", []string{"NOEQ"}, nil, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseKVSlice(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

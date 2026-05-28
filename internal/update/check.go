@@ -15,13 +15,13 @@ import (
 )
 
 const (
-	repoOwner     = "flashcatcloud"
-	repoName      = "flashduty-cli"
-	checkInterval = 24 * time.Hour
-	httpTimeout   = 5 * time.Second
-	stateFileName = "state.yaml"
-	installShURL  = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.sh"
-	installPs1URL = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.ps1"
+	repoOwner        = "flashcatcloud"
+	repoName         = "flashduty-cli"
+	checkInterval    = 24 * time.Hour
+	httpTimeout      = 5 * time.Second
+	stateFileName    = "state.yaml"
+	installShURL     = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.sh"
+	installPs1URL    = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.ps1"
 	maxResponseBytes = 1 << 20 // 1MB
 )
 

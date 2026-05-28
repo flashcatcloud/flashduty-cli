@@ -38,7 +38,7 @@ func newTemplateGetPresetCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(result, nil)
 				}
 				_, _ = fmt.Fprintln(ctx.Writer, result.TemplateCode)
@@ -75,7 +75,7 @@ func newTemplateValidateCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(result, nil)
 				}
 

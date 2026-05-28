@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
@@ -98,16 +99,28 @@ type flashdutyClient interface {
 	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
 	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
 	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
+
+	// === CLI Phase 1: MCP ===
+	CreateMCPServer(ctx context.Context, input *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error)
+
+	// === CLI Phase 2: monit-query ===
+	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)
+	MonitQueryRows(ctx context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error)
+
+	// === CLI Phase 2: monit-agent ===
+	MonitAgentCatalog(ctx context.Context, input *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error)
+	MonitAgentInvoke(ctx context.Context, input *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error)
 }
 
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
 var newClientFn = defaultNewClient
 
 var (
-	flagJSON    bool
-	flagNoTrunc bool
-	flagAppKey  string
-	flagBaseURL string
+	flagJSON         bool
+	flagNoTrunc      bool
+	flagAppKey       string
+	flagBaseURL      string
+	flagOutputFormat string
 )
 
 var updateNotice *update.CheckResult
@@ -118,12 +131,15 @@ var rootCmd = &cobra.Command{
 	Long:          "Flashduty CLI - incident management from your terminal.\n\nGet started by running 'flashduty login' to authenticate.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
-	PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		if _, err := resolveOutputFormat(); err != nil {
+			return err
+		}
 		if cmd.CommandPath() == "flashduty update" {
-			return
+			return nil
 		}
 		if !term.IsTerminal(int(os.Stderr.Fd())) {
-			return
+			return nil
 		}
 		updateNotice = update.StateHasUpdate(versionStr)
 		if update.ShouldCheck(versionStr) {
@@ -131,6 +147,7 @@ var rootCmd = &cobra.Command{
 				_, _ = update.CheckForUpdate(versionStr)
 			}()
 		}
+		return nil
 	},
 	PersistentPostRun: func(_ *cobra.Command, _ []string) {
 		if updateNotice == nil {
@@ -143,7 +160,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "Output as JSON")
+	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "Output as JSON (alias for --output-format json)")
+	rootCmd.PersistentFlags().StringVar(&flagOutputFormat, "output-format", "", "Output format: table (default), json, or toon (compact, fewer tokens)")
 	rootCmd.PersistentFlags().BoolVar(&flagNoTrunc, "no-trunc", false, "Do not truncate table output")
 	rootCmd.PersistentFlags().StringVar(&flagAppKey, "app-key", "", "Override app key")
 	rootCmd.PersistentFlags().StringVar(&flagBaseURL, "base-url", "", "Override base URL")
@@ -176,6 +194,13 @@ func init() {
 
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newUpdateCmd())
+
+	// CLI Phase 1
+	rootCmd.AddCommand(newMCPCmd())
+
+	// CLI Phase 2
+	rootCmd.AddCommand(newMonitQueryCmd())
+	rootCmd.AddCommand(newMonitAgentCmd())
 }
 
 // Execute runs the root command.
@@ -231,12 +256,52 @@ func loadResolvedConfig() (*config.Config, error) {
 	return cfg, nil
 }
 
+// resolveOutputFormat maps the global flags to an output.Format. --output-format
+// wins when set; otherwise --json selects JSON; otherwise the human table view.
+// An unrecognized --output-format value is an error so a typo fails fast rather
+// than silently falling back.
+func resolveOutputFormat() (output.Format, error) {
+	switch strings.ToLower(strings.TrimSpace(flagOutputFormat)) {
+	case "table":
+		return output.FormatTable, nil
+	case "json":
+		return output.FormatJSON, nil
+	case "toon":
+		return output.FormatTOON, nil
+	case "":
+		if flagJSON {
+			return output.FormatJSON, nil
+		}
+		return output.FormatTable, nil
+	default:
+		return output.FormatTable, fmt.Errorf("invalid --output-format %q (want table, json, or toon)", flagOutputFormat)
+	}
+}
+
+// currentOutputFormat returns the resolved format, defaulting to table on the
+// error path (the error is surfaced once in PersistentPreRunE, so call sites
+// that already passed validation can ignore it).
+func currentOutputFormat() output.Format {
+	f, _ := resolveOutputFormat()
+	return f
+}
+
+// marshalStructured serializes v for machine-readable output: indented JSON for
+// FormatJSON (byte-compatible with the legacy --json path) and TOON via the SDK
+// for FormatTOON.
+func marshalStructured(v any) ([]byte, error) {
+	if currentOutputFormat() == output.FormatTOON {
+		return flashduty.Marshal(v, flashduty.OutputFormatTOON)
+	}
+	return json.MarshalIndent(v, "", "  ")
+}
+
 // newPrinter creates a Printer based on global flags.
 func newPrinter(w io.Writer) output.Printer {
 	if w == nil {
 		w = os.Stdout
 	}
-	return output.NewPrinter(flagJSON, flagNoTrunc, w)
+	return output.NewPrinter(currentOutputFormat(), flagNoTrunc, w)
 }
 
 // cmdContext returns the command's context.
@@ -244,13 +309,14 @@ func cmdContext(cmd *cobra.Command) context.Context {
 	return cmd.Context()
 }
 
-// writeResult prints a message as plain text or JSON depending on the --json flag.
+// writeResult prints a success message as plain text, or as a structured
+// {"message": ...} object in JSON/TOON mode.
 func writeResult(w io.Writer, message string) {
 	if w == nil {
 		w = os.Stdout
 	}
-	if flagJSON {
-		out, _ := json.MarshalIndent(map[string]string{"message": message}, "", "  ")
+	if currentOutputFormat().Structured() {
+		out, _ := marshalStructured(map[string]string{"message": message})
 		_, _ = fmt.Fprintln(w, string(out))
 	} else {
 		_, _ = fmt.Fprintln(w, message)

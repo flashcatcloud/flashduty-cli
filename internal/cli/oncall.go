@@ -227,7 +227,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.JSON {
+				if ctx.Structured() {
 					return ctx.Printer.Print(result.Schedule, nil)
 				}
 

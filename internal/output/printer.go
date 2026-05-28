@@ -17,13 +17,18 @@ type Printer interface {
 	Print(data any, columns []Column) error
 }
 
-// NewPrinter returns a table or JSON printer based on mode flags.
-func NewPrinter(jsonMode bool, noTrunc bool, w io.Writer) Printer {
+// NewPrinter returns the printer for the requested output format. noTrunc only
+// affects the table printer; structured formats (JSON/TOON) never truncate.
+func NewPrinter(format Format, noTrunc bool, w io.Writer) Printer {
 	if w == nil {
 		w = os.Stdout
 	}
-	if jsonMode {
+	switch format {
+	case FormatJSON:
 		return &JSONPrinter{w: w}
+	case FormatTOON:
+		return &TOONPrinter{w: w}
+	default:
+		return &TablePrinter{w: w, noTrunc: noTrunc}
 	}
-	return &TablePrinter{w: w, noTrunc: noTrunc}
 }

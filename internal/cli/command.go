@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -18,8 +17,13 @@ type RunContext struct {
 	Args    []string
 	Writer  io.Writer
 	Printer output.Printer
-	JSON    bool
+	Format  output.Format
 }
+
+// Structured reports whether output should be a machine-readable dump (JSON or
+// TOON) rather than the human table/detail view. Command handlers branch on
+// this to suppress detail views, footers, and interactive prompts.
+func (ctx *RunContext) Structured() bool { return ctx.Format.Structured() }
 
 // runCommand creates a client and RunContext, then calls fn.
 // It centralises setup that every API-backed command repeats.
@@ -34,7 +38,7 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 		Args:    args,
 		Writer:  cmd.OutOrStdout(),
 		Printer: newPrinter(cmd.OutOrStdout()),
-		JSON:    flagJSON,
+		Format:  currentOutputFormat(),
 	}
 	return fn(ctx)
 }
@@ -44,7 +48,7 @@ func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, t
 	if err := ctx.Printer.Print(items, cols); err != nil {
 		return err
 	}
-	if !ctx.JSON {
+	if !ctx.Structured() {
 		_, _ = fmt.Fprintf(ctx.Writer, "Showing %d results (page %d, total %d).\n", count, page, total)
 	}
 	return nil
@@ -55,7 +59,7 @@ func (ctx *RunContext) PrintTotal(items any, cols []output.Column, total int) er
 	if err := ctx.Printer.Print(items, cols); err != nil {
 		return err
 	}
-	if !ctx.JSON {
+	if !ctx.Structured() {
 		_, _ = fmt.Fprintf(ctx.Writer, "Total: %d\n", total)
 	}
 	return nil
@@ -66,17 +70,18 @@ func (ctx *RunContext) WriteResult(message string) {
 	writeResult(ctx.Writer, message)
 }
 
-// WriteResultJSON outputs structured data as JSON in --json mode,
-// or a human-readable message in table mode.
+// WriteResultJSON outputs structured data in JSON or TOON mode, or a
+// human-readable message in table mode. JSON stays indented (byte-compatible
+// with the legacy --json path); TOON routes through the SDK marshaller.
 func (ctx *RunContext) WriteResultJSON(data any, humanMessage string) error {
-	if ctx.JSON {
-		out, err := json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal JSON: %w", err)
-		}
-		_, _ = fmt.Fprintln(ctx.Writer, string(out))
+	if !ctx.Structured() {
+		_, _ = fmt.Fprintln(ctx.Writer, humanMessage)
 		return nil
 	}
-	_, _ = fmt.Fprintln(ctx.Writer, humanMessage)
+	out, err := marshalStructured(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal output: %w", err)
+	}
+	_, _ = fmt.Fprintln(ctx.Writer, string(out))
 	return nil
 }

@@ -59,14 +59,14 @@ func newMemberListCmd() *cobra.Command {
 						return err
 					}
 				} else {
-					if ctx.JSON {
+					if ctx.Structured() {
 						return ctx.Printer.Print([]struct{}{}, nil)
 					}
 					_, _ = fmt.Fprintln(ctx.Writer, "No members found.")
 					return nil
 				}
 
-				if !ctx.JSON {
+				if !ctx.Structured() {
 					_, _ = fmt.Fprintf(ctx.Writer, "Total: %d\n", result.Total)
 				}
 				return nil
