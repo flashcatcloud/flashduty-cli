@@ -1,12 +1,32 @@
 #!/bin/sh
 # Flashduty CLI installer
 # Usage: curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+#
+# Environment:
+#   FLASHDUTY_VERSION      Install a specific version (e.g. v0.1.2). Default: latest.
+#   FLASHDUTY_INSTALL_DIR  Install directory. Default: /usr/local/bin.
+#   MIRROR_URL             Fetch release assets from this https mirror prefix
+#                          instead of github.com. The mirror must replicate
+#                          GitHub's release layout
+#                          (<MIRROR_URL>/releases/download/<tag>/<asset>) and expose
+#                          a plain-text <MIRROR_URL>/releases/latest file containing
+#                          the latest tag.
 set -e
 
 REPO="flashcatcloud/flashduty-cli"
 BINARY="flashduty-cli"
 INSTALLED_NAME="flashduty"
 INSTALL_DIR="${FLASHDUTY_INSTALL_DIR:-/usr/local/bin}"
+
+# When set, all release downloads are fetched from this prefix instead of github.com.
+MIRROR_URL="${MIRROR_URL:-}"
+MIRROR_URL="${MIRROR_URL%/}"
+if [ -n "${MIRROR_URL}" ]; then
+    case "${MIRROR_URL}" in
+        https://*) : ;;
+        *) printf "Error: MIRROR_URL must use https:// scheme, got: %s\n" "${MIRROR_URL}" >&2; exit 1 ;;
+    esac
+fi
 
 # --- helper functions ---
 
@@ -22,6 +42,17 @@ info() {
 need_cmd() {
     if ! command -v "$1" > /dev/null 2>&1; then
         fail "need '$1' (command not found)"
+    fi
+}
+
+sha256_of() {
+    file="$1"
+    if command -v sha256sum > /dev/null 2>&1; then
+        sha256sum "${file}" | awk '{print $1}'
+    elif command -v shasum > /dev/null 2>&1; then
+        shasum -a 256 "${file}" | awk '{print $1}'
+    else
+        fail "need 'sha256sum' or 'shasum' to verify the download (install coreutils)"
     fi
 }
 
@@ -51,14 +82,30 @@ resolve_version() {
         echo "${FLASHDUTY_VERSION}"
         return
     fi
-    need_cmd curl
-    # Use the GitHub API to get the latest release tag
-    version=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" \
-        | grep '"tag_name"' \
-        | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    if [ -n "${MIRROR_URL}" ]; then
+        # The mirror publishes a plain-text pointer with the latest tag.
+        version=$(curl --proto '=https' --tlsv1.2 -fsSL "${MIRROR_URL}/releases/latest" 2>/dev/null \
+            | awk 'NR==1 {gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print; exit}')
+    else
+        # Follow the github.com/<repo>/releases/latest redirect to read the tag
+        # from the resolved URL — avoids the unauthenticated api.github.com rate limit.
+        effective=$(curl --proto '=https' --tlsv1.2 -sIL -o /dev/null -w '%{url_effective}' \
+            "https://github.com/${REPO}/releases/latest" || true)
+        version="${effective##*/}"
+        [ "${version}" = "latest" ] && version=""
+    fi
     if [ -z "${version}" ]; then
         fail "could not determine latest version. Set FLASHDUTY_VERSION to install a specific version."
     fi
+    # Reject anything that doesn't look like a release tag — the resolved value
+    # comes from a network response and is interpolated into the download URL.
+    case "${version}" in
+        *[!A-Za-z0-9.+-]*) fail "resolved version contains illegal characters: '${version}'" ;;
+    esac
+    case "${version}" in
+        v[0-9]*) : ;;
+        *) fail "resolved version is not a valid release tag: '${version}'" ;;
+    esac
     echo "${version}"
 }
 
@@ -81,17 +128,36 @@ main() {
     fi
 
     ARCHIVE="flashduty-cli_${OS}_${ARCH}.${EXT}"
-    URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
+    if [ -n "${MIRROR_URL}" ]; then
+        BASE="${MIRROR_URL}/releases/download/${VERSION}"
+    else
+        BASE="https://github.com/${REPO}/releases/download/${VERSION}"
+    fi
 
     info "Installing Flashduty CLI ${VERSION} (${OS}/${ARCH})"
-    info "Downloading ${URL}"
+    info "Downloading ${BASE}/${ARCHIVE}"
 
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "${TMP_DIR}"' EXIT
 
-    HTTP_CODE=$(curl -sL -H "Accept: application/octet-stream" -o "${TMP_DIR}/${ARCHIVE}" -w "%{http_code}" "${URL}")
-    if [ "${HTTP_CODE}" != "200" ]; then
-        fail "download failed (HTTP ${HTTP_CODE}). Check that ${VERSION} exists at https://github.com/${REPO}/releases"
+    if ! curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/${ARCHIVE}" -o "${TMP_DIR}/${ARCHIVE}"; then
+        fail "download failed for ${BASE}/${ARCHIVE}. Check that ${VERSION} exists."
+    fi
+
+    # Verify against the published checksums.txt when present. Releases cut
+    # before the mirror existed don't ship one, so a missing file only warns.
+    if curl --proto '=https' --tlsv1.2 -fsSL "${BASE}/checksums.txt" -o "${TMP_DIR}/checksums.txt" 2>/dev/null; then
+        expected=$(awk -v a="${ARCHIVE}" '$2 == a {print $1; exit}' "${TMP_DIR}/checksums.txt")
+        if [ -z "${expected}" ]; then
+            fail "archive ${ARCHIVE} not listed in checksums.txt (wrong release or renamed asset)"
+        fi
+        actual=$(sha256_of "${TMP_DIR}/${ARCHIVE}")
+        if [ "${actual}" != "${expected}" ]; then
+            fail "checksum mismatch for ${ARCHIVE}: expected ${expected}, got ${actual}"
+        fi
+        info "Checksum OK"
+    else
+        info "WARNING: checksums.txt not available — skipping integrity check"
     fi
 
     if [ "${EXT}" = "zip" ]; then
