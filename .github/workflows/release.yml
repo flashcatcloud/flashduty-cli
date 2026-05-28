@@ -44,3 +44,56 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/*.txt
+
+      - name: Mirror release assets to S3-compatible storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MIRROR_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MIRROR_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.MIRROR_S3_REGION }}
+          BUCKET: ${{ secrets.MIRROR_S3_BUCKET }}
+          ENDPOINT: ${{ secrets.MIRROR_S3_ENDPOINT }}
+          PREFIX: ${{ secrets.MIRROR_S3_PATH_PREFIX }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if [ -z "${BUCKET:-}" ] || [ -z "${ENDPOINT:-}" ]; then
+            echo "Mirror not configured (need MIRROR_S3_BUCKET + MIRROR_S3_ENDPOINT). Skipping."
+            exit 0
+          fi
+
+          # Aliyun OSS rejects path-style requests (SecondLevelDomainForbidden);
+          # AWS CLI defaults to path-style for custom endpoints, so force
+          # virtual-hosted style. Harmless for endpoints that accept either.
+          aws configure set default.s3.addressing_style virtual
+          # AWS CLI v2.23+ enabled default integrity protections that add
+          # `aws-chunked` request encoding, which OSS rejects with
+          # InvalidArgument. Restore the pre-2.23 behavior.
+          aws configure set default.request_checksum_calculation when_required
+          aws configure set default.response_checksum_validation when_required
+
+          # Normalize PREFIX: strip both leading and trailing slashes so a
+          # value of "/" or "/foo/" doesn't produce a doubled or leading slash
+          # in the resulting key.
+          PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
+          base="${PREFIX:+${PREFIX}/}releases/download/${VERSION}"
+          uploaded=0
+          for f in dist/*.tar.gz dist/*.zip dist/checksums.txt; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            echo "Uploading $f -> s3://${BUCKET}/${base}/${name}"
+            aws --endpoint-url="$ENDPOINT" s3 cp "$f" "s3://${BUCKET}/${base}/${name}" \
+              --cache-control "public, max-age=31536000, immutable"
+            uploaded=$((uploaded + 1))
+          done
+          if [ "$uploaded" -eq 0 ]; then
+            echo "No release artifacts found in dist/ — refusing to update latest pointer."
+            exit 1
+          fi
+
+          # Latest pointer used by install.sh resolve_version when MIRROR_URL is set.
+          # Updated last so a partial upload doesn't make the mirror advertise a broken version.
+          latest_key="${PREFIX:+${PREFIX}/}releases/latest"
+          printf '%s\n' "$VERSION" > /tmp/latest
+          aws --endpoint-url="$ENDPOINT" s3 cp /tmp/latest "s3://${BUCKET}/${latest_key}" \
+            --cache-control "public, max-age=60" \
+            --content-type "text/plain; charset=utf-8"

@@ -1,0 +1,70 @@
+name: install scripts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - install.sh
+      - install.ps1
+      - .github/workflows/install-scripts.yml
+  pull_request:
+    paths:
+      - install.sh
+      - install.ps1
+      - .github/workflows/install-scripts.yml
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: shellcheck + parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -s sh install.sh
+      - name: sh parse
+        run: sh -n install.sh
+      - name: bash parse
+        run: bash -n install.sh
+
+  mirror:
+    name: mirror install scripts
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload install scripts to S3-compatible storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MIRROR_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MIRROR_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.MIRROR_S3_REGION }}
+          BUCKET: ${{ secrets.MIRROR_S3_BUCKET }}
+          ENDPOINT: ${{ secrets.MIRROR_S3_ENDPOINT }}
+          PREFIX: ${{ secrets.MIRROR_S3_PATH_PREFIX }}
+        run: |
+          set -eu
+          if [ -z "${BUCKET:-}" ] || [ -z "${ENDPOINT:-}" ]; then
+            echo "Mirror not configured (need MIRROR_S3_BUCKET + MIRROR_S3_ENDPOINT). Skipping."
+            exit 0
+          fi
+          # Aliyun OSS rejects path-style requests; force virtual-hosted style.
+          aws configure set default.s3.addressing_style virtual
+          # AWS CLI v2.23+ default integrity protections add `aws-chunked`
+          # encoding which OSS rejects (InvalidArgument). Restore old behavior.
+          aws configure set default.request_checksum_calculation when_required
+          aws configure set default.response_checksum_validation when_required
+          PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
+
+          sh_key="${PREFIX:+${PREFIX}/}install.sh"
+          aws --endpoint-url="$ENDPOINT" s3 cp install.sh "s3://${BUCKET}/${sh_key}" \
+            --cache-control "public, max-age=300" \
+            --content-type "text/x-shellscript; charset=utf-8"
+
+          ps1_key="${PREFIX:+${PREFIX}/}install.ps1"
+          aws --endpoint-url="$ENDPOINT" s3 cp install.ps1 "s3://${BUCKET}/${ps1_key}" \
+            --cache-control "public, max-age=300" \
+            --content-type "text/plain; charset=utf-8"
