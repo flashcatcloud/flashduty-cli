@@ -1,8 +1,8 @@
 github.com/clipperhouse/uax29/v2 v2.2.0 h1:ChwIKnQN3kcZteTXMgb1wztSgaU+ZemkgWdohwgs8tY=
 github.com/clipperhouse/uax29/v2 v2.2.0/go.mod h1:EFJ2TJMRUaplDxHKj1qAEhCtQPW2tJSwu5BF98AuoVM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/flashcatcloud/flashduty-sdk v0.9.1-0.20260529032514-a227261bdb9a h1:QdRXdFRI4rsUqmtMbMFwsB6vxQLLYyBhKPo9PU5uQ5Q=
-github.com/flashcatcloud/flashduty-sdk v0.9.1-0.20260529032514-a227261bdb9a/go.mod h1:dG4eJfdZaj4jNBMwEexbfK/3PmcIMhNeJ88L/DcZzUY=
+github.com/flashcatcloud/flashduty-sdk v0.9.1 h1:vDTkSjAJJD6Ex5r7S+VCxPi4yxSFNw1bU/SfoRCvk+k=
+github.com/flashcatcloud/flashduty-sdk v0.9.1/go.mod h1:dG4eJfdZaj4jNBMwEexbfK/3PmcIMhNeJ88L/DcZzUY=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/mattn/go-runewidth v0.0.23 h1:7ykA0T0jkPpzSvMS5i9uoNn2Xy3R383f9HDx3RybWcw=
