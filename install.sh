@@ -15,7 +15,7 @@ set -e
 
 REPO="flashcatcloud/flashduty-cli"
 BINARY="flashduty-cli"
-INSTALLED_NAME="flashduty"
+INSTALLED_NAME="${INSTALLED_NAME:-flashduty}"
 INSTALL_DIR="${FLASHDUTY_INSTALL_DIR:-/usr/local/bin}"
 
 # When set, all release downloads are fetched from this prefix instead of github.com.
@@ -188,7 +188,7 @@ main() {
            info "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
     esac
 
-    info "Run 'flashduty version' to verify"
+    info "Run '${INSTALLED_NAME} version' to verify"
 }
 
 main
