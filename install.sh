@@ -170,14 +170,27 @@ main() {
         fail "binary '${BINARY}' not found in archive"
     fi
 
-    # Install (rename flashduty-cli -> flashduty for convenience)
+    # Install (rename flashduty-cli -> flashduty for convenience).
+    # Create the target dir first so a caller-provided FLASHDUTY_INSTALL_DIR that
+    # doesn't exist yet is usable without sudo.
+    mkdir -p "${INSTALL_DIR}" 2>/dev/null || true
     if [ -w "${INSTALL_DIR}" ]; then
         mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${INSTALLED_NAME}"
-    else
-        info "Need elevated permissions to install to ${INSTALL_DIR}"
+        chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
+    elif sudo -n true 2>/dev/null; then
+        # Passwordless sudo is available — install to the privileged dir without
+        # prompting (a prompt would hang `curl | sh` in agents/CI: no TTY to answer).
         sudo mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${INSTALLED_NAME}"
+        sudo chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
+    else
+        # Not writable and sudo would need an interactive password. Never block on
+        # an unanswerable prompt — fall back to a user-writable directory.
+        INSTALL_DIR="${HOME}/.local/bin"
+        info "Install dir not writable and no passwordless sudo; installing to ${INSTALL_DIR}"
+        mkdir -p "${INSTALL_DIR}"
+        mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${INSTALLED_NAME}"
+        chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
     fi
-    chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
 
     info "Installed to ${INSTALL_DIR}/${INSTALLED_NAME}"
 
