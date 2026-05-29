@@ -223,11 +223,9 @@ func newIncidentCreateCmd() *cobra.Command {
 					return err
 				}
 
-				if m, ok := result.(map[string]any); ok {
-					if id, ok := m["incident_id"]; ok {
-						ctx.WriteResult(fmt.Sprintf("Incident created: %v", id))
-						return nil
-					}
+				if result != nil && result.IncidentID != "" {
+					ctx.WriteResult(fmt.Sprintf("Incident created: %s", result.IncidentID))
+					return nil
 				}
 				ctx.WriteResult("Incident created successfully.")
 				return nil
@@ -1104,7 +1102,7 @@ func incidentWarRoomColumns() []output.Column {
 		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).IncidentID }},
 		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).Status }},
 		{Header: "PLUGIN", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).PluginType }},
-		{Header: "CREATED", Field: func(v any) string { return formatWarRoomCreatedAt(v.(flashduty.IncidentWarRoomItem).CreatedAt) }},
+		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.IncidentWarRoomItem).CreatedAt) }},
 	}
 }
 
@@ -1124,13 +1122,6 @@ func printWarRoomDetail(w io.Writer, warRoom *flashduty.IncidentWarRoom) {
 	_, _ = fmt.Fprintf(w, "Chat ID:    %s\n", warRoom.ChatID)
 	_, _ = fmt.Fprintf(w, "Chat Name:  %s\n", orDash(warRoom.ChatName))
 	_, _ = fmt.Fprintf(w, "Share Link: %s\n", orDash(warRoom.ShareLink))
-}
-
-func formatWarRoomCreatedAt(ts int64) string {
-	if ts > 1_000_000_000_000 {
-		ts /= 1000
-	}
-	return output.FormatTime(ts)
 }
 
 func newIncidentFeedCmd() *cobra.Command {

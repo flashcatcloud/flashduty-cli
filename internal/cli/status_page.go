@@ -127,11 +127,9 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 					return err
 				}
 
-				if m, ok := result.(map[string]any); ok {
-					if id, ok := m["change_id"]; ok {
-						ctx.WriteResult(fmt.Sprintf("Status incident created: %v", id))
-						return nil
-					}
+				if result != nil && result.ChangeID != 0 {
+					ctx.WriteResult(fmt.Sprintf("Status incident created: %d", result.ChangeID))
+					return nil
 				}
 				ctx.WriteResult("Status incident created successfully.")
 				return nil

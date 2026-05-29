@@ -41,7 +41,7 @@ func (m *mockClient) ListSimilarIncidents(context.Context, string, int) (*flashd
 	return nil, fmt.Errorf("mockClient: ListSimilarIncidents not implemented")
 }
 
-func (m *mockClient) CreateIncident(context.Context, *flashduty.CreateIncidentInput) (any, error) {
+func (m *mockClient) CreateIncident(context.Context, *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error) {
 	return nil, fmt.Errorf("mockClient: CreateIncident not implemented")
 }
 
@@ -149,7 +149,7 @@ func (m *mockClient) ListStatusChanges(context.Context, *flashduty.ListStatusCha
 	return nil, fmt.Errorf("mockClient: ListStatusChanges not implemented")
 }
 
-func (m *mockClient) CreateStatusIncident(context.Context, *flashduty.CreateStatusIncidentInput) (any, error) {
+func (m *mockClient) CreateStatusIncident(context.Context, *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
 	return nil, fmt.Errorf("mockClient: CreateStatusIncident not implemented")
 }
 
@@ -435,9 +435,9 @@ func TestCommandIncidentGetEmptyResults(t *testing.T) {
 
 type mockCreateNoID struct{ mockClient }
 
-func (m *mockCreateNoID) CreateIncident(_ context.Context, _ *flashduty.CreateIncidentInput) (any, error) {
-	// Return a plain string instead of a map with "incident_id".
-	return "ok", nil
+func (m *mockCreateNoID) CreateIncident(_ context.Context, _ *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error) {
+	// Return an output with no incident_id to exercise the success fallback.
+	return &flashduty.CreateIncidentOutput{}, nil
 }
 
 func TestCommandIncidentCreateWithoutIncidentID(t *testing.T) {
@@ -506,8 +506,8 @@ func TestCommandIncidentTimelineEmpty(t *testing.T) {
 
 type mockStatusCreateWithID struct{ mockClient }
 
-func (m *mockStatusCreateWithID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (any, error) {
-	return map[string]any{"change_id": float64(12345)}, nil
+func (m *mockStatusCreateWithID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
+	return &flashduty.CreateStatusIncidentOutput{ChangeID: 12345}, nil
 }
 
 func TestCommandStatusPageCreateIncidentWithChangeID(t *testing.T) {
@@ -549,8 +549,8 @@ func TestCommandStatusPageCreateIncidentWithChangeID_JSON(t *testing.T) {
 
 type mockStatusCreateNoID struct{ mockClient }
 
-func (m *mockStatusCreateNoID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (any, error) {
-	return "ok", nil
+func (m *mockStatusCreateNoID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
+	return &flashduty.CreateStatusIncidentOutput{}, nil
 }
 
 func TestCommandStatusPageCreateIncidentWithoutChangeID(t *testing.T) {
