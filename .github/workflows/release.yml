@@ -97,3 +97,16 @@ jobs:
           aws --endpoint-url="$ENDPOINT" s3 cp /tmp/latest "s3://${BUCKET}/${latest_key}" \
             --cache-control "public, max-age=60" \
             --content-type "text/plain; charset=utf-8"
+
+          # Refresh the install scripts on every release so the mirror never
+          # ships a stale/missing installer (install-scripts.yml only fires when
+          # install.sh/.ps1 change on main; the scripts are version-agnostic, so
+          # re-uploading the current copy here is the belt-and-suspenders guarantee).
+          sh_key="${PREFIX:+${PREFIX}/}install.sh"
+          aws --endpoint-url="$ENDPOINT" s3 cp install.sh "s3://${BUCKET}/${sh_key}" \
+            --cache-control "public, max-age=300" \
+            --content-type "text/x-shellscript; charset=utf-8"
+          ps1_key="${PREFIX:+${PREFIX}/}install.ps1"
+          aws --endpoint-url="$ENDPOINT" s3 cp install.ps1 "s3://${BUCKET}/${ps1_key}" \
+            --cache-control "public, max-age=300" \
+            --content-type "text/plain; charset=utf-8"
