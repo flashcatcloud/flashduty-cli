@@ -1,5 +1,5 @@
 # Build configuration
-BINARY_NAME := flashduty
+BINARY_NAME ?= flashduty
 BUILD_DIR := bin
 GOLANGCI_LINT_VERSION := v2.2.1
 GOLANGCI_LINT := $(BUILD_DIR)/golangci-lint
