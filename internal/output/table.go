@@ -90,12 +90,18 @@ func Truncate(s string, maxLen int) string {
 	return runewidth.Truncate(s, maxLen, "...")
 }
 
-// FormatTime formats a unix timestamp as local time.
-func FormatTime(ts int64) string {
-	if ts == 0 {
+// instant is satisfied by flashduty.Timestamp and flashduty.TimestampMilli.
+type instant interface {
+	Time() time.Time
+	IsZero() bool
+}
+
+// FormatTime formats an instant as local wall-clock time, or "-" when unset.
+func FormatTime(ts instant) string {
+	if ts.IsZero() {
 		return "-"
 	}
-	return time.Unix(ts, 0).Local().Format("2006-01-02 15:04")
+	return ts.Time().Local().Format("2006-01-02 15:04")
 }
 
 // FormatDuration formats seconds into human-readable duration (e.g., "2m 30s", "1h 15m").

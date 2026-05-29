@@ -28,7 +28,7 @@ type flashdutyClient interface {
 	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
 	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
 	ListSimilarIncidents(ctx context.Context, incidentID string, limit int) (*flashduty.ListIncidentsOutput, error)
-	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (any, error)
+	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error)
 	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
 	AckIncidents(ctx context.Context, incidentIDs []string) error
 	UnackIncidents(ctx context.Context, incidentIDs []string) error
@@ -55,7 +55,7 @@ type flashdutyClient interface {
 	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
 	ListStatusPages(ctx context.Context, pageIDs []int64) ([]flashduty.StatusPage, error)
 	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
-	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (any, error)
+	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error)
 	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
 
 	// === PHASE 1: Incident additions ===

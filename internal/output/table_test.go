@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	flashduty "github.com/flashcatcloud/flashduty-sdk"
 )
 
 // ---------------------------------------------------------------------------
@@ -53,7 +55,7 @@ func TestTruncate(t *testing.T) {
 func TestFormatTime(t *testing.T) {
 	t.Run("zero returns dash", func(t *testing.T) {
 		// 25
-		got := FormatTime(0)
+		got := FormatTime(flashduty.Timestamp(0))
 		if got != "-" {
 			t.Errorf("FormatTime(0) = %q, want %q", got, "-")
 		}
@@ -63,7 +65,7 @@ func TestFormatTime(t *testing.T) {
 		// 26
 		const ts int64 = 1712000000
 		want := time.Unix(ts, 0).Local().Format("2006-01-02 15:04")
-		got := FormatTime(ts)
+		got := FormatTime(flashduty.Timestamp(ts))
 		if got != want {
 			t.Errorf("FormatTime(%d) = %q, want %q", ts, got, want)
 		}
