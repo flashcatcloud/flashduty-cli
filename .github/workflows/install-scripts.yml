@@ -45,6 +45,7 @@ jobs:
           BUCKET: ${{ secrets.MIRROR_S3_BUCKET }}
           ENDPOINT: ${{ secrets.MIRROR_S3_ENDPOINT }}
           PREFIX: ${{ secrets.MIRROR_S3_PATH_PREFIX }}
+          MIRROR_PUBLIC_URL: ${{ secrets.MIRROR_PUBLIC_URL }}
         run: |
           set -eu
           if [ -z "${BUCKET:-}" ] || [ -z "${ENDPOINT:-}" ]; then
@@ -59,8 +60,18 @@ jobs:
           aws configure set default.response_checksum_validation when_required
           PREFIX="${PREFIX#/}"; PREFIX="${PREFIX%/}"
 
+          # Bake the CDN as the default MIRROR_URL into the copy we serve from the
+          # CDN, so `curl <cdn>/install.sh | sh` pulls binaries from the CDN with
+          # no MIRROR_URL arg. The repo / GitHub copy stays generic (GitHub default).
+          src_sh=install.sh
+          if [ -n "${MIRROR_PUBLIC_URL:-}" ]; then
+            pub="${MIRROR_PUBLIC_URL%/}${PREFIX:+/${PREFIX}}"
+            sed "s#MIRROR_URL=\"\${MIRROR_URL:-}\"#MIRROR_URL=\"\${MIRROR_URL:-${pub}}\"#" install.sh > /tmp/install.sh
+            grep -q "MIRROR_URL:-${pub}" /tmp/install.sh || { echo "ERROR: MIRROR_URL default not injected (install.sh default line changed?)" >&2; exit 1; }
+            src_sh=/tmp/install.sh
+          fi
           sh_key="${PREFIX:+${PREFIX}/}install.sh"
-          aws --endpoint-url="$ENDPOINT" s3 cp install.sh "s3://${BUCKET}/${sh_key}" \
+          aws --endpoint-url="$ENDPOINT" s3 cp "$src_sh" "s3://${BUCKET}/${sh_key}" \
             --cache-control "public, max-age=300" \
             --content-type "text/x-shellscript; charset=utf-8"
 
