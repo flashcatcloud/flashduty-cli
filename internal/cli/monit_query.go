@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
@@ -41,26 +42,25 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 				return fmt.Errorf("invalid --time-end: %w", err)
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitQueryDiagnoseInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				input := &gflashduty.DiagnoseRequest{
 					DsType:    dsType,
 					DsName:    dsName,
-					TimeStart: startTime,
-					TimeEnd:   endTime,
 					Operation: operation,
-					Input:     flashduty.MonitQueryDiagnoseQuery{Query: inputQuery},
+					Input:     gflashduty.DiagnoseRequestInput{Query: inputQuery},
+					TimeRange: gflashduty.DiagnoseRequestTimeRange{Start: startTime, End: endTime},
 				}
 				if maxLogs > 0 {
-					input.MaxLogsScanned = maxLogs
+					input.Options.MaxLogsScanned = int64(maxLogs)
 				}
 				if maxPatterns > 0 {
-					input.MaxPatterns = maxPatterns
+					input.Options.MaxPatterns = int64(maxPatterns)
 				}
 				if timeoutSeconds > 0 {
-					input.TimeoutSeconds = timeoutSeconds
+					input.Options.TimeoutSeconds = int64(timeoutSeconds)
 				}
 
-				result, err := ctx.Client.MonitQueryDiagnose(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.GFClient.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -91,6 +91,11 @@ func newMonitQueryRowsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rows",
 		Short: "Raw datasource passthrough (returns values/rows as the datasource itself would)",
+		// TODO(go-flashduty migration): not migrated. The legacy SDK returns the
+		// datasource body verbatim as a RawMessage, which this command writes
+		// through unchanged. go-flashduty's QueryRowsResponse is a structured
+		// []QueryRow, so switching would change the on-screen output shape — a
+		// behavior change, not a mechanical swap. Kept on the legacy SDK.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dsType == "" || dsName == "" || expr == "" {
 				return fmt.Errorf("--ds-type, --ds-name, --expr are required")

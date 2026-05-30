@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -72,8 +73,8 @@ func (m *mockMonitQuery) MonitQueryRows(_ context.Context, input *flashduty.Moni
 
 func TestMonitQueryDiagnoseHappyPath(t *testing.T) {
 	saveAndResetGlobals(t)
-	mock := &mockMonitQuery{}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"operation": "log_patterns"}
 
 	_, err := execCommand(
 		"monit-query", "diagnose",
@@ -88,26 +89,30 @@ func TestMonitQueryDiagnoseHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if mock.diagnoseInput == nil {
-		t.Fatal("expected MonitQueryDiagnose to be called")
+	if stub.lastPath != "/monit/query/diagnose" {
+		t.Fatalf("expected /monit/query/diagnose, got %q", stub.lastPath)
 	}
-	got := mock.diagnoseInput
-	if got.DsType != "victorialogs" || got.DsName != "vl-prod" {
-		t.Errorf("unexpected ds fields: %+v", got)
+	body := stub.lastBody
+	if body["ds_type"] != "victorialogs" || body["ds_name"] != "vl-prod" {
+		t.Errorf("unexpected ds fields: %#v", body)
 	}
-	if got.Input.Query != `{app="api"}` {
-		t.Errorf("expected input query %q, got %q", `{app="api"}`, got.Input.Query)
+	input, _ := body["input"].(map[string]any)
+	if input["query"] != `{app="api"}` {
+		t.Errorf("expected input query %q, got %v", `{app="api"}`, input["query"])
 	}
-	if got.Operation != "log_patterns" {
-		t.Errorf("expected operation log_patterns, got %q", got.Operation)
+	if body["operation"] != "log_patterns" {
+		t.Errorf("expected operation log_patterns, got %v", body["operation"])
 	}
-	if got.MaxLogsScanned != 5000 || got.MaxPatterns != 10 || got.TimeoutSeconds != 20 {
-		t.Errorf("unexpected caps: logs=%d patterns=%d timeout=%d",
-			got.MaxLogsScanned, got.MaxPatterns, got.TimeoutSeconds)
+	options, _ := body["options"].(map[string]any)
+	if fmt.Sprint(options["max_logs_scanned"]) != "5000" ||
+		fmt.Sprint(options["max_patterns"]) != "10" ||
+		fmt.Sprint(options["timeout_seconds"]) != "20" {
+		t.Errorf("unexpected caps: %#v", options)
 	}
-	if got.TimeStart == 0 || got.TimeEnd == 0 {
-		t.Errorf("expected non-zero default time range, got start=%d end=%d",
-			got.TimeStart, got.TimeEnd)
+	timeRange, _ := body["time_range"].(map[string]any)
+	if fmt.Sprint(timeRange["start"]) == "0" || fmt.Sprint(timeRange["start"]) == "<nil>" ||
+		fmt.Sprint(timeRange["end"]) == "0" || fmt.Sprint(timeRange["end"]) == "<nil>" {
+		t.Errorf("expected non-zero default time range, got %#v", timeRange)
 	}
 }
 
@@ -144,8 +149,7 @@ func TestMonitQueryDiagnoseRequiredFlags(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			saveAndResetGlobals(t)
-			mock := &mockMonitQuery{}
-			newClientFn = func() (flashdutyClient, error) { return mock, nil }
+			stub := newGFStub(t)
 
 			_, err := execCommand(tc.args...)
 			if err == nil {
@@ -154,8 +158,8 @@ func TestMonitQueryDiagnoseRequiredFlags(t *testing.T) {
 			if !strings.Contains(err.Error(), "required") {
 				t.Errorf("expected error to mention 'required', got %q", err.Error())
 			}
-			if mock.diagnoseInput != nil {
-				t.Errorf("MonitQueryDiagnose should not have been called: %#v", mock.diagnoseInput)
+			if stub.requests != 0 {
+				t.Errorf("diagnose should not have been called: %d request(s)", stub.requests)
 			}
 		})
 	}
@@ -163,8 +167,7 @@ func TestMonitQueryDiagnoseRequiredFlags(t *testing.T) {
 
 func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
 	saveAndResetGlobals(t)
-	mock := &mockMonitQuery{}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
 
 	_, err := execCommand(
 		"monit-query", "diagnose",
@@ -179,8 +182,8 @@ func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
 	if !strings.Contains(err.Error(), "--time-start") {
 		t.Errorf("expected error to mention --time-start, got %q", err.Error())
 	}
-	if mock.diagnoseInput != nil {
-		t.Errorf("MonitQueryDiagnose should not have been called: %#v", mock.diagnoseInput)
+	if stub.requests != 0 {
+		t.Errorf("diagnose should not have been called: %d request(s)", stub.requests)
 	}
 }
 

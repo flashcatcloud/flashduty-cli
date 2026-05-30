@@ -10,6 +10,7 @@ import (
 	"time"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -211,14 +212,26 @@ func newIncidentCreateCmd() *cobra.Command {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.CreateIncident(cmdContext(ctx.Cmd), &flashduty.CreateIncidentInput{
-					Title:       title,
-					Severity:    severity,
-					ChannelID:   channelID,
-					Description: description,
-					AssignedTo:  assign,
-				})
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				req := &gflashduty.CreateIncidentRequest{
+					Title:            title,
+					IncidentSeverity: severity,
+					ChannelID:        channelID,
+					Description:      description,
+				}
+				if len(assign) > 0 {
+					personIDs := make([]int64, len(assign))
+					for i, id := range assign {
+						personIDs[i] = int64(id)
+					}
+					// Preserve legacy wire: the hand-written SDK forced assigned_to.type
+					// = "assign". On a brand-new incident the backend would default an
+					// empty type to "assign" anyway, but we set it explicitly so the
+					// migration is a pure no-drift refactor.
+					req.AssignedTo = gflashduty.CreateIncidentRequestAssignedTo{PersonIDs: personIDs, Type: "assign"}
+				}
+
+				result, _, err := ctx.GFClient.Incidents.Create(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -250,6 +263,11 @@ func newIncidentUpdateCmd() *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update an incident",
 		Args:  requireArgs("incident_id"),
+		// TODO(go-flashduty migration): not migrated. go-flashduty's
+		// Incidents.Reset (/incident/reset) carries no custom-fields field —
+		// custom fields move to the separate /incident/field/reset endpoint.
+		// Porting --field would mean splitting one call into two, which is a
+		// behavior change, not a mechanical swap. Kept on the legacy SDK.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			customFields := make(map[string]any)
 			for _, f := range fieldFlags {
@@ -298,8 +316,10 @@ func newIncidentAckCmd() *cobra.Command {
 		Short: "Acknowledge incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.AckIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Ack(cmdContext(ctx.Cmd), &gflashduty.AckIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Acknowledged %d incident(s).", len(ctx.Args)))
@@ -324,8 +344,10 @@ unacknowledged state. The command accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.UnackIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Unack(cmdContext(ctx.Cmd), &gflashduty.UnackIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Unacknowledged %d incident(s).", len(ctx.Args)))
@@ -341,8 +363,10 @@ func newIncidentCloseCmd() *cobra.Command {
 		Short: "Close incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.CloseIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Resolve(cmdContext(ctx.Cmd), &gflashduty.ResolveIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Closed %d incident(s).", len(ctx.Args)))
@@ -367,8 +391,10 @@ accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.WakeIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Wake(cmdContext(ctx.Cmd), &gflashduty.WakeIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Restored notifications for %d incident(s).", len(ctx.Args)))
@@ -533,7 +559,7 @@ func newIncidentMergeCmd() *cobra.Command {
 		Short: "Merge incidents into a target incident",
 		Args:  requireArgs("target_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				sourceIDs := parseStringSlice(source)
 				if len(sourceIDs) == 0 {
 					return fmt.Errorf("--source is required")
@@ -542,7 +568,7 @@ func newIncidentMergeCmd() *cobra.Command {
 					return fmt.Errorf("--source accepts at most 100 incident IDs")
 				}
 
-				if err := ctx.Client.MergeIncidents(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsInput{
+				if _, err := ctx.GFClient.Incidents.Merge(cmdContext(ctx.Cmd), &gflashduty.MergeIncidentsRequest{
 					SourceIncidentIDs: sourceIDs,
 					TargetIncidentID:  ctx.Args[0],
 				}); err != nil {
@@ -569,7 +595,7 @@ func newIncidentSnoozeCmd() *cobra.Command {
 		Short: "Snooze incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				d, err := time.ParseDuration(duration)
 				if err != nil {
 					return fmt.Errorf("invalid --duration: %w", err)
@@ -583,7 +609,7 @@ func newIncidentSnoozeCmd() *cobra.Command {
 
 				minutes := int64(d / time.Minute)
 
-				if err := ctx.Client.SnoozeIncidents(cmdContext(ctx.Cmd), &flashduty.SnoozeIncidentsInput{
+				if _, err := ctx.GFClient.Incidents.Snooze(cmdContext(ctx.Cmd), &gflashduty.SnoozeIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Minutes:     minutes,
 				}); err != nil {
@@ -608,8 +634,10 @@ func newIncidentReopenCmd() *cobra.Command {
 		Short: "Reopen closed incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.ReopenIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Reopen(cmdContext(ctx.Cmd), &gflashduty.ReopenIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Reopened %d incident(s).", len(ctx.Args)))
@@ -627,7 +655,7 @@ func newIncidentReassignCmd() *cobra.Command {
 		Short: "Reassign an incident to new responders",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				personIDs, err := parseIntSlice(person)
 				if err != nil {
 					return fmt.Errorf("invalid --person: %w", err)
@@ -636,9 +664,14 @@ func newIncidentReassignCmd() *cobra.Command {
 					return fmt.Errorf("--person is required")
 				}
 
-				if err := ctx.Client.ReassignIncidents(cmdContext(ctx.Cmd), &flashduty.ReassignIncidentsInput{
+				// Preserve legacy wire: the hand-written SDK's ReassignIncidents
+				// hard-coded assigned_to.type = "assign". Leaving type empty would let
+				// the backend relabel an already-assigned incident as "reassign" in the
+				// feed/IM cards — a behavior change. Whether "reassign" is the more
+				// correct label is a separate product decision, not a migration one.
+				if _, err := ctx.GFClient.Incidents.Assign(cmdContext(ctx.Cmd), &gflashduty.AssignIncidentRequest{
 					IncidentIDs: []string{ctx.Args[0]},
-					PersonIDs:   personIDs,
+					AssignedTo:  gflashduty.AssignedTo{PersonIDs: personIDs, Type: "assign"},
 				}); err != nil {
 					return err
 				}
@@ -682,17 +715,17 @@ personal channels, or a template.`,
 				return fmt.Errorf("--person is required")
 			}
 
-			var notify *flashduty.IncidentNotifyInput
+			var notify gflashduty.AddIncidentResponderRequestNotify
 			if followPreference || notifyChannel != "" || templateID != "" {
-				notify = &flashduty.IncidentNotifyInput{
+				notify = gflashduty.AddIncidentResponderRequestNotify{
 					FollowPreference: followPreference,
 					PersonalChannels: parseStringSlice(notifyChannel),
 					TemplateID:       templateID,
 				}
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.AddIncidentResponders(cmdContext(ctx.Cmd), &flashduty.IncidentAddResponderInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.ResponderAdd(cmdContext(ctx.Cmd), &gflashduty.AddIncidentResponderRequest{
 					IncidentID: ctx.Args[0],
 					PersonIDs:  personIDs,
 					Notify:     notify,
@@ -741,8 +774,8 @@ webhook reply behavior.`,
 				return fmt.Errorf("--comment must be at most 1024 characters")
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.CommentIncidents(cmdContext(ctx.Cmd), &flashduty.IncidentCommentInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.Comment(cmdContext(ctx.Cmd), &gflashduty.CommentIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
 					MuteReply:   muteReply,
@@ -775,8 +808,10 @@ matching alerts automatically. The command accepts up to 100 incident IDs.`,
   flashduty incident disable-merge inc_123 inc_456`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.DisableIncidentMerge(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Incidents.DisableMerge(cmdContext(ctx.Cmd), &gflashduty.DisableIncidentMergeRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Disabled auto-merge for %d incident(s).", len(ctx.Args)))
@@ -804,13 +839,15 @@ unless --force is provided. The command accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to remove %d incident(s)?", len(ctx.Args))) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
 
-				if err := ctx.Client.RemoveIncidents(cmdContext(ctx.Cmd), ctx.Args); err != nil {
+				if _, err := ctx.GFClient.Incidents.Remove(cmdContext(ctx.Cmd), &gflashduty.RemoveIncidentRequest{
+					IncidentIDs: ctx.Args,
+				}); err != nil {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Removed %d incident(s).", len(ctx.Args)))
@@ -863,6 +900,10 @@ invite historical responders selected by FlashDuty.`,
   flashduty incident war-room create inc_123 --integration 42 --member 101,202
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
+		// TODO(go-flashduty migration): not migrated. Auto-resolving the IM
+		// integration when --integration is omitted relies on the legacy SDK's
+		// ListWarRoomEnabledDataSources (/datasource/im/war-room-enabled/list),
+		// which go-flashduty does not yet cover. Migrate once that endpoint lands.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memberIDs, err := parseIntSlice(member)
 			if err != nil {
@@ -931,8 +972,8 @@ as get, delete, and add-member.`,
   flashduty incident war-room list inc_123 --integration 42`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListIncidentWarRooms(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomListInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.Incidents.WarRoomList(cmdContext(ctx.Cmd), &gflashduty.ListWarRoomsRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				})
@@ -963,8 +1004,8 @@ the chat ID and integration ID for an incident.`,
   flashduty incident war-room get chat_123 --integration 42`,
 		Args: requireArgs("chat_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				warRoom, err := ctx.Client.GetIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomDetailInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				warRoom, _, err := ctx.GFClient.Incidents.WarRoomDetail(cmdContext(ctx.Cmd), &gflashduty.GetWarRoomDetailRequest{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 				})
@@ -1003,12 +1044,12 @@ integration ID.`,
   flashduty incident war-room delete inc_123 --integration 42 --force`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0])) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
-				if err := ctx.Client.DeleteIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomDeleteInput{
+				if _, err := ctx.GFClient.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), &gflashduty.DeleteWarRoomRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				}); err != nil {
@@ -1097,12 +1138,12 @@ This is a read-only preview of the users FlashDuty would add when
 
 func incidentWarRoomColumns() []output.Column {
 	return []output.Column{
-		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(flashduty.IncidentWarRoomItem).IntegrationID) }},
-		{Header: "CHAT_ID", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).ChatID }},
-		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).IncidentID }},
-		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).Status }},
-		{Header: "PLUGIN", Field: func(v any) string { return v.(flashduty.IncidentWarRoomItem).PluginType }},
-		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.IncidentWarRoomItem).CreatedAt) }},
+		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(gflashduty.WarRoomItem).IntegrationID) }},
+		{Header: "CHAT_ID", Field: func(v any) string { return v.(gflashduty.WarRoomItem).ChatID }},
+		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(gflashduty.WarRoomItem).IncidentID }},
+		{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.WarRoomItem).Status }},
+		{Header: "PLUGIN", Field: func(v any) string { return v.(gflashduty.WarRoomItem).PluginType }},
+		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.WarRoomItem).CreatedAt) }},
 	}
 }
 
@@ -1115,7 +1156,7 @@ func incidentWarRoomObserverColumns() []output.Column {
 	}
 }
 
-func printWarRoomDetail(w io.Writer, warRoom *flashduty.IncidentWarRoom) {
+func printWarRoomDetail(w io.Writer, warRoom *gflashduty.WarRoom) {
 	if warRoom == nil {
 		return
 	}

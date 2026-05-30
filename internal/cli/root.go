@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
 	"golang.org/x/term"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/config"
@@ -115,6 +117,10 @@ type flashdutyClient interface {
 // newClientFn creates a flashdutyClient. Override in tests to inject a mock.
 var newClientFn = defaultNewClient
 
+// newGFClientFn creates the go-flashduty client used by migrated commands.
+// Override in tests to inject a stub server.
+var newGFClientFn = defaultNewGFClient
+
 var (
 	flagJSON         bool
 	flagNoTrunc      bool
@@ -213,6 +219,11 @@ func newClient() (flashdutyClient, error) {
 	return newClientFn()
 }
 
+// newGFClient creates a go-flashduty client using the current factory.
+func newGFClient() (*gflashduty.Client, error) {
+	return newGFClientFn()
+}
+
 // defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
 func defaultNewClient() (flashdutyClient, error) {
 	cfg, err := loadResolvedConfig()
@@ -238,6 +249,31 @@ func defaultNewClient() (flashdutyClient, error) {
 	}
 
 	return sdkClient, nil
+}
+
+// defaultNewGFClient creates a real go-flashduty client from resolved config +
+// flag overrides. This is the typed SDK used by migrated commands; the legacy
+// hand-written SDK (defaultNewClient) still backs the commands that depend on
+// server-side enrichment or endpoints go-flashduty does not yet cover.
+func defaultNewGFClient() (*gflashduty.Client, error) {
+	cfg, err := loadResolvedConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.AppKey == "" {
+		return nil, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
+	}
+
+	opts := []gflashduty.Option{
+		gflashduty.WithUserAgent("flashduty-cli/" + versionStr),
+		gflashduty.WithLogger(&silentLogger{}),
+	}
+	if cfg.BaseURL != "" && cfg.BaseURL != config.DefaultBaseURL {
+		opts = append(opts, gflashduty.WithBaseURL(cfg.BaseURL))
+	}
+
+	return gflashduty.NewClient(cfg.AppKey, opts...)
 }
 
 func loadResolvedConfig() (*config.Config, error) {
@@ -287,11 +323,11 @@ func currentOutputFormat() output.Format {
 }
 
 // marshalStructured serializes v for machine-readable output: indented JSON for
-// FormatJSON (byte-compatible with the legacy --json path) and TOON via the SDK
-// for FormatTOON.
+// FormatJSON (byte-compatible with the legacy --json path) and TOON via the
+// toon-format encoder for FormatTOON.
 func marshalStructured(v any) ([]byte, error) {
 	if currentOutputFormat() == output.FormatTOON {
-		return flashduty.Marshal(v, flashduty.OutputFormatTOON)
+		return toon.Marshal(v)
 	}
 	return json.MarshalIndent(v, "", "  ")
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -173,28 +174,28 @@ func newAlertEventsCmd() *cobra.Command {
 		Short: "List alert events",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListAlertEvents(cmdContext(ctx.Cmd), &flashduty.ListAlertEventsInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.Alerts.ReadEventList(cmdContext(ctx.Cmd), &gflashduty.AlertEventListRequest{
 					AlertID: ctx.Args[0],
 				})
 				if err != nil {
 					return err
 				}
 
-				if len(result.AlertEvents) == 0 {
+				if len(result.Items) == 0 {
 					ctx.WriteResult("No alert events found.")
 					return nil
 				}
 
 				cols := []output.Column{
-					{Header: "EVENT_ID", Field: func(v any) string { return v.(flashduty.AlertEvent).EventID }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertEvent).EventSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertEvent).EventStatus }},
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertEvent).EventTime) }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEvent).Title }},
+					{Header: "EVENT_ID", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventID }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventStatus }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertEventItem).EventTime) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertEventItem).Title }},
 				}
 
-				return ctx.PrintTotal(result.AlertEvents, cols, len(result.AlertEvents))
+				return ctx.PrintTotal(result.Items, cols, len(result.Items))
 			})
 		},
 	}
@@ -255,8 +256,8 @@ func newAlertMergeCmd() *cobra.Command {
 		Short: "Merge alerts into an incident",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.MergeAlertsToIncident(cmdContext(ctx.Cmd), &flashduty.MergeAlertsInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.Alerts.WriteMerge(cmdContext(ctx.Cmd), &gflashduty.AlertMergeRequest{
 					AlertIDs:   ctx.Args,
 					IncidentID: incidentID,
 					Comment:    comment,

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -156,12 +157,12 @@ func newStatusPageCreateTimelineCmd() *cobra.Command {
 		Use:   "create-timeline",
 		Short: "Add a timeline update to a status page change",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				err := ctx.Client.CreateChangeTimeline(cmdContext(ctx.Cmd), &flashduty.CreateChangeTimelineInput{
-					PageID:   pageID,
-					ChangeID: changeID,
-					Message:  message,
-					Status:   status,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				_, _, err := ctx.GFClient.StatusPages.ChangeTimelineCreate(cmdContext(ctx.Cmd), &gflashduty.CreateStatusPageChangeTimelineRequest{
+					PageID:      pageID,
+					ChangeID:    changeID,
+					Description: message,
+					Status:      status,
 				})
 				if err != nil {
 					return err

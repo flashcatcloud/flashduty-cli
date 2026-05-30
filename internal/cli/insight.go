@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -31,7 +32,7 @@ func newInsightTeamCmd() *cobra.Command {
 		Use:   "team",
 		Short: "Query insights by team",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -41,7 +42,7 @@ func newInsightTeamCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByTeam(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.GFClient.Analytics.ByTeam(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -51,28 +52,28 @@ func newInsightTeamCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "TEAM", MaxWidth: 30, Field: func(v any) string {
-						return v.(flashduty.DimensionInsightItem).TeamName
+						return v.(gflashduty.DimensionInsightItem).TeamName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToClose)
+						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToClose)
 					}},
 					{Header: "NOISE_REDUCTION", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).NoiseReductionPct*100)
+						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).NoiseReductionPct*100)
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertEventCnt)
 					}},
 				}
 
@@ -94,7 +95,7 @@ func newInsightChannelCmd() *cobra.Command {
 		Use:   "channel",
 		Short: "Query insights by channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -104,7 +105,7 @@ func newInsightChannelCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByChannel(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.GFClient.Analytics.ByChannel(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -114,28 +115,28 @@ func newInsightChannelCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "CHANNEL", MaxWidth: 30, Field: func(v any) string {
-						return v.(flashduty.DimensionInsightItem).ChannelName
+						return v.(gflashduty.DimensionInsightItem).ChannelName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToClose)
+						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToClose)
 					}},
 					{Header: "NOISE_REDUCTION", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).NoiseReductionPct*100)
+						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).NoiseReductionPct*100)
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertEventCnt)
 					}},
 				}
 
@@ -156,6 +157,10 @@ func newInsightResponderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "responder",
 		Short: "Query insights by responder",
+		// TODO(go-flashduty migration): not migrated. The EMAIL column reads a
+		// responder email that the thin go-flashduty ResponderInsightItem does
+		// not carry (no responder_email field). Migrate once the SDK exposes it
+		// or the column drops the enriched email. Kept on the legacy SDK.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -218,7 +223,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 		Use:   "top-alerts",
 		Short: "Query top alert sources by label",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -228,13 +233,11 @@ func newInsightTopAlertsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightAlertTopK(cmdContext(ctx.Cmd), &flashduty.QueryInsightAlertTopKInput{
-					InsightQueryInput: flashduty.InsightQueryInput{
-						StartTime: startTime,
-						EndTime:   endTime,
-					},
-					Label: label,
-					K:     limit,
+				result, _, err := ctx.GFClient.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &gflashduty.InsightTopkAlertByLabelRequest{
+					StartTime: startTime,
+					EndTime:   endTime,
+					Label:     label,
+					K:         int64(limit),
 				})
 				if err != nil {
 					return err
@@ -242,13 +245,13 @@ func newInsightTopAlertsCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "LABEL", MaxWidth: 50, Field: func(v any) string {
-						return v.(flashduty.InsightAlertByLabelItem).Label
+						return v.(gflashduty.InsightAlertByLabelItem).Label
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.InsightAlertByLabelItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.InsightAlertByLabelItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.InsightAlertByLabelItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.InsightAlertByLabelItem).TotalAlertEventCnt)
 					}},
 				}
 

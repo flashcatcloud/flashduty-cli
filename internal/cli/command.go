@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -11,13 +12,21 @@ import (
 
 // RunContext provides helpers for command execution. It is created by
 // runCommand and passed to the command's handler function.
+//
+// Two SDK clients are exposed during the go-flashduty migration:
+//   - Client   — the legacy hand-written SDK, still used by commands that depend
+//     on server-side enrichment or endpoints go-flashduty does not yet cover.
+//   - GFClient — the typed go-flashduty SDK, used by migrated commands.
+//
+// A command uses exactly one of them; the boundary is per-command, not mixed.
 type RunContext struct {
-	Client  flashdutyClient
-	Cmd     *cobra.Command
-	Args    []string
-	Writer  io.Writer
-	Printer output.Printer
-	Format  output.Format
+	Client   flashdutyClient
+	GFClient *gflashduty.Client
+	Cmd      *cobra.Command
+	Args     []string
+	Writer   io.Writer
+	Printer  output.Printer
+	Format   output.Format
 }
 
 // Structured reports whether output should be a machine-readable dump (JSON or
@@ -27,6 +36,10 @@ func (ctx *RunContext) Structured() bool { return ctx.Format.Structured() }
 
 // runCommand creates a client and RunContext, then calls fn.
 // It centralises setup that every API-backed command repeats.
+//
+// It constructs the legacy client only; commands migrated to go-flashduty use
+// runGFCommand instead. Both factories read the same resolved config, so the
+// two paths authenticate identically.
 func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
 	client, err := newClient()
 	if err != nil {
@@ -39,6 +52,25 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 		Writer:  cmd.OutOrStdout(),
 		Printer: newPrinter(cmd.OutOrStdout()),
 		Format:  currentOutputFormat(),
+	}
+	return fn(ctx)
+}
+
+// runGFCommand is the go-flashduty counterpart of runCommand. It constructs the
+// typed go-flashduty client and leaves RunContext.Client nil — migrated command
+// handlers must reach for ctx.GFClient.
+func runGFCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
+	client, err := newGFClient()
+	if err != nil {
+		return err
+	}
+	ctx := &RunContext{
+		GFClient: client,
+		Cmd:      cmd,
+		Args:     args,
+		Writer:   cmd.OutOrStdout(),
+		Printer:  newPrinter(cmd.OutOrStdout()),
+		Format:   currentOutputFormat(),
 	}
 	return fn(ctx)
 }
