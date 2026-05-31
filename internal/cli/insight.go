@@ -21,7 +21,6 @@ func newInsightCmd() *cobra.Command {
 	cmd.AddCommand(newInsightResponderCmd())
 	cmd.AddCommand(newInsightTopAlertsCmd())
 	cmd.AddCommand(newInsightIncidentsCmd())
-	cmd.AddCommand(newInsightNotificationsCmd())
 	return cmd
 }
 
@@ -332,64 +331,6 @@ func newInsightIncidentsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-
-	return cmd
-}
-
-func newInsightNotificationsCmd() *cobra.Command {
-	var step, since, until string
-
-	cmd := &cobra.Command{
-		Use:   "notifications",
-		Short: "Query notification volume trends",
-		// DO NOT MIGRATE to go-flashduty. This command's backing report API
-		// (QueryNotificationTrend, a /report/* endpoint) is being retired, so it
-		// is intentionally excluded from go-flashduty's spec — there is no
-		// go-flashduty method and there won't be one. It stays on the legacy SDK
-		// until the feature itself is removed; do not re-point it at the SDK.
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
-				}
-
-				result, err := ctx.Client.QueryNotificationTrend(cmdContext(ctx.Cmd), &flashduty.QueryNotificationTrendInput{
-					Step:      step,
-					StartTime: startTime,
-					EndTime:   endTime,
-				})
-				if err != nil {
-					return err
-				}
-
-				cols := []output.Column{
-					{Header: "DATE", Field: func(v any) string {
-						return output.FormatTime(v.(flashduty.NotificationTrendPoint).Timestamp)
-					}},
-					{Header: "SMS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).SMSCount)
-					}},
-					{Header: "VOICE", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).VoiceCount)
-					}},
-					{Header: "EMAIL", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).EmailCount)
-					}},
-				}
-
-				return ctx.PrintTotal(result.DataPoints, cols, len(result.DataPoints))
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&step, "step", "day", "Aggregation: day, week, month")
-	cmd.Flags().StringVar(&since, "since", "30d", "Start time")
-	cmd.Flags().StringVar(&until, "until", "now", "End time")
 
 	return cmd
 }

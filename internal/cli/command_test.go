@@ -209,10 +209,6 @@ func (m *mockClient) QueryInsightIncidentList(context.Context, *flashduty.QueryI
 	return nil, fmt.Errorf("mockClient: QueryInsightIncidentList not implemented")
 }
 
-func (m *mockClient) QueryNotificationTrend(context.Context, *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryNotificationTrend not implemented")
-}
-
 func (m *mockClient) SearchAuditLogs(context.Context, *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error) {
 	return nil, fmt.Errorf("mockClient: SearchAuditLogs not implemented")
 }

@@ -79,7 +79,6 @@ type flashdutyClient interface {
 	QueryInsightByResponder(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error)
 	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
 	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
-	QueryNotificationTrend(ctx context.Context, input *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error)
 	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
 
 	// === PHASE 4: Status Page Migration ===
