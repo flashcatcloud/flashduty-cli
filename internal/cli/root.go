@@ -108,6 +108,10 @@ func init() {
 	// CLI Phase 2
 	rootCmd.AddCommand(newMonitQueryCmd())
 	rootCmd.AddCommand(newMonitAgentCmd())
+
+	// Generated commands (full OpenAPI coverage). Registered AFTER curated
+	// commands so curated leaves win on any name conflict (see genAddLeaf).
+	registerGenerated(rootCmd)
 }
 
 // Execute runs the root command.
