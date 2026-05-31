@@ -34,17 +34,17 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 			if err := validateMigrationSource(source); err != nil {
 				return err
 			}
-			// go-flashduty's MigrateStatusPageStructureRequest carries no
-			// url_name field, so we cannot forward --url-name without silently
-			// dropping it. Reject the flag explicitly rather than ignore it.
-			if urlName != "" {
-				return fmt.Errorf("--url-name is not supported by this command")
-			}
 			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.StatusPages.MigrateStructure(cmdContext(ctx.Cmd), &gflashduty.MigrateStatusPageStructureRequest{
+				req := &gflashduty.MigrateStatusPageStructureRequest{
 					APIKey:       sourceAPIKey,
 					SourcePageID: sourcePageID,
-				})
+				}
+				// url_name is *string (tri-state): set it only when the user
+				// provided one, so a nil pointer reuses the source page's name.
+				if urlName != "" {
+					req.URLName = gflashduty.String(urlName)
+				}
+				result, _, err := ctx.GFClient.StatusPages.MigrateStructure(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}

@@ -36,10 +36,10 @@ func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 	if stub.lastBody["source_page_id"] != "src-1" {
 		t.Errorf("source_page_id = %v, want src-1", stub.lastBody["source_page_id"])
 	}
-	// go-flashduty's request struct carries no url_name field, so the wire body
-	// must never contain one.
+	// url_name is an optional *string; when --url-name is not passed it stays
+	// nil and omitempty keeps it off the wire.
 	if _, ok := stub.lastBody["url_name"]; ok {
-		t.Errorf("url_name should not be sent, got %#v", stub.lastBody["url_name"])
+		t.Errorf("url_name should not be sent when --url-name is omitted, got %#v", stub.lastBody["url_name"])
 	}
 	if !strings.Contains(out, "Job ID: job-1") {
 		t.Errorf("missing job id in output:\n%s", out)
@@ -49,14 +49,13 @@ func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 	}
 }
 
-// TestCommandStatusPageMigrateStructureRejectsURLName: go-flashduty's
-// MigrateStatusPageStructureRequest has no url_name field, so the migrated
-// command rejects --url-name rather than silently dropping it. (Legacy
-// forwarded URLName to the SDK; the port cannot, so behavior changed from
-// "forward" to "reject before the client call".)
-func TestCommandStatusPageMigrateStructureRejectsURLName(t *testing.T) {
+// TestCommandStatusPageMigrateStructureForwardsURLName: MigrateStatusPageStructureRequest
+// now carries url_name (*string), so --url-name is forwarded to the SDK as the
+// url_name wire field — matching legacy behavior.
+func TestCommandStatusPageMigrateStructureForwardsURLName(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
+	stub.data = map[string]any{"job_id": "job-2"}
 
 	_, err := execCommand("statuspage", "migrate", "structure",
 		"--from", "atlassian",
@@ -64,14 +63,14 @@ func TestCommandStatusPageMigrateStructureRejectsURLName(t *testing.T) {
 		"--api-key", "atlassian-secret",
 		"--url-name", "customer-facing-status",
 	)
-	if err == nil {
-		t.Fatal("expected error rejecting --url-name")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
 	}
-	if !strings.Contains(err.Error(), "--url-name is not supported") {
-		t.Errorf("got %v; want --url-name rejection", err)
+	if stub.requests != 1 {
+		t.Errorf("expected exactly 1 request, got %d", stub.requests)
 	}
-	if stub.requests != 0 {
-		t.Errorf("client must not be called when --url-name is rejected, got %d request(s)", stub.requests)
+	if stub.lastBody["url_name"] != "customer-facing-status" {
+		t.Errorf("url_name = %#v, want customer-facing-status", stub.lastBody["url_name"])
 	}
 }
 

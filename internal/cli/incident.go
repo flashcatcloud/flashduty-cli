@@ -558,7 +558,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				result, _, err := ctx.GFClient.Incidents.PastList(cmdContext(ctx.Cmd), &gflashduty.ListPastIncidentsRequest{
 					IncidentID: ctx.Args[0],
-					Limit:      int64(limit),
+					Limit:      gflashduty.Int64(int64(limit)),
 				})
 				if err != nil {
 					return err

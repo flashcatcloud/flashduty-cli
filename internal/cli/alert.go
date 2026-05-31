@@ -27,7 +27,7 @@ func newAlertCmd() *cobra.Command {
 }
 
 func newAlertListCmd() *cobra.Command {
-	var severity, channel, title, since, until string
+	var severity, channel, since, until string
 	var active, recovered, muted bool
 	var limit, page int
 
@@ -60,13 +60,13 @@ func newAlertListCmd() *cobra.Command {
 				// Preserve legacy semantics: --active sends is_active=true,
 				// --recovered sends is_active=false, neither omits the filter.
 				if active {
-					req.IsActive = true
+					req.IsActive = gflashduty.Bool(true)
 				} else if recovered {
-					req.IsActive = false
+					req.IsActive = gflashduty.Bool(false)
 				}
 
 				if muted {
-					req.EverMuted = true
+					req.EverMuted = gflashduty.Bool(true)
 				}
 
 				if channel != "" {
@@ -75,15 +75,6 @@ func newAlertListCmd() *cobra.Command {
 						return fmt.Errorf("invalid --channel: %w", err)
 					}
 					req.ChannelIDs = channelIDs
-				}
-
-				if title != "" {
-					// go-flashduty's AlertListRequest has no dedicated title
-					// filter; the legacy SDK's title search maps to nothing on
-					// the generated request. Title-only filtering is dropped in
-					// the migration (see migration notes). Kept here as a no-op
-					// to retain the flag for compatibility.
-					_ = title
 				}
 
 				result, _, err := ctx.GFClient.Alerts.ReadList(cmdContext(ctx.Cmd), req)
@@ -111,7 +102,6 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&recovered, "recovered", false, "Show recovered only")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")
-	cmd.Flags().StringVar(&title, "title", "", "Search by title keyword")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
