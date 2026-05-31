@@ -23,13 +23,18 @@ func newChannelCmd() *cobra.Command {
 // ChannelItem carries only TeamID/CreatorID, so we keep those IDs and resolve
 // the team and creator names here (replicating the legacy SDK's enrichChannels)
 // before rendering.
+// Fields are exported with json tags so the json/toon printers (which marshal
+// via reflection and skip unexported fields) emit the full row, not {}. The
+// table printer uses the accessor funcs below. json keys mirror the legacy
+// ChannelInfo contract (channel_id/channel_name/team_id/creator_id/...); TOON
+// renders the Go field names, consistent with every other command's output.
 type channelRow struct {
-	channelID   int64
-	channelName string
-	teamID      int64
-	creatorID   int64
-	teamName    string
-	creatorName string
+	ChannelID   int64  `json:"channel_id"`
+	ChannelName string `json:"channel_name"`
+	TeamID      int64  `json:"team_id"`
+	CreatorID   int64  `json:"creator_id"`
+	TeamName    string `json:"team_name"`
+	CreatorName string `json:"creator_name"`
 }
 
 func newChannelListCmd() *cobra.Command {
@@ -56,10 +61,10 @@ func newChannelListCmd() *cobra.Command {
 						continue
 					}
 					rows = append(rows, channelRow{
-						channelID:   ch.ChannelID,
-						channelName: ch.ChannelName,
-						teamID:      ch.TeamID,
-						creatorID:   ch.CreatorID,
+						ChannelID:   ch.ChannelID,
+						ChannelName: ch.ChannelName,
+						TeamID:      ch.TeamID,
+						CreatorID:   ch.CreatorID,
 					})
 				}
 
@@ -69,10 +74,10 @@ func newChannelListCmd() *cobra.Command {
 				enrichChannelNames(ctx, rows)
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(channelRow).channelID, 10) }},
-					{Header: "NAME", Field: func(v any) string { return v.(channelRow).channelName }},
-					{Header: "TEAM", Field: func(v any) string { return v.(channelRow).teamName }},
-					{Header: "CREATOR", Field: func(v any) string { return v.(channelRow).creatorName }},
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(channelRow).ChannelID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(channelRow).ChannelName }},
+					{Header: "TEAM", Field: func(v any) string { return v.(channelRow).TeamName }},
+					{Header: "CREATOR", Field: func(v any) string { return v.(channelRow).CreatorName }},
 				}
 
 				return ctx.PrintTotal(rows, cols, len(rows))
@@ -99,16 +104,16 @@ func enrichChannelNames(ctx *RunContext, rows []channelRow) {
 	personSeen := make(map[int64]struct{}, len(rows))
 	personIDs := make([]uint64, 0, len(rows))
 	for _, r := range rows {
-		if r.teamID != 0 {
-			if _, ok := teamSeen[r.teamID]; !ok {
-				teamSeen[r.teamID] = struct{}{}
-				teamIDs = append(teamIDs, uint64(r.teamID))
+		if r.TeamID != 0 {
+			if _, ok := teamSeen[r.TeamID]; !ok {
+				teamSeen[r.TeamID] = struct{}{}
+				teamIDs = append(teamIDs, uint64(r.TeamID))
 			}
 		}
-		if r.creatorID != 0 {
-			if _, ok := personSeen[r.creatorID]; !ok {
-				personSeen[r.creatorID] = struct{}{}
-				personIDs = append(personIDs, uint64(r.creatorID))
+		if r.CreatorID != 0 {
+			if _, ok := personSeen[r.CreatorID]; !ok {
+				personSeen[r.CreatorID] = struct{}{}
+				personIDs = append(personIDs, uint64(r.CreatorID))
 			}
 		}
 	}
@@ -132,7 +137,7 @@ func enrichChannelNames(ctx *RunContext, rows []channelRow) {
 	}
 
 	for i := range rows {
-		rows[i].teamName = teamNameByID[rows[i].teamID]
-		rows[i].creatorName = personNameByID[rows[i].creatorID]
+		rows[i].TeamName = teamNameByID[rows[i].TeamID]
+		rows[i].CreatorName = personNameByID[rows[i].CreatorID]
 	}
 }

@@ -52,7 +52,13 @@ Examples:
   flashduty team list --orderby team_name --asc`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.Client.Teams.ReadInfos(cmdContext(ctx.Cmd), &flashduty.TeamInfosRequest{})
+				result, _, err := ctx.Client.Teams.ReadList(cmdContext(ctx.Cmd), &flashduty.TeamListRequest{
+					ListOptions: flashduty.ListOptions{Page: page, Limit: limit},
+					Query:       name,
+					Orderby:     orderBy,
+					Asc:         asc,
+					PersonID:    uint64(personID),
+				})
 				if err != nil {
 					return err
 				}
@@ -63,7 +69,7 @@ Examples:
 				nameByID := resolveTeamMemberNames(ctx, result.Items)
 
 				cols := teamListColumns(nameByID)
-				return ctx.PrintTotal(result.Items, cols, len(result.Items))
+				return ctx.PrintTotal(result.Items, cols, int(result.Total))
 			})
 		},
 	}
@@ -337,10 +343,10 @@ Examples:
 // ID when a name can't be resolved.
 func teamListColumns(nameByID map[uint64]string) []output.Column {
 	return []output.Column{
-		{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.TeamBriefItem).TeamID, 10) }},
-		{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamBriefItem).TeamName }},
+		{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.TeamItem).TeamID, 10) }},
+		{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamItem).TeamName }},
 		{Header: "MEMBERS", MaxWidth: 50, Field: func(v any) string {
-			ids := v.(flashduty.TeamBriefItem).PersonIDs
+			ids := v.(flashduty.TeamItem).PersonIDs
 			names := make([]string, 0, len(ids))
 			for _, id := range ids {
 				if n, ok := nameByID[id]; ok && n != "" {
@@ -377,7 +383,7 @@ func printTeamDetail(w io.Writer, team *flashduty.TeamItem, members []string) {
 // to display names via /person/infos, replicating the name enrichment the
 // legacy SDK did server-side. Best-effort: a lookup failure yields a nil map and
 // callers fall back to the numeric ID.
-func resolveTeamMemberNames(rc *RunContext, items []flashduty.TeamBriefItem) map[uint64]string {
+func resolveTeamMemberNames(rc *RunContext, items []flashduty.TeamItem) map[uint64]string {
 	seen := make(map[uint64]struct{})
 	ids := make([]uint64, 0)
 	for _, it := range items {
