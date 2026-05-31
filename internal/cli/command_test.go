@@ -126,10 +126,6 @@ func (m *mockClient) GetIncidentDetail(context.Context, *flashduty.GetIncidentDe
 	return nil, fmt.Errorf("mockClient: GetIncidentDetail not implemented")
 }
 
-func (m *mockClient) GetIncidentFeed(context.Context, *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetIncidentFeed not implemented")
-}
-
 func (m *mockClient) ListPostMortems(context.Context, *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error) {
 	return nil, fmt.Errorf("mockClient: ListPostMortems not implemented")
 }
@@ -195,10 +191,6 @@ func (m *mockClient) QueryInsightByTeam(context.Context, *flashduty.InsightQuery
 
 func (m *mockClient) QueryInsightByChannel(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error) {
 	return nil, fmt.Errorf("mockClient: QueryInsightByChannel not implemented")
-}
-
-func (m *mockClient) QueryInsightByResponder(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryInsightByResponder not implemented")
 }
 
 func (m *mockClient) QueryInsightAlertTopK(context.Context, *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error) {
@@ -666,15 +658,10 @@ func TestCommandMemberListPersonInfos(t *testing.T) {
 // Regression tests for new command batch review findings
 // ---------------------------------------------------------------------------
 
-type mockIncidentFeedEmpty struct{ mockClient }
-
-func (m *mockIncidentFeedEmpty) GetIncidentFeed(_ context.Context, _ *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error) {
-	return &flashduty.GetIncidentFeedOutput{Items: nil, HasNextPage: false}, nil
-}
-
 func TestCommandIncidentFeedEmpty_JSON(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockIncidentFeedEmpty{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"items": []any{}, "has_next_page": false}
 
 	out, err := execCommand("incident", "feed", "inc-1", "--json")
 	if err != nil {

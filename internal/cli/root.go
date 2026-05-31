@@ -53,7 +53,6 @@ type flashdutyClient interface {
 
 	// === PHASE 1: Incident additions ===
 	GetIncidentDetail(ctx context.Context, input *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error)
-	GetIncidentFeed(ctx context.Context, input *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error)
 	ListPostMortems(ctx context.Context, input *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error)
 	MergeIncidents(ctx context.Context, input *flashduty.MergeIncidentsInput) error
 	SnoozeIncidents(ctx context.Context, input *flashduty.SnoozeIncidentsInput) error
@@ -76,7 +75,6 @@ type flashdutyClient interface {
 	// === PHASE 3: Insight + Admin ===
 	QueryInsightByTeam(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error)
 	QueryInsightByChannel(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error)
-	QueryInsightByResponder(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error)
 	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
 	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
 	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)

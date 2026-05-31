@@ -1171,12 +1171,11 @@ func newIncidentFeedCmd() *cobra.Command {
 		Short: "View incident feed (paginated timeline)",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.GetIncidentFeed(cmdContext(ctx.Cmd), &flashduty.GetIncidentFeedInput{
-					IncidentID: ctx.Args[0],
-					Limit:      limit,
-					Page:       page,
-				})
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				feedReq := &gflashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
+				feedReq.Page = page
+				feedReq.Limit = limit
+				result, _, err := ctx.GFClient.Incidents.Feed(cmdContext(ctx.Cmd), feedReq)
 				if err != nil {
 					return err
 				}
@@ -1186,12 +1185,27 @@ func newIncidentFeedCmd() *cobra.Command {
 					return nil
 				}
 
+				// go-flashduty returns raw feed items, so replicate the legacy
+				// SDK's operator-name enrichment by resolving each entry's actor
+				// (creator) person ID via /person/infos. Best-effort: the OPERATOR
+				// column falls back to the numeric ID when a name can't be resolved.
+				nameByID := resolveFeedOperators(ctx, result.Items)
+
 				cols := []output.Column{
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.TimelineEvent).Timestamp) }},
-					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TimelineEvent).Type }},
-					{Header: "OPERATOR", Field: func(v any) string { return v.(flashduty.TimelineEvent).OperatorName }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.IncidentFeedItem).CreatedAt) }},
+					{Header: "TYPE", Field: func(v any) string { return string(v.(gflashduty.IncidentFeedItem).Type) }},
+					{Header: "OPERATOR", Field: func(v any) string {
+						it := v.(gflashduty.IncidentFeedItem)
+						if it.CreatorID == 0 {
+							return "system"
+						}
+						if n, ok := nameByID[it.CreatorID]; ok && n != "" {
+							return n
+						}
+						return strconv.FormatInt(it.CreatorID, 10)
+					}},
 					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-						d := v.(flashduty.TimelineEvent).Detail
+						d := v.(gflashduty.IncidentFeedItem).Detail
 						if d == nil {
 							return "-"
 						}
@@ -1208,6 +1222,37 @@ func newIncidentFeedCmd() *cobra.Command {
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
+}
+
+// resolveFeedOperators resolves the actor (creator) person IDs of incident-feed
+// items to display names via /person/infos, replicating the operator-name
+// enrichment the legacy SDK did server-side. Best-effort: a lookup failure
+// yields a nil map and callers fall back to the numeric ID.
+func resolveFeedOperators(rc *RunContext, items []gflashduty.IncidentFeedItem) map[int64]string {
+	seen := make(map[int64]struct{}, len(items))
+	ids := make([]uint64, 0, len(items))
+	for _, it := range items {
+		if it.CreatorID == 0 {
+			continue
+		}
+		if _, ok := seen[it.CreatorID]; ok {
+			continue
+		}
+		seen[it.CreatorID] = struct{}{}
+		ids = append(ids, uint64(it.CreatorID))
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	if err != nil || resp == nil {
+		return nil
+	}
+	out := make(map[int64]string, len(resp.Items))
+	for _, p := range resp.Items {
+		out[int64(p.PersonID)] = p.PersonName
+	}
+	return out
 }
 
 func newIncidentDetailCmd() *cobra.Command {

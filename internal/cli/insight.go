@@ -156,12 +156,8 @@ func newInsightResponderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "responder",
 		Short: "Query insights by responder",
-		// TODO(go-flashduty migration): not migrated. The EMAIL column reads a
-		// responder email that the thin go-flashduty ResponderInsightItem does
-		// not carry (no responder_email field). Migrate once the SDK exposes it
-		// or the column drops the enriched email. Kept on the legacy SDK.
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -171,7 +167,7 @@ func newInsightResponderCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByResponder(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.GFClient.Analytics.ByResponder(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -181,25 +177,22 @@ func newInsightResponderCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "RESPONDER", MaxWidth: 30, Field: func(v any) string {
-						return v.(flashduty.ResponderInsightItem).ResponderName
-					}},
-					{Header: "EMAIL", MaxWidth: 30, Field: func(v any) string {
-						return v.(flashduty.ResponderInsightItem).Email
+						return v.(gflashduty.ResponderInsightItem).ResponderName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(gflashduty.ResponderInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(flashduty.ResponderInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(gflashduty.ResponderInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(flashduty.ResponderInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(gflashduty.ResponderInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "INTERRUPTIONS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalInterruptions)
+						return fmt.Sprintf("%d", v.(gflashduty.ResponderInsightItem).TotalInterruptions)
 					}},
 					{Header: "ENGAGED", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.ResponderInsightItem).TotalEngagedSeconds)
+						return output.FormatDuration(int(v.(gflashduty.ResponderInsightItem).TotalEngagedSeconds))
 					}},
 				}
 
