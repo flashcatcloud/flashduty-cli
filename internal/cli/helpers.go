@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // parseKVSlice converts a slice of "KEY=VALUE" entries into a map.
@@ -32,8 +32,8 @@ func parseKVSlice(entries []string) (map[string]string, error) {
 // first then on the first '=', mirroring parseKVSlice — that means params JSON
 // containing commas isn't supported; specs with complex params must keep their
 // objects single-keyed.
-func parseToolSpecs(specs []string) ([]gflashduty.ToolInvokeRequestToolsItem, error) {
-	out := make([]gflashduty.ToolInvokeRequestToolsItem, 0, len(specs))
+func parseToolSpecs(specs []string) ([]flashduty.ToolInvokeRequestToolsItem, error) {
+	out := make([]flashduty.ToolInvokeRequestToolsItem, 0, len(specs))
 	for _, s := range specs {
 		var name string
 		var rawParams string
@@ -63,7 +63,7 @@ func parseToolSpecs(specs []string) ([]gflashduty.ToolInvokeRequestToolsItem, er
 				return nil, fmt.Errorf("invalid params JSON in spec %q: %w", s, err)
 			}
 		}
-		out = append(out, gflashduty.ToolInvokeRequestToolsItem{Tool: name, Params: params})
+		out = append(out, flashduty.ToolInvokeRequestToolsItem{Tool: name, Params: params})
 	}
 	return out, nil
 }

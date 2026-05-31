@@ -3,33 +3,33 @@ package cli
 import (
 	"testing"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 func TestScheduleLayerCount(t *testing.T) {
 	tests := []struct {
 		name  string
-		input gflashduty.ScheduleItem
+		input flashduty.ScheduleItem
 		want  string
 	}{
 		{
 			name:  "raw layers",
-			input: gflashduty.ScheduleItem{Layers: []gflashduty.ScheduleLayer{{}, {}}},
+			input: flashduty.ScheduleItem{Layers: []flashduty.ScheduleLayer{{}, {}}},
 			want:  "2",
 		},
 		{
 			name:  "schedule layers fallback",
-			input: gflashduty.ScheduleItem{ScheduleLayers: []gflashduty.ScheduleCalculatedLayer{{}, {}, {}}},
+			input: flashduty.ScheduleItem{ScheduleLayers: []flashduty.ScheduleCalculatedLayer{{}, {}, {}}},
 			want:  "3",
 		},
 		{
 			name:  "layer schedules fallback",
-			input: gflashduty.ScheduleItem{LayerSchedules: []gflashduty.ScheduleCalculatedLayer{{}, {}}},
+			input: flashduty.ScheduleItem{LayerSchedules: []flashduty.ScheduleCalculatedLayer{{}, {}}},
 			want:  "2",
 		},
 		{
 			name:  "unknown when no layer arrays are present",
-			input: gflashduty.ScheduleItem{},
+			input: flashduty.ScheduleItem{},
 			want:  "-",
 		},
 	}

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -27,12 +27,12 @@ func newMonitAgentCatalogCmd() *cobra.Command {
 			if targetLocator == "" {
 				return fmt.Errorf("--target-locator is required")
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				input := &gflashduty.ToolCatalogRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				input := &flashduty.ToolCatalogRequest{
 					TargetKind:    targetKind,
 					TargetLocator: targetLocator,
 				}
-				result, _, err := ctx.GFClient.Diagnostics.ToolsCatalog(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.ToolsCatalog(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -71,13 +71,13 @@ func newMonitAgentInvokeCmd() *cobra.Command {
 				return fmt.Errorf("invalid --tool-spec: %w", err)
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				input := &gflashduty.ToolInvokeRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				input := &flashduty.ToolInvokeRequest{
 					TargetKind:    targetKind,
 					TargetLocator: targetLocator,
 					Tools:         parsed,
 				}
-				result, _, err := ctx.GFClient.Diagnostics.ToolsInvoke(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.ToolsInvoke(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}

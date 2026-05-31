@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -28,7 +28,7 @@ func newChangeListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -51,7 +51,7 @@ func newChangeListCmd() *cobra.Command {
 					reqPage = 1
 				}
 
-				input := &gflashduty.ListChangeRequest{
+				input := &flashduty.ListChangeRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				}
@@ -66,17 +66,17 @@ func newChangeListCmd() *cobra.Command {
 					input.ChannelIDs = channelIDs
 				}
 
-				result, _, err := ctx.GFClient.Changes.List(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Changes.List(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(gflashduty.ChangeItem).ChangeID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.ChangeItem).Title }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.ChangeItem).ChangeStatus }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.ChangeItem).ChannelName }},
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.ChangeItem).StartTime) }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.ChangeItem).ChangeID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.ChangeItem).Title }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.ChangeItem).ChangeStatus }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.ChangeItem).ChannelName }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.ChangeItem).StartTime) }},
 				}
 
 				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))

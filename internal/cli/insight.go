@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -30,7 +30,7 @@ func newInsightTeamCmd() *cobra.Command {
 		Use:   "team",
 		Short: "Query insights by team",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -40,7 +40,7 @@ func newInsightTeamCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.Analytics.ByTeam(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
+				result, _, err := ctx.Client.Analytics.ByTeam(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -50,28 +50,28 @@ func newInsightTeamCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "TEAM", MaxWidth: 30, Field: func(v any) string {
-						return v.(gflashduty.DimensionInsightItem).TeamName
+						return v.(flashduty.DimensionInsightItem).TeamName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToClose)
+						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToClose)
 					}},
 					{Header: "NOISE_REDUCTION", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).NoiseReductionPct*100)
+						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).NoiseReductionPct*100)
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertEventCnt)
 					}},
 				}
 
@@ -93,7 +93,7 @@ func newInsightChannelCmd() *cobra.Command {
 		Use:   "channel",
 		Short: "Query insights by channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -103,7 +103,7 @@ func newInsightChannelCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.Analytics.ByChannel(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
+				result, _, err := ctx.Client.Analytics.ByChannel(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -113,28 +113,28 @@ func newInsightChannelCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "CHANNEL", MaxWidth: 30, Field: func(v any) string {
-						return v.(gflashduty.DimensionInsightItem).ChannelName
+						return v.(flashduty.DimensionInsightItem).ChannelName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(gflashduty.DimensionInsightItem).MeanSecondsToClose)
+						return output.FormatDurationFloat(v.(flashduty.DimensionInsightItem).MeanSecondsToClose)
 					}},
 					{Header: "NOISE_REDUCTION", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(gflashduty.DimensionInsightItem).NoiseReductionPct*100)
+						return fmt.Sprintf("%.0f%%", v.(flashduty.DimensionInsightItem).NoiseReductionPct*100)
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.DimensionInsightItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(flashduty.DimensionInsightItem).TotalAlertEventCnt)
 					}},
 				}
 
@@ -156,7 +156,7 @@ func newInsightResponderCmd() *cobra.Command {
 		Use:   "responder",
 		Short: "Query insights by responder",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -166,7 +166,7 @@ func newInsightResponderCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.Analytics.ByResponder(cmdContext(ctx.Cmd), &gflashduty.InsightQueryRequest{
+				result, _, err := ctx.Client.Analytics.ByResponder(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -176,22 +176,22 @@ func newInsightResponderCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "RESPONDER", MaxWidth: 30, Field: func(v any) string {
-						return v.(gflashduty.ResponderInsightItem).ResponderName
+						return v.(flashduty.ResponderInsightItem).ResponderName
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.ResponderInsightItem).TotalIncidentCnt)
+						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalIncidentCnt)
 					}},
 					{Header: "ACK%", Field: func(v any) string {
-						return fmt.Sprintf("%.0f%%", v.(gflashduty.ResponderInsightItem).AcknowledgementPct*100)
+						return fmt.Sprintf("%.0f%%", v.(flashduty.ResponderInsightItem).AcknowledgementPct*100)
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDurationFloat(v.(gflashduty.ResponderInsightItem).MeanSecondsToAck)
+						return output.FormatDurationFloat(v.(flashduty.ResponderInsightItem).MeanSecondsToAck)
 					}},
 					{Header: "INTERRUPTIONS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.ResponderInsightItem).TotalInterruptions)
+						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalInterruptions)
 					}},
 					{Header: "ENGAGED", Field: func(v any) string {
-						return output.FormatDuration(int(v.(gflashduty.ResponderInsightItem).TotalEngagedSeconds))
+						return output.FormatDuration(int(v.(flashduty.ResponderInsightItem).TotalEngagedSeconds))
 					}},
 				}
 
@@ -214,7 +214,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 		Use:   "top-alerts",
 		Short: "Query top alert sources by label",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -224,7 +224,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &gflashduty.InsightTopkAlertByLabelRequest{
+				result, _, err := ctx.Client.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &flashduty.InsightTopkAlertByLabelRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 					Label:     label,
@@ -236,13 +236,13 @@ func newInsightTopAlertsCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "LABEL", MaxWidth: 50, Field: func(v any) string {
-						return v.(gflashduty.InsightAlertByLabelItem).Label
+						return v.(flashduty.InsightAlertByLabelItem).Label
 					}},
 					{Header: "ALERTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.InsightAlertByLabelItem).TotalAlertCnt)
+						return fmt.Sprintf("%d", v.(flashduty.InsightAlertByLabelItem).TotalAlertCnt)
 					}},
 					{Header: "EVENTS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.InsightAlertByLabelItem).TotalAlertEventCnt)
+						return fmt.Sprintf("%d", v.(flashduty.InsightAlertByLabelItem).TotalAlertEventCnt)
 					}},
 				}
 
@@ -268,7 +268,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 		Use:   "incidents",
 		Short: "Query incidents with performance metrics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -278,39 +278,39 @@ func newInsightIncidentsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				req := &gflashduty.InsightIncidentListRequest{
+				req := &flashduty.InsightIncidentListRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				}
 				req.Limit = limit
 				req.Page = page
 
-				result, _, err := ctx.GFClient.Analytics.IncidentList(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Analytics.IncidentList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string {
-						return v.(gflashduty.IncidentRawItem).IncidentID
+						return v.(flashduty.IncidentRawItem).IncidentID
 					}},
 					{Header: "TITLE", MaxWidth: 40, Field: func(v any) string {
-						return v.(gflashduty.IncidentRawItem).Title
+						return v.(flashduty.IncidentRawItem).Title
 					}},
 					{Header: "SEVERITY", Field: func(v any) string {
-						return v.(gflashduty.IncidentRawItem).Severity
+						return v.(flashduty.IncidentRawItem).Severity
 					}},
 					{Header: "CHANNEL", MaxWidth: 20, Field: func(v any) string {
-						return v.(gflashduty.IncidentRawItem).ChannelName
+						return v.(flashduty.IncidentRawItem).ChannelName
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDuration(int(v.(gflashduty.IncidentRawItem).SecondsToAck))
+						return output.FormatDuration(int(v.(flashduty.IncidentRawItem).SecondsToAck))
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDuration(int(v.(gflashduty.IncidentRawItem).SecondsToClose))
+						return output.FormatDuration(int(v.(flashduty.IncidentRawItem).SecondsToClose))
 					}},
 					{Header: "NOTIFICATIONS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(gflashduty.IncidentRawItem).Notifications)
+						return fmt.Sprintf("%d", v.(flashduty.IncidentRawItem).Notifications)
 					}},
 				}
 

@@ -17,7 +17,7 @@ import (
 func saveAndResetGlobals(t *testing.T) {
 	t.Helper()
 
-	origNewGFClientFn := newGFClientFn
+	origNewClientFn := newClientFn
 	origFlagJSON := flagJSON
 	origFlagNoTrunc := flagNoTrunc
 	origFlagAppKey := flagAppKey
@@ -30,7 +30,7 @@ func saveAndResetGlobals(t *testing.T) {
 	flagBaseURL = ""
 
 	t.Cleanup(func() {
-		newGFClientFn = origNewGFClientFn
+		newClientFn = origNewClientFn
 		flagJSON = origFlagJSON
 		flagNoTrunc = origFlagNoTrunc
 		flagAppKey = origFlagAppKey

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
@@ -42,13 +42,13 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 				return fmt.Errorf("invalid --time-end: %w", err)
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				input := &gflashduty.DiagnoseRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				input := &flashduty.DiagnoseRequest{
 					DsType:    dsType,
 					DsName:    dsName,
 					Operation: operation,
-					Input:     gflashduty.DiagnoseRequestInput{Query: inputQuery},
-					TimeRange: gflashduty.DiagnoseRequestTimeRange{Start: startTime, End: endTime},
+					Input:     flashduty.DiagnoseRequestInput{Query: inputQuery},
+					TimeRange: flashduty.DiagnoseRequestTimeRange{Start: startTime, End: endTime},
 				}
 				if maxLogs > 0 {
 					input.Options.MaxLogsScanned = int64(maxLogs)
@@ -60,7 +60,7 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 					input.Options.TimeoutSeconds = int64(timeoutSeconds)
 				}
 
-				result, _, err := ctx.GFClient.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -100,14 +100,14 @@ func newMonitQueryRowsCmd() *cobra.Command {
 				return fmt.Errorf("invalid --args: %w", err)
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				input := &gflashduty.QueryRowsRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				input := &flashduty.QueryRowsRequest{
 					DsType: dsType,
 					DsName: dsName,
 					Expr:   expr,
 					Args:   argsMap,
 				}
-				result, _, err := ctx.GFClient.Diagnostics.QueryRows(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.QueryRows(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}

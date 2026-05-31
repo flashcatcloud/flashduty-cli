@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -40,7 +40,7 @@ func newOncallWhoCmd() *cobra.Command {
 		Use:   "who",
 		Short: "Show who is currently on call",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -50,7 +50,7 @@ func newOncallWhoCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				req := &gflashduty.ScheduleListRequest{
+				req := &flashduty.ScheduleListRequest{
 					Start: startTime,
 					End:   endTime,
 					Query: query,
@@ -66,7 +66,7 @@ func newOncallWhoCmd() *cobra.Command {
 					req.TeamIDs = teamIDs
 				}
 
-				result, _, err := ctx.GFClient.Schedules.List(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Schedules.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -76,17 +76,17 @@ func newOncallWhoCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "SCHEDULE", MaxWidth: 30, Field: func(v any) string {
-						return scheduleDisplayName(v.(gflashduty.ScheduleItem))
+						return scheduleDisplayName(v.(flashduty.ScheduleItem))
 					}},
 					{Header: "ON_CALL", MaxWidth: 40, Field: func(v any) string {
-						s := v.(gflashduty.ScheduleItem)
+						s := v.(flashduty.ScheduleItem)
 						return formatOncallMembers(&s.CurOncall, nameByID)
 					}},
 					{Header: "UNTIL", Field: func(v any) string {
-						return output.FormatTime(v.(gflashduty.ScheduleItem).CurOncall.End)
+						return output.FormatTime(v.(flashduty.ScheduleItem).CurOncall.End)
 					}},
 					{Header: "NEXT", MaxWidth: 40, Field: func(v any) string {
-						s := v.(gflashduty.ScheduleItem)
+						s := v.(flashduty.ScheduleItem)
 						return formatOncallMembers(&s.NextOncall, nameByID)
 					}},
 				}
@@ -114,7 +114,7 @@ func newOncallScheduleListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List schedules",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -124,7 +124,7 @@ func newOncallScheduleListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				req := &gflashduty.ScheduleListRequest{
+				req := &flashduty.ScheduleListRequest{
 					Start: startTime,
 					End:   endTime,
 					Query: query,
@@ -140,27 +140,27 @@ func newOncallScheduleListCmd() *cobra.Command {
 					req.TeamIDs = teamIDs
 				}
 
-				result, _, err := ctx.GFClient.Schedules.List(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Schedules.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string {
-						return strconv.FormatInt(scheduleID(v.(gflashduty.ScheduleItem)), 10)
+						return strconv.FormatInt(scheduleID(v.(flashduty.ScheduleItem)), 10)
 					}},
 					{Header: "NAME", MaxWidth: 30, Field: func(v any) string {
-						return scheduleDisplayName(v.(gflashduty.ScheduleItem))
+						return scheduleDisplayName(v.(flashduty.ScheduleItem))
 					}},
 					{Header: "STATUS", Field: func(v any) string {
-						s := v.(gflashduty.ScheduleItem)
+						s := v.(flashduty.ScheduleItem)
 						if s.Disabled != 0 {
 							return "disabled"
 						}
 						return "enabled"
 					}},
 					{Header: "LAYERS", Field: func(v any) string {
-						return scheduleLayerCount(v.(gflashduty.ScheduleItem))
+						return scheduleLayerCount(v.(flashduty.ScheduleItem))
 					}},
 				}
 
@@ -187,7 +187,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 		Short: "Get schedule detail",
 		Args:  requireArgs("schedule_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				scheduleIDArg, err := strconv.ParseInt(ctx.Args[0], 10, 64)
 				if err != nil {
 					return fmt.Errorf("invalid schedule_id %q: %w", ctx.Args[0], err)
@@ -202,7 +202,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				s, _, err := ctx.GFClient.Schedules.Info(cmdContext(ctx.Cmd), &gflashduty.ScheduleInfoRequest{
+				s, _, err := ctx.Client.Schedules.Info(cmdContext(ctx.Cmd), &flashduty.ScheduleInfoRequest{
 					ScheduleID: scheduleIDArg,
 					Start:      startTime,
 					End:        endTime,
@@ -216,7 +216,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 				}
 
 				// Resolve on-call person IDs to display names (best-effort).
-				nameByID := resolveScheduleOncallPeople(ctx, []gflashduty.ScheduleItem{*s})
+				nameByID := resolveScheduleOncallPeople(ctx, []flashduty.ScheduleItem{*s})
 
 				status := "enabled"
 				if s.Disabled != 0 {
@@ -242,13 +242,13 @@ func newOncallScheduleGetCmd() *cobra.Command {
 
 					cols := []output.Column{
 						{Header: "START", Field: func(v any) string {
-							return output.FormatTime(v.(gflashduty.ScheduleCalculatedSchedule).Start)
+							return output.FormatTime(v.(flashduty.ScheduleCalculatedSchedule).Start)
 						}},
 						{Header: "END", Field: func(v any) string {
-							return output.FormatTime(v.(gflashduty.ScheduleCalculatedSchedule).End)
+							return output.FormatTime(v.(flashduty.ScheduleCalculatedSchedule).End)
 						}},
 						{Header: "GROUP", MaxWidth: 30, Field: func(v any) string {
-							g := v.(gflashduty.ScheduleCalculatedSchedule).Group
+							g := v.(flashduty.ScheduleCalculatedSchedule).Group
 							if g.GroupName != "" {
 								return g.GroupName
 							}
@@ -272,7 +272,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 
 // scheduleID returns the schedule's numeric ID, preferring schedule_id and
 // falling back to the legacy id field.
-func scheduleID(s gflashduty.ScheduleItem) int64 {
+func scheduleID(s flashduty.ScheduleItem) int64 {
 	if s.ScheduleID != 0 {
 		return s.ScheduleID
 	}
@@ -281,7 +281,7 @@ func scheduleID(s gflashduty.ScheduleItem) int64 {
 
 // scheduleDisplayName returns the schedule's display name, preferring
 // schedule_name and falling back to the legacy name field.
-func scheduleDisplayName(s gflashduty.ScheduleItem) string {
+func scheduleDisplayName(s flashduty.ScheduleItem) string {
 	if s.ScheduleName != "" {
 		return s.ScheduleName
 	}
@@ -291,7 +291,7 @@ func scheduleDisplayName(s gflashduty.ScheduleItem) string {
 	return "-"
 }
 
-func scheduleLayerCount(s gflashduty.ScheduleItem) string {
+func scheduleLayerCount(s flashduty.ScheduleItem) string {
 	switch {
 	case len(s.Layers) > 0:
 		return fmt.Sprintf("%d", len(s.Layers))
@@ -307,7 +307,7 @@ func scheduleLayerCount(s gflashduty.ScheduleItem) string {
 // formatOncallMembers renders an on-call group's members as display names,
 // resolving person IDs through nameByID (best-effort, falling back to the
 // numeric ID), and finally to the group name when no members are present.
-func formatOncallMembers(oncall *gflashduty.ScheduleOncallGroup, nameByID map[int64]string) string {
+func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup, nameByID map[int64]string) string {
 	if oncall == nil {
 		return "-"
 	}
@@ -339,10 +339,10 @@ func formatOncallMembers(oncall *gflashduty.ScheduleOncallGroup, nameByID map[in
 // via /person/infos, replicating the name lookup the legacy SDK fronted.
 // Best-effort: a lookup failure yields a nil map and callers fall back to the
 // numeric ID.
-func resolveScheduleOncallPeople(rc *RunContext, items []gflashduty.ScheduleItem) map[int64]string {
+func resolveScheduleOncallPeople(rc *RunContext, items []flashduty.ScheduleItem) map[int64]string {
 	seen := make(map[int64]struct{})
 	ids := make([]uint64, 0)
-	collect := func(g gflashduty.ScheduleOncallGroup) {
+	collect := func(g flashduty.ScheduleOncallGroup) {
 		for _, m := range g.Group.Members {
 			for _, pid := range m.PersonIDs {
 				if pid == 0 {
@@ -363,7 +363,7 @@ func resolveScheduleOncallPeople(rc *RunContext, items []gflashduty.ScheduleItem
 	if len(ids) == 0 {
 		return nil
 	}
-	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
 	if err != nil || resp == nil {
 		return nil
 	}

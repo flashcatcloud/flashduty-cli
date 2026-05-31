@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 type identityResult struct {
@@ -18,7 +18,7 @@ type identityResult struct {
 // resolveIdentity fetches the caller's identity, preferring member-level detail
 // (which carries the member name) and falling back to account-level info when
 // the app key is account-scoped rather than tied to a member.
-func resolveIdentity(ctx context.Context, client *gflashduty.Client) (*identityResult, error) {
+func resolveIdentity(ctx context.Context, client *flashduty.Client) (*identityResult, error) {
 	member, _, memberErr := client.Members.MemberInfo(ctx)
 	if memberErr == nil {
 		return &identityResult{

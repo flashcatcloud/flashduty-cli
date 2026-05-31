@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -27,7 +27,7 @@ func newMemberListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List members",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// go-flashduty's MemberListRequest exposes a single search
 				// keyword (Query); the legacy SDK split name/email into separate
 				// filters. Both --name and --email are keyword searches against
@@ -36,12 +36,12 @@ func newMemberListCmd() *cobra.Command {
 				if query == "" {
 					query = email
 				}
-				req := &gflashduty.MemberListRequest{
+				req := &flashduty.MemberListRequest{
 					Query: query,
 				}
 				req.Page = page
 
-				result, _, err := ctx.GFClient.Members.MemberList(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Members.MemberList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -50,11 +50,11 @@ func newMemberListCmd() *cobra.Command {
 				// "no members" path (structured: empty set; plain: a message).
 				if len(result.Items) > 0 {
 					cols := []output.Column{
-						{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(gflashduty.MemberItem).MemberID, 10) }},
-						{Header: "NAME", Field: func(v any) string { return v.(gflashduty.MemberItem).MemberName }},
-						{Header: "EMAIL", Field: func(v any) string { return v.(gflashduty.MemberItem).Email }},
-						{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.MemberItem).Status }},
-						{Header: "TIMEZONE", Field: func(v any) string { return v.(gflashduty.MemberItem).TimeZone }},
+						{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.MemberItem).MemberID, 10) }},
+						{Header: "NAME", Field: func(v any) string { return v.(flashduty.MemberItem).MemberName }},
+						{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.MemberItem).Email }},
+						{Header: "STATUS", Field: func(v any) string { return v.(flashduty.MemberItem).Status }},
+						{Header: "TIMEZONE", Field: func(v any) string { return v.(flashduty.MemberItem).TimeZone }},
 					}
 					if err := ctx.Printer.Print(result.Items, cols); err != nil {
 						return err

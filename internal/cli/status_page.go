@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -32,13 +32,13 @@ func newStatusPageListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List status pages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				pageIDs, err := parseIntSlice(ids)
 				if err != nil {
 					return fmt.Errorf("invalid --id: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.StatusPages.ReadPageList(cmdContext(ctx.Cmd))
+				result, _, err := ctx.Client.StatusPages.ReadPageList(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
 				}
@@ -51,7 +51,7 @@ func newStatusPageListCmd() *cobra.Command {
 					for _, id := range pageIDs {
 						want[id] = struct{}{}
 					}
-					filtered := make([]gflashduty.StatusPageItem, 0, len(pages))
+					filtered := make([]flashduty.StatusPageItem, 0, len(pages))
 					for _, p := range pages {
 						if _, ok := want[p.PageID]; ok {
 							filtered = append(filtered, p)
@@ -61,16 +61,16 @@ func newStatusPageListCmd() *cobra.Command {
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(gflashduty.StatusPageItem).PageID, 10) }},
-					{Header: "NAME", Field: func(v any) string { return v.(gflashduty.StatusPageItem).Name }},
-					{Header: "SLUG", Field: func(v any) string { return v.(gflashduty.StatusPageItem).URLName }},
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusPageItem).PageID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.StatusPageItem).Name }},
+					{Header: "SLUG", Field: func(v any) string { return v.(flashduty.StatusPageItem).URLName }},
 					// STATUS reads the account's overall_status, which the
 					// /status-page/list endpoint does not return. The legacy SDK
 					// likewise never populated it, so this column stays empty —
 					// preserved here to keep the table shape identical.
 					{Header: "STATUS", Field: func(v any) string { return "" }},
 					{Header: "COMPONENTS", Field: func(v any) string {
-						comps := v.(gflashduty.StatusPageItem).Components
+						comps := v.(flashduty.StatusPageItem).Components
 						names := make([]string, 0, len(comps))
 						for _, c := range comps {
 							names = append(names, c.Name)
@@ -97,8 +97,8 @@ func newStatusPageChangesCmd() *cobra.Command {
 		Use:   "changes",
 		Short: "List active status page changes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.StatusPages.ChangeActiveList(cmdContext(ctx.Cmd), &gflashduty.StatusPagesChangeActiveListRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.StatusPages.ChangeActiveList(cmdContext(ctx.Cmd), &flashduty.StatusPagesChangeActiveListRequest{
 					PageID: pageID,
 					Type:   changeType,
 				})
@@ -107,17 +107,17 @@ func newStatusPageChangesCmd() *cobra.Command {
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(gflashduty.StatusPageChangeItem).ChangeID, 10) }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Title }},
-					{Header: "TYPE", Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Type }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Status }},
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusPageChangeItem).ChangeID, 10) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.StatusPageChangeItem).Title }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.StatusPageChangeItem).Type }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusPageChangeItem).Status }},
 					// The active-list endpoint returns the event's scheduled window
 					// (start_at_seconds / close_at_seconds), not the row's created/
 					// updated timestamps the legacy SDK reported. The CREATED/UPDATED
 					// headers are preserved to keep the table shape identical; they now
 					// reflect the event start and (scheduled) close times.
-					{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.StatusPageChangeItem).StartAtSeconds) }},
-					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.StatusPageChangeItem).CloseAtSeconds) }},
+					{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusPageChangeItem).StartAtSeconds) }},
+					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusPageChangeItem).CloseAtSeconds) }},
 				}
 
 				return ctx.Printer.Print(result.Items, cols)
@@ -142,7 +142,7 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 		Use:   "create-incident",
 		Short: "Create a status page incident",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// Replicate the legacy SDK's request shaping exactly: default the
 				// status to "investigating", build a single timeline update carrying
 				// the message and any parsed component_changes, and fall back to the
@@ -150,7 +150,7 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 				// byte-for-byte equivalent so the migration introduces no drift.
 				const status = "investigating"
 
-				update := gflashduty.CreateStatusPageChangeRequestUpdatesItem{
+				update := flashduty.CreateStatusPageChangeRequestUpdatesItem{
 					AtSeconds: time.Now().Unix(),
 					Status:    status,
 				}
@@ -161,12 +161,12 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 					for _, part := range parseStringSlice(components) {
 						kv := strings.SplitN(part, ":", 2)
 						if len(kv) == 2 {
-							update.ComponentChanges = append(update.ComponentChanges, gflashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
+							update.ComponentChanges = append(update.ComponentChanges, flashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
 								ComponentID: strings.TrimSpace(kv[0]),
 								Status:      strings.TrimSpace(kv[1]),
 							})
 						} else if len(kv) == 1 && kv[0] != "" {
-							update.ComponentChanges = append(update.ComponentChanges, gflashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
+							update.ComponentChanges = append(update.ComponentChanges, flashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
 								ComponentID: strings.TrimSpace(kv[0]),
 								Status:      "partial_outage",
 							})
@@ -179,13 +179,13 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 					description = title
 				}
 
-				result, _, err := ctx.GFClient.StatusPages.ChangeCreate(cmdContext(ctx.Cmd), &gflashduty.CreateStatusPageChangeRequest{
+				result, _, err := ctx.Client.StatusPages.ChangeCreate(cmdContext(ctx.Cmd), &flashduty.CreateStatusPageChangeRequest{
 					PageID:            pageID,
 					Title:             title,
 					Type:              "incident",
 					Status:            status,
 					Description:       description,
-					Updates:           []gflashduty.CreateStatusPageChangeRequestUpdatesItem{update},
+					Updates:           []flashduty.CreateStatusPageChangeRequestUpdatesItem{update},
 					NotifySubscribers: notify,
 				})
 				if err != nil {
@@ -221,8 +221,8 @@ func newStatusPageCreateTimelineCmd() *cobra.Command {
 		Use:   "create-timeline",
 		Short: "Add a timeline update to a status page change",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				_, _, err := ctx.GFClient.StatusPages.ChangeTimelineCreate(cmdContext(ctx.Cmd), &gflashduty.CreateStatusPageChangeTimelineRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				_, _, err := ctx.Client.StatusPages.ChangeTimelineCreate(cmdContext(ctx.Cmd), &flashduty.CreateStatusPageChangeTimelineRequest{
 					PageID:      pageID,
 					ChangeID:    changeID,
 					Description: message,

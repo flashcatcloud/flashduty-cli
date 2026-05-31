@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +36,7 @@ func newMCPCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Register an MCP server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if strings.TrimSpace(serverName) == "" {
 					return fmt.Errorf("--server-name is required")
 				}
@@ -48,7 +48,7 @@ func newMCPCreateCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("invalid --headers: %w", err)
 				}
-				input := &gflashduty.McpServerCreateRequest{
+				input := &flashduty.McpServerCreateRequest{
 					ServerName:     serverName,
 					Description:    description,
 					Transport:      transport,
@@ -61,7 +61,7 @@ func newMCPCreateCmd() *cobra.Command {
 					CallTimeout:    int64(callTimeout),
 					TeamID:         teamID,
 				}
-				result, _, err := ctx.GFClient.McpServers.WriteServerCreate(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.McpServers.WriteServerCreate(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}

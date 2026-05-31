@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -16,7 +16,7 @@ import (
 // templateChannels map; TemplateItem exposes those same fields as named struct
 // members, so this switch reproduces that selection with no behavior change. An
 // unknown field name yields "".
-func presetTemplateField(t *gflashduty.TemplateItem, fieldName string) string {
+func presetTemplateField(t *flashduty.TemplateItem, fieldName string) string {
 	switch fieldName {
 	case "dingtalk":
 		return t.Dingtalk
@@ -68,13 +68,13 @@ func newTemplateGetPresetCmd() *cobra.Command {
 		Use:   "get-preset",
 		Short: "Get the preset template for a channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				fieldName, ok := templateChannels[channel]
 				if !ok {
 					return fmt.Errorf("unknown channel: %s", channel)
 				}
 
-				item, _, err := ctx.GFClient.NotificationTemplates.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.TemplateIDRequest{
+				item, _, err := ctx.Client.NotificationTemplates.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TemplateIDRequest{
 					TemplateID: presetTemplateID,
 				})
 				if err != nil {
@@ -122,13 +122,13 @@ func newTemplateValidateCmd() *cobra.Command {
 				return fmt.Errorf("failed to read template file: %w", err)
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				fieldName, ok := templateChannels[channel]
 				if !ok {
 					return fmt.Errorf("unknown channel: %s", channel)
 				}
 
-				preview, _, err := ctx.GFClient.NotificationTemplates.ReadPreview(cmdContext(ctx.Cmd), &gflashduty.PreviewTemplateRequest{
+				preview, _, err := ctx.Client.NotificationTemplates.ReadPreview(cmdContext(ctx.Cmd), &flashduty.PreviewTemplateRequest{
 					Content:    string(templateCode),
 					Type:       channel,
 					IncidentID: incidentID,

@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // gfStub is an httptest-backed stand-in for the go-flashduty API. Migrated
-// commands build a *gflashduty.Client (a concrete type, not an interface), so
+// commands build a *flashduty.Client (a concrete type, not an interface), so
 // they can't be mocked the way the legacy flashdutyClient interface is — they
 // are exercised against this stub server instead. The stub records every
 // request's path and decoded JSON body and replies with a canned envelope, so a
@@ -45,7 +45,7 @@ type gfStub struct {
 	dataForPath func(path string, body map[string]any) any
 }
 
-// newGFStub starts a stub server and wires newGFClientFn to a client pointed at
+// newGFStub starts a stub server and wires newClientFn to a client pointed at
 // it. It returns the stub so tests can inspect the captured request. The server
 // is torn down via t.Cleanup.
 func newGFStub(t *testing.T) *gfStub {
@@ -81,8 +81,8 @@ func newGFStub(t *testing.T) *gfStub {
 	}))
 	t.Cleanup(s.server.Close)
 
-	newGFClientFn = func() (*gflashduty.Client, error) {
-		return gflashduty.NewClient("test-key", gflashduty.WithBaseURL(s.server.URL))
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(s.server.URL))
 	}
 	return s
 }

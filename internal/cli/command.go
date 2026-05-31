@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"io"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
 // RunContext provides helpers for command execution. It is created by
-// runGFCommand and passed to the command's handler function. GFClient is the
+// runCommand and passed to the command's handler function. Client is the
 // typed go-flashduty SDK every command calls through.
 type RunContext struct {
-	GFClient *gflashduty.Client
+	Client *flashduty.Client
 	Cmd      *cobra.Command
 	Args     []string
 	Writer   io.Writer
@@ -27,16 +27,16 @@ type RunContext struct {
 // this to suppress detail views, footers, and interactive prompts.
 func (ctx *RunContext) Structured() bool { return ctx.Format.Structured() }
 
-// runGFCommand creates a go-flashduty client and RunContext, then calls fn. It
+// runCommand creates a go-flashduty client and RunContext, then calls fn. It
 // centralises the setup every API-backed command repeats; handlers reach the
-// SDK through ctx.GFClient.
-func runGFCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
-	client, err := newGFClient()
+// SDK through ctx.Client.
+func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
+	client, err := newClient()
 	if err != nil {
 		return err
 	}
 	ctx := &RunContext{
-		GFClient: client,
+		Client: client,
 		Cmd:      cmd,
 		Args:     args,
 		Writer:   cmd.OutOrStdout(),

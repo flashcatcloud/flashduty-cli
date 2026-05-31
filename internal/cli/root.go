@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
 	"golang.org/x/term"
@@ -18,9 +18,9 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/update"
 )
 
-// newGFClientFn creates the go-flashduty client used by all commands.
+// newClientFn creates the go-flashduty client used by all commands.
 // Override in tests to inject a stub server.
-var newGFClientFn = defaultNewGFClient
+var newClientFn = defaultNewClient
 
 var (
 	flagJSON         bool
@@ -115,14 +115,14 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// newGFClient creates a go-flashduty client using the current factory.
-func newGFClient() (*gflashduty.Client, error) {
-	return newGFClientFn()
+// newClient creates a go-flashduty client using the current factory.
+func newClient() (*flashduty.Client, error) {
+	return newClientFn()
 }
 
-// defaultNewGFClient creates a real go-flashduty client from resolved config +
+// defaultNewClient creates a real go-flashduty client from resolved config +
 // flag overrides. This is the typed SDK every command uses.
-func defaultNewGFClient() (*gflashduty.Client, error) {
+func defaultNewClient() (*flashduty.Client, error) {
 	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
@@ -132,15 +132,15 @@ func defaultNewGFClient() (*gflashduty.Client, error) {
 		return nil, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
 	}
 
-	opts := []gflashduty.Option{
-		gflashduty.WithUserAgent("flashduty-cli/" + versionStr),
-		gflashduty.WithLogger(&silentLogger{}),
+	opts := []flashduty.Option{
+		flashduty.WithUserAgent("flashduty-cli/" + versionStr),
+		flashduty.WithLogger(&silentLogger{}),
 	}
 	if cfg.BaseURL != "" && cfg.BaseURL != config.DefaultBaseURL {
-		opts = append(opts, gflashduty.WithBaseURL(cfg.BaseURL))
+		opts = append(opts, flashduty.WithBaseURL(cfg.BaseURL))
 	}
 
-	return gflashduty.NewClient(cfg.AppKey, opts...)
+	return flashduty.NewClient(cfg.AppKey, opts...)
 }
 
 func loadResolvedConfig() (*config.Config, error) {

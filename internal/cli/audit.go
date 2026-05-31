@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -28,7 +28,7 @@ func newAuditSearchCmd() *cobra.Command {
 		Use:   "search",
 		Short: "Search audit logs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -38,7 +38,7 @@ func newAuditSearchCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &gflashduty.AuditSearchRequest{
+				input := &flashduty.AuditSearchRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 					Limit:     int64(limit),
@@ -49,12 +49,12 @@ func newAuditSearchCmd() *cobra.Command {
 				}
 
 				var (
-					result *gflashduty.AuditSearchResponse
+					result *flashduty.AuditSearchResponse
 					cursor string
 				)
 				for currentPage := 1; currentPage <= page; currentPage++ {
 					input.SearchAfterCtx = cursor
-					result, _, err = ctx.GFClient.AuditLogs.Search(cmdContext(ctx.Cmd), input)
+					result, _, err = ctx.Client.AuditLogs.Search(cmdContext(ctx.Cmd), input)
 					if err != nil {
 						return err
 					}
@@ -62,8 +62,8 @@ func newAuditSearchCmd() *cobra.Command {
 						break
 					}
 					if result.SearchAfterCtx == "" {
-						result = &gflashduty.AuditSearchResponse{
-							Docs:  []gflashduty.AuditLog{},
+						result = &flashduty.AuditSearchResponse{
+							Docs:  []flashduty.AuditLog{},
 							Total: result.Total,
 						}
 						break
@@ -73,24 +73,24 @@ func newAuditSearchCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "TIME", Field: func(v any) string {
-						return output.FormatTime(v.(gflashduty.AuditLog).CreatedAt)
+						return output.FormatTime(v.(flashduty.AuditLog).CreatedAt)
 					}},
 					{Header: "PERSON", MaxWidth: 20, Field: func(v any) string {
-						r := v.(gflashduty.AuditLog)
+						r := v.(flashduty.AuditLog)
 						if r.MemberName != "" {
 							return r.MemberName
 						}
 						return fmt.Sprintf("%d", r.MemberID)
 					}},
 					{Header: "OPERATION", MaxWidth: 30, Field: func(v any) string {
-						r := v.(gflashduty.AuditLog)
+						r := v.(flashduty.AuditLog)
 						if r.OperationName != "" {
 							return r.OperationName
 						}
 						return r.Operation
 					}},
 					{Header: "DETAIL", MaxWidth: 50, Field: func(v any) string {
-						r := v.(gflashduty.AuditLog)
+						r := v.(flashduty.AuditLog)
 						if r.Body != "" {
 							return r.Body
 						}

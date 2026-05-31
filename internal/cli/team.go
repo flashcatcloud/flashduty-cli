@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -51,8 +51,8 @@ Examples:
   flashduty team list --person-id 12345 --limit 50
   flashduty team list --orderby team_name --asc`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Teams.ReadInfos(cmdContext(ctx.Cmd), &gflashduty.TeamInfosRequest{})
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Teams.ReadInfos(cmdContext(ctx.Cmd), &flashduty.TeamInfosRequest{})
 				if err != nil {
 					return err
 				}
@@ -102,8 +102,8 @@ Examples:
 			return requireExactlyOneFlag(cmd, "id", "name", "ref-id")
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				team, _, err := ctx.GFClient.Teams.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.TeamInfoRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				team, _, err := ctx.Client.Teams.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TeamInfoRequest{
 					TeamID:   uint64(teamID),
 					TeamName: teamName,
 					RefID:    refID,
@@ -156,13 +156,13 @@ Examples:
   flashduty team create --name "SRE Team" --emails alice@example.com,bob@example.com
   flashduty team create --name "SRE Team" --ref-id "hr-dept-42" --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				ids, err := parseIntSlice(personIDs)
 				if err != nil {
 					return fmt.Errorf("invalid --person-ids: %w", err)
 				}
 
-				result, _, err := ctx.GFClient.Teams.WriteUpsert(cmdContext(ctx.Cmd), &gflashduty.TeamUpsertRequest{
+				result, _, err := ctx.Client.Teams.WriteUpsert(cmdContext(ctx.Cmd), &flashduty.TeamUpsertRequest{
 					TeamName:    name,
 					Description: description,
 					PersonIDs:   toUint64Slice(ids),
@@ -219,7 +219,7 @@ Examples:
 				return fmt.Errorf("--id is required")
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				ids, err := parseIntSlice(personIDs)
 				if err != nil {
 					return fmt.Errorf("invalid --person-ids: %w", err)
@@ -229,7 +229,7 @@ Examples:
 				// provide --name, fetch the current name so we don't clear it.
 				teamName := name
 				if !cmd.Flags().Changed("name") {
-					existing, _, err := ctx.GFClient.Teams.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.TeamInfoRequest{
+					existing, _, err := ctx.Client.Teams.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TeamInfoRequest{
 						TeamID: uint64(teamID),
 					})
 					if err != nil {
@@ -238,7 +238,7 @@ Examples:
 					teamName = existing.TeamName
 				}
 
-				req := &gflashduty.TeamUpsertRequest{
+				req := &flashduty.TeamUpsertRequest{
 					TeamID:   uint64(teamID),
 					TeamName: teamName,
 				}
@@ -255,7 +255,7 @@ Examples:
 					req.RefID = refID
 				}
 
-				result, _, err := ctx.GFClient.Teams.WriteUpsert(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Teams.WriteUpsert(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -302,14 +302,14 @@ Examples:
 			return requireExactlyOneFlag(cmd, "id", "name", "ref-id")
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				identifier := identifierDescription(teamID, teamName, refID)
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete team %s?", identifier)) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
 
-				_, err := ctx.GFClient.Teams.WriteDelete(cmdContext(ctx.Cmd), &gflashduty.TeamDeleteRequest{
+				_, err := ctx.Client.Teams.WriteDelete(cmdContext(ctx.Cmd), &flashduty.TeamDeleteRequest{
 					TeamID:   uint64(teamID),
 					TeamName: teamName,
 					RefID:    refID,
@@ -337,10 +337,10 @@ Examples:
 // ID when a name can't be resolved.
 func teamListColumns(nameByID map[uint64]string) []output.Column {
 	return []output.Column{
-		{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(gflashduty.TeamBriefItem).TeamID, 10) }},
-		{Header: "NAME", Field: func(v any) string { return v.(gflashduty.TeamBriefItem).TeamName }},
+		{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.TeamBriefItem).TeamID, 10) }},
+		{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamBriefItem).TeamName }},
 		{Header: "MEMBERS", MaxWidth: 50, Field: func(v any) string {
-			ids := v.(gflashduty.TeamBriefItem).PersonIDs
+			ids := v.(flashduty.TeamBriefItem).PersonIDs
 			names := make([]string, 0, len(ids))
 			for _, id := range ids {
 				if n, ok := nameByID[id]; ok && n != "" {
@@ -354,7 +354,7 @@ func teamListColumns(nameByID map[uint64]string) []output.Column {
 	}
 }
 
-func printTeamDetail(w io.Writer, team *gflashduty.TeamItem, members []string) {
+func printTeamDetail(w io.Writer, team *flashduty.TeamItem, members []string) {
 	if len(members) == 0 {
 		for _, id := range team.PersonIDs {
 			members = append(members, strconv.FormatUint(id, 10))
@@ -377,7 +377,7 @@ func printTeamDetail(w io.Writer, team *gflashduty.TeamItem, members []string) {
 // to display names via /person/infos, replicating the name enrichment the
 // legacy SDK did server-side. Best-effort: a lookup failure yields a nil map and
 // callers fall back to the numeric ID.
-func resolveTeamMemberNames(rc *RunContext, items []gflashduty.TeamBriefItem) map[uint64]string {
+func resolveTeamMemberNames(rc *RunContext, items []flashduty.TeamBriefItem) map[uint64]string {
 	seen := make(map[uint64]struct{})
 	ids := make([]uint64, 0)
 	for _, it := range items {
@@ -395,7 +395,7 @@ func resolveTeamMemberNames(rc *RunContext, items []gflashduty.TeamBriefItem) ma
 	if len(ids) == 0 {
 		return nil
 	}
-	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
 	if err != nil || resp == nil {
 		return nil
 	}
@@ -420,7 +420,7 @@ func resolveTeamMemberInfos(rc *RunContext, personIDs []uint64) []string {
 	if len(ids) == 0 {
 		return nil
 	}
-	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
 	if err != nil || resp == nil {
 		return nil
 	}

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -27,8 +27,8 @@ func newPostmortemListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List post-mortem reports",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				req := &gflashduty.ListPostMortemsRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				req := &flashduty.ListPostMortemsRequest{
 					Status: status,
 				}
 				req.Page = page
@@ -66,18 +66,18 @@ func newPostmortemListCmd() *cobra.Command {
 					req.CreatedAtEndSeconds = endTime
 				}
 
-				result, _, err := ctx.GFClient.Incidents.PostMortemList(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Incidents.PostMortemList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(gflashduty.PostMortemMeta).PostMortemID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.PostMortemMeta).Title }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.PostMortemMeta).Status }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.PostMortemMeta).ChannelName }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.PostMortemMeta).PostMortemID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.PostMortemMeta).Title }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.PostMortemMeta).Status }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.PostMortemMeta).ChannelName }},
 					{Header: "CREATED", Field: func(v any) string {
-						return output.FormatTime(v.(gflashduty.PostMortemMeta).CreatedAtSeconds)
+						return output.FormatTime(v.(flashduty.PostMortemMeta).CreatedAtSeconds)
 					}},
 				}
 

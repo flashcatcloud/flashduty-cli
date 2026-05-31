@@ -3,7 +3,7 @@ package cli
 import (
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -25,8 +25,8 @@ func newFieldListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List custom fields",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &gflashduty.FieldListRequest{})
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &flashduty.FieldListRequest{})
 				if err != nil {
 					return err
 				}
@@ -37,7 +37,7 @@ func newFieldListCmd() *cobra.Command {
 				// is unchanged.
 				items := result.Items
 				if name != "" {
-					filtered := make([]gflashduty.FieldItem, 0, len(items))
+					filtered := make([]flashduty.FieldItem, 0, len(items))
 					for _, f := range items {
 						if f.FieldName == name {
 							filtered = append(filtered, f)
@@ -47,12 +47,12 @@ func newFieldListCmd() *cobra.Command {
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(gflashduty.FieldItem).FieldID }},
-					{Header: "NAME", Field: func(v any) string { return v.(gflashduty.FieldItem).FieldName }},
-					{Header: "DISPLAY_NAME", Field: func(v any) string { return v.(gflashduty.FieldItem).DisplayName }},
-					{Header: "TYPE", Field: func(v any) string { return v.(gflashduty.FieldItem).FieldType }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.FieldItem).FieldID }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.FieldItem).FieldName }},
+					{Header: "DISPLAY_NAME", Field: func(v any) string { return v.(flashduty.FieldItem).DisplayName }},
+					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.FieldItem).FieldType }},
 					{Header: "OPTIONS", MaxWidth: 50, Field: func(v any) string {
-						return strings.Join(v.(gflashduty.FieldItem).Options, ", ")
+						return strings.Join(v.(flashduty.FieldItem).Options, ", ")
 					}},
 				}
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -28,7 +28,7 @@ func newAlertEventListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List alert events globally",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -38,7 +38,7 @@ func newAlertEventListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &gflashduty.AlertEventGlobalListRequest{
+				input := &flashduty.AlertEventGlobalListRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				}
@@ -62,18 +62,18 @@ func newAlertEventListCmd() *cobra.Command {
 					input.IntegrationTypes = parseStringSlice(integrationType)
 				}
 
-				result, _, err := ctx.GFClient.Alerts.EventReadList(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Alerts.EventReadList(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "EVENT_ID", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventID }},
-					{Header: "ALERT_ID", Field: func(v any) string { return v.(gflashduty.AlertEventItem).AlertID }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventStatus }},
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertEventItem).EventTime) }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertEventItem).Title }},
+					{Header: "EVENT_ID", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventID }},
+					{Header: "ALERT_ID", Field: func(v any) string { return v.(flashduty.AlertEventItem).AlertID }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventStatus }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertEventItem).EventTime) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
 				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))

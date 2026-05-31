@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -39,13 +39,13 @@ func newChannelListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List channels",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// Legacy parity: the hand-written SDK called /channel/list with an
 				// empty body and applied the --name filter client-side as a
 				// case-insensitive substring match. go-flashduty's ChannelName field
 				// is an exact-match server filter, so we keep the client-side filter
 				// to preserve behavior.
-				result, _, err := ctx.GFClient.Channels.ChannelList(cmdContext(ctx.Cmd), &gflashduty.ListChannelsRequest{})
+				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{})
 				if err != nil {
 					return err
 				}
@@ -115,7 +115,7 @@ func enrichChannelNames(ctx *RunContext, rows []channelRow) {
 
 	teamNameByID := make(map[int64]string)
 	if len(teamIDs) > 0 {
-		if resp, _, err := ctx.GFClient.Teams.ReadInfos(cmdContext(ctx.Cmd), &gflashduty.TeamInfosRequest{TeamIDs: teamIDs}); err == nil && resp != nil {
+		if resp, _, err := ctx.Client.Teams.ReadInfos(cmdContext(ctx.Cmd), &flashduty.TeamInfosRequest{TeamIDs: teamIDs}); err == nil && resp != nil {
 			for _, t := range resp.Items {
 				teamNameByID[int64(t.TeamID)] = t.TeamName
 			}
@@ -124,7 +124,7 @@ func enrichChannelNames(ctx *RunContext, rows []channelRow) {
 
 	personNameByID := make(map[int64]string)
 	if len(personIDs) > 0 {
-		if resp, _, err := ctx.GFClient.Members.PersonInfos(cmdContext(ctx.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: personIDs}); err == nil && resp != nil {
+		if resp, _, err := ctx.Client.Members.PersonInfos(cmdContext(ctx.Cmd), &flashduty.PersonInfosRequest{PersonIDs: personIDs}); err == nil && resp != nil {
 			for _, p := range resp.Items {
 				personNameByID[int64(p.PersonID)] = p.PersonName
 			}

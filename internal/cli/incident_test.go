@@ -6,7 +6,7 @@ import (
 
 // TestCommandIncidentSimilarLimitReachesWire guards the *int64 Limit field on
 // ListPastIncidentsRequest: --limit must reach the wire body (it is wrapped
-// with gflashduty.Int64). The command's --limit default is 5, never 0, so the
+// with flashduty.Int64). The command's --limit default is 5, never 0, so the
 // value is always sent.
 func TestCommandIncidentSimilarLimitReachesWire(t *testing.T) {
 	saveAndResetGlobals(t)

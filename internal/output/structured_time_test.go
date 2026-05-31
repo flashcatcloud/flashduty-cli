@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // row carries a typed go-flashduty Timestamp field so we can prove the structured
 // printers render it as RFC3339 rather than a raw epoch integer.
 type row struct {
-	StartTime gflashduty.Timestamp `json:"start_time" toon:"start_time"`
+	StartTime flashduty.Timestamp `json:"start_time" toon:"start_time"`
 }
 
 // TestStructuredTimeIsRFC3339 is the regression guard for the typed-timestamp
@@ -21,7 +21,7 @@ type row struct {
 func TestStructuredTimeIsRFC3339(t *testing.T) {
 	// 2026-05-28T08:00:00Z — fixed so we can assert the raw epoch is absent.
 	const epochSec = 1779955200
-	data := row{StartTime: gflashduty.Timestamp(epochSec)}
+	data := row{StartTime: flashduty.Timestamp(epochSec)}
 
 	cases := []struct {
 		name   string

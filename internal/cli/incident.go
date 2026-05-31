@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -49,12 +49,12 @@ func newIncidentCmd() *cobra.Command {
 
 func incidentColumns() []output.Column {
 	return []output.Column{
-		{Header: "ID", Field: func(v any) string { return v.(gflashduty.IncidentInfo).IncidentID }},
-		{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.IncidentInfo).Title }},
-		{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.IncidentInfo).IncidentSeverity }},
-		{Header: "PROGRESS", Field: func(v any) string { return v.(gflashduty.IncidentInfo).Progress }},
-		{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.IncidentInfo).ChannelName }},
-		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.IncidentInfo).StartTime) }},
+		{Header: "ID", Field: func(v any) string { return v.(flashduty.IncidentInfo).IncidentID }},
+		{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.IncidentInfo).Title }},
+		{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.IncidentInfo).IncidentSeverity }},
+		{Header: "PROGRESS", Field: func(v any) string { return v.(flashduty.IncidentInfo).Progress }},
+		{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.IncidentInfo).ChannelName }},
+		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.IncidentInfo).StartTime) }},
 	}
 }
 
@@ -63,12 +63,12 @@ func incidentColumns() []output.Column {
 // IncidentInfo.
 func pastIncidentColumns() []output.Column {
 	return []output.Column{
-		{Header: "ID", Field: func(v any) string { return v.(gflashduty.PastIncidentItem).IncidentID }},
-		{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.PastIncidentItem).Title }},
-		{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.PastIncidentItem).IncidentSeverity }},
-		{Header: "PROGRESS", Field: func(v any) string { return v.(gflashduty.PastIncidentItem).Progress }},
-		{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.PastIncidentItem).ChannelName }},
-		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.PastIncidentItem).StartTime) }},
+		{Header: "ID", Field: func(v any) string { return v.(flashduty.PastIncidentItem).IncidentID }},
+		{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.PastIncidentItem).Title }},
+		{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.PastIncidentItem).IncidentSeverity }},
+		{Header: "PROGRESS", Field: func(v any) string { return v.(flashduty.PastIncidentItem).Progress }},
+		{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.PastIncidentItem).ChannelName }},
+		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.PastIncidentItem).StartTime) }},
 	}
 }
 
@@ -81,7 +81,7 @@ func newIncidentListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List incidents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -91,7 +91,7 @@ func newIncidentListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				req := &gflashduty.ListIncidentsRequest{
+				req := &flashduty.ListIncidentsRequest{
 					Progress:         progress,
 					IncidentSeverity: severity,
 					StartTime:        startTime,
@@ -104,7 +104,7 @@ func newIncidentListCmd() *cobra.Command {
 					req.ChannelIDs = []int64{channelID}
 				}
 
-				result, _, err := ctx.GFClient.Incidents.List(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -132,8 +132,8 @@ func newIncidentGetCmd() *cobra.Command {
 		Short: "Get incident details",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Incidents.List(cmdContext(ctx.Cmd), &gflashduty.ListIncidentsRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), &flashduty.ListIncidentsRequest{
 					IncidentIDs: ctx.Args,
 				})
 				if err != nil {
@@ -157,7 +157,7 @@ func newIncidentGetCmd() *cobra.Command {
 	}
 }
 
-func printIncidentDetail(w io.Writer, inc gflashduty.IncidentInfo) {
+func printIncidentDetail(w io.Writer, inc flashduty.IncidentInfo) {
 	responders := make([]string, 0, len(inc.Responders))
 	for _, r := range inc.Responders {
 		responders = append(responders, r.PersonName)
@@ -227,8 +227,8 @@ func newIncidentCreateCmd() *cobra.Command {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				req := &gflashduty.CreateIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				req := &flashduty.CreateIncidentRequest{
 					Title:            title,
 					IncidentSeverity: severity,
 					ChannelID:        channelID,
@@ -243,10 +243,10 @@ func newIncidentCreateCmd() *cobra.Command {
 					// = "assign". On a brand-new incident the backend would default an
 					// empty type to "assign" anyway, but we set it explicitly so the
 					// migration is a pure no-drift refactor.
-					req.AssignedTo = gflashduty.CreateIncidentRequestAssignedTo{PersonIDs: personIDs, Type: "assign"}
+					req.AssignedTo = flashduty.CreateIncidentRequestAssignedTo{PersonIDs: personIDs, Type: "assign"}
 				}
 
-				result, _, err := ctx.GFClient.Incidents.Create(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Incidents.Create(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -292,7 +292,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 				customFields = append(customFields, customField{name: parts[0], value: parts[1]})
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				incidentID := ctx.Args[0]
 				updated := make([]string, 0)
 
@@ -300,7 +300,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 				// SDK: only set fields the user supplied, and label severity as
 				// "severity" (not the wire field "incident_severity") in the
 				// summary line.
-				resetReq := &gflashduty.UpdateIncidentFieldsRequest{IncidentID: incidentID}
+				resetReq := &flashduty.UpdateIncidentFieldsRequest{IncidentID: incidentID}
 				if title != "" {
 					resetReq.Title = title
 					updated = append(updated, "title")
@@ -314,7 +314,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 					updated = append(updated, "severity")
 				}
 				if len(updated) > 0 {
-					if _, err := ctx.GFClient.Incidents.Reset(cmdContext(ctx.Cmd), resetReq); err != nil {
+					if _, err := ctx.Client.Incidents.Reset(cmdContext(ctx.Cmd), resetReq); err != nil {
 						return err
 					}
 				}
@@ -331,7 +331,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 							return fmt.Errorf("custom field name '%s' contains invalid characters (only alphanumeric and underscore allowed)", f.name)
 						}
 					}
-					if _, err := ctx.GFClient.Incidents.FieldReset(cmdContext(ctx.Cmd), &gflashduty.ResetIncidentFieldRequest{
+					if _, err := ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), &flashduty.ResetIncidentFieldRequest{
 						IncidentID: incidentID,
 						FieldName:  f.name,
 						FieldValue: map[string]any{"value": f.value},
@@ -365,8 +365,8 @@ func newIncidentAckCmd() *cobra.Command {
 		Short: "Acknowledge incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Ack(cmdContext(ctx.Cmd), &gflashduty.AckIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Ack(cmdContext(ctx.Cmd), &flashduty.AckIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -393,8 +393,8 @@ unacknowledged state. The command accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Unack(cmdContext(ctx.Cmd), &gflashduty.UnackIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Unack(cmdContext(ctx.Cmd), &flashduty.UnackIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -412,8 +412,8 @@ func newIncidentCloseCmd() *cobra.Command {
 		Short: "Close incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Resolve(cmdContext(ctx.Cmd), &gflashduty.ResolveIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Resolve(cmdContext(ctx.Cmd), &flashduty.ResolveIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -440,8 +440,8 @@ accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Wake(cmdContext(ctx.Cmd), &gflashduty.WakeIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Wake(cmdContext(ctx.Cmd), &flashduty.WakeIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -459,13 +459,13 @@ func newIncidentTimelineCmd() *cobra.Command {
 		Short: "View incident timeline",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// go-flashduty has no batched timeline endpoint, so fan out per
 				// incident ID over /incident/feed and concatenate the entries,
 				// replicating the legacy SDK's GetIncidentTimelines behavior.
-				var items []gflashduty.IncidentFeedItem
+				var items []flashduty.IncidentFeedItem
 				for _, id := range ctx.Args {
-					result, _, err := ctx.GFClient.Incidents.Feed(cmdContext(ctx.Cmd), &gflashduty.ListIncidentFeedRequest{IncidentID: id})
+					result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{IncidentID: id})
 					if err != nil {
 						return err
 					}
@@ -482,10 +482,10 @@ func newIncidentTimelineCmd() *cobra.Command {
 				nameByID := resolveFeedOperators(ctx, items)
 
 				cols := []output.Column{
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.IncidentFeedItem).CreatedAt) }},
-					{Header: "TYPE", Field: func(v any) string { return string(v.(gflashduty.IncidentFeedItem).Type) }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.IncidentFeedItem).CreatedAt) }},
+					{Header: "TYPE", Field: func(v any) string { return string(v.(flashduty.IncidentFeedItem).Type) }},
 					{Header: "OPERATOR", Field: func(v any) string {
-						it := v.(gflashduty.IncidentFeedItem)
+						it := v.(flashduty.IncidentFeedItem)
 						if it.CreatorID == 0 {
 							return "system"
 						}
@@ -495,7 +495,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 						return strconv.FormatInt(it.CreatorID, 10)
 					}},
 					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-						d := v.(gflashduty.IncidentFeedItem).Detail
+						d := v.(flashduty.IncidentFeedItem).Detail
 						if d == nil {
 							return "-"
 						}
@@ -517,10 +517,10 @@ func newIncidentAlertsCmd() *cobra.Command {
 		Short: "View incident alerts",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				req := &gflashduty.ListIncidentAlertsRequest{IncidentID: ctx.Args[0]}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				req := &flashduty.ListIncidentAlertsRequest{IncidentID: ctx.Args[0]}
 				req.Limit = limit
-				result, _, err := ctx.GFClient.Incidents.AlertList(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Incidents.AlertList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -531,11 +531,11 @@ func newIncidentAlertsCmd() *cobra.Command {
 				}
 
 				cols := []output.Column{
-					{Header: "ALERT_ID", Field: func(v any) string { return v.(gflashduty.AlertInfo).AlertID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertInfo).Title }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertInfo).AlertSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertInfo).AlertStatus }},
-					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertInfo).StartTime) }},
+					{Header: "ALERT_ID", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertInfo).Title }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertStatus }},
+					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertInfo).StartTime) }},
 				}
 
 				return ctx.PrintTotal(result.Items, cols, int(result.Total))
@@ -555,10 +555,10 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Short: "Find similar incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Incidents.PastList(cmdContext(ctx.Cmd), &gflashduty.ListPastIncidentsRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), &flashduty.ListPastIncidentsRequest{
 					IncidentID: ctx.Args[0],
-					Limit:      gflashduty.Int64(int64(limit)),
+					Limit:      flashduty.Int64(int64(limit)),
 				})
 				if err != nil {
 					return err
@@ -630,7 +630,7 @@ func newIncidentMergeCmd() *cobra.Command {
 		Short: "Merge incidents into a target incident",
 		Args:  requireArgs("target_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				sourceIDs := parseStringSlice(source)
 				if len(sourceIDs) == 0 {
 					return fmt.Errorf("--source is required")
@@ -639,7 +639,7 @@ func newIncidentMergeCmd() *cobra.Command {
 					return fmt.Errorf("--source accepts at most 100 incident IDs")
 				}
 
-				if _, err := ctx.GFClient.Incidents.Merge(cmdContext(ctx.Cmd), &gflashduty.MergeIncidentsRequest{
+				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsRequest{
 					SourceIncidentIDs: sourceIDs,
 					TargetIncidentID:  ctx.Args[0],
 				}); err != nil {
@@ -666,7 +666,7 @@ func newIncidentSnoozeCmd() *cobra.Command {
 		Short: "Snooze incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				d, err := time.ParseDuration(duration)
 				if err != nil {
 					return fmt.Errorf("invalid --duration: %w", err)
@@ -680,7 +680,7 @@ func newIncidentSnoozeCmd() *cobra.Command {
 
 				minutes := int64(d / time.Minute)
 
-				if _, err := ctx.GFClient.Incidents.Snooze(cmdContext(ctx.Cmd), &gflashduty.SnoozeIncidentRequest{
+				if _, err := ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), &flashduty.SnoozeIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Minutes:     minutes,
 				}); err != nil {
@@ -705,8 +705,8 @@ func newIncidentReopenCmd() *cobra.Command {
 		Short: "Reopen closed incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Reopen(cmdContext(ctx.Cmd), &gflashduty.ReopenIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Reopen(cmdContext(ctx.Cmd), &flashduty.ReopenIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -726,7 +726,7 @@ func newIncidentReassignCmd() *cobra.Command {
 		Short: "Reassign an incident to new responders",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				personIDs, err := parseIntSlice(person)
 				if err != nil {
 					return fmt.Errorf("invalid --person: %w", err)
@@ -740,9 +740,9 @@ func newIncidentReassignCmd() *cobra.Command {
 				// the backend relabel an already-assigned incident as "reassign" in the
 				// feed/IM cards — a behavior change. Whether "reassign" is the more
 				// correct label is a separate product decision, not a migration one.
-				if _, err := ctx.GFClient.Incidents.Assign(cmdContext(ctx.Cmd), &gflashduty.AssignIncidentRequest{
+				if _, err := ctx.Client.Incidents.Assign(cmdContext(ctx.Cmd), &flashduty.AssignIncidentRequest{
 					IncidentIDs: []string{ctx.Args[0]},
-					AssignedTo:  gflashduty.AssignedTo{PersonIDs: personIDs, Type: "assign"},
+					AssignedTo:  flashduty.AssignedTo{PersonIDs: personIDs, Type: "assign"},
 				}); err != nil {
 					return err
 				}
@@ -786,17 +786,17 @@ personal channels, or a template.`,
 				return fmt.Errorf("--person is required")
 			}
 
-			var notify gflashduty.AddIncidentResponderRequestNotify
+			var notify flashduty.AddIncidentResponderRequestNotify
 			if followPreference || notifyChannel != "" || templateID != "" {
-				notify = gflashduty.AddIncidentResponderRequestNotify{
+				notify = flashduty.AddIncidentResponderRequestNotify{
 					FollowPreference: followPreference,
 					PersonalChannels: parseStringSlice(notifyChannel),
 					TemplateID:       templateID,
 				}
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.ResponderAdd(cmdContext(ctx.Cmd), &gflashduty.AddIncidentResponderRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.ResponderAdd(cmdContext(ctx.Cmd), &flashduty.AddIncidentResponderRequest{
 					IncidentID: ctx.Args[0],
 					PersonIDs:  personIDs,
 					Notify:     notify,
@@ -845,8 +845,8 @@ webhook reply behavior.`,
 				return fmt.Errorf("--comment must be at most 1024 characters")
 			}
 
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.Comment(cmdContext(ctx.Cmd), &gflashduty.CommentIncidentRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), &flashduty.CommentIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
 					MuteReply:   muteReply,
@@ -879,8 +879,8 @@ matching alerts automatically. The command accepts up to 100 incident IDs.`,
   flashduty incident disable-merge inc_123 inc_456`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Incidents.DisableMerge(cmdContext(ctx.Cmd), &gflashduty.DisableIncidentMergeRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Incidents.DisableMerge(cmdContext(ctx.Cmd), &flashduty.DisableIncidentMergeRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -910,13 +910,13 @@ unless --force is provided. The command accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to remove %d incident(s)?", len(ctx.Args))) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
 
-				if _, err := ctx.GFClient.Incidents.Remove(cmdContext(ctx.Cmd), &gflashduty.RemoveIncidentRequest{
+				if _, err := ctx.Client.Incidents.Remove(cmdContext(ctx.Cmd), &flashduty.RemoveIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
 					return err
@@ -976,12 +976,12 @@ invite historical responders selected by FlashDuty.`,
 			if err != nil {
 				return fmt.Errorf("invalid --member: %w", err)
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				resolvedIntegrationID, err := resolveWarRoomIntegrationID(ctx)
 				if err != nil {
 					return err
 				}
-				warRoom, _, err := ctx.GFClient.Incidents.WarRoomCreate(cmdContext(ctx.Cmd), &gflashduty.CreateWarRoomRequest{
+				warRoom, _, err := ctx.Client.Incidents.WarRoomCreate(cmdContext(ctx.Cmd), &flashduty.CreateWarRoomRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: resolvedIntegrationID,
 					MemberIDs:     memberIDs,
@@ -1015,7 +1015,7 @@ func resolveWarRoomIntegrationID(ctx *RunContext) (int64, error) {
 		return integrationID, nil
 	}
 
-	result, _, err := ctx.GFClient.ImIntegrations.List(cmdContext(ctx.Cmd))
+	result, _, err := ctx.Client.ImIntegrations.List(cmdContext(ctx.Cmd))
 	if err != nil {
 		return 0, err
 	}
@@ -1039,8 +1039,8 @@ as get, delete, and add-member.`,
   flashduty incident war-room list inc_123 --integration 42`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Incidents.WarRoomList(cmdContext(ctx.Cmd), &gflashduty.ListWarRoomsRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Incidents.WarRoomList(cmdContext(ctx.Cmd), &flashduty.ListWarRoomsRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				})
@@ -1071,8 +1071,8 @@ the chat ID and integration ID for an incident.`,
   flashduty incident war-room get chat_123 --integration 42`,
 		Args: requireArgs("chat_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				warRoom, _, err := ctx.GFClient.Incidents.WarRoomDetail(cmdContext(ctx.Cmd), &gflashduty.GetWarRoomDetailRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				warRoom, _, err := ctx.Client.Incidents.WarRoomDetail(cmdContext(ctx.Cmd), &flashduty.GetWarRoomDetailRequest{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 				})
@@ -1111,12 +1111,12 @@ integration ID.`,
   flashduty incident war-room delete inc_123 --integration 42 --force`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0])) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
-				if _, err := ctx.GFClient.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), &gflashduty.DeleteWarRoomRequest{
+				if _, err := ctx.Client.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), &flashduty.DeleteWarRoomRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
 				}); err != nil {
@@ -1159,8 +1159,8 @@ IDs.`,
 			if len(memberIDs) == 0 {
 				return fmt.Errorf("--member is required")
 			}
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, _, err := ctx.GFClient.Incidents.WriteAddWarRoomMember(cmdContext(ctx.Cmd), &gflashduty.AddWarRoomMemberRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, _, err := ctx.Client.Incidents.WriteAddWarRoomMember(cmdContext(ctx.Cmd), &flashduty.AddWarRoomMemberRequest{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 					MemberIDs:     memberIDs,
@@ -1192,8 +1192,8 @@ This is a read-only preview of the users FlashDuty would add when
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Incidents.ReadGetWarRoomDefaultObservers(cmdContext(ctx.Cmd), &gflashduty.GetWarRoomDefaultObserversRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Incidents.ReadGetWarRoomDefaultObservers(cmdContext(ctx.Cmd), &flashduty.GetWarRoomDefaultObserversRequest{
 					IncidentID: ctx.Args[0],
 				})
 				if err != nil {
@@ -1207,25 +1207,25 @@ This is a read-only preview of the users FlashDuty would add when
 
 func incidentWarRoomColumns() []output.Column {
 	return []output.Column{
-		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(gflashduty.WarRoomItem).IntegrationID) }},
-		{Header: "CHAT_ID", Field: func(v any) string { return v.(gflashduty.WarRoomItem).ChatID }},
-		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(gflashduty.WarRoomItem).IncidentID }},
-		{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.WarRoomItem).Status }},
-		{Header: "PLUGIN", Field: func(v any) string { return v.(gflashduty.WarRoomItem).PluginType }},
-		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.WarRoomItem).CreatedAt) }},
+		{Header: "INTEGRATION", Field: func(v any) string { return fmt.Sprint(v.(flashduty.WarRoomItem).IntegrationID) }},
+		{Header: "CHAT_ID", Field: func(v any) string { return v.(flashduty.WarRoomItem).ChatID }},
+		{Header: "INCIDENT_ID", Field: func(v any) string { return v.(flashduty.WarRoomItem).IncidentID }},
+		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.WarRoomItem).Status }},
+		{Header: "PLUGIN", Field: func(v any) string { return v.(flashduty.WarRoomItem).PluginType }},
+		{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.WarRoomItem).CreatedAt) }},
 	}
 }
 
 func incidentWarRoomObserverColumns() []output.Column {
 	return []output.Column{
-		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(gflashduty.WarRoomPersonItem).PersonID) }},
-		{Header: "NAME", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).PersonName }},
-		{Header: "EMAIL", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).Email }},
-		{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).Status }},
+		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(flashduty.WarRoomPersonItem).PersonID) }},
+		{Header: "NAME", Field: func(v any) string { return v.(flashduty.WarRoomPersonItem).PersonName }},
+		{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.WarRoomPersonItem).Email }},
+		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.WarRoomPersonItem).Status }},
 	}
 }
 
-func printWarRoomDetail(w io.Writer, warRoom *gflashduty.WarRoom) {
+func printWarRoomDetail(w io.Writer, warRoom *flashduty.WarRoom) {
 	if warRoom == nil {
 		return
 	}
@@ -1242,11 +1242,11 @@ func newIncidentFeedCmd() *cobra.Command {
 		Short: "View incident feed (paginated timeline)",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				feedReq := &gflashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				feedReq := &flashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
 				feedReq.Page = page
 				feedReq.Limit = limit
-				result, _, err := ctx.GFClient.Incidents.Feed(cmdContext(ctx.Cmd), feedReq)
+				result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), feedReq)
 				if err != nil {
 					return err
 				}
@@ -1263,10 +1263,10 @@ func newIncidentFeedCmd() *cobra.Command {
 				nameByID := resolveFeedOperators(ctx, result.Items)
 
 				cols := []output.Column{
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.IncidentFeedItem).CreatedAt) }},
-					{Header: "TYPE", Field: func(v any) string { return string(v.(gflashduty.IncidentFeedItem).Type) }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.IncidentFeedItem).CreatedAt) }},
+					{Header: "TYPE", Field: func(v any) string { return string(v.(flashduty.IncidentFeedItem).Type) }},
 					{Header: "OPERATOR", Field: func(v any) string {
-						it := v.(gflashduty.IncidentFeedItem)
+						it := v.(flashduty.IncidentFeedItem)
 						if it.CreatorID == 0 {
 							return "system"
 						}
@@ -1276,7 +1276,7 @@ func newIncidentFeedCmd() *cobra.Command {
 						return strconv.FormatInt(it.CreatorID, 10)
 					}},
 					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-						d := v.(gflashduty.IncidentFeedItem).Detail
+						d := v.(flashduty.IncidentFeedItem).Detail
 						if d == nil {
 							return "-"
 						}
@@ -1299,7 +1299,7 @@ func newIncidentFeedCmd() *cobra.Command {
 // items to display names via /person/infos, replicating the operator-name
 // enrichment the legacy SDK did server-side. Best-effort: a lookup failure
 // yields a nil map and callers fall back to the numeric ID.
-func resolveFeedOperators(rc *RunContext, items []gflashduty.IncidentFeedItem) map[int64]string {
+func resolveFeedOperators(rc *RunContext, items []flashduty.IncidentFeedItem) map[int64]string {
 	seen := make(map[int64]struct{}, len(items))
 	ids := make([]uint64, 0, len(items))
 	for _, it := range items {
@@ -1315,7 +1315,7 @@ func resolveFeedOperators(rc *RunContext, items []gflashduty.IncidentFeedItem) m
 	if len(ids) == 0 {
 		return nil
 	}
-	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
 	if err != nil || resp == nil {
 		return nil
 	}
@@ -1332,8 +1332,8 @@ func newIncidentDetailCmd() *cobra.Command {
 		Short: "View full incident detail with AI summary",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Incidents.Info(cmdContext(ctx.Cmd), &gflashduty.IncidentInfoRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), &flashduty.IncidentInfoRequest{
 					IncidentID: ctx.Args[0],
 				})
 				if err != nil {
@@ -1351,7 +1351,7 @@ func newIncidentDetailCmd() *cobra.Command {
 	}
 }
 
-func printIncidentFullDetail(w io.Writer, inc *gflashduty.IncidentInfo) {
+func printIncidentFullDetail(w io.Writer, inc *flashduty.IncidentInfo) {
 	if inc == nil {
 		return
 	}

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // TestCommandStatusPageMigrateStructureSendsSDKInput asserts the structure
@@ -366,7 +366,7 @@ func TestCommandStatusPageMigrateStatusPropagatesSDKError(t *testing.T) {
 
 	// gfStub always replies with a success ("OK") envelope, so to exercise the
 	// error path we stand up a tiny server that returns a failure envelope and
-	// wire newGFClientFn at it directly. The client surfaces the envelope's
+	// wire newClientFn at it directly. The client surfaces the envelope's
 	// error.code/message in the returned error.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -376,8 +376,8 @@ func TestCommandStatusPageMigrateStatusPropagatesSDKError(t *testing.T) {
 		})
 	}))
 	t.Cleanup(srv.Close)
-	newGFClientFn = func() (*gflashduty.Client, error) {
-		return gflashduty.NewClient("test-key", gflashduty.WithBaseURL(srv.URL))
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
 	}
 
 	_, err := execCommand("statuspage", "migrate", "status", "--job-id", "nope")

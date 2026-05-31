@@ -11,7 +11,7 @@ func newWhoamiCmd() *cobra.Command {
 		Use:   "whoami",
 		Short: "Show the current authenticated identity",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := newGFClient()
+			client, err := newClient()
 			if err != nil {
 				return err
 			}

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	gflashduty "github.com/flashcatcloud/go-flashduty"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -35,7 +35,7 @@ func newAlertListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List alerts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if active && recovered {
 					return fmt.Errorf("--active and --recovered are mutually exclusive")
 				}
@@ -49,7 +49,7 @@ func newAlertListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				req := &gflashduty.AlertListRequest{
+				req := &flashduty.AlertListRequest{
 					StartTime:     startTime,
 					EndTime:       endTime,
 					AlertSeverity: severity,
@@ -60,13 +60,13 @@ func newAlertListCmd() *cobra.Command {
 				// Preserve legacy semantics: --active sends is_active=true,
 				// --recovered sends is_active=false, neither omits the filter.
 				if active {
-					req.IsActive = gflashduty.Bool(true)
+					req.IsActive = flashduty.Bool(true)
 				} else if recovered {
-					req.IsActive = gflashduty.Bool(false)
+					req.IsActive = flashduty.Bool(false)
 				}
 
 				if muted {
-					req.EverMuted = gflashduty.Bool(true)
+					req.EverMuted = flashduty.Bool(true)
 				}
 
 				if channel != "" {
@@ -77,19 +77,19 @@ func newAlertListCmd() *cobra.Command {
 					req.ChannelIDs = channelIDs
 				}
 
-				result, _, err := ctx.GFClient.Alerts.ReadList(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Alerts.ReadList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertItem).Title }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertStatus }},
-					{Header: "EVENTS", Field: func(v any) string { return fmt.Sprintf("%d", v.(gflashduty.AlertItem).EventCnt) }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.AlertItem).ChannelName }},
-					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertItem).StartTime) }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.AlertItem).AlertID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertItem).Title }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertItem).AlertSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertItem).AlertStatus }},
+					{Header: "EVENTS", Field: func(v any) string { return fmt.Sprintf("%d", v.(flashduty.AlertItem).EventCnt) }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.AlertItem).ChannelName }},
+					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertItem).StartTime) }},
 				}
 
 				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
@@ -116,8 +116,8 @@ func newAlertGetCmd() *cobra.Command {
 		Short: "Get alert detail",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Alerts.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.AlertInfoRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Alerts.ReadInfo(cmdContext(ctx.Cmd), &flashduty.AlertInfoRequest{
 					AlertID: ctx.Args[0],
 				})
 				if err != nil {
@@ -135,7 +135,7 @@ func newAlertGetCmd() *cobra.Command {
 	}
 }
 
-func printAlertDetail(w io.Writer, a *gflashduty.AlertItem) {
+func printAlertDetail(w io.Writer, a *flashduty.AlertItem) {
 	if a == nil {
 		return
 	}
@@ -178,8 +178,8 @@ func newAlertEventsCmd() *cobra.Command {
 		Short: "List alert events",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.GFClient.Alerts.ReadEventList(cmdContext(ctx.Cmd), &gflashduty.AlertEventListRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.Client.Alerts.ReadEventList(cmdContext(ctx.Cmd), &flashduty.AlertEventListRequest{
 					AlertID: ctx.Args[0],
 				})
 				if err != nil {
@@ -192,11 +192,11 @@ func newAlertEventsCmd() *cobra.Command {
 				}
 
 				cols := []output.Column{
-					{Header: "EVENT_ID", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventID }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertEventItem).EventStatus }},
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertEventItem).EventTime) }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertEventItem).Title }},
+					{Header: "EVENT_ID", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventID }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertEventItem).EventStatus }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertEventItem).EventTime) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
 				return ctx.PrintTotal(result.Items, cols, len(result.Items))
@@ -213,12 +213,12 @@ func newAlertTimelineCmd() *cobra.Command {
 		Short: "View alert timeline",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				req := &gflashduty.AlertFeedRequest{AlertID: ctx.Args[0]}
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				req := &flashduty.AlertFeedRequest{AlertID: ctx.Args[0]}
 				req.Limit = limit
 				req.Page = page
 
-				result, _, err := ctx.GFClient.Alerts.ReadFeed(cmdContext(ctx.Cmd), req)
+				result, _, err := ctx.Client.Alerts.ReadFeed(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -236,10 +236,10 @@ func newAlertTimelineCmd() *cobra.Command {
 				nameByID := resolveAlertFeedOperators(ctx, result.Items)
 
 				cols := []output.Column{
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.FeedItem).CreatedAt) }},
-					{Header: "TYPE", Field: func(v any) string { return string(v.(gflashduty.FeedItem).Type) }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.FeedItem).CreatedAt) }},
+					{Header: "TYPE", Field: func(v any) string { return string(v.(flashduty.FeedItem).Type) }},
 					{Header: "OPERATOR", Field: func(v any) string {
-						it := v.(gflashduty.FeedItem)
+						it := v.(flashduty.FeedItem)
 						if it.CreatorID == 0 {
 							return "system"
 						}
@@ -249,7 +249,7 @@ func newAlertTimelineCmd() *cobra.Command {
 						return strconv.FormatInt(it.CreatorID, 10)
 					}},
 					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-						d := v.(gflashduty.FeedItem).Detail
+						d := v.(flashduty.FeedItem).Detail
 						if d == nil {
 							return "-"
 						}
@@ -272,7 +272,7 @@ func newAlertTimelineCmd() *cobra.Command {
 // alert-feed items to display names via /person/infos, replicating the
 // operator-name enrichment the legacy SDK did server-side. Best-effort: a
 // lookup failure yields a nil map and callers fall back to the numeric ID.
-func resolveAlertFeedOperators(rc *RunContext, items []gflashduty.FeedItem) map[int64]string {
+func resolveAlertFeedOperators(rc *RunContext, items []flashduty.FeedItem) map[int64]string {
 	seen := make(map[int64]struct{}, len(items))
 	ids := make([]uint64, 0, len(items))
 	for _, it := range items {
@@ -288,7 +288,7 @@ func resolveAlertFeedOperators(rc *RunContext, items []gflashduty.FeedItem) map[
 	if len(ids) == 0 {
 		return nil
 	}
-	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
 	if err != nil || resp == nil {
 		return nil
 	}
@@ -307,8 +307,8 @@ func newAlertMergeCmd() *cobra.Command {
 		Short: "Merge alerts into an incident",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runGFCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.GFClient.Alerts.WriteMerge(cmdContext(ctx.Cmd), &gflashduty.AlertMergeRequest{
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.Client.Alerts.WriteMerge(cmdContext(ctx.Cmd), &flashduty.AlertMergeRequest{
 					AlertIDs:   ctx.Args,
 					IncidentID: incidentID,
 					Comment:    comment,
