@@ -165,6 +165,35 @@ func TestParse(t *testing.T) {
 			input:   "+garbage",
 			wantErr: true,
 		},
+		// 21. RFC3339 with +08:00 offset — the format the SDK emits and the
+		// agent round-trips back as --since/--until (the bug this fixes).
+		{
+			name:       "rfc3339 offset 2026-05-29T00:00:00+08:00",
+			input:      "2026-05-29T00:00:00+08:00",
+			wantExact:  time.Date(2026, 5, 29, 0, 0, 0, 0, time.FixedZone("", 8*3600)).Unix(),
+			exactMatch: true,
+		},
+		// 22. RFC3339 with "Z" (UTC)
+		{
+			name:       "rfc3339 utc 2026-05-29T00:00:00Z",
+			input:      "2026-05-29T00:00:00Z",
+			wantExact:  time.Date(2026, 5, 29, 0, 0, 0, 0, time.UTC).Unix(),
+			exactMatch: true,
+		},
+		// 23. RFC3339Nano with fractional seconds + offset
+		{
+			name:       "rfc3339nano 2026-05-29T00:00:00.5+08:00",
+			input:      "2026-05-29T00:00:00.5+08:00",
+			wantExact:  time.Date(2026, 5, 29, 0, 0, 0, 0, time.FixedZone("", 8*3600)).Unix(),
+			exactMatch: true,
+		},
+		// 24. "T"-separated datetime without timezone → local time
+		{
+			name:       "datetime T-separated no tz 2026-05-29T14:00:00",
+			input:      "2026-05-29T14:00:00",
+			wantExact:  time.Date(2026, 5, 29, 14, 0, 0, 0, time.Local).Unix(),
+			exactMatch: true,
+		},
 	}
 
 	for _, tc := range tests {
