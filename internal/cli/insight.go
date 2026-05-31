@@ -342,6 +342,10 @@ func newInsightNotificationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "notifications",
 		Short: "Query notification volume trends",
+		// TODO(go-flashduty migration): not migrated. go-flashduty v0.4.0's
+		// Analytics service has no notification-trend endpoint (only by-dimension
+		// insight, top-k alerts, incident list/export). There is no matching
+		// method, so this stays on the legacy SDK's QueryNotificationTrend.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)

@@ -40,22 +40,13 @@ type flashdutyClient interface {
 	DisableIncidentMerge(ctx context.Context, incidentIDs []string) error
 	CommentIncidents(ctx context.Context, input *flashduty.IncidentCommentInput) error
 	AddIncidentResponders(ctx context.Context, input *flashduty.IncidentAddResponderInput) error
-	CreateIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error)
-	ListIncidentWarRooms(ctx context.Context, input *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error)
-	GetIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error)
-	DeleteIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDeleteInput) error
-	AddIncidentWarRoomMembers(ctx context.Context, input *flashduty.IncidentWarRoomAddMemberInput) error
-	GetIncidentWarRoomDefaultObservers(ctx context.Context, incidentID string) ([]flashduty.IncidentWarRoomObserver, error)
-	ListWarRoomEnabledDataSources(ctx context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error)
 	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
 	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
 	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
 	ListEscalationRules(ctx context.Context, channelID int64) (*flashduty.ListEscalationRulesOutput, error)
 	ListFields(ctx context.Context, input *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error)
-	ListChanges(ctx context.Context, input *flashduty.ListChangesInput) (*flashduty.ListChangesOutput, error)
 	GetPresetTemplate(ctx context.Context, input *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error)
 	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
-	ListStatusPages(ctx context.Context, pageIDs []int64) ([]flashduty.StatusPage, error)
 	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
 	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error)
 	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
@@ -101,9 +92,6 @@ type flashdutyClient interface {
 	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
 	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
 	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
-
-	// === CLI Phase 1: MCP ===
-	CreateMCPServer(ctx context.Context, input *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error)
 
 	// === CLI Phase 2: monit-query ===
 	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)

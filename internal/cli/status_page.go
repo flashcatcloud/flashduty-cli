@@ -32,27 +32,48 @@ func newStatusPageListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List status pages",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				pageIDs, err := parseIntSlice(ids)
 				if err != nil {
 					return fmt.Errorf("invalid --id: %w", err)
 				}
 
-				pages, err := ctx.Client.ListStatusPages(cmdContext(ctx.Cmd), pageIDs)
+				result, _, err := ctx.GFClient.StatusPages.ReadPageList(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
 				}
 
+				// ReadPageList lists every status page; the legacy SDK supported a
+				// server-side page-id filter, so preserve --id by filtering here.
+				pages := result.Items
+				if len(pageIDs) > 0 {
+					want := make(map[int64]struct{}, len(pageIDs))
+					for _, id := range pageIDs {
+						want[id] = struct{}{}
+					}
+					filtered := make([]gflashduty.StatusPageItem, 0, len(pages))
+					for _, p := range pages {
+						if _, ok := want[p.PageID]; ok {
+							filtered = append(filtered, p)
+						}
+					}
+					pages = filtered
+				}
+
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusPage).PageID, 10) }},
-					{Header: "NAME", Field: func(v any) string { return v.(flashduty.StatusPage).PageName }},
-					{Header: "SLUG", Field: func(v any) string { return v.(flashduty.StatusPage).Slug }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusPage).OverallStatus }},
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(gflashduty.StatusPageItem).PageID, 10) }},
+					{Header: "NAME", Field: func(v any) string { return v.(gflashduty.StatusPageItem).Name }},
+					{Header: "SLUG", Field: func(v any) string { return v.(gflashduty.StatusPageItem).URLName }},
+					// STATUS reads the account's overall_status, which the
+					// /status-page/list endpoint does not return. The legacy SDK
+					// likewise never populated it, so this column stays empty —
+					// preserved here to keep the table shape identical.
+					{Header: "STATUS", Field: func(v any) string { return "" }},
 					{Header: "COMPONENTS", Field: func(v any) string {
-						comps := v.(flashduty.StatusPage).Components
+						comps := v.(gflashduty.StatusPageItem).Components
 						names := make([]string, 0, len(comps))
 						for _, c := range comps {
-							names = append(names, c.ComponentName)
+							names = append(names, c.Name)
 						}
 						return strings.Join(names, ", ")
 					}},
@@ -75,6 +96,11 @@ func newStatusPageChangesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "changes",
 		Short: "List active status page changes",
+		// TODO(go-flashduty migration): not migrated. This lists *active* changes
+		// via /status-page/change/active/list. go-flashduty v0.4.0 only covers the
+		// general /status-page/change/list (StatusPages.ChangeList), which has
+		// different semantics (no active filter) and requires a status argument.
+		// Kept on the legacy SDK until the active-list endpoint is documented.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				result, err := ctx.Client.ListStatusChanges(cmdContext(ctx.Cmd), &flashduty.ListStatusChangesInput{

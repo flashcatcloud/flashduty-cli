@@ -37,6 +37,12 @@ type gfStub struct {
 	// the decoded body. It takes precedence over data and lets a test return a
 	// different page on each call (e.g. cursor pagination).
 	dataFor func(body map[string]any) any
+
+	// dataForPath, when set, computes the envelope "data" payload from the
+	// request path and decoded body. It takes precedence over dataFor and data,
+	// and lets a test serve multiple endpoints in one flow (e.g. war-room create,
+	// which first lists war-room-enabled integrations and then creates the room).
+	dataForPath func(path string, body map[string]any) any
 }
 
 // newGFStub starts a stub server and wires newGFClientFn to a client pointed at
@@ -56,6 +62,8 @@ func newGFStub(t *testing.T) *gfStub {
 
 		var payload any
 		switch {
+		case s.dataForPath != nil:
+			payload = s.dataForPath(s.lastPath, s.lastBody)
 		case s.dataFor != nil:
 			payload = s.dataFor(s.lastBody)
 		case s.data != nil:

@@ -462,3 +462,32 @@ func TestCommandStatusPageMigrateStatusPropagatesSDKError(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// TestCommandStatusPageList exercises the go-flashduty-backed `statuspage list`
+// command: ReadPageList lists all pages and the command filters by --id
+// client-side. The table maps name/url_name/components from StatusPageItem.
+func TestCommandStatusPageList(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"items": []map[string]any{
+			{"page_id": 11, "name": "Flashduty", "url_name": "flashduty", "components": []map[string]any{{"name": "Web"}, {"name": "API"}}},
+			{"page_id": 22, "name": "Other", "url_name": "other"},
+		},
+	}
+
+	out, err := execCommand("statuspage", "list", "--id", "11")
+	if err != nil {
+		t.Fatalf("[statuspage-list] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/status-page/list" {
+		t.Fatalf("[statuspage-list] expected /status-page/list, got %q", stub.lastPath)
+	}
+	if !strings.Contains(out, "Flashduty") || !strings.Contains(out, "flashduty") || !strings.Contains(out, "Web, API") {
+		t.Fatalf("[statuspage-list] unexpected output:\n%s", out)
+	}
+	// --id 11 filters out page 22 client-side.
+	if strings.Contains(out, "Other") {
+		t.Fatalf("[statuspage-list] expected --id filter to drop page 22, got:\n%s", out)
+	}
+}

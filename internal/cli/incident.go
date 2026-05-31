@@ -900,21 +900,17 @@ invite historical responders selected by FlashDuty.`,
   flashduty incident war-room create inc_123 --integration 42 --member 101,202
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
-		// TODO(go-flashduty migration): not migrated. Auto-resolving the IM
-		// integration when --integration is omitted relies on the legacy SDK's
-		// ListWarRoomEnabledDataSources (/datasource/im/war-room-enabled/list),
-		// which go-flashduty does not yet cover. Migrate once that endpoint lands.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memberIDs, err := parseIntSlice(member)
 			if err != nil {
 				return fmt.Errorf("invalid --member: %w", err)
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				resolvedIntegrationID, err := resolveWarRoomIntegrationID(ctx)
 				if err != nil {
 					return err
 				}
-				warRoom, err := ctx.Client.CreateIncidentWarRoom(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomCreateInput{
+				warRoom, _, err := ctx.GFClient.Incidents.WarRoomCreate(cmdContext(ctx.Cmd), &gflashduty.CreateWarRoomRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: resolvedIntegrationID,
 					MemberIDs:     memberIDs,
@@ -948,7 +944,7 @@ func resolveWarRoomIntegrationID(ctx *RunContext) (int64, error) {
 		return integrationID, nil
 	}
 
-	result, err := ctx.Client.ListWarRoomEnabledDataSources(cmdContext(ctx.Cmd))
+	result, _, err := ctx.GFClient.ImIntegrations.List(cmdContext(ctx.Cmd))
 	if err != nil {
 		return 0, err
 	}
@@ -1092,8 +1088,8 @@ IDs.`,
 			if len(memberIDs) == 0 {
 				return fmt.Errorf("--member is required")
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.AddIncidentWarRoomMembers(cmdContext(ctx.Cmd), &flashduty.IncidentWarRoomAddMemberInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, _, err := ctx.GFClient.Incidents.WriteAddWarRoomMember(cmdContext(ctx.Cmd), &gflashduty.AddWarRoomMemberRequest{
 					IntegrationID: integrationID,
 					ChatID:        ctx.Args[0],
 					MemberIDs:     memberIDs,
@@ -1125,12 +1121,14 @@ This is a read-only preview of the users FlashDuty would add when
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				observers, err := ctx.Client.GetIncidentWarRoomDefaultObservers(cmdContext(ctx.Cmd), ctx.Args[0])
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.Incidents.ReadGetWarRoomDefaultObservers(cmdContext(ctx.Cmd), &gflashduty.GetWarRoomDefaultObserversRequest{
+					IncidentID: ctx.Args[0],
+				})
 				if err != nil {
 					return err
 				}
-				return ctx.PrintTotal(observers, incidentWarRoomObserverColumns(), len(observers))
+				return ctx.PrintTotal(result.Observers, incidentWarRoomObserverColumns(), len(result.Observers))
 			})
 		},
 	}
@@ -1149,10 +1147,10 @@ func incidentWarRoomColumns() []output.Column {
 
 func incidentWarRoomObserverColumns() []output.Column {
 	return []output.Column{
-		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(flashduty.IncidentWarRoomObserver).PersonID) }},
-		{Header: "NAME", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).DisplayName() }},
-		{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).Email }},
-		{Header: "STATUS", Field: func(v any) string { return v.(flashduty.IncidentWarRoomObserver).Status }},
+		{Header: "PERSON_ID", Field: func(v any) string { return fmt.Sprint(v.(gflashduty.WarRoomPersonItem).PersonID) }},
+		{Header: "NAME", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).PersonName }},
+		{Header: "EMAIL", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).Email }},
+		{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.WarRoomPersonItem).Status }},
 	}
 }
 
