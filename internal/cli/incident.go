@@ -578,9 +578,6 @@ func newIncidentSimilarCmd() *cobra.Command {
 	return cmd
 }
 
-// boolPtr returns a pointer to the given bool value.
-func boolPtr(b bool) *bool { return &b }
-
 // parseIntSlice converts a comma-separated string to []int64.
 func parseIntSlice(s string) ([]int64, error) {
 	if s == "" {
