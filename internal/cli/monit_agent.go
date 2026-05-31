@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -28,11 +28,11 @@ func newMonitAgentCatalogCmd() *cobra.Command {
 				return fmt.Errorf("--target-locator is required")
 			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitAgentCatalogInput{
+				input := &flashduty.ToolCatalogRequest{
 					TargetKind:    targetKind,
 					TargetLocator: targetLocator,
 				}
-				result, err := ctx.Client.MonitAgentCatalog(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.ToolsCatalog(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -72,12 +72,12 @@ func newMonitAgentInvokeCmd() *cobra.Command {
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitAgentInvokeInput{
+				input := &flashduty.ToolInvokeRequest{
 					TargetKind:    targetKind,
 					TargetLocator: targetLocator,
 					Tools:         parsed,
 				}
-				result, err := ctx.Client.MonitAgentInvoke(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.ToolsInvoke(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}

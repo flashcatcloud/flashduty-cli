@@ -1,63 +1,22 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
-type mockStatusPageMigrate struct {
-	mockClient
-
-	startStructure        func(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	startEmailSubscribers func(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	getStatus             func(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
-	cancel                func(ctx context.Context, jobID string) error
-}
-
-func (m *mockStatusPageMigrate) StartStatusPageMigration(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-	if m.startStructure == nil {
-		return m.mockClient.StartStatusPageMigration(ctx, input)
-	}
-	return m.startStructure(ctx, input)
-}
-
-func (m *mockStatusPageMigrate) StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-	if m.startEmailSubscribers == nil {
-		return m.mockClient.StartStatusPageEmailSubscriberMigration(ctx, input)
-	}
-	return m.startEmailSubscribers(ctx, input)
-}
-
-func (m *mockStatusPageMigrate) GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error) {
-	if m.getStatus == nil {
-		return m.mockClient.GetStatusPageMigrationStatus(ctx, jobID)
-	}
-	return m.getStatus(ctx, jobID)
-}
-
-func (m *mockStatusPageMigrate) CancelStatusPageMigration(ctx context.Context, jobID string) error {
-	if m.cancel == nil {
-		return m.mockClient.CancelStatusPageMigration(ctx, jobID)
-	}
-	return m.cancel(ctx, jobID)
-}
-
+// TestCommandStatusPageMigrateStructureSendsSDKInput asserts the structure
+// command POSTs to /status-page/migrate-structure with the api_key and
+// source_page_id wire fields and renders the returned job id.
 func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	var gotInput *flashduty.StartStatusPageMigrationInput
-	mock := &mockStatusPageMigrate{
-		startStructure: func(_ context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-			gotInput = input
-			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-1"}, nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"job_id": "job-1"}
 
 	out, err := execCommand("statuspage", "migrate", "structure",
 		"--from", "atlassian",
@@ -68,17 +27,19 @@ func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 		t.Fatalf("execCommand: %v", err)
 	}
 
-	if gotInput == nil {
-		t.Fatal("expected input to be captured")
+	if stub.lastPath != "/status-page/migrate-structure" {
+		t.Fatalf("expected /status-page/migrate-structure, got %q", stub.lastPath)
 	}
-	if gotInput.SourceAPIKey != "atlassian-secret" {
-		t.Errorf("SourceAPIKey = %q, want atlassian-secret", gotInput.SourceAPIKey)
+	if stub.lastBody["api_key"] != "atlassian-secret" {
+		t.Errorf("api_key = %v, want atlassian-secret", stub.lastBody["api_key"])
 	}
-	if gotInput.SourcePageID != "src-1" {
-		t.Errorf("SourcePageID = %q, want src-1", gotInput.SourcePageID)
+	if stub.lastBody["source_page_id"] != "src-1" {
+		t.Errorf("source_page_id = %v, want src-1", stub.lastBody["source_page_id"])
 	}
-	if gotInput.URLName != "" {
-		t.Errorf("URLName = %q, want empty", gotInput.URLName)
+	// url_name is an optional *string; when --url-name is not passed it stays
+	// nil and omitempty keeps it off the wire.
+	if _, ok := stub.lastBody["url_name"]; ok {
+		t.Errorf("url_name should not be sent when --url-name is omitted, got %#v", stub.lastBody["url_name"])
 	}
 	if !strings.Contains(out, "Job ID: job-1") {
 		t.Errorf("missing job id in output:\n%s", out)
@@ -88,17 +49,13 @@ func TestCommandStatusPageMigrateStructureSendsSDKInput(t *testing.T) {
 	}
 }
 
-func TestCommandStatusPageMigrateStructureSendsURLName(t *testing.T) {
+// TestCommandStatusPageMigrateStructureForwardsURLName: MigrateStatusPageStructureRequest
+// now carries url_name (*string), so --url-name is forwarded to the SDK as the
+// url_name wire field — matching legacy behavior.
+func TestCommandStatusPageMigrateStructureForwardsURLName(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	var gotInput *flashduty.StartStatusPageMigrationInput
-	mock := &mockStatusPageMigrate{
-		startStructure: func(_ context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-			gotInput = input
-			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-url"}, nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"job_id": "job-2"}
 
 	_, err := execCommand("statuspage", "migrate", "structure",
 		"--from", "atlassian",
@@ -109,12 +66,11 @@ func TestCommandStatusPageMigrateStructureSendsURLName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
-
-	if gotInput == nil {
-		t.Fatal("expected input to be captured")
+	if stub.requests != 1 {
+		t.Errorf("expected exactly 1 request, got %d", stub.requests)
 	}
-	if gotInput.URLName != "customer-facing-status" {
-		t.Errorf("URLName = %q, want customer-facing-status", gotInput.URLName)
+	if stub.lastBody["url_name"] != "customer-facing-status" {
+		t.Errorf("url_name = %#v, want customer-facing-status", stub.lastBody["url_name"])
 	}
 }
 
@@ -137,15 +93,7 @@ func TestCommandStatusPageMigrateStructureHelpDescribesURLNameBehavior(t *testin
 
 func TestCommandStatusPageMigrateStructureRejectsUnsupportedSource(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	called := false
-	mock := &mockStatusPageMigrate{
-		startStructure: func(context.Context, *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-			called = true
-			return nil, nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
 
 	_, err := execCommand("statuspage", "migrate", "structure",
 		"--from", "pagerduty",
@@ -161,8 +109,8 @@ func TestCommandStatusPageMigrateStructureRejectsUnsupportedSource(t *testing.T)
 	if !strings.Contains(err.Error(), "atlassian") {
 		t.Errorf("error should mention supported source 'atlassian': %v", err)
 	}
-	if called {
-		t.Error("SDK should not have been called for unsupported source")
+	if stub.requests != 0 {
+		t.Errorf("client should not have been called for unsupported source, got %d request(s)", stub.requests)
 	}
 }
 
@@ -171,12 +119,7 @@ func TestCommandStatusPageMigrateStructureRejectsUnsupportedSource(t *testing.T)
 // client-build / auth work — matching PR #1 behavior.
 func TestCommandStatusPageMigrateStructureValidatesBeforeClient(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	clientBuilt := false
-	newClientFn = func() (flashdutyClient, error) {
-		clientBuilt = true
-		return nil, fmt.Errorf("should not have been called")
-	}
+	stub := newGFStub(t)
 
 	_, err := execCommand("statuspage", "migrate", "structure",
 		"--from", "pagerduty",
@@ -189,8 +132,8 @@ func TestCommandStatusPageMigrateStructureValidatesBeforeClient(t *testing.T) {
 	if !strings.Contains(err.Error(), "unsupported migration source") {
 		t.Errorf("got %v; want validation error about source", err)
 	}
-	if clientBuilt {
-		t.Error("newClientFn must not run when --from is invalid")
+	if stub.requests != 0 {
+		t.Errorf("client must not run when --from is invalid, got %d request(s)", stub.requests)
 	}
 }
 
@@ -198,12 +141,7 @@ func TestCommandStatusPageMigrateStructureValidatesBeforeClient(t *testing.T) {
 // ordering guarantee for the subscribers variant.
 func TestCommandStatusPageMigrateEmailSubscribersValidatesBeforeClient(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	clientBuilt := false
-	newClientFn = func() (flashdutyClient, error) {
-		clientBuilt = true
-		return nil, fmt.Errorf("should not have been called")
-	}
+	stub := newGFStub(t)
 
 	_, err := execCommand("statuspage", "migrate", "email-subscribers",
 		"--from", "pagerduty",
@@ -217,20 +155,15 @@ func TestCommandStatusPageMigrateEmailSubscribersValidatesBeforeClient(t *testin
 	if !strings.Contains(err.Error(), "unsupported migration source") {
 		t.Errorf("got %v; want validation error about source", err)
 	}
-	if clientBuilt {
-		t.Error("newClientFn must not run when --from is invalid")
+	if stub.requests != 0 {
+		t.Errorf("client must not run when --from is invalid, got %d request(s)", stub.requests)
 	}
 }
 
 func TestCommandStatusPageMigrateStructureJSON(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	mock := &mockStatusPageMigrate{
-		startStructure: func(_ context.Context, _ *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-			return &flashduty.StartStatusPageMigrationOutput{JobID: "job-1"}, nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"job_id": "job-1"}
 
 	out, err := execCommand("--json", "statuspage", "migrate", "structure",
 		"--from", "atlassian",
@@ -262,17 +195,13 @@ func TestCommandStatusPageMigrateStructureJSON(t *testing.T) {
 	}
 }
 
+// TestCommandStatusPageMigrateEmailSubscribersSendsSDKInput asserts the
+// email-subscribers command POSTs to /status-page/migrate-email-subscribers
+// with the target_page_id wire field and renders the returned job id.
 func TestCommandStatusPageMigrateEmailSubscribersSendsSDKInput(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	var gotInput *flashduty.StartStatusPageEmailSubscriberMigrationInput
-	mock := &mockStatusPageMigrate{
-		startEmailSubscribers: func(_ context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-			gotInput = input
-			return &flashduty.StartStatusPageMigrationOutput{JobID: "sub-1"}, nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"job_id": "sub-1"}
 
 	out, err := execCommand("statuspage", "migrate", "email-subscribers",
 		"--from", "atlassian",
@@ -284,11 +213,18 @@ func TestCommandStatusPageMigrateEmailSubscribersSendsSDKInput(t *testing.T) {
 		t.Fatalf("execCommand: %v", err)
 	}
 
-	if gotInput == nil {
-		t.Fatal("expected input to be captured")
+	if stub.lastPath != "/status-page/migrate-email-subscribers" {
+		t.Fatalf("expected /status-page/migrate-email-subscribers, got %q", stub.lastPath)
 	}
-	if gotInput.TargetPageID != 2048 {
-		t.Errorf("TargetPageID = %d, want 2048", gotInput.TargetPageID)
+	if stub.lastBody["api_key"] != "atlassian-secret" {
+		t.Errorf("api_key = %v, want atlassian-secret", stub.lastBody["api_key"])
+	}
+	if stub.lastBody["source_page_id"] != "src-1" {
+		t.Errorf("source_page_id = %v, want src-1", stub.lastBody["source_page_id"])
+	}
+	// JSON numbers decode to float64 through the stub.
+	if got, _ := stub.lastBody["target_page_id"].(float64); got != 2048 {
+		t.Errorf("target_page_id = %v, want 2048", stub.lastBody["target_page_id"])
 	}
 	if !strings.Contains(out, "Target page ID: 2048") {
 		t.Errorf("missing target page id line in output:\n%s", out)
@@ -300,41 +236,36 @@ func TestCommandStatusPageMigrateEmailSubscribersSendsSDKInput(t *testing.T) {
 
 func TestCommandStatusPageMigrateStatusRendersJobFields(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	var gotJobID string
-	mock := &mockStatusPageMigrate{
-		getStatus: func(_ context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error) {
-			gotJobID = jobID
-			return &flashduty.StatusPageMigrationJob{
-				JobID:        "job-9",
-				SourcePageID: "src-9",
-				TargetPageID: 1024,
-				Phase:        "history",
-				Status:       "running",
-				Progress: flashduty.StatusPageMigrationProgress{
-					TotalSteps:           5,
-					CompletedSteps:       3,
-					ComponentsImported:   2,
-					SectionsImported:     1,
-					IncidentsImported:    4,
-					MaintenancesImported: 1,
-					SubscribersImported:  0,
-					SubscribersSkipped:   0,
-					TemplatesImported:    2,
-					Warnings:             []string{"missing field X"},
-				},
-			}, nil
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"job_id":         "job-9",
+		"source_page_id": "src-9",
+		"target_page_id": 1024,
+		"phase":          "history",
+		"status":         "running",
+		"progress": map[string]any{
+			"total_steps":           5,
+			"completed_steps":       3,
+			"components_imported":   2,
+			"sections_imported":     1,
+			"incidents_imported":    4,
+			"maintenances_imported": 1,
+			"subscribers_imported":  0,
+			"subscribers_skipped":   0,
+			"templates_imported":    2,
+			"warnings":              []string{"missing field X"},
 		},
 	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
 
 	out, err := execCommand("statuspage", "migrate", "status", "--job-id", "job-9")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
 
-	if gotJobID != "job-9" {
-		t.Errorf("jobID passed to SDK = %q, want job-9", gotJobID)
+	// migration-status is a GET: job_id rides in the query string, so the
+	// decoded body is empty. Assert the endpoint path instead.
+	if stub.lastPath != "/status-page/migration/status" {
+		t.Errorf("expected /status-page/migration/status, got %q", stub.lastPath)
 	}
 	for _, want := range []string{
 		"Job ID: job-9",
@@ -356,17 +287,12 @@ func TestCommandStatusPageMigrateStatusRendersJobFields(t *testing.T) {
 
 func TestCommandStatusPageMigrateStatusJSON(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	mock := &mockStatusPageMigrate{
-		getStatus: func(_ context.Context, _ string) (*flashduty.StatusPageMigrationJob, error) {
-			return &flashduty.StatusPageMigrationJob{
-				JobID:  "job-j",
-				Phase:  "completed",
-				Status: "completed",
-			}, nil
-		},
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"job_id": "job-j",
+		"phase":  "completed",
+		"status": "completed",
 	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
 
 	out, err := execCommand("--json", "statuspage", "migrate", "status", "--job-id", "job-j")
 	if err != nil {
@@ -387,23 +313,18 @@ func TestCommandStatusPageMigrateStatusJSON(t *testing.T) {
 
 func TestCommandStatusPageMigrateCancelIssuesCancelAndHint(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	var gotJobID string
-	mock := &mockStatusPageMigrate{
-		cancel: func(_ context.Context, jobID string) error {
-			gotJobID = jobID
-			return nil
-		},
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
 
 	out, err := execCommand("statuspage", "migrate", "cancel", "--job-id", "job-c")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
 
-	if gotJobID != "job-c" {
-		t.Errorf("SDK received jobID %q, want job-c", gotJobID)
+	if stub.lastPath != "/status-page/migration/cancel" {
+		t.Fatalf("expected /status-page/migration/cancel, got %q", stub.lastPath)
+	}
+	if stub.lastBody["job_id"] != "job-c" {
+		t.Errorf("job_id = %v, want job-c", stub.lastBody["job_id"])
 	}
 	if !strings.Contains(out, "Cancellation requested.") {
 		t.Errorf("missing confirmation in output:\n%s", out)
@@ -415,11 +336,7 @@ func TestCommandStatusPageMigrateCancelIssuesCancelAndHint(t *testing.T) {
 
 func TestCommandStatusPageMigrateCancelJSON(t *testing.T) {
 	saveAndResetGlobals(t)
-
-	mock := &mockStatusPageMigrate{
-		cancel: func(context.Context, string) error { return nil },
-	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	newGFStub(t)
 
 	out, err := execCommand("--json", "statuspage", "migrate", "cancel", "--job-id", "job-c")
 	if err != nil {
@@ -447,12 +364,21 @@ func TestCommandStatusPageMigrateCancelJSON(t *testing.T) {
 func TestCommandStatusPageMigrateStatusPropagatesSDKError(t *testing.T) {
 	saveAndResetGlobals(t)
 
-	mock := &mockStatusPageMigrate{
-		getStatus: func(context.Context, string) (*flashduty.StatusPageMigrationJob, error) {
-			return nil, &flashduty.DutyError{Code: "not_found", Message: "job missing"}
-		},
+	// gfStub always replies with a success ("OK") envelope, so to exercise the
+	// error path we stand up a tiny server that returns a failure envelope and
+	// wire newClientFn at it directly. The client surfaces the envelope's
+	// error.code/message in the returned error.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"request_id": "test-request-id",
+			"error":      map[string]any{"code": "not_found", "message": "job missing"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
 	}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
 
 	_, err := execCommand("statuspage", "migrate", "status", "--job-id", "nope")
 	if err == nil {

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -38,23 +38,23 @@ func newAuditSearchCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &flashduty.SearchAuditLogsInput{
+				input := &flashduty.AuditSearchRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
-					Limit:     limit,
-					PersonID:  person,
+					Limit:     int64(limit),
+					PersonID:  uint64(person),
 				}
 				if operation != "" {
 					input.Operations = parseStringSlice(operation)
 				}
 
 				var (
-					result *flashduty.SearchAuditLogsOutput
+					result *flashduty.AuditSearchResponse
 					cursor string
 				)
 				for currentPage := 1; currentPage <= page; currentPage++ {
 					input.SearchAfterCtx = cursor
-					result, err = ctx.Client.SearchAuditLogs(cmdContext(ctx.Cmd), input)
+					result, _, err = ctx.Client.AuditLogs.Search(cmdContext(ctx.Cmd), input)
 					if err != nil {
 						return err
 					}
@@ -62,9 +62,9 @@ func newAuditSearchCmd() *cobra.Command {
 						break
 					}
 					if result.SearchAfterCtx == "" {
-						result = &flashduty.SearchAuditLogsOutput{
-							AuditLogs: []flashduty.AuditLogRecord{},
-							Total:     result.Total,
+						result = &flashduty.AuditSearchResponse{
+							Docs:  []flashduty.AuditLog{},
+							Total: result.Total,
 						}
 						break
 					}
@@ -73,24 +73,24 @@ func newAuditSearchCmd() *cobra.Command {
 
 				cols := []output.Column{
 					{Header: "TIME", Field: func(v any) string {
-						return output.FormatTime(v.(flashduty.AuditLogRecord).CreatedAt)
+						return output.FormatTime(v.(flashduty.AuditLog).CreatedAt)
 					}},
 					{Header: "PERSON", MaxWidth: 20, Field: func(v any) string {
-						r := v.(flashduty.AuditLogRecord)
+						r := v.(flashduty.AuditLog)
 						if r.MemberName != "" {
 							return r.MemberName
 						}
 						return fmt.Sprintf("%d", r.MemberID)
 					}},
 					{Header: "OPERATION", MaxWidth: 30, Field: func(v any) string {
-						r := v.(flashduty.AuditLogRecord)
+						r := v.(flashduty.AuditLog)
 						if r.OperationName != "" {
 							return r.OperationName
 						}
 						return r.Operation
 					}},
 					{Header: "DETAIL", MaxWidth: 50, Field: func(v any) string {
-						r := v.(flashduty.AuditLogRecord)
+						r := v.(flashduty.AuditLog)
 						if r.Body != "" {
 							return r.Body
 						}
@@ -98,7 +98,7 @@ func newAuditSearchCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintList(result.AuditLogs, cols, len(result.AuditLogs), page, int(result.Total))
+				return ctx.PrintList(result.Docs, cols, len(result.Docs), page, int(result.Total))
 			})
 		},
 	}

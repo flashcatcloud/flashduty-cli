@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -50,56 +50,48 @@ func newOncallWhoCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &flashduty.ListSchedulesWithSlotsInput{
+				req := &flashduty.ScheduleListRequest{
 					Start: startTime,
 					End:   endTime,
 					Query: query,
-					Limit: limit,
-					Page:  page,
 				}
+				req.Limit = limit
+				req.Page = page
 
 				if team != "" {
 					teamIDs, err := parseIntSlice(team)
 					if err != nil {
 						return fmt.Errorf("invalid --team: %w", err)
 					}
-					input.TeamIDs = teamIDs
+					req.TeamIDs = teamIDs
 				}
 
-				result, err := ctx.Client.ListSchedulesWithSlots(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Schedules.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
+				// Resolve on-call person IDs to display names (best-effort).
+				nameByID := resolveScheduleOncallPeople(ctx, result.Items)
+
 				cols := []output.Column{
 					{Header: "SCHEDULE", MaxWidth: 30, Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						if s.ScheduleName != nil {
-							return *s.ScheduleName
-						}
-						if s.Name != nil {
-							return *s.Name
-						}
-						return "-"
+						return scheduleDisplayName(v.(flashduty.ScheduleItem))
 					}},
 					{Header: "ON_CALL", MaxWidth: 40, Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						return formatOncallMembers(s.CurOncall)
+						s := v.(flashduty.ScheduleItem)
+						return formatOncallMembers(&s.CurOncall, nameByID)
 					}},
 					{Header: "UNTIL", Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						if s.CurOncall != nil {
-							return output.FormatTime(s.CurOncall.End)
-						}
-						return "-"
+						return output.FormatTime(v.(flashduty.ScheduleItem).CurOncall.End)
 					}},
 					{Header: "NEXT", MaxWidth: 40, Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						return formatOncallMembers(s.NextOncall)
+						s := v.(flashduty.ScheduleItem)
+						return formatOncallMembers(&s.NextOncall, nameByID)
 					}},
 				}
 
-				return ctx.PrintTotal(result.Schedules, cols, int(result.Total))
+				return ctx.PrintTotal(result.Items, cols, int(result.Total))
 			})
 		},
 	}
@@ -132,55 +124,47 @@ func newOncallScheduleListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &flashduty.ListSchedulesWithSlotsInput{
+				req := &flashduty.ScheduleListRequest{
 					Start: startTime,
 					End:   endTime,
 					Query: query,
-					Limit: limit,
-					Page:  page,
 				}
+				req.Limit = limit
+				req.Page = page
 
 				if team != "" {
 					teamIDs, err := parseIntSlice(team)
 					if err != nil {
 						return fmt.Errorf("invalid --team: %w", err)
 					}
-					input.TeamIDs = teamIDs
+					req.TeamIDs = teamIDs
 				}
 
-				result, err := ctx.Client.ListSchedulesWithSlots(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Schedules.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						return strconv.FormatInt(s.ScheduleID, 10)
+						return strconv.FormatInt(scheduleID(v.(flashduty.ScheduleItem)), 10)
 					}},
 					{Header: "NAME", MaxWidth: 30, Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						if s.ScheduleName != nil {
-							return *s.ScheduleName
-						}
-						if s.Name != nil {
-							return *s.Name
-						}
-						return "-"
+						return scheduleDisplayName(v.(flashduty.ScheduleItem))
 					}},
 					{Header: "STATUS", Field: func(v any) string {
-						s := v.(flashduty.ScheduleDetail)
-						if s.Disabled != nil && *s.Disabled != 0 {
+						s := v.(flashduty.ScheduleItem)
+						if s.Disabled != 0 {
 							return "disabled"
 						}
 						return "enabled"
 					}},
 					{Header: "LAYERS", Field: func(v any) string {
-						return scheduleLayerCount(v.(flashduty.ScheduleDetail))
+						return scheduleLayerCount(v.(flashduty.ScheduleItem))
 					}},
 				}
 
-				return ctx.PrintTotal(result.Schedules, cols, int(result.Total))
+				return ctx.PrintTotal(result.Items, cols, int(result.Total))
 			})
 		},
 	}
@@ -204,7 +188,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 		Args:  requireArgs("schedule_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				scheduleID, err := strconv.ParseInt(ctx.Args[0], 10, 64)
+				scheduleIDArg, err := strconv.ParseInt(ctx.Args[0], 10, 64)
 				if err != nil {
 					return fmt.Errorf("invalid schedule_id %q: %w", ctx.Args[0], err)
 				}
@@ -218,8 +202,8 @@ func newOncallScheduleGetCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.GetScheduleDetail(cmdContext(ctx.Cmd), &flashduty.GetScheduleDetailInput{
-					ScheduleID: scheduleID,
+				s, _, err := ctx.Client.Schedules.Info(cmdContext(ctx.Cmd), &flashduty.ScheduleInfoRequest{
+					ScheduleID: scheduleIDArg,
 					Start:      startTime,
 					End:        endTime,
 				})
@@ -228,40 +212,28 @@ func newOncallScheduleGetCmd() *cobra.Command {
 				}
 
 				if ctx.Structured() {
-					return ctx.Printer.Print(result.Schedule, nil)
+					return ctx.Printer.Print(s, nil)
 				}
 
-				s := result.Schedule
-
-				name := "-"
-				if s.ScheduleName != nil {
-					name = *s.ScheduleName
-				} else if s.Name != nil {
-					name = *s.Name
-				}
+				// Resolve on-call person IDs to display names (best-effort).
+				nameByID := resolveScheduleOncallPeople(ctx, []flashduty.ScheduleItem{*s})
 
 				status := "enabled"
-				if s.Disabled != nil && *s.Disabled != 0 {
+				if s.Disabled != 0 {
 					status = "disabled"
 				}
 
-				_, _ = fmt.Fprintf(ctx.Writer, "ID:            %d\n", s.ScheduleID)
-				_, _ = fmt.Fprintf(ctx.Writer, "Name:          %s\n", name)
+				_, _ = fmt.Fprintf(ctx.Writer, "ID:            %d\n", scheduleID(*s))
+				_, _ = fmt.Fprintf(ctx.Writer, "Name:          %s\n", scheduleDisplayName(*s))
 				_, _ = fmt.Fprintf(ctx.Writer, "Status:        %s\n", status)
-				_, _ = fmt.Fprintf(ctx.Writer, "Layers:        %s\n", scheduleLayerCount(s))
+				_, _ = fmt.Fprintf(ctx.Writer, "Layers:        %s\n", scheduleLayerCount(*s))
 
-				curOnCall := formatOncallMembers(s.CurOncall)
-				curUntil := "-"
-				if s.CurOncall != nil {
-					curUntil = output.FormatTime(s.CurOncall.End)
-				}
+				curOnCall := formatOncallMembers(&s.CurOncall, nameByID)
+				curUntil := output.FormatTime(s.CurOncall.End)
 				_, _ = fmt.Fprintf(ctx.Writer, "Current:       %s (until %s)\n", curOnCall, curUntil)
 
-				nextOnCall := formatOncallMembers(s.NextOncall)
-				nextFrom := "-"
-				if s.NextOncall != nil {
-					nextFrom = output.FormatTime(s.NextOncall.Start)
-				}
+				nextOnCall := formatOncallMembers(&s.NextOncall, nameByID)
+				nextFrom := output.FormatTime(s.NextOncall.Start)
 				_, _ = fmt.Fprintf(ctx.Writer, "Next:          %s (from %s)\n", nextOnCall, nextFrom)
 
 				// Print computed slots table
@@ -298,10 +270,28 @@ func newOncallScheduleGetCmd() *cobra.Command {
 	return cmd
 }
 
-// formatOncallMembers extracts member person IDs from a ScheduleOncallGroup and
-// returns them as a comma-separated string. Since the schedule API returns person IDs
-// (not names), we display IDs for now.
-func scheduleLayerCount(s flashduty.ScheduleDetail) string {
+// scheduleID returns the schedule's numeric ID, preferring schedule_id and
+// falling back to the legacy id field.
+func scheduleID(s flashduty.ScheduleItem) int64 {
+	if s.ScheduleID != 0 {
+		return s.ScheduleID
+	}
+	return s.ID
+}
+
+// scheduleDisplayName returns the schedule's display name, preferring
+// schedule_name and falling back to the legacy name field.
+func scheduleDisplayName(s flashduty.ScheduleItem) string {
+	if s.ScheduleName != "" {
+		return s.ScheduleName
+	}
+	if s.Name != "" {
+		return s.Name
+	}
+	return "-"
+}
+
+func scheduleLayerCount(s flashduty.ScheduleItem) string {
 	switch {
 	case len(s.Layers) > 0:
 		return fmt.Sprintf("%d", len(s.Layers))
@@ -314,17 +304,24 @@ func scheduleLayerCount(s flashduty.ScheduleDetail) string {
 	}
 }
 
-func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup) string {
+// formatOncallMembers renders an on-call group's members as display names,
+// resolving person IDs through nameByID (best-effort, falling back to the
+// numeric ID), and finally to the group name when no members are present.
+func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup, nameByID map[int64]string) string {
 	if oncall == nil {
 		return "-"
 	}
-	var ids []string
+	var names []string
 	for _, m := range oncall.Group.Members {
 		for _, pid := range m.PersonIDs {
-			ids = append(ids, strconv.FormatInt(pid, 10))
+			if n, ok := nameByID[pid]; ok && n != "" {
+				names = append(names, n)
+			} else {
+				names = append(names, strconv.FormatInt(pid, 10))
+			}
 		}
 	}
-	if len(ids) == 0 {
+	if len(names) == 0 {
 		name := oncall.Group.GroupName
 		if name == "" {
 			name = oncall.Group.Name
@@ -334,5 +331,45 @@ func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup) string {
 		}
 		return "-"
 	}
-	return strings.Join(ids, ", ")
+	return strings.Join(names, ", ")
+}
+
+// resolveScheduleOncallPeople collects the on-call person IDs across the given
+// schedules' current and next on-call groups and resolves them to display names
+// via /person/infos, replicating the name lookup the legacy SDK fronted.
+// Best-effort: a lookup failure yields a nil map and callers fall back to the
+// numeric ID.
+func resolveScheduleOncallPeople(rc *RunContext, items []flashduty.ScheduleItem) map[int64]string {
+	seen := make(map[int64]struct{})
+	ids := make([]uint64, 0)
+	collect := func(g flashduty.ScheduleOncallGroup) {
+		for _, m := range g.Group.Members {
+			for _, pid := range m.PersonIDs {
+				if pid == 0 {
+					continue
+				}
+				if _, ok := seen[pid]; ok {
+					continue
+				}
+				seen[pid] = struct{}{}
+				ids = append(ids, uint64(pid))
+			}
+		}
+	}
+	for _, s := range items {
+		collect(s.CurOncall)
+		collect(s.NextOncall)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
+	if err != nil || resp == nil {
+		return nil
+	}
+	out := make(map[int64]string, len(resp.Items))
+	for _, p := range resp.Items {
+		out[int64(p.PersonID)] = p.PersonName
+	}
+	return out
 }

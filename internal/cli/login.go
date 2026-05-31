@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -52,20 +52,24 @@ Examples:
   flashduty team list --orderby team_name --asc`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListTeams(cmdContext(ctx.Cmd), &flashduty.ListTeamsInput{
-					Name:     name,
-					Page:     page,
-					Limit:    limit,
-					OrderBy:  orderBy,
-					Asc:      asc,
-					PersonID: personID,
+				result, _, err := ctx.Client.Teams.ReadList(cmdContext(ctx.Cmd), &flashduty.TeamListRequest{
+					ListOptions: flashduty.ListOptions{Page: page, Limit: limit},
+					Query:       name,
+					Orderby:     orderBy,
+					Asc:         asc,
+					PersonID:    uint64(personID),
 				})
 				if err != nil {
 					return err
 				}
 
-				cols := teamListColumns()
-				return ctx.PrintTotal(result.Teams, cols, result.Total)
+				// go-flashduty's team rows carry only member person IDs, so
+				// resolve display names in one batch (mirroring the names the
+				// legacy SDK enriched server-side) for the MEMBERS column.
+				nameByID := resolveTeamMemberNames(ctx, result.Items)
+
+				cols := teamListColumns(nameByID)
+				return ctx.PrintTotal(result.Items, cols, int(result.Total))
 			})
 		},
 	}
@@ -105,8 +109,8 @@ Examples:
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				team, err := ctx.Client.GetTeamInfo(cmdContext(ctx.Cmd), &flashduty.TeamGetInput{
-					TeamID:   teamID,
+				team, _, err := ctx.Client.Teams.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TeamInfoRequest{
+					TeamID:   uint64(teamID),
 					TeamName: teamName,
 					RefID:    refID,
 				})
@@ -118,7 +122,10 @@ Examples:
 					return ctx.Printer.Print(team, nil)
 				}
 
-				printTeamDetail(ctx.Writer, team)
+				// TeamItem carries only member person IDs; resolve names/emails
+				// in one batch to replicate the legacy member display.
+				members := resolveTeamMemberInfos(ctx, team.PersonIDs)
+				printTeamDetail(ctx.Writer, team, members)
 				return nil
 			})
 		},
@@ -161,10 +168,10 @@ Examples:
 					return fmt.Errorf("invalid --person-ids: %w", err)
 				}
 
-				result, err := ctx.Client.UpsertTeam(cmdContext(ctx.Cmd), &flashduty.TeamUpsertInput{
+				result, _, err := ctx.Client.Teams.WriteUpsert(cmdContext(ctx.Cmd), &flashduty.TeamUpsertRequest{
 					TeamName:    name,
 					Description: description,
-					PersonIDs:   ids,
+					PersonIDs:   toUint64Slice(ids),
 					Emails:      parseStringSlice(emails),
 					RefID:       refID,
 				})
@@ -228,8 +235,8 @@ Examples:
 				// provide --name, fetch the current name so we don't clear it.
 				teamName := name
 				if !cmd.Flags().Changed("name") {
-					existing, err := ctx.Client.GetTeamInfo(cmdContext(ctx.Cmd), &flashduty.TeamGetInput{
-						TeamID: teamID,
+					existing, _, err := ctx.Client.Teams.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TeamInfoRequest{
+						TeamID: uint64(teamID),
 					})
 					if err != nil {
 						return fmt.Errorf("failed to fetch current team: %w", err)
@@ -237,24 +244,24 @@ Examples:
 					teamName = existing.TeamName
 				}
 
-				input := &flashduty.TeamUpsertInput{
-					TeamID:   teamID,
+				req := &flashduty.TeamUpsertRequest{
+					TeamID:   uint64(teamID),
 					TeamName: teamName,
 				}
 				if cmd.Flags().Changed("description") {
-					input.Description = description
+					req.Description = description
 				}
 				if cmd.Flags().Changed("person-ids") {
-					input.PersonIDs = ids
+					req.PersonIDs = toUint64Slice(ids)
 				}
 				if cmd.Flags().Changed("emails") {
-					input.Emails = parseStringSlice(emails)
+					req.Emails = parseStringSlice(emails)
 				}
 				if cmd.Flags().Changed("ref-id") {
-					input.RefID = refID
+					req.RefID = refID
 				}
 
-				result, err := ctx.Client.UpsertTeam(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Teams.WriteUpsert(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -308,8 +315,8 @@ Examples:
 					return nil
 				}
 
-				err := ctx.Client.DeleteTeam(cmdContext(ctx.Cmd), &flashduty.TeamDeleteInput{
-					TeamID:   teamID,
+				_, err := ctx.Client.Teams.WriteDelete(cmdContext(ctx.Cmd), &flashduty.TeamDeleteRequest{
+					TeamID:   uint64(teamID),
 					TeamName: teamName,
 					RefID:    refID,
 				})
@@ -331,33 +338,32 @@ Examples:
 	return cmd
 }
 
-func teamListColumns() []output.Column {
+// teamListColumns renders the team table. The MEMBERS column maps each member's
+// person ID to a resolved display name via nameByID, falling back to the numeric
+// ID when a name can't be resolved.
+func teamListColumns(nameByID map[uint64]string) []output.Column {
 	return []output.Column{
-		{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.TeamInfo).TeamID, 10) }},
-		{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamInfo).TeamName }},
+		{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.TeamItem).TeamID, 10) }},
+		{Header: "NAME", Field: func(v any) string { return v.(flashduty.TeamItem).TeamName }},
 		{Header: "MEMBERS", MaxWidth: 50, Field: func(v any) string {
-			members := v.(flashduty.TeamInfo).Members
-			names := make([]string, 0, len(members))
-			for _, m := range members {
-				names = append(names, m.PersonName)
+			ids := v.(flashduty.TeamItem).PersonIDs
+			names := make([]string, 0, len(ids))
+			for _, id := range ids {
+				if n, ok := nameByID[id]; ok && n != "" {
+					names = append(names, n)
+				} else {
+					names = append(names, strconv.FormatUint(id, 10))
+				}
 			}
 			return strings.Join(names, ", ")
 		}},
 	}
 }
 
-func printTeamDetail(w io.Writer, team *flashduty.TeamItem) {
-	members := make([]string, 0, len(team.Members))
-	for _, m := range team.Members {
-		if m.Email != "" {
-			members = append(members, fmt.Sprintf("%s <%s>", m.PersonName, m.Email))
-		} else {
-			members = append(members, m.PersonName)
-		}
-	}
+func printTeamDetail(w io.Writer, team *flashduty.TeamItem, members []string) {
 	if len(members) == 0 {
 		for _, id := range team.PersonIDs {
-			members = append(members, strconv.FormatInt(id, 10))
+			members = append(members, strconv.FormatUint(id, 10))
 		}
 	}
 
@@ -371,6 +377,81 @@ func printTeamDetail(w io.Writer, team *flashduty.TeamItem) {
 	_, _ = fmt.Fprintf(w, "Updated:       %s\n", output.FormatTime(team.UpdatedAt))
 	_, _ = fmt.Fprintf(w, "Created By:    %s\n", orDash(team.CreatorName))
 	_, _ = fmt.Fprintf(w, "Updated By:    %s\n", orDash(team.UpdatedByName))
+}
+
+// resolveTeamMemberNames batch-resolves the member person IDs of all team rows
+// to display names via /person/infos, replicating the name enrichment the
+// legacy SDK did server-side. Best-effort: a lookup failure yields a nil map and
+// callers fall back to the numeric ID.
+func resolveTeamMemberNames(rc *RunContext, items []flashduty.TeamItem) map[uint64]string {
+	seen := make(map[uint64]struct{})
+	ids := make([]uint64, 0)
+	for _, it := range items {
+		for _, id := range it.PersonIDs {
+			if id == 0 {
+				continue
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
+	if err != nil || resp == nil {
+		return nil
+	}
+	out := make(map[uint64]string, len(resp.Items))
+	for _, p := range resp.Items {
+		out[p.PersonID] = p.PersonName
+	}
+	return out
+}
+
+// resolveTeamMemberInfos resolves a team's member person IDs to display strings
+// ("Name <email>" when an email is present, otherwise the name), replicating the
+// legacy member display for the team detail view. Best-effort: on lookup failure
+// it returns nil and the caller falls back to numeric IDs.
+func resolveTeamMemberInfos(rc *RunContext, personIDs []uint64) []string {
+	ids := make([]uint64, 0, len(personIDs))
+	for _, id := range personIDs {
+		if id != 0 {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	resp, _, err := rc.Client.Members.PersonInfos(cmdContext(rc.Cmd), &flashduty.PersonInfosRequest{PersonIDs: ids})
+	if err != nil || resp == nil {
+		return nil
+	}
+	members := make([]string, 0, len(resp.Items))
+	for _, p := range resp.Items {
+		if p.Email != "" {
+			members = append(members, fmt.Sprintf("%s <%s>", p.PersonName, p.Email))
+		} else {
+			members = append(members, p.PersonName)
+		}
+	}
+	return members
+}
+
+// toUint64Slice converts a []int64 of person IDs to the []uint64 the
+// go-flashduty team request structs expect.
+func toUint64Slice(ids []int64) []uint64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]uint64, len(ids))
+	for i, id := range ids {
+		out[i] = uint64(id)
+	}
+	return out
 }
 
 func identifierDescription(id int64, name, refID string) string {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -30,7 +30,7 @@ func newEscalationRuleListCmd() *cobra.Command {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// Resolve channel name to ID if needed
 				if channelID == 0 && channelName != "" {
-					resolved, err := resolveChannelID(ctx.Cmd, ctx.Client, channelName)
+					resolved, err := resolveChannelID(ctx, channelName)
 					if err != nil {
 						return err
 					}
@@ -41,21 +41,27 @@ func newEscalationRuleListCmd() *cobra.Command {
 					return fmt.Errorf("--channel or --channel-name is required")
 				}
 
-				result, err := ctx.Client.ListEscalationRules(cmdContext(ctx.Cmd), channelID)
+				result, _, err := ctx.Client.Channels.ChannelEscalateRuleList(cmdContext(ctx.Cmd), &flashduty.ChannelScopedListRequest{
+					ChannelID: channelID,
+				})
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleID }},
-					{Header: "NAME", Field: func(v any) string { return v.(flashduty.EscalationRule).RuleName }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.EscalationRule).ChannelName }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.EscalationRule).Status }},
-					{Header: "PRIORITY", Field: func(v any) string { return strconv.Itoa(v.(flashduty.EscalationRule).Priority) }},
-					{Header: "LAYERS", Field: func(v any) string { return strconv.Itoa(len(v.(flashduty.EscalationRule).Layers)) }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.EscalateRuleItem).RuleID }},
+					{Header: "NAME", Field: func(v any) string { return v.(flashduty.EscalateRuleItem).RuleName }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.EscalateRuleItem).ChannelName }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.EscalateRuleItem).Status }},
+					{Header: "PRIORITY", Field: func(v any) string {
+						return strconv.FormatInt(v.(flashduty.EscalateRuleItem).Priority, 10)
+					}},
+					{Header: "LAYERS", Field: func(v any) string {
+						return strconv.Itoa(len(v.(flashduty.EscalateRuleItem).Layers))
+					}},
 				}
 
-				return ctx.Printer.Print(result.Rules, cols)
+				return ctx.Printer.Print(result.Items, cols)
 			})
 		},
 	}
@@ -67,23 +73,23 @@ func newEscalationRuleListCmd() *cobra.Command {
 }
 
 // resolveChannelID resolves a channel name to its ID.
-func resolveChannelID(cmd *cobra.Command, client flashdutyClient, name string) (int64, error) {
-	result, err := client.ListChannels(cmdContext(cmd), &flashduty.ListChannelsInput{
-		Name: name,
+func resolveChannelID(ctx *RunContext, name string) (int64, error) {
+	result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{
+		ChannelName: name,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to resolve channel name: %w", err)
 	}
 
-	switch len(result.Channels) {
+	switch len(result.Items) {
 	case 0:
 		return 0, fmt.Errorf("no channel found matching %q", name)
 	case 1:
-		return result.Channels[0].ChannelID, nil
+		return result.Items[0].ChannelID, nil
 	default:
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Multiple channels match:")
-		for _, ch := range result.Channels {
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %d  %s\n", ch.ChannelID, ch.ChannelName)
+		_, _ = fmt.Fprintln(ctx.Cmd.OutOrStdout(), "Multiple channels match:")
+		for _, ch := range result.Items {
+			_, _ = fmt.Fprintf(ctx.Cmd.OutOrStdout(), "  %d  %s\n", ch.ChannelID, ch.ChannelName)
 		}
 		return 0, fmt.Errorf("multiple channels match %q, use --channel <id> to specify", name)
 	}

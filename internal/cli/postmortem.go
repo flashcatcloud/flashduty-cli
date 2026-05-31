@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -28,18 +28,18 @@ func newPostmortemListCmd() *cobra.Command {
 		Short: "List post-mortem reports",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.ListPostMortemsInput{
+				req := &flashduty.ListPostMortemsRequest{
 					Status: status,
-					Limit:  limit,
-					Page:   page,
 				}
+				req.Page = page
+				req.Limit = limit
 
 				if channel != "" {
 					channelIDs, err := parseIntSlice(channel)
 					if err != nil {
 						return fmt.Errorf("invalid --channel: %w", err)
 					}
-					input.ChannelIDs = channelIDs
+					req.ChannelIDs = channelIDs
 				}
 
 				if team != "" {
@@ -47,7 +47,7 @@ func newPostmortemListCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("invalid --team: %w", err)
 					}
-					input.TeamIDs = teamIDs
+					req.TeamIDs = teamIDs
 				}
 
 				if since != "" {
@@ -55,7 +55,7 @@ func newPostmortemListCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("invalid --since: %w", err)
 					}
-					input.CreatedAtStartSeconds = startTime
+					req.CreatedAtStartSeconds = startTime
 				}
 
 				if until != "" {
@@ -63,25 +63,25 @@ func newPostmortemListCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("invalid --until: %w", err)
 					}
-					input.CreatedAtEndSeconds = endTime
+					req.CreatedAtEndSeconds = endTime
 				}
 
-				result, err := ctx.Client.ListPostMortems(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Incidents.PostMortemList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(flashduty.PostMortem).PostMortemID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.PostMortem).Title }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.PostMortem).Status }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.PostMortem).ChannelName }},
+					{Header: "ID", Field: func(v any) string { return v.(flashduty.PostMortemMeta).PostMortemID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.PostMortemMeta).Title }},
+					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.PostMortemMeta).Status }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.PostMortemMeta).ChannelName }},
 					{Header: "CREATED", Field: func(v any) string {
-						return output.FormatTime(v.(flashduty.PostMortem).CreatedAtSeconds)
+						return output.FormatTime(v.(flashduty.PostMortemMeta).CreatedAtSeconds)
 					}},
 				}
 
-				return ctx.PrintList(result.PostMortems, cols, len(result.PostMortems), page, result.Total)
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
 			})
 		},
 	}

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // ---------------------------------------------------------------------------

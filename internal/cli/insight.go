@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -20,7 +20,6 @@ func newInsightCmd() *cobra.Command {
 	cmd.AddCommand(newInsightResponderCmd())
 	cmd.AddCommand(newInsightTopAlertsCmd())
 	cmd.AddCommand(newInsightIncidentsCmd())
-	cmd.AddCommand(newInsightNotificationsCmd())
 	return cmd
 }
 
@@ -41,7 +40,7 @@ func newInsightTeamCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByTeam(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.Client.Analytics.ByTeam(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -104,7 +103,7 @@ func newInsightChannelCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByChannel(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.Client.Analytics.ByChannel(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -167,7 +166,7 @@ func newInsightResponderCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightByResponder(cmdContext(ctx.Cmd), &flashduty.InsightQueryInput{
+				result, _, err := ctx.Client.Analytics.ByResponder(cmdContext(ctx.Cmd), &flashduty.InsightQueryRequest{
 					StartTime: startTime,
 					EndTime:   endTime,
 				})
@@ -178,9 +177,6 @@ func newInsightResponderCmd() *cobra.Command {
 				cols := []output.Column{
 					{Header: "RESPONDER", MaxWidth: 30, Field: func(v any) string {
 						return v.(flashduty.ResponderInsightItem).ResponderName
-					}},
-					{Header: "EMAIL", MaxWidth: 30, Field: func(v any) string {
-						return v.(flashduty.ResponderInsightItem).Email
 					}},
 					{Header: "INCIDENTS", Field: func(v any) string {
 						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalIncidentCnt)
@@ -195,7 +191,7 @@ func newInsightResponderCmd() *cobra.Command {
 						return fmt.Sprintf("%d", v.(flashduty.ResponderInsightItem).TotalInterruptions)
 					}},
 					{Header: "ENGAGED", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.ResponderInsightItem).TotalEngagedSeconds)
+						return output.FormatDuration(int(v.(flashduty.ResponderInsightItem).TotalEngagedSeconds))
 					}},
 				}
 
@@ -228,13 +224,11 @@ func newInsightTopAlertsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightAlertTopK(cmdContext(ctx.Cmd), &flashduty.QueryInsightAlertTopKInput{
-					InsightQueryInput: flashduty.InsightQueryInput{
-						StartTime: startTime,
-						EndTime:   endTime,
-					},
-					Label: label,
-					K:     limit,
+				result, _, err := ctx.Client.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &flashduty.InsightTopkAlertByLabelRequest{
+					StartTime: startTime,
+					EndTime:   endTime,
+					Label:     label,
+					K:         int64(limit),
 				})
 				if err != nil {
 					return err
@@ -284,43 +278,43 @@ func newInsightIncidentsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightIncidentList(cmdContext(ctx.Cmd), &flashduty.QueryInsightIncidentListInput{
-					InsightQueryInput: flashduty.InsightQueryInput{
-						StartTime: startTime,
-						EndTime:   endTime,
-					},
-					Limit: limit,
-					Page:  page,
-				})
+				req := &flashduty.InsightIncidentListRequest{
+					StartTime: startTime,
+					EndTime:   endTime,
+				}
+				req.Limit = limit
+				req.Page = page
+
+				result, _, err := ctx.Client.Analytics.IncidentList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).IncidentID
+						return v.(flashduty.IncidentRawItem).IncidentID
 					}},
 					{Header: "TITLE", MaxWidth: 40, Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).Title
+						return v.(flashduty.IncidentRawItem).Title
 					}},
 					{Header: "SEVERITY", Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).Severity
+						return v.(flashduty.IncidentRawItem).Severity
 					}},
 					{Header: "CHANNEL", MaxWidth: 20, Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).ChannelName
+						return v.(flashduty.IncidentRawItem).ChannelName
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.InsightIncidentItem).SecondsToAck)
+						return output.FormatDuration(int(v.(flashduty.IncidentRawItem).SecondsToAck))
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.InsightIncidentItem).SecondsToClose)
+						return output.FormatDuration(int(v.(flashduty.IncidentRawItem).SecondsToClose))
 					}},
 					{Header: "NOTIFICATIONS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.InsightIncidentItem).Notifications)
+						return fmt.Sprintf("%d", v.(flashduty.IncidentRawItem).Notifications)
 					}},
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, result.Total)
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
 			})
 		},
 	}
@@ -329,59 +323,6 @@ func newInsightIncidentsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-
-	return cmd
-}
-
-func newInsightNotificationsCmd() *cobra.Command {
-	var step, since, until string
-
-	cmd := &cobra.Command{
-		Use:   "notifications",
-		Short: "Query notification volume trends",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
-				}
-
-				result, err := ctx.Client.QueryNotificationTrend(cmdContext(ctx.Cmd), &flashduty.QueryNotificationTrendInput{
-					Step:      step,
-					StartTime: startTime,
-					EndTime:   endTime,
-				})
-				if err != nil {
-					return err
-				}
-
-				cols := []output.Column{
-					{Header: "DATE", Field: func(v any) string {
-						return output.FormatTime(v.(flashduty.NotificationTrendPoint).Timestamp)
-					}},
-					{Header: "SMS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).SMSCount)
-					}},
-					{Header: "VOICE", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).VoiceCount)
-					}},
-					{Header: "EMAIL", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.NotificationTrendPoint).EmailCount)
-					}},
-				}
-
-				return ctx.PrintTotal(result.DataPoints, cols, len(result.DataPoints))
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&step, "step", "day", "Aggregation: day, week, month")
-	cmd.Flags().StringVar(&since, "since", "30d", "Start time")
-	cmd.Flags().StringVar(&until, "until", "now", "End time")
 
 	return cmd
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -28,34 +28,35 @@ func newMemberListCmd() *cobra.Command {
 		Short: "List members",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListMembers(cmdContext(ctx.Cmd), &flashduty.ListMembersInput{
-					Name:  name,
-					Email: email,
-					Page:  page,
-				})
+				// go-flashduty's MemberListRequest exposes a single search
+				// keyword (Query); the legacy SDK split name/email into separate
+				// filters. Both --name and --email are keyword searches against
+				// the same backend, so fold them into Query (name takes precedence).
+				query := name
+				if query == "" {
+					query = email
+				}
+				req := &flashduty.MemberListRequest{
+					Query: query,
+				}
+				req.Page = page
+
+				result, _, err := ctx.Client.Members.MemberList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
-				// SDK returns Members when listing, PersonInfos when querying by IDs
-				if len(result.Members) > 0 {
+				// MemberList returns member rows; an empty list renders the
+				// "no members" path (structured: empty set; plain: a message).
+				if len(result.Items) > 0 {
 					cols := []output.Column{
-						{Header: "ID", Field: func(v any) string { return strconv.Itoa(v.(flashduty.MemberItem).MemberID) }},
+						{Header: "ID", Field: func(v any) string { return strconv.FormatUint(v.(flashduty.MemberItem).MemberID, 10) }},
 						{Header: "NAME", Field: func(v any) string { return v.(flashduty.MemberItem).MemberName }},
 						{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.MemberItem).Email }},
 						{Header: "STATUS", Field: func(v any) string { return v.(flashduty.MemberItem).Status }},
 						{Header: "TIMEZONE", Field: func(v any) string { return v.(flashduty.MemberItem).TimeZone }},
 					}
-					if err := ctx.Printer.Print(result.Members, cols); err != nil {
-						return err
-					}
-				} else if len(result.PersonInfos) > 0 {
-					cols := []output.Column{
-						{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.PersonInfo).PersonID, 10) }},
-						{Header: "NAME", Field: func(v any) string { return v.(flashduty.PersonInfo).PersonName }},
-						{Header: "EMAIL", Field: func(v any) string { return v.(flashduty.PersonInfo).Email }},
-					}
-					if err := ctx.Printer.Print(result.PersonInfos, cols); err != nil {
+					if err := ctx.Printer.Print(result.Items, cols); err != nil {
 						return err
 					}
 				} else {

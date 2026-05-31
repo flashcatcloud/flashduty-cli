@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -48,7 +48,7 @@ func newMCPCreateCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("invalid --headers: %w", err)
 				}
-				input := &flashduty.CreateMCPServerInput{
+				input := &flashduty.McpServerCreateRequest{
 					ServerName:     serverName,
 					Description:    description,
 					Transport:      transport,
@@ -57,11 +57,11 @@ func newMCPCreateCmd() *cobra.Command {
 					Env:            envMap,
 					URL:            url,
 					Headers:        headerMap,
-					ConnectTimeout: connectTimeout,
-					CallTimeout:    callTimeout,
+					ConnectTimeout: int64(connectTimeout),
+					CallTimeout:    int64(callTimeout),
 					TeamID:         teamID,
 				}
-				result, err := ctx.Client.CreateMCPServer(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.McpServers.WriteServerCreate(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}

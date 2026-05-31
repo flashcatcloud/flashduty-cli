@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 )
 
-// row carries a typed flashduty.Timestamp field so we can prove the structured
+// row carries a typed go-flashduty Timestamp field so we can prove the structured
 // printers render it as RFC3339 rather than a raw epoch integer.
 type row struct {
 	StartTime flashduty.Timestamp `json:"start_time" toon:"start_time"`
@@ -16,7 +16,7 @@ type row struct {
 
 // TestStructuredTimeIsRFC3339 is the regression guard for the typed-timestamp
 // SDK adoption: both the JSON and TOON printers must serialize a
-// flashduty.Timestamp as a human-/LLM-readable RFC3339 string, never as the
+// go-flashduty Timestamp as a human-/LLM-readable RFC3339 string, never as the
 // opaque Unix epoch integer.
 func TestStructuredTimeIsRFC3339(t *testing.T) {
 	// 2026-05-28T08:00:00Z — fixed so we can assert the raw epoch is absent.

@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
@@ -42,25 +43,24 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitQueryDiagnoseInput{
+				input := &flashduty.DiagnoseRequest{
 					DsType:    dsType,
 					DsName:    dsName,
-					TimeStart: startTime,
-					TimeEnd:   endTime,
 					Operation: operation,
-					Input:     flashduty.MonitQueryDiagnoseQuery{Query: inputQuery},
+					Input:     flashduty.DiagnoseRequestInput{Query: inputQuery},
+					TimeRange: flashduty.DiagnoseRequestTimeRange{Start: startTime, End: endTime},
 				}
 				if maxLogs > 0 {
-					input.MaxLogsScanned = maxLogs
+					input.Options.MaxLogsScanned = int64(maxLogs)
 				}
 				if maxPatterns > 0 {
-					input.MaxPatterns = maxPatterns
+					input.Options.MaxPatterns = int64(maxPatterns)
 				}
 				if timeoutSeconds > 0 {
-					input.TimeoutSeconds = timeoutSeconds
+					input.Options.TimeoutSeconds = int64(timeoutSeconds)
 				}
 
-				result, err := ctx.Client.MonitQueryDiagnose(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
@@ -101,24 +101,32 @@ func newMonitQueryRowsCmd() *cobra.Command {
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitQueryRowsInput{
+				input := &flashduty.QueryRowsRequest{
 					DsType: dsType,
 					DsName: dsName,
 					Expr:   expr,
 					Args:   argsMap,
 				}
-				result, err := ctx.Client.MonitQueryRows(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.Client.Diagnostics.QueryRows(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
-				// MonitQueryRowsOutput intentionally captures the entire response
-				// body as a RawMessage (data shape is datasource-specific). The
-				// struct itself marshals to `{}`, so write the raw bytes through.
-				if len(result.Data) == 0 {
+				// This command is a raw datasource passthrough. The legacy SDK
+				// captured the response body (a JSON array of {fields,values}
+				// objects) as a RawMessage and wrote it through verbatim,
+				// independent of the --json/--toon output format. go-flashduty
+				// decodes that same array into []QueryRow, so re-marshal it to
+				// the equivalent JSON array and write it through unchanged to
+				// preserve the legacy single-blob output shape.
+				if result == nil {
 					_, err = fmt.Fprintln(ctx.Writer, "{}")
-				} else {
-					_, err = fmt.Fprintln(ctx.Writer, string(result.Data))
+					return err
 				}
+				body, err := json.Marshal(*result)
+				if err != nil {
+					return fmt.Errorf("failed to marshal query rows: %w", err)
+				}
+				_, err = fmt.Fprintln(ctx.Writer, string(body))
 				return err
 			})
 		},

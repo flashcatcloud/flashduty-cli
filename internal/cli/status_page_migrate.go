@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -35,11 +35,16 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 				return err
 			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.StartStatusPageMigration(cmdContext(ctx.Cmd), &flashduty.StartStatusPageMigrationInput{
-					SourceAPIKey: sourceAPIKey,
+				req := &flashduty.MigrateStatusPageStructureRequest{
+					APIKey:       sourceAPIKey,
 					SourcePageID: sourcePageID,
-					URLName:      urlName,
-				})
+				}
+				// url_name is *string (tri-state): set it only when the user
+				// provided one, so a nil pointer reuses the source page's name.
+				if urlName != "" {
+					req.URLName = flashduty.String(urlName)
+				}
+				result, _, err := ctx.Client.StatusPages.MigrateStructure(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -74,8 +79,8 @@ func newStatusPageMigrateEmailSubscribersCmd() *cobra.Command {
 				return err
 			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.StartStatusPageEmailSubscriberMigration(cmdContext(ctx.Cmd), &flashduty.StartStatusPageEmailSubscriberMigrationInput{
-					SourceAPIKey: sourceAPIKey,
+				result, _, err := ctx.Client.StatusPages.MigrateEmailSubscribers(cmdContext(ctx.Cmd), &flashduty.MigrateStatusPageEmailSubscribersRequest{
+					APIKey:       sourceAPIKey,
 					SourcePageID: sourcePageID,
 					TargetPageID: targetPageID,
 				})
@@ -108,7 +113,9 @@ func newStatusPageMigrateStatusCmd() *cobra.Command {
 		Short: "Show migration job status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				job, err := ctx.Client.GetStatusPageMigrationStatus(cmdContext(ctx.Cmd), jobID)
+				job, _, err := ctx.Client.StatusPages.MigrationStatus(cmdContext(ctx.Cmd), &flashduty.StatusPagesMigrationStatusRequest{
+					JobID: jobID,
+				})
 				if err != nil {
 					return err
 				}
@@ -132,7 +139,9 @@ func newStatusPageMigrateCancelCmd() *cobra.Command {
 		Short: "Cancel a running migration job",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.CancelStatusPageMigration(cmdContext(ctx.Cmd), jobID); err != nil {
+				if _, err := ctx.Client.StatusPages.MigrationCancel(cmdContext(ctx.Cmd), &flashduty.CancelStatusPageMigrationRequest{
+					JobID: jobID,
+				}); err != nil {
 					return err
 				}
 
@@ -175,7 +184,7 @@ func validateMigrationSource(source string) error {
 	return nil
 }
 
-func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID string, targetPageID int64, result *flashduty.StartStatusPageMigrationOutput) error {
+func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID string, targetPageID int64, result *flashduty.StatusPageMigrationStartResponse) error {
 	if ctx.Structured() {
 		payload := map[string]any{
 			"type":           migrationType,

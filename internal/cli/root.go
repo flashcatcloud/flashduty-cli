@@ -8,8 +8,9 @@ import (
 	"os"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
 	"golang.org/x/term"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/config"
@@ -17,102 +18,8 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/update"
 )
 
-// flashdutyClient defines the SDK operations used by CLI commands.
-type flashdutyClient interface {
-	// === Account / Member ===
-	GetAccountInfo(ctx context.Context) (*flashduty.AccountInfo, error)
-	GetMemberInfo(ctx context.Context) (*flashduty.MemberInfo, error)
-
-	// === EXISTING ===
-	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
-	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
-	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
-	ListSimilarIncidents(ctx context.Context, incidentID string, limit int) (*flashduty.ListIncidentsOutput, error)
-	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error)
-	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
-	AckIncidents(ctx context.Context, incidentIDs []string) error
-	UnackIncidents(ctx context.Context, incidentIDs []string) error
-	CloseIncidents(ctx context.Context, incidentIDs []string) error
-	WakeIncidents(ctx context.Context, incidentIDs []string) error
-	RemoveIncidents(ctx context.Context, incidentIDs []string) error
-	DisableIncidentMerge(ctx context.Context, incidentIDs []string) error
-	CommentIncidents(ctx context.Context, input *flashduty.IncidentCommentInput) error
-	AddIncidentResponders(ctx context.Context, input *flashduty.IncidentAddResponderInput) error
-	CreateIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomCreateInput) (*flashduty.IncidentWarRoom, error)
-	ListIncidentWarRooms(ctx context.Context, input *flashduty.IncidentWarRoomListInput) (*flashduty.IncidentWarRoomListOutput, error)
-	GetIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDetailInput) (*flashduty.IncidentWarRoom, error)
-	DeleteIncidentWarRoom(ctx context.Context, input *flashduty.IncidentWarRoomDeleteInput) error
-	AddIncidentWarRoomMembers(ctx context.Context, input *flashduty.IncidentWarRoomAddMemberInput) error
-	GetIncidentWarRoomDefaultObservers(ctx context.Context, incidentID string) ([]flashduty.IncidentWarRoomObserver, error)
-	ListWarRoomEnabledDataSources(ctx context.Context) (*flashduty.ListWarRoomEnabledDataSourcesOutput, error)
-	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
-	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
-	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
-	ListEscalationRules(ctx context.Context, channelID int64) (*flashduty.ListEscalationRulesOutput, error)
-	ListFields(ctx context.Context, input *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error)
-	ListChanges(ctx context.Context, input *flashduty.ListChangesInput) (*flashduty.ListChangesOutput, error)
-	GetPresetTemplate(ctx context.Context, input *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error)
-	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
-	ListStatusPages(ctx context.Context, pageIDs []int64) ([]flashduty.StatusPage, error)
-	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
-	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error)
-	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
-
-	// === PHASE 1: Incident additions ===
-	GetIncidentDetail(ctx context.Context, input *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error)
-	GetIncidentFeed(ctx context.Context, input *flashduty.GetIncidentFeedInput) (*flashduty.GetIncidentFeedOutput, error)
-	ListPostMortems(ctx context.Context, input *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error)
-	MergeIncidents(ctx context.Context, input *flashduty.MergeIncidentsInput) error
-	SnoozeIncidents(ctx context.Context, input *flashduty.SnoozeIncidentsInput) error
-	ReopenIncidents(ctx context.Context, incidentIDs []string) error
-	ReassignIncidents(ctx context.Context, input *flashduty.ReassignIncidentsInput) error
-
-	// === PHASE 1: Alert additions ===
-	ListAlerts(ctx context.Context, input *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error)
-	GetAlertDetail(ctx context.Context, input *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error)
-	ListAlertEvents(ctx context.Context, input *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error)
-	MergeAlertsToIncident(ctx context.Context, input *flashduty.MergeAlertsInput) error
-	GetAlertFeed(ctx context.Context, input *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error)
-	ListAlertEventsGlobal(ctx context.Context, input *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error)
-
-	// === PHASE 2: OnCall + Change ===
-	ListSchedulesWithSlots(ctx context.Context, input *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error)
-	GetScheduleDetail(ctx context.Context, input *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error)
-	QueryChangeTrend(ctx context.Context, input *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error)
-
-	// === PHASE 3: Insight + Admin ===
-	QueryInsightByTeam(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error)
-	QueryInsightByChannel(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error)
-	QueryInsightByResponder(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByResponderOutput, error)
-	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
-	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
-	QueryNotificationTrend(ctx context.Context, input *flashduty.QueryNotificationTrendInput) (*flashduty.QueryNotificationTrendOutput, error)
-	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
-
-	// === PHASE 4: Status Page Migration ===
-	StartStatusPageMigration(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
-	CancelStatusPageMigration(ctx context.Context, jobID string) error
-
-	// === PHASE 5: Team Management ===
-	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
-	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
-	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
-
-	// === CLI Phase 1: MCP ===
-	CreateMCPServer(ctx context.Context, input *flashduty.CreateMCPServerInput) (*flashduty.CreateMCPServerOutput, error)
-
-	// === CLI Phase 2: monit-query ===
-	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)
-	MonitQueryRows(ctx context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error)
-
-	// === CLI Phase 2: monit-agent ===
-	MonitAgentCatalog(ctx context.Context, input *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error)
-	MonitAgentInvoke(ctx context.Context, input *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error)
-}
-
-// newClientFn creates a flashdutyClient. Override in tests to inject a mock.
+// newClientFn creates the go-flashduty client used by all commands.
+// Override in tests to inject a stub server.
 var newClientFn = defaultNewClient
 
 var (
@@ -208,13 +115,14 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// newClient creates a flashdutyClient using the current factory.
-func newClient() (flashdutyClient, error) {
+// newClient creates a go-flashduty client using the current factory.
+func newClient() (*flashduty.Client, error) {
 	return newClientFn()
 }
 
-// defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
-func defaultNewClient() (flashdutyClient, error) {
+// defaultNewClient creates a real go-flashduty client from resolved config +
+// flag overrides. This is the typed SDK every command uses.
+func defaultNewClient() (*flashduty.Client, error) {
 	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
@@ -232,12 +140,7 @@ func defaultNewClient() (flashdutyClient, error) {
 		opts = append(opts, flashduty.WithBaseURL(cfg.BaseURL))
 	}
 
-	sdkClient, err := flashduty.NewClient(cfg.AppKey, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return sdkClient, nil
+	return flashduty.NewClient(cfg.AppKey, opts...)
 }
 
 func loadResolvedConfig() (*config.Config, error) {
@@ -287,11 +190,11 @@ func currentOutputFormat() output.Format {
 }
 
 // marshalStructured serializes v for machine-readable output: indented JSON for
-// FormatJSON (byte-compatible with the legacy --json path) and TOON via the SDK
-// for FormatTOON.
+// FormatJSON (byte-compatible with the legacy --json path) and TOON via the
+// toon-format encoder for FormatTOON.
 func marshalStructured(v any) ([]byte, error) {
 	if currentOutputFormat() == output.FormatTOON {
-		return flashduty.Marshal(v, flashduty.OutputFormatTOON)
+		return toon.Marshal(v)
 	}
 	return json.MarshalIndent(v, "", "  ")
 }
