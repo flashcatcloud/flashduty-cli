@@ -90,7 +90,7 @@ func Truncate(s string, maxLen int) string {
 	return runewidth.Truncate(s, maxLen, "...")
 }
 
-// instant is satisfied by flashduty.Timestamp and flashduty.TimestampMilli.
+// instant is satisfied by go-flashduty's Timestamp and TimestampMilli.
 type instant interface {
 	Time() time.Time
 	IsZero() bool

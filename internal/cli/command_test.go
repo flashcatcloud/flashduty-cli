@@ -2,255 +2,14 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
-
-// mockClient provides default "not implemented" stubs for all flashdutyClient
-// methods. Embed it in per-test mocks and override only the methods under test.
-type mockClient struct{}
-
-func (m *mockClient) GetAccountInfo(context.Context) (*flashduty.AccountInfo, error) {
-	return nil, fmt.Errorf("mockClient: GetAccountInfo not implemented")
-}
-
-func (m *mockClient) GetMemberInfo(context.Context) (*flashduty.MemberInfo, error) {
-	return nil, fmt.Errorf("mockClient: GetMemberInfo not implemented")
-}
-
-func (m *mockClient) ListIncidents(context.Context, *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListIncidents not implemented")
-}
-
-func (m *mockClient) GetIncidentTimelines(context.Context, []string) ([]flashduty.IncidentTimelineOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetIncidentTimelines not implemented")
-}
-
-func (m *mockClient) ListIncidentAlerts(context.Context, []string, int) ([]flashduty.IncidentAlertsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListIncidentAlerts not implemented")
-}
-
-func (m *mockClient) ListSimilarIncidents(context.Context, string, int) (*flashduty.ListIncidentsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListSimilarIncidents not implemented")
-}
-
-func (m *mockClient) CreateIncident(context.Context, *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error) {
-	return nil, fmt.Errorf("mockClient: CreateIncident not implemented")
-}
-
-func (m *mockClient) UpdateIncident(context.Context, *flashduty.UpdateIncidentInput) ([]string, error) {
-	return nil, fmt.Errorf("mockClient: UpdateIncident not implemented")
-}
-
-func (m *mockClient) AckIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: AckIncidents not implemented")
-}
-
-func (m *mockClient) UnackIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: UnackIncidents not implemented")
-}
-
-func (m *mockClient) CloseIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: CloseIncidents not implemented")
-}
-
-func (m *mockClient) WakeIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: WakeIncidents not implemented")
-}
-
-func (m *mockClient) RemoveIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: RemoveIncidents not implemented")
-}
-
-func (m *mockClient) DisableIncidentMerge(context.Context, []string) error {
-	return fmt.Errorf("mockClient: DisableIncidentMerge not implemented")
-}
-
-func (m *mockClient) CommentIncidents(context.Context, *flashduty.IncidentCommentInput) error {
-	return fmt.Errorf("mockClient: CommentIncidents not implemented")
-}
-
-func (m *mockClient) AddIncidentResponders(context.Context, *flashduty.IncidentAddResponderInput) error {
-	return fmt.Errorf("mockClient: AddIncidentResponders not implemented")
-}
-
-func (m *mockClient) ListChannels(context.Context, *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListChannels not implemented")
-}
-
-func (m *mockClient) ListTeams(context.Context, *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListTeams not implemented")
-}
-
-func (m *mockClient) ListMembers(context.Context, *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListMembers not implemented")
-}
-
-func (m *mockClient) ListEscalationRules(context.Context, int64) (*flashduty.ListEscalationRulesOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListEscalationRules not implemented")
-}
-
-func (m *mockClient) ListFields(context.Context, *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListFields not implemented")
-}
-
-func (m *mockClient) GetPresetTemplate(context.Context, *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetPresetTemplate not implemented")
-}
-
-func (m *mockClient) ValidateTemplate(context.Context, *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error) {
-	return nil, fmt.Errorf("mockClient: ValidateTemplate not implemented")
-}
-
-func (m *mockClient) ListStatusChanges(context.Context, *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListStatusChanges not implemented")
-}
-
-func (m *mockClient) CreateStatusIncident(context.Context, *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
-	return nil, fmt.Errorf("mockClient: CreateStatusIncident not implemented")
-}
-
-func (m *mockClient) CreateChangeTimeline(context.Context, *flashduty.CreateChangeTimelineInput) error {
-	return fmt.Errorf("mockClient: CreateChangeTimeline not implemented")
-}
-
-// Phase 1: Incident additions
-func (m *mockClient) GetIncidentDetail(context.Context, *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetIncidentDetail not implemented")
-}
-
-func (m *mockClient) ListPostMortems(context.Context, *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListPostMortems not implemented")
-}
-
-func (m *mockClient) MergeIncidents(context.Context, *flashduty.MergeIncidentsInput) error {
-	return fmt.Errorf("mockClient: MergeIncidents not implemented")
-}
-
-func (m *mockClient) SnoozeIncidents(context.Context, *flashduty.SnoozeIncidentsInput) error {
-	return fmt.Errorf("mockClient: SnoozeIncidents not implemented")
-}
-
-func (m *mockClient) ReopenIncidents(context.Context, []string) error {
-	return fmt.Errorf("mockClient: ReopenIncidents not implemented")
-}
-
-func (m *mockClient) ReassignIncidents(context.Context, *flashduty.ReassignIncidentsInput) error {
-	return fmt.Errorf("mockClient: ReassignIncidents not implemented")
-}
-
-// Phase 1: Alert additions
-func (m *mockClient) ListAlerts(context.Context, *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListAlerts not implemented")
-}
-
-func (m *mockClient) GetAlertDetail(context.Context, *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetAlertDetail not implemented")
-}
-
-func (m *mockClient) ListAlertEvents(context.Context, *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListAlertEvents not implemented")
-}
-
-func (m *mockClient) MergeAlertsToIncident(context.Context, *flashduty.MergeAlertsInput) error {
-	return fmt.Errorf("mockClient: MergeAlertsToIncident not implemented")
-}
-
-func (m *mockClient) GetAlertFeed(context.Context, *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetAlertFeed not implemented")
-}
-
-func (m *mockClient) ListAlertEventsGlobal(context.Context, *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListAlertEventsGlobal not implemented")
-}
-
-// Phase 2: OnCall + Change
-func (m *mockClient) ListSchedulesWithSlots(context.Context, *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error) {
-	return nil, fmt.Errorf("mockClient: ListSchedulesWithSlots not implemented")
-}
-
-func (m *mockClient) GetScheduleDetail(context.Context, *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error) {
-	return nil, fmt.Errorf("mockClient: GetScheduleDetail not implemented")
-}
-
-func (m *mockClient) QueryChangeTrend(context.Context, *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryChangeTrend not implemented")
-}
-
-// Phase 3: Insight + Admin
-func (m *mockClient) QueryInsightByTeam(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryInsightByTeam not implemented")
-}
-
-func (m *mockClient) QueryInsightByChannel(context.Context, *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryInsightByChannel not implemented")
-}
-
-func (m *mockClient) QueryInsightAlertTopK(context.Context, *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryInsightAlertTopK not implemented")
-}
-
-func (m *mockClient) QueryInsightIncidentList(context.Context, *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error) {
-	return nil, fmt.Errorf("mockClient: QueryInsightIncidentList not implemented")
-}
-
-func (m *mockClient) SearchAuditLogs(context.Context, *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error) {
-	return nil, fmt.Errorf("mockClient: SearchAuditLogs not implemented")
-}
-
-func (m *mockClient) StartStatusPageMigration(context.Context, *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-	return nil, fmt.Errorf("mockClient: StartStatusPageMigration not implemented")
-}
-
-func (m *mockClient) StartStatusPageEmailSubscriberMigration(context.Context, *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error) {
-	return nil, fmt.Errorf("mockClient: StartStatusPageEmailSubscriberMigration not implemented")
-}
-
-func (m *mockClient) GetStatusPageMigrationStatus(context.Context, string) (*flashduty.StatusPageMigrationJob, error) {
-	return nil, fmt.Errorf("mockClient: GetStatusPageMigrationStatus not implemented")
-}
-
-func (m *mockClient) CancelStatusPageMigration(context.Context, string) error {
-	return fmt.Errorf("mockClient: CancelStatusPageMigration not implemented")
-}
-
-// Phase 5: Team Management
-func (m *mockClient) GetTeamInfo(context.Context, *flashduty.TeamGetInput) (*flashduty.TeamItem, error) {
-	return nil, fmt.Errorf("mockClient: GetTeamInfo not implemented")
-}
-
-func (m *mockClient) UpsertTeam(context.Context, *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error) {
-	return nil, fmt.Errorf("mockClient: UpsertTeam not implemented")
-}
-
-func (m *mockClient) DeleteTeam(context.Context, *flashduty.TeamDeleteInput) error {
-	return fmt.Errorf("mockClient: DeleteTeam not implemented")
-}
-
-// CLI Phase 2: monit-query
-func (m *mockClient) MonitQueryDiagnose(context.Context, *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error) {
-	return nil, fmt.Errorf("mockClient: MonitQueryDiagnose not implemented")
-}
-
-func (m *mockClient) MonitQueryRows(context.Context, *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error) {
-	return nil, fmt.Errorf("mockClient: MonitQueryRows not implemented")
-}
-
-// CLI Phase 2: monit-agent
-func (m *mockClient) MonitAgentCatalog(context.Context, *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error) {
-	return nil, fmt.Errorf("mockClient: MonitAgentCatalog not implemented")
-}
-
-func (m *mockClient) MonitAgentInvoke(context.Context, *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error) {
-	return nil, fmt.Errorf("mockClient: MonitAgentInvoke not implemented")
-}
 
 // saveAndResetGlobals saves the current state of all global vars that commands
 // mutate, resets them to safe defaults, and returns a restore function for
@@ -258,7 +17,6 @@ func (m *mockClient) MonitAgentInvoke(context.Context, *flashduty.MonitAgentInvo
 func saveAndResetGlobals(t *testing.T) {
 	t.Helper()
 
-	origNewClientFn := newClientFn
 	origNewGFClientFn := newGFClientFn
 	origFlagJSON := flagJSON
 	origFlagNoTrunc := flagNoTrunc
@@ -272,7 +30,6 @@ func saveAndResetGlobals(t *testing.T) {
 	flagBaseURL = ""
 
 	t.Cleanup(func() {
-		newClientFn = origNewClientFn
 		newGFClientFn = origNewGFClientFn
 		flagJSON = origFlagJSON
 		flagNoTrunc = origFlagNoTrunc
@@ -342,15 +99,10 @@ func resetFlagSet(flags *pflag.FlagSet) {
 // Test 191: incident get returns empty results
 // ---------------------------------------------------------------------------
 
-type mockGetEmpty struct{ mockClient }
-
-func (m *mockGetEmpty) ListIncidents(_ context.Context, _ *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error) {
-	return &flashduty.ListIncidentsOutput{Incidents: nil, Total: 0}, nil
-}
-
 func TestCommandIncidentGetEmptyResults(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockGetEmpty{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"items": []any{}, "total": 0}
 
 	out, err := execCommand("incident", "get", "nonexistent-id")
 	if err != nil {
@@ -480,17 +232,10 @@ func TestCommandIncidentReassignSetsAssignType(t *testing.T) {
 // Test 223: incident timeline empty
 // ---------------------------------------------------------------------------
 
-type mockTimelineEmpty struct{ mockClient }
-
-func (m *mockTimelineEmpty) GetIncidentTimelines(_ context.Context, _ []string) ([]flashduty.IncidentTimelineOutput, error) {
-	return []flashduty.IncidentTimelineOutput{
-		{IncidentID: "test", Timeline: nil},
-	}, nil
-}
-
 func TestCommandIncidentTimelineEmpty(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockTimelineEmpty{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"items": []any{}}
 
 	out, err := execCommand("incident", "timeline", "test")
 	if err != nil {
@@ -507,15 +252,10 @@ func TestCommandIncidentTimelineEmpty(t *testing.T) {
 // Test 263: statuspage create-incident result with change_id
 // ---------------------------------------------------------------------------
 
-type mockStatusCreateWithID struct{ mockClient }
-
-func (m *mockStatusCreateWithID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
-	return &flashduty.CreateStatusIncidentOutput{ChangeID: 12345}, nil
-}
-
 func TestCommandStatusPageCreateIncidentWithChangeID(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockStatusCreateWithID{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"change_id": 12345}
 
 	out, err := execCommand("statuspage", "create-incident", "--page-id", "1", "--title", "Outage")
 	if err != nil {
@@ -530,7 +270,8 @@ func TestCommandStatusPageCreateIncidentWithChangeID(t *testing.T) {
 
 func TestCommandStatusPageCreateIncidentWithChangeID_JSON(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockStatusCreateWithID{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{"change_id": 12345}
 
 	out, err := execCommand("statuspage", "create-incident", "--page-id", "1", "--title", "Outage", "--json")
 	if err != nil {
@@ -550,15 +291,9 @@ func TestCommandStatusPageCreateIncidentWithChangeID_JSON(t *testing.T) {
 // Test 264: statuspage create-incident result without change_id
 // ---------------------------------------------------------------------------
 
-type mockStatusCreateNoID struct{ mockClient }
-
-func (m *mockStatusCreateNoID) CreateStatusIncident(_ context.Context, _ *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error) {
-	return &flashduty.CreateStatusIncidentOutput{}, nil
-}
-
 func TestCommandStatusPageCreateIncidentWithoutChangeID(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockStatusCreateNoID{}, nil }
+	newGFStub(t)
 
 	out, err := execCommand("statuspage", "create-incident", "--page-id", "1", "--title", "Outage")
 	if err != nil {
@@ -573,7 +308,7 @@ func TestCommandStatusPageCreateIncidentWithoutChangeID(t *testing.T) {
 
 func TestCommandStatusPageCreateIncidentWithoutChangeID_JSON(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockStatusCreateNoID{}, nil }
+	newGFStub(t)
 
 	out, err := execCommand("statuspage", "create-incident", "--page-id", "1", "--title", "Outage", "--json")
 	if err != nil {
@@ -593,62 +328,37 @@ func TestCommandStatusPageCreateIncidentWithoutChangeID_JSON(t *testing.T) {
 // Test 321: member list with PersonInfos
 // ---------------------------------------------------------------------------
 
-type mockMemberPersonInfos struct{ mockClient }
-
-func (m *mockMemberPersonInfos) ListMembers(_ context.Context, _ *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error) {
-	return &flashduty.ListMembersOutput{
-		PersonInfos: []flashduty.PersonInfo{
-			{PersonID: 100, PersonName: "Alice", Email: "alice@example.com"},
-			{PersonID: 200, PersonName: "Bob", Email: "bob@example.com"},
-		},
-		Members: nil,
-		Total:   2,
-	}, nil
-}
-
 func TestCommandMemberListPersonInfos(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockMemberPersonInfos{}, nil }
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"items": []any{
+			map[string]any{"member_id": 100, "member_name": "Alice", "email": "alice@example.com", "status": "enabled", "time_zone": "Asia/Shanghai"},
+			map[string]any{"member_id": 200, "member_name": "Bob", "email": "bob@example.com", "status": "enabled", "time_zone": "UTC"},
+		},
+		"total": 2,
+	}
 
 	out, err := execCommand("member", "list")
 	if err != nil {
 		t.Fatalf("[#321] unexpected error: %v", err)
 	}
 
-	// PersonInfo columns: ID, NAME, EMAIL (not MemberItem's STATUS, TIMEZONE).
-	if !strings.Contains(out, "ID") {
-		t.Errorf("[#321] expected header 'ID' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "NAME") {
-		t.Errorf("[#321] expected header 'NAME' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "EMAIL") {
-		t.Errorf("[#321] expected header 'EMAIL' in output, got:\n%s", out)
+	// The migrated `member list` renders MemberItem rows: ID, NAME, EMAIL,
+	// STATUS, TIMEZONE. (The legacy PersonInfos-only view is gone — go-flashduty's
+	// /member/list returns member rows directly.)
+	for _, h := range []string{"ID", "NAME", "EMAIL", "STATUS", "TIMEZONE"} {
+		if !strings.Contains(out, h) {
+			t.Errorf("[#321] expected header %q in output, got:\n%s", h, out)
+		}
 	}
 
-	// PersonInfo table must NOT contain the MemberItem-specific columns.
-	if strings.Contains(out, "STATUS") {
-		t.Errorf("[#321] output should not contain 'STATUS' column for PersonInfo view, got:\n%s", out)
-	}
-	if strings.Contains(out, "TIMEZONE") {
-		t.Errorf("[#321] output should not contain 'TIMEZONE' column for PersonInfo view, got:\n%s", out)
+	for _, v := range []string{"Alice", "Bob", "alice@example.com", "bob@example.com"} {
+		if !strings.Contains(out, v) {
+			t.Errorf("[#321] expected %q in output, got:\n%s", v, out)
+		}
 	}
 
-	// Verify both persons appear in the output.
-	if !strings.Contains(out, "Alice") {
-		t.Errorf("[#321] expected 'Alice' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "Bob") {
-		t.Errorf("[#321] expected 'Bob' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "alice@example.com") {
-		t.Errorf("[#321] expected 'alice@example.com' in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "bob@example.com") {
-		t.Errorf("[#321] expected 'bob@example.com' in output, got:\n%s", out)
-	}
-
-	// Verify the total line.
 	if !strings.Contains(out, "Total: 2") {
 		t.Errorf("[#321] expected 'Total: 2' in output, got:\n%s", out)
 	}
@@ -679,7 +389,7 @@ func TestCommandIncidentFeedEmpty_JSON(t *testing.T) {
 
 func TestCommandIncidentSnoozeRejectsSubMinuteDuration(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+	newGFStub(t)
 
 	_, err := execCommand("incident", "snooze", "inc-1", "--duration", "90s")
 	if err == nil {
@@ -692,7 +402,7 @@ func TestCommandIncidentSnoozeRejectsSubMinuteDuration(t *testing.T) {
 
 func TestCommandIncidentSnoozeRejectsDurationOver24Hours(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+	newGFStub(t)
 
 	_, err := execCommand("incident", "snooze", "inc-1", "--duration", "25h")
 	if err == nil {
@@ -705,7 +415,7 @@ func TestCommandIncidentSnoozeRejectsDurationOver24Hours(t *testing.T) {
 
 func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
 	saveAndResetGlobals(t)
-	newClientFn = func() (flashdutyClient, error) { return &mockClient{}, nil }
+	newGFStub(t)
 
 	sourceIDs := make([]string, 101)
 	for i := range sourceIDs {
@@ -778,56 +488,6 @@ func TestCommandIncidentLifecycleHelpDocumentsSafetyAndLookupHints(t *testing.T)
 			}
 		})
 	}
-}
-
-type mockIncidentLifecycle struct {
-	mockClient
-
-	unackIDs        []string
-	wakeIDs         []string
-	removeIDs       []string
-	disableMergeIDs []string
-	commentInput    *flashduty.IncidentCommentInput
-	responderInput  *flashduty.IncidentAddResponderInput
-}
-
-func (m *mockIncidentLifecycle) UnackIncidents(_ context.Context, incidentIDs []string) error {
-	m.unackIDs = append([]string(nil), incidentIDs...)
-	return nil
-}
-
-func (m *mockIncidentLifecycle) WakeIncidents(_ context.Context, incidentIDs []string) error {
-	m.wakeIDs = append([]string(nil), incidentIDs...)
-	return nil
-}
-
-func (m *mockIncidentLifecycle) RemoveIncidents(_ context.Context, incidentIDs []string) error {
-	m.removeIDs = append([]string(nil), incidentIDs...)
-	return nil
-}
-
-func (m *mockIncidentLifecycle) DisableIncidentMerge(_ context.Context, incidentIDs []string) error {
-	m.disableMergeIDs = append([]string(nil), incidentIDs...)
-	return nil
-}
-
-func (m *mockIncidentLifecycle) CommentIncidents(_ context.Context, input *flashduty.IncidentCommentInput) error {
-	copied := *input
-	copied.IncidentIDs = append([]string(nil), input.IncidentIDs...)
-	m.commentInput = &copied
-	return nil
-}
-
-func (m *mockIncidentLifecycle) AddIncidentResponders(_ context.Context, input *flashduty.IncidentAddResponderInput) error {
-	copied := *input
-	copied.PersonIDs = append([]int64(nil), input.PersonIDs...)
-	if input.Notify != nil {
-		notify := *input.Notify
-		notify.PersonalChannels = append([]string(nil), input.Notify.PersonalChannels...)
-		copied.Notify = &notify
-	}
-	m.responderInput = &copied
-	return nil
 }
 
 func TestCommandIncidentUnack(t *testing.T) {
@@ -923,8 +583,7 @@ func TestCommandIncidentLifecycleRejectsMoreThan100IDs(t *testing.T) {
 	for _, tc := range commands {
 		t.Run(tc.name, func(t *testing.T) {
 			saveAndResetGlobals(t)
-			mock := &mockIncidentLifecycle{}
-			newClientFn = func() (flashdutyClient, error) { return mock, nil }
+			newGFStub(t)
 
 			args := append([]string(nil), tc.args...)
 			args = append(args, incidentIDs...)

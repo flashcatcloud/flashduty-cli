@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
-
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 )
 
 func TestMonitQueryDiagnoseFlags(t *testing.T) {
@@ -29,44 +26,6 @@ func TestMonitQueryRowsFlags(t *testing.T) {
 			t.Errorf("flag --%s missing", name)
 		}
 	}
-}
-
-// --- shared mock plumbing -------------------------------------------------
-
-type mockMonitQuery struct {
-	mockClient
-
-	diagnoseInput *flashduty.MonitQueryDiagnoseInput
-	diagnoseOut   *flashduty.MonitQueryDiagnoseOutput
-	diagnoseErr   error
-
-	rowsInput *flashduty.MonitQueryRowsInput
-	rowsOut   *flashduty.MonitQueryRowsOutput
-	rowsErr   error
-}
-
-func (m *mockMonitQuery) MonitQueryDiagnose(_ context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error) {
-	copied := *input
-	m.diagnoseInput = &copied
-	if m.diagnoseErr != nil {
-		return nil, m.diagnoseErr
-	}
-	if m.diagnoseOut != nil {
-		return m.diagnoseOut, nil
-	}
-	return &flashduty.MonitQueryDiagnoseOutput{Operation: "log_patterns"}, nil
-}
-
-func (m *mockMonitQuery) MonitQueryRows(_ context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error) {
-	copied := *input
-	m.rowsInput = &copied
-	if m.rowsErr != nil {
-		return nil, m.rowsErr
-	}
-	if m.rowsOut != nil {
-		return m.rowsOut, nil
-	}
-	return &flashduty.MonitQueryRowsOutput{}, nil
 }
 
 // --- monit-query diagnose -------------------------------------------------
@@ -191,10 +150,18 @@ func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
 
 func TestMonitQueryRowsHappyPath(t *testing.T) {
 	saveAndResetGlobals(t)
-	mock := &mockMonitQuery{}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
+	// rows is a raw datasource passthrough: the response envelope "data" is a
+	// JSON array of QueryRow ({fields,values}) objects, decoded into
+	// QueryRowsResponse ([]QueryRow) and re-marshalled verbatim to the writer.
+	stub.data = []any{
+		map[string]any{
+			"fields": map[string]any{"instance": "node-1"},
+			"values": map[string]any{"__value__": 1},
+		},
+	}
 
-	_, err := execCommand(
+	out, err := execCommand(
 		"monit-query", "rows",
 		"--ds-type", "prometheus",
 		"--ds-name", "prom-prod",
@@ -205,15 +172,20 @@ func TestMonitQueryRowsHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if mock.rowsInput == nil {
-		t.Fatal("expected MonitQueryRows to be called")
+	if stub.lastPath != "/monit/query/rows" {
+		t.Fatalf("expected /monit/query/rows, got %q", stub.lastPath)
 	}
-	got := mock.rowsInput
-	if got.DsType != "prometheus" || got.DsName != "prom-prod" || got.Expr != "up" {
-		t.Errorf("unexpected rows input: %+v", got)
+	body := stub.lastBody
+	if body["ds_type"] != "prometheus" || body["ds_name"] != "prom-prod" || body["expr"] != "up" {
+		t.Errorf("unexpected rows input: %#v", body)
 	}
-	if got.Args["step"] != "15s" || got.Args["tenant"] != "acme" {
-		t.Errorf("expected args step=15s tenant=acme, got %#v", got.Args)
+	args, _ := body["args"].(map[string]any)
+	if args["step"] != "15s" || args["tenant"] != "acme" {
+		t.Errorf("expected args step=15s tenant=acme, got %#v", args)
+	}
+	// The rendered output is the re-marshalled row array (passthrough shape).
+	if !strings.Contains(out, "node-1") || !strings.Contains(out, "__value__") {
+		t.Errorf("expected rendered rows to carry the datasource payload, got:\n%s", out)
 	}
 }
 
@@ -250,8 +222,7 @@ func TestMonitQueryRowsRequiredFlags(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			saveAndResetGlobals(t)
-			mock := &mockMonitQuery{}
-			newClientFn = func() (flashdutyClient, error) { return mock, nil }
+			stub := newGFStub(t)
 
 			_, err := execCommand(tc.args...)
 			if err == nil {
@@ -260,8 +231,8 @@ func TestMonitQueryRowsRequiredFlags(t *testing.T) {
 			if !strings.Contains(err.Error(), "required") {
 				t.Errorf("expected error to mention 'required', got %q", err.Error())
 			}
-			if mock.rowsInput != nil {
-				t.Errorf("MonitQueryRows should not have been called: %#v", mock.rowsInput)
+			if stub.requests != 0 {
+				t.Errorf("rows should not have been called: %d request(s)", stub.requests)
 			}
 		})
 	}
@@ -269,8 +240,7 @@ func TestMonitQueryRowsRequiredFlags(t *testing.T) {
 
 func TestMonitQueryRowsInvalidArgs(t *testing.T) {
 	saveAndResetGlobals(t)
-	mock := &mockMonitQuery{}
-	newClientFn = func() (flashdutyClient, error) { return mock, nil }
+	stub := newGFStub(t)
 
 	_, err := execCommand(
 		"monit-query", "rows",
@@ -285,7 +255,7 @@ func TestMonitQueryRowsInvalidArgs(t *testing.T) {
 	if !strings.Contains(err.Error(), "--args") {
 		t.Errorf("expected error to mention --args, got %q", err.Error())
 	}
-	if mock.rowsInput != nil {
-		t.Errorf("MonitQueryRows should not have been called: %#v", mock.rowsInput)
+	if stub.requests != 0 {
+		t.Errorf("rows should not have been called: %d request(s)", stub.requests)
 	}
 }

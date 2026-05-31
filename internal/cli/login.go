@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
@@ -30,7 +30,7 @@ func newLoginCmd() *cobra.Command {
 				return fmt.Errorf("app key cannot be empty")
 			}
 
-			client, err := flashduty.NewClient(appKey, flashduty.WithLogger(&silentLogger{}))
+			client, err := gflashduty.NewClient(appKey, gflashduty.WithLogger(&silentLogger{}))
 			if err != nil {
 				return fmt.Errorf("invalid app key: %w", err)
 			}

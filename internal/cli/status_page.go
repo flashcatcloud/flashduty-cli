@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
@@ -96,31 +96,31 @@ func newStatusPageChangesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "changes",
 		Short: "List active status page changes",
-		// TODO(go-flashduty migration): not migrated. This lists *active* changes
-		// via /status-page/change/active/list. go-flashduty v0.4.0 only covers the
-		// general /status-page/change/list (StatusPages.ChangeList), which has
-		// different semantics (no active filter) and requires a status argument.
-		// Kept on the legacy SDK until the active-list endpoint is documented.
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ListStatusChanges(cmdContext(ctx.Cmd), &flashduty.ListStatusChangesInput{
-					PageID:     pageID,
-					ChangeType: changeType,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.StatusPages.ChangeActiveList(cmdContext(ctx.Cmd), &gflashduty.StatusPagesChangeActiveListRequest{
+					PageID: pageID,
+					Type:   changeType,
 				})
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.StatusChange).ChangeID, 10) }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.StatusChange).Title }},
-					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.StatusChange).Type }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.StatusChange).Status }},
-					{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).CreatedAt) }},
-					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.StatusChange).UpdatedAt) }},
+					{Header: "ID", Field: func(v any) string { return strconv.FormatInt(v.(gflashduty.StatusPageChangeItem).ChangeID, 10) }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Title }},
+					{Header: "TYPE", Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Type }},
+					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.StatusPageChangeItem).Status }},
+					// The active-list endpoint returns the event's scheduled window
+					// (start_at_seconds / close_at_seconds), not the row's created/
+					// updated timestamps the legacy SDK reported. The CREATED/UPDATED
+					// headers are preserved to keep the table shape identical; they now
+					// reflect the event start and (scheduled) close times.
+					{Header: "CREATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.StatusPageChangeItem).StartAtSeconds) }},
+					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.StatusPageChangeItem).CloseAtSeconds) }},
 				}
 
-				return ctx.Printer.Print(result.Changes, cols)
+				return ctx.Printer.Print(result.Items, cols)
 			})
 		},
 	}
@@ -142,13 +142,51 @@ func newStatusPageCreateIncidentCmd() *cobra.Command {
 		Use:   "create-incident",
 		Short: "Create a status page incident",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.CreateStatusIncident(cmdContext(ctx.Cmd), &flashduty.CreateStatusIncidentInput{
-					PageID:             pageID,
-					Title:              title,
-					Message:            message,
-					AffectedComponents: components,
-					NotifySubscribers:  notify,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				// Replicate the legacy SDK's request shaping exactly: default the
+				// status to "investigating", build a single timeline update carrying
+				// the message and any parsed component_changes, and fall back to the
+				// title when no message was supplied. This keeps the wire payload
+				// byte-for-byte equivalent so the migration introduces no drift.
+				const status = "investigating"
+
+				update := gflashduty.CreateStatusPageChangeRequestUpdatesItem{
+					AtSeconds: time.Now().Unix(),
+					Status:    status,
+				}
+				if message != "" {
+					update.Description = message
+				}
+				if components != "" {
+					for _, part := range parseStringSlice(components) {
+						kv := strings.SplitN(part, ":", 2)
+						if len(kv) == 2 {
+							update.ComponentChanges = append(update.ComponentChanges, gflashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
+								ComponentID: strings.TrimSpace(kv[0]),
+								Status:      strings.TrimSpace(kv[1]),
+							})
+						} else if len(kv) == 1 && kv[0] != "" {
+							update.ComponentChanges = append(update.ComponentChanges, gflashduty.CreateStatusPageChangeRequestUpdatesItemComponentChangesItem{
+								ComponentID: strings.TrimSpace(kv[0]),
+								Status:      "partial_outage",
+							})
+						}
+					}
+				}
+
+				description := message
+				if description == "" {
+					description = title
+				}
+
+				result, _, err := ctx.GFClient.StatusPages.ChangeCreate(cmdContext(ctx.Cmd), &gflashduty.CreateStatusPageChangeRequest{
+					PageID:            pageID,
+					Title:             title,
+					Type:              "incident",
+					Status:            status,
+					Description:       description,
+					Updates:           []gflashduty.CreateStatusPageChangeRequestUpdatesItem{update},
+					NotifySubscribers: notify,
 				})
 				if err != nil {
 					return err

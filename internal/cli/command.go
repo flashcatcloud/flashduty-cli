@@ -11,16 +11,9 @@ import (
 )
 
 // RunContext provides helpers for command execution. It is created by
-// runCommand and passed to the command's handler function.
-//
-// Two SDK clients are exposed during the go-flashduty migration:
-//   - Client   — the legacy hand-written SDK, still used by commands that depend
-//     on server-side enrichment or endpoints go-flashduty does not yet cover.
-//   - GFClient — the typed go-flashduty SDK, used by migrated commands.
-//
-// A command uses exactly one of them; the boundary is per-command, not mixed.
+// runGFCommand and passed to the command's handler function. GFClient is the
+// typed go-flashduty SDK every command calls through.
 type RunContext struct {
-	Client   flashdutyClient
 	GFClient *gflashduty.Client
 	Cmd      *cobra.Command
 	Args     []string
@@ -34,31 +27,9 @@ type RunContext struct {
 // this to suppress detail views, footers, and interactive prompts.
 func (ctx *RunContext) Structured() bool { return ctx.Format.Structured() }
 
-// runCommand creates a client and RunContext, then calls fn.
-// It centralises setup that every API-backed command repeats.
-//
-// It constructs the legacy client only; commands migrated to go-flashduty use
-// runGFCommand instead. Both factories read the same resolved config, so the
-// two paths authenticate identically.
-func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
-	client, err := newClient()
-	if err != nil {
-		return err
-	}
-	ctx := &RunContext{
-		Client:  client,
-		Cmd:     cmd,
-		Args:    args,
-		Writer:  cmd.OutOrStdout(),
-		Printer: newPrinter(cmd.OutOrStdout()),
-		Format:  currentOutputFormat(),
-	}
-	return fn(ctx)
-}
-
-// runGFCommand is the go-flashduty counterpart of runCommand. It constructs the
-// typed go-flashduty client and leaves RunContext.Client nil — migrated command
-// handlers must reach for ctx.GFClient.
+// runGFCommand creates a go-flashduty client and RunContext, then calls fn. It
+// centralises the setup every API-backed command repeats; handlers reach the
+// SDK through ctx.GFClient.
 func runGFCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) error) error {
 	client, err := newGFClient()
 	if err != nil {

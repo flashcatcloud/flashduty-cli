@@ -5,11 +5,49 @@ import (
 	"os"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
+
+// presetTemplateField returns the channel-specific source field from a
+// go-flashduty TemplateItem. The field is selected by name out of the
+// templateChannels map; TemplateItem exposes those same fields as named struct
+// members, so this switch reproduces that selection with no behavior change. An
+// unknown field name yields "".
+func presetTemplateField(t *gflashduty.TemplateItem, fieldName string) string {
+	switch fieldName {
+	case "dingtalk":
+		return t.Dingtalk
+	case "dingtalk_app":
+		return t.DingtalkApp
+	case "feishu":
+		return t.Feishu
+	case "feishu_app":
+		return t.FeishuApp
+	case "wecom":
+		return t.Wecom
+	case "wecom_app":
+		return t.WecomApp
+	case "slack":
+		return t.Slack
+	case "slack_app":
+		return t.SlackApp
+	case "telegram":
+		return t.Telegram
+	case "teams_app":
+		return t.TeamsApp
+	case "email":
+		return t.Email
+	case "sms":
+		return t.SMS
+	case "zoom":
+		return t.Zoom
+	default:
+		return ""
+	}
+}
 
 func newTemplateCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -30,12 +68,31 @@ func newTemplateGetPresetCmd() *cobra.Command {
 		Use:   "get-preset",
 		Short: "Get the preset template for a channel",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.GetPresetTemplate(cmdContext(ctx.Cmd), &flashduty.GetPresetTemplateInput{
-					Channel: channel,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				fieldName, ok := templateChannels[channel]
+				if !ok {
+					return fmt.Errorf("unknown channel: %s", channel)
+				}
+
+				item, _, err := ctx.GFClient.NotificationTemplates.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.TemplateIDRequest{
+					TemplateID: presetTemplateID,
 				})
 				if err != nil {
 					return err
+				}
+
+				templateCode := ""
+				if item != nil {
+					templateCode = presetTemplateField(item, fieldName)
+				}
+				if templateCode == "" {
+					return fmt.Errorf("no preset template found for channel: %s", channel)
+				}
+
+				result := &presetTemplateResult{
+					Channel:      channel,
+					FieldName:    fieldName,
+					TemplateCode: templateCode,
 				}
 
 				if ctx.Structured() {
@@ -47,7 +104,7 @@ func newTemplateGetPresetCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(flashduty.ChannelEnumValues(), ", "))
+	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(channelEnumValues(), ", "))
 	_ = cmd.MarkFlagRequired("channel")
 
 	return cmd
@@ -65,14 +122,69 @@ func newTemplateValidateCmd() *cobra.Command {
 				return fmt.Errorf("failed to read template file: %w", err)
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.ValidateTemplate(cmdContext(ctx.Cmd), &flashduty.ValidateTemplateInput{
-					Channel:      channel,
-					TemplateCode: string(templateCode),
-					IncidentID:   incidentID,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				fieldName, ok := templateChannels[channel]
+				if !ok {
+					return fmt.Errorf("unknown channel: %s", channel)
+				}
+
+				preview, _, err := ctx.GFClient.NotificationTemplates.ReadPreview(cmdContext(ctx.Cmd), &gflashduty.PreviewTemplateRequest{
+					Content:    string(templateCode),
+					Type:       channel,
+					IncidentID: incidentID,
 				})
 				if err != nil {
 					return err
+				}
+
+				// Reproduce the legacy SDK's client-side derivation of the
+				// validation result: the /template/preview endpoint only returns
+				// {success, content, message}; the size limit, errors, and
+				// warnings were all computed here from channelSizeLimits.
+				success := false
+				renderedPreview := ""
+				errorMessage := ""
+				if preview != nil {
+					success = preview.Success
+					renderedPreview = preview.Content
+					errorMessage = preview.Message
+				}
+
+				renderedSize := len(renderedPreview)
+				sizeLimit := channelSizeLimits[channel]
+
+				errs := []string{}
+				warnings := []string{}
+
+				if !success {
+					errs = append(errs, errorMessage)
+				}
+
+				if sizeLimit > 0 {
+					if renderedSize > sizeLimit {
+						sizeWarning := fmt.Sprintf("Rendered output is %d bytes, exceeding the %d byte limit for %s.", renderedSize, sizeLimit, channel)
+						switch channel {
+						case "telegram":
+							sizeWarning += " CRITICAL: Telegram will silently drop this message."
+						case "teams_app":
+							sizeWarning += " Teams will return an error for this message."
+						}
+						errs = append(errs, sizeWarning)
+					} else if renderedSize > int(float64(sizeLimit)*0.8) {
+						warnings = append(warnings, fmt.Sprintf("Rendered output is %d/%d bytes (%.0f%% of limit).", renderedSize, sizeLimit, float64(renderedSize)/float64(sizeLimit)*100))
+					}
+				}
+
+				result := &validateTemplateResult{
+					Channel:         channel,
+					FieldName:       fieldName,
+					TemplateCode:    string(templateCode),
+					Success:         success && len(errs) == 0,
+					RenderedPreview: renderedPreview,
+					RenderedSize:    renderedSize,
+					SizeLimit:       sizeLimit,
+					Errors:          errs,
+					Warnings:        warnings,
 				}
 
 				if ctx.Structured() {
@@ -100,7 +212,7 @@ func newTemplateValidateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(flashduty.ChannelEnumValues(), ", "))
+	cmd.Flags().StringVar(&channel, "channel", "", "Notification channel (required). Values: "+strings.Join(channelEnumValues(), ", "))
 	cmd.Flags().StringVar(&file, "file", "", "Path to template file (required)")
 	cmd.Flags().StringVar(&incidentID, "incident", "", "Real incident ID for preview (uses mock data if empty)")
 	_ = cmd.MarkFlagRequired("channel")
@@ -116,10 +228,10 @@ func newTemplateVariablesCmd() *cobra.Command {
 		Use:   "variables",
 		Short: "List available template variables",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			vars := flashduty.TemplateVariables()
+			vars := templateVariables()
 
 			if category != "" {
-				filtered := make([]flashduty.TemplateVariable, 0)
+				filtered := make([]templateVariable, 0)
 				for _, v := range vars {
 					if v.Category == category {
 						filtered = append(filtered, v)
@@ -129,10 +241,10 @@ func newTemplateVariablesCmd() *cobra.Command {
 			}
 
 			cols := []output.Column{
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.TemplateVariable).Name }},
-				{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TemplateVariable).Type }},
-				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(flashduty.TemplateVariable).Description }},
-				{Header: "EXAMPLE", MaxWidth: 40, Field: func(v any) string { return v.(flashduty.TemplateVariable).Example }},
+				{Header: "NAME", Field: func(v any) string { return v.(templateVariable).Name }},
+				{Header: "TYPE", Field: func(v any) string { return v.(templateVariable).Type }},
+				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(templateVariable).Description }},
+				{Header: "EXAMPLE", MaxWidth: 40, Field: func(v any) string { return v.(templateVariable).Example }},
 			}
 
 			return newPrinter(cmd.OutOrStdout()).Print(vars, cols)
@@ -151,21 +263,21 @@ func newTemplateFunctionsCmd() *cobra.Command {
 		Use:   "functions",
 		Short: "List available template functions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var funcs []flashduty.TemplateFunction
+			var funcs []templateFunction
 
 			switch funcType {
 			case "custom":
-				funcs = flashduty.TemplateCustomFunctions()
+				funcs = templateCustomFunctions()
 			case "sprig":
-				funcs = flashduty.TemplateSprigFunctions()
+				funcs = templateSprigFunctions()
 			default:
-				funcs = append(flashduty.TemplateCustomFunctions(), flashduty.TemplateSprigFunctions()...)
+				funcs = append(templateCustomFunctions(), templateSprigFunctions()...)
 			}
 
 			cols := []output.Column{
-				{Header: "NAME", Field: func(v any) string { return v.(flashduty.TemplateFunction).Name }},
-				{Header: "SYNTAX", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.TemplateFunction).Syntax }},
-				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(flashduty.TemplateFunction).Description }},
+				{Header: "NAME", Field: func(v any) string { return v.(templateFunction).Name }},
+				{Header: "SYNTAX", MaxWidth: 50, Field: func(v any) string { return v.(templateFunction).Syntax }},
+				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(templateFunction).Description }},
 			}
 
 			return newPrinter(cmd.OutOrStdout()).Print(funcs, cols)

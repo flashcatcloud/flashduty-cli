@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 )
 
 type identityResult struct {
@@ -15,13 +15,11 @@ type identityResult struct {
 	Email       string `json:"email,omitempty"`
 }
 
-type identityClient interface {
-	GetAccountInfo(ctx context.Context) (*flashduty.AccountInfo, error)
-	GetMemberInfo(ctx context.Context) (*flashduty.MemberInfo, error)
-}
-
-func resolveIdentity(ctx context.Context, client identityClient) (*identityResult, error) {
-	member, memberErr := client.GetMemberInfo(ctx)
+// resolveIdentity fetches the caller's identity, preferring member-level detail
+// (which carries the member name) and falling back to account-level info when
+// the app key is account-scoped rather than tied to a member.
+func resolveIdentity(ctx context.Context, client *gflashduty.Client) (*identityResult, error) {
+	member, _, memberErr := client.Members.MemberInfo(ctx)
 	if memberErr == nil {
 		return &identityResult{
 			AccountName: member.AccountName,
@@ -30,7 +28,7 @@ func resolveIdentity(ctx context.Context, client identityClient) (*identityResul
 		}, nil
 	}
 
-	account, accountErr := client.GetAccountInfo(ctx)
+	account, _, accountErr := client.Account.Info(ctx)
 	if accountErr == nil {
 		return &identityResult{
 			AccountName: account.AccountName,

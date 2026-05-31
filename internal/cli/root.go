@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
@@ -19,90 +18,7 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/update"
 )
 
-// flashdutyClient defines the SDK operations used by CLI commands.
-type flashdutyClient interface {
-	// === Account / Member ===
-	GetAccountInfo(ctx context.Context) (*flashduty.AccountInfo, error)
-	GetMemberInfo(ctx context.Context) (*flashduty.MemberInfo, error)
-
-	// === EXISTING ===
-	ListIncidents(ctx context.Context, input *flashduty.ListIncidentsInput) (*flashduty.ListIncidentsOutput, error)
-	GetIncidentTimelines(ctx context.Context, incidentIDs []string) ([]flashduty.IncidentTimelineOutput, error)
-	ListIncidentAlerts(ctx context.Context, incidentIDs []string, limit int) ([]flashduty.IncidentAlertsOutput, error)
-	ListSimilarIncidents(ctx context.Context, incidentID string, limit int) (*flashduty.ListIncidentsOutput, error)
-	CreateIncident(ctx context.Context, input *flashduty.CreateIncidentInput) (*flashduty.CreateIncidentOutput, error)
-	UpdateIncident(ctx context.Context, input *flashduty.UpdateIncidentInput) ([]string, error)
-	AckIncidents(ctx context.Context, incidentIDs []string) error
-	UnackIncidents(ctx context.Context, incidentIDs []string) error
-	CloseIncidents(ctx context.Context, incidentIDs []string) error
-	WakeIncidents(ctx context.Context, incidentIDs []string) error
-	RemoveIncidents(ctx context.Context, incidentIDs []string) error
-	DisableIncidentMerge(ctx context.Context, incidentIDs []string) error
-	CommentIncidents(ctx context.Context, input *flashduty.IncidentCommentInput) error
-	AddIncidentResponders(ctx context.Context, input *flashduty.IncidentAddResponderInput) error
-	ListChannels(ctx context.Context, input *flashduty.ListChannelsInput) (*flashduty.ListChannelsOutput, error)
-	ListTeams(ctx context.Context, input *flashduty.ListTeamsInput) (*flashduty.ListTeamsOutput, error)
-	ListMembers(ctx context.Context, input *flashduty.ListMembersInput) (*flashduty.ListMembersOutput, error)
-	ListEscalationRules(ctx context.Context, channelID int64) (*flashduty.ListEscalationRulesOutput, error)
-	ListFields(ctx context.Context, input *flashduty.ListFieldsInput) (*flashduty.ListFieldsOutput, error)
-	GetPresetTemplate(ctx context.Context, input *flashduty.GetPresetTemplateInput) (*flashduty.GetPresetTemplateOutput, error)
-	ValidateTemplate(ctx context.Context, input *flashduty.ValidateTemplateInput) (*flashduty.ValidateTemplateOutput, error)
-	ListStatusChanges(ctx context.Context, input *flashduty.ListStatusChangesInput) (*flashduty.ListStatusChangesOutput, error)
-	CreateStatusIncident(ctx context.Context, input *flashduty.CreateStatusIncidentInput) (*flashduty.CreateStatusIncidentOutput, error)
-	CreateChangeTimeline(ctx context.Context, input *flashduty.CreateChangeTimelineInput) error
-
-	// === PHASE 1: Incident additions ===
-	GetIncidentDetail(ctx context.Context, input *flashduty.GetIncidentDetailInput) (*flashduty.GetIncidentDetailOutput, error)
-	ListPostMortems(ctx context.Context, input *flashduty.ListPostMortemsInput) (*flashduty.ListPostMortemsOutput, error)
-	MergeIncidents(ctx context.Context, input *flashduty.MergeIncidentsInput) error
-	SnoozeIncidents(ctx context.Context, input *flashduty.SnoozeIncidentsInput) error
-	ReopenIncidents(ctx context.Context, incidentIDs []string) error
-	ReassignIncidents(ctx context.Context, input *flashduty.ReassignIncidentsInput) error
-
-	// === PHASE 1: Alert additions ===
-	ListAlerts(ctx context.Context, input *flashduty.ListAlertsInput) (*flashduty.ListAlertsOutput, error)
-	GetAlertDetail(ctx context.Context, input *flashduty.GetAlertDetailInput) (*flashduty.GetAlertDetailOutput, error)
-	ListAlertEvents(ctx context.Context, input *flashduty.ListAlertEventsInput) (*flashduty.ListAlertEventsOutput, error)
-	MergeAlertsToIncident(ctx context.Context, input *flashduty.MergeAlertsInput) error
-	GetAlertFeed(ctx context.Context, input *flashduty.GetAlertFeedInput) (*flashduty.GetAlertFeedOutput, error)
-	ListAlertEventsGlobal(ctx context.Context, input *flashduty.ListAlertEventsGlobalInput) (*flashduty.ListAlertEventsGlobalOutput, error)
-
-	// === PHASE 2: OnCall + Change ===
-	ListSchedulesWithSlots(ctx context.Context, input *flashduty.ListSchedulesWithSlotsInput) (*flashduty.ListSchedulesWithSlotsOutput, error)
-	GetScheduleDetail(ctx context.Context, input *flashduty.GetScheduleDetailInput) (*flashduty.GetScheduleDetailOutput, error)
-	QueryChangeTrend(ctx context.Context, input *flashduty.QueryChangeTrendInput) (*flashduty.QueryChangeTrendOutput, error)
-
-	// === PHASE 3: Insight + Admin ===
-	QueryInsightByTeam(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByTeamOutput, error)
-	QueryInsightByChannel(ctx context.Context, input *flashduty.InsightQueryInput) (*flashduty.QueryInsightByChannelOutput, error)
-	QueryInsightAlertTopK(ctx context.Context, input *flashduty.QueryInsightAlertTopKInput) (*flashduty.QueryInsightAlertTopKOutput, error)
-	QueryInsightIncidentList(ctx context.Context, input *flashduty.QueryInsightIncidentListInput) (*flashduty.QueryInsightIncidentListOutput, error)
-	SearchAuditLogs(ctx context.Context, input *flashduty.SearchAuditLogsInput) (*flashduty.SearchAuditLogsOutput, error)
-
-	// === PHASE 4: Status Page Migration ===
-	StartStatusPageMigration(ctx context.Context, input *flashduty.StartStatusPageMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	StartStatusPageEmailSubscriberMigration(ctx context.Context, input *flashduty.StartStatusPageEmailSubscriberMigrationInput) (*flashduty.StartStatusPageMigrationOutput, error)
-	GetStatusPageMigrationStatus(ctx context.Context, jobID string) (*flashduty.StatusPageMigrationJob, error)
-	CancelStatusPageMigration(ctx context.Context, jobID string) error
-
-	// === PHASE 5: Team Management ===
-	GetTeamInfo(ctx context.Context, input *flashduty.TeamGetInput) (*flashduty.TeamItem, error)
-	UpsertTeam(ctx context.Context, input *flashduty.TeamUpsertInput) (*flashduty.TeamUpsertOutput, error)
-	DeleteTeam(ctx context.Context, input *flashduty.TeamDeleteInput) error
-
-	// === CLI Phase 2: monit-query ===
-	MonitQueryDiagnose(ctx context.Context, input *flashduty.MonitQueryDiagnoseInput) (*flashduty.MonitQueryDiagnoseOutput, error)
-	MonitQueryRows(ctx context.Context, input *flashduty.MonitQueryRowsInput) (*flashduty.MonitQueryRowsOutput, error)
-
-	// === CLI Phase 2: monit-agent ===
-	MonitAgentCatalog(ctx context.Context, input *flashduty.MonitAgentCatalogInput) (*flashduty.MonitAgentCatalogOutput, error)
-	MonitAgentInvoke(ctx context.Context, input *flashduty.MonitAgentInvokeInput) (*flashduty.MonitAgentInvokeOutput, error)
-}
-
-// newClientFn creates a flashdutyClient. Override in tests to inject a mock.
-var newClientFn = defaultNewClient
-
-// newGFClientFn creates the go-flashduty client used by migrated commands.
+// newGFClientFn creates the go-flashduty client used by all commands.
 // Override in tests to inject a stub server.
 var newGFClientFn = defaultNewGFClient
 
@@ -199,47 +115,13 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
-// newClient creates a flashdutyClient using the current factory.
-func newClient() (flashdutyClient, error) {
-	return newClientFn()
-}
-
 // newGFClient creates a go-flashduty client using the current factory.
 func newGFClient() (*gflashduty.Client, error) {
 	return newGFClientFn()
 }
 
-// defaultNewClient creates a real Flashduty SDK client from resolved config + flag overrides.
-func defaultNewClient() (flashdutyClient, error) {
-	cfg, err := loadResolvedConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if cfg.AppKey == "" {
-		return nil, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
-	}
-
-	opts := []flashduty.Option{
-		flashduty.WithUserAgent("flashduty-cli/" + versionStr),
-		flashduty.WithLogger(&silentLogger{}),
-	}
-	if cfg.BaseURL != "" && cfg.BaseURL != config.DefaultBaseURL {
-		opts = append(opts, flashduty.WithBaseURL(cfg.BaseURL))
-	}
-
-	sdkClient, err := flashduty.NewClient(cfg.AppKey, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return sdkClient, nil
-}
-
 // defaultNewGFClient creates a real go-flashduty client from resolved config +
-// flag overrides. This is the typed SDK used by migrated commands; the legacy
-// hand-written SDK (defaultNewClient) still backs the commands that depend on
-// server-side enrichment or endpoints go-flashduty does not yet cover.
+// flag overrides. This is the typed SDK every command uses.
 func defaultNewGFClient() (*gflashduty.Client, error) {
 	cfg, err := loadResolvedConfig()
 	if err != nil {

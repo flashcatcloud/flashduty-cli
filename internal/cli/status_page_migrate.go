@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
+	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 )
 
@@ -34,11 +34,16 @@ func newStatusPageMigrateStructureCmd() *cobra.Command {
 			if err := validateMigrationSource(source); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.StartStatusPageMigration(cmdContext(ctx.Cmd), &flashduty.StartStatusPageMigrationInput{
-					SourceAPIKey: sourceAPIKey,
+			// go-flashduty's MigrateStatusPageStructureRequest carries no
+			// url_name field, so we cannot forward --url-name without silently
+			// dropping it. Reject the flag explicitly rather than ignore it.
+			if urlName != "" {
+				return fmt.Errorf("--url-name is not supported by this command")
+			}
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.StatusPages.MigrateStructure(cmdContext(ctx.Cmd), &gflashduty.MigrateStatusPageStructureRequest{
+					APIKey:       sourceAPIKey,
 					SourcePageID: sourcePageID,
-					URLName:      urlName,
 				})
 				if err != nil {
 					return err
@@ -73,9 +78,9 @@ func newStatusPageMigrateEmailSubscribersCmd() *cobra.Command {
 			if err := validateMigrationSource(source); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.StartStatusPageEmailSubscriberMigration(cmdContext(ctx.Cmd), &flashduty.StartStatusPageEmailSubscriberMigrationInput{
-					SourceAPIKey: sourceAPIKey,
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.StatusPages.MigrateEmailSubscribers(cmdContext(ctx.Cmd), &gflashduty.MigrateStatusPageEmailSubscribersRequest{
+					APIKey:       sourceAPIKey,
 					SourcePageID: sourcePageID,
 					TargetPageID: targetPageID,
 				})
@@ -107,8 +112,10 @@ func newStatusPageMigrateStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Show migration job status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				job, err := ctx.Client.GetStatusPageMigrationStatus(cmdContext(ctx.Cmd), jobID)
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				job, _, err := ctx.GFClient.StatusPages.MigrationStatus(cmdContext(ctx.Cmd), &gflashduty.StatusPagesMigrationStatusRequest{
+					JobID: jobID,
+				})
 				if err != nil {
 					return err
 				}
@@ -131,8 +138,10 @@ func newStatusPageMigrateCancelCmd() *cobra.Command {
 		Use:   "cancel",
 		Short: "Cancel a running migration job",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := ctx.Client.CancelStatusPageMigration(cmdContext(ctx.Cmd), jobID); err != nil {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				if _, err := ctx.GFClient.StatusPages.MigrationCancel(cmdContext(ctx.Cmd), &gflashduty.CancelStatusPageMigrationRequest{
+					JobID: jobID,
+				}); err != nil {
 					return err
 				}
 
@@ -175,7 +184,7 @@ func validateMigrationSource(source string) error {
 	return nil
 }
 
-func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID string, targetPageID int64, result *flashduty.StartStatusPageMigrationOutput) error {
+func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID string, targetPageID int64, result *gflashduty.StatusPageMigrationStartResponse) error {
 	if ctx.Structured() {
 		payload := map[string]any{
 			"type":           migrationType,
@@ -218,7 +227,7 @@ func printMigrationStart(ctx *RunContext, migrationType, source, sourcePageID st
 	return err
 }
 
-func printMigrationStatus(ctx *RunContext, job *flashduty.StatusPageMigrationJob) error {
+func printMigrationStatus(ctx *RunContext, job *gflashduty.StatusPageMigrationJob) error {
 	if ctx.Structured() {
 		return ctx.Printer.Print(job, nil)
 	}

@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
@@ -91,11 +91,6 @@ func newMonitQueryRowsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rows",
 		Short: "Raw datasource passthrough (returns values/rows as the datasource itself would)",
-		// TODO(go-flashduty migration): not migrated. The legacy SDK returns the
-		// datasource body verbatim as a RawMessage, which this command writes
-		// through unchanged. go-flashduty's QueryRowsResponse is a structured
-		// []QueryRow, so switching would change the on-screen output shape — a
-		// behavior change, not a mechanical swap. Kept on the legacy SDK.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dsType == "" || dsName == "" || expr == "" {
 				return fmt.Errorf("--ds-type, --ds-name, --expr are required")
@@ -105,25 +100,33 @@ func newMonitQueryRowsCmd() *cobra.Command {
 				return fmt.Errorf("invalid --args: %w", err)
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.MonitQueryRowsInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				input := &gflashduty.QueryRowsRequest{
 					DsType: dsType,
 					DsName: dsName,
 					Expr:   expr,
 					Args:   argsMap,
 				}
-				result, err := ctx.Client.MonitQueryRows(cmdContext(ctx.Cmd), input)
+				result, _, err := ctx.GFClient.Diagnostics.QueryRows(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
 				}
-				// MonitQueryRowsOutput intentionally captures the entire response
-				// body as a RawMessage (data shape is datasource-specific). The
-				// struct itself marshals to `{}`, so write the raw bytes through.
-				if len(result.Data) == 0 {
+				// This command is a raw datasource passthrough. The legacy SDK
+				// captured the response body (a JSON array of {fields,values}
+				// objects) as a RawMessage and wrote it through verbatim,
+				// independent of the --json/--toon output format. go-flashduty
+				// decodes that same array into []QueryRow, so re-marshal it to
+				// the equivalent JSON array and write it through unchanged to
+				// preserve the legacy single-blob output shape.
+				if result == nil {
 					_, err = fmt.Fprintln(ctx.Writer, "{}")
-				} else {
-					_, err = fmt.Fprintln(ctx.Writer, string(result.Data))
+					return err
 				}
+				body, err := json.Marshal(*result)
+				if err != nil {
+					return fmt.Errorf("failed to marshal query rows: %w", err)
+				}
+				_, err = fmt.Fprintln(ctx.Writer, string(body))
 				return err
 			})
 		},

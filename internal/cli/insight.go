@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
@@ -269,7 +268,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 		Use:   "incidents",
 		Short: "Query incidents with performance metrics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -279,43 +278,43 @@ func newInsightIncidentsCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				result, err := ctx.Client.QueryInsightIncidentList(cmdContext(ctx.Cmd), &flashduty.QueryInsightIncidentListInput{
-					InsightQueryInput: flashduty.InsightQueryInput{
-						StartTime: startTime,
-						EndTime:   endTime,
-					},
-					Limit: limit,
-					Page:  page,
-				})
+				req := &gflashduty.InsightIncidentListRequest{
+					StartTime: startTime,
+					EndTime:   endTime,
+				}
+				req.Limit = limit
+				req.Page = page
+
+				result, _, err := ctx.GFClient.Analytics.IncidentList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).IncidentID
+						return v.(gflashduty.IncidentRawItem).IncidentID
 					}},
 					{Header: "TITLE", MaxWidth: 40, Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).Title
+						return v.(gflashduty.IncidentRawItem).Title
 					}},
 					{Header: "SEVERITY", Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).Severity
+						return v.(gflashduty.IncidentRawItem).Severity
 					}},
 					{Header: "CHANNEL", MaxWidth: 20, Field: func(v any) string {
-						return v.(flashduty.InsightIncidentItem).ChannelName
+						return v.(gflashduty.IncidentRawItem).ChannelName
 					}},
 					{Header: "MTTA", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.InsightIncidentItem).SecondsToAck)
+						return output.FormatDuration(int(v.(gflashduty.IncidentRawItem).SecondsToAck))
 					}},
 					{Header: "MTTR", Field: func(v any) string {
-						return output.FormatDuration(v.(flashduty.InsightIncidentItem).SecondsToClose)
+						return output.FormatDuration(int(v.(gflashduty.IncidentRawItem).SecondsToClose))
 					}},
 					{Header: "NOTIFICATIONS", Field: func(v any) string {
-						return fmt.Sprintf("%d", v.(flashduty.InsightIncidentItem).Notifications)
+						return fmt.Sprintf("%d", v.(gflashduty.IncidentRawItem).Notifications)
 					}},
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, result.Total)
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
 			})
 		},
 	}

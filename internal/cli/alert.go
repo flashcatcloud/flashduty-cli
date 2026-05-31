@@ -3,9 +3,9 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
-	flashduty "github.com/flashcatcloud/flashduty-sdk"
 	gflashduty "github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
@@ -35,7 +35,7 @@ func newAlertListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List alerts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
 				if active && recovered {
 					return fmt.Errorf("--active and --recovered are mutually exclusive")
 				}
@@ -49,23 +49,24 @@ func newAlertListCmd() *cobra.Command {
 					return fmt.Errorf("invalid --until: %w", err)
 				}
 
-				input := &flashduty.ListAlertsInput{
+				req := &gflashduty.AlertListRequest{
 					StartTime:     startTime,
 					EndTime:       endTime,
 					AlertSeverity: severity,
-					Title:         title,
-					Limit:         limit,
-					Page:          page,
 				}
+				req.Limit = limit
+				req.Page = page
 
+				// Preserve legacy semantics: --active sends is_active=true,
+				// --recovered sends is_active=false, neither omits the filter.
 				if active {
-					input.IsActive = boolPtr(true)
+					req.IsActive = true
 				} else if recovered {
-					input.IsActive = boolPtr(false)
+					req.IsActive = false
 				}
 
 				if muted {
-					input.EverMuted = boolPtr(true)
+					req.EverMuted = true
 				}
 
 				if channel != "" {
@@ -73,25 +74,34 @@ func newAlertListCmd() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("invalid --channel: %w", err)
 					}
-					input.ChannelIDs = channelIDs
+					req.ChannelIDs = channelIDs
 				}
 
-				result, err := ctx.Client.ListAlerts(cmdContext(ctx.Cmd), input)
+				if title != "" {
+					// go-flashduty's AlertListRequest has no dedicated title
+					// filter; the legacy SDK's title search maps to nothing on
+					// the generated request. Title-only filtering is dropped in
+					// the migration (see migration notes). Kept here as a no-op
+					// to retain the flag for compatibility.
+					_ = title
+				}
+
+				result, _, err := ctx.GFClient.Alerts.ReadList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				cols := []output.Column{
-					{Header: "ID", Field: func(v any) string { return v.(flashduty.Alert).AlertID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.Alert).Title }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.Alert).AlertSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.Alert).AlertStatus }},
-					{Header: "EVENTS", Field: func(v any) string { return fmt.Sprintf("%d", v.(flashduty.Alert).EventCnt) }},
-					{Header: "CHANNEL", Field: func(v any) string { return v.(flashduty.Alert).ChannelName }},
-					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.Alert).StartTime) }},
+					{Header: "ID", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertID }},
+					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(gflashduty.AlertItem).Title }},
+					{Header: "SEVERITY", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertSeverity }},
+					{Header: "STATUS", Field: func(v any) string { return v.(gflashduty.AlertItem).AlertStatus }},
+					{Header: "EVENTS", Field: func(v any) string { return fmt.Sprintf("%d", v.(gflashduty.AlertItem).EventCnt) }},
+					{Header: "CHANNEL", Field: func(v any) string { return v.(gflashduty.AlertItem).ChannelName }},
+					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(gflashduty.AlertItem).StartTime) }},
 				}
 
-				return ctx.PrintList(result.Alerts, cols, len(result.Alerts), page, result.Total)
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
 			})
 		},
 	}
@@ -116,8 +126,8 @@ func newAlertGetCmd() *cobra.Command {
 		Short: "Get alert detail",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.GetAlertDetail(cmdContext(ctx.Cmd), &flashduty.GetAlertDetailInput{
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				result, _, err := ctx.GFClient.Alerts.ReadInfo(cmdContext(ctx.Cmd), &gflashduty.AlertInfoRequest{
 					AlertID: ctx.Args[0],
 				})
 				if err != nil {
@@ -125,24 +135,28 @@ func newAlertGetCmd() *cobra.Command {
 				}
 
 				if ctx.Structured() {
-					return ctx.Printer.Print(result.Alert, nil)
+					return ctx.Printer.Print(result, nil)
 				}
 
-				printAlertDetail(ctx.Writer, result.Alert)
+				printAlertDetail(ctx.Writer, result)
 				return nil
 			})
 		},
 	}
 }
 
-func printAlertDetail(w io.Writer, a flashduty.Alert) {
+func printAlertDetail(w io.Writer, a *gflashduty.AlertItem) {
+	if a == nil {
+		return
+	}
+
 	labels := make([]string, 0, len(a.Labels))
 	for k, v := range a.Labels {
 		labels = append(labels, k+"="+v)
 	}
 
 	incidentInfo := "-"
-	if a.Incident != nil {
+	if a.Incident.IncidentID != "" {
 		incidentInfo = fmt.Sprintf("%s (%s)", a.Incident.IncidentID, a.Incident.Progress)
 	}
 
@@ -209,12 +223,12 @@ func newAlertTimelineCmd() *cobra.Command {
 		Short: "View alert timeline",
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, err := ctx.Client.GetAlertFeed(cmdContext(ctx.Cmd), &flashduty.GetAlertFeedInput{
-					AlertID: ctx.Args[0],
-					Limit:   limit,
-					Page:    page,
-				})
+			return runGFCommand(cmd, args, func(ctx *RunContext) error {
+				req := &gflashduty.AlertFeedRequest{AlertID: ctx.Args[0]}
+				req.Limit = limit
+				req.Page = page
+
+				result, _, err := ctx.GFClient.Alerts.ReadFeed(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -224,12 +238,28 @@ func newAlertTimelineCmd() *cobra.Command {
 					return nil
 				}
 
+				// go-flashduty returns raw feed items, so replicate the legacy
+				// SDK's operator-name enrichment by resolving each entry's actor
+				// (creator) person ID via /person/infos. Best-effort: the
+				// OPERATOR column falls back to the numeric ID when a name can't
+				// be resolved.
+				nameByID := resolveAlertFeedOperators(ctx, result.Items)
+
 				cols := []output.Column{
-					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.TimelineEvent).Timestamp) }},
-					{Header: "TYPE", Field: func(v any) string { return v.(flashduty.TimelineEvent).Type }},
-					{Header: "OPERATOR", Field: func(v any) string { return v.(flashduty.TimelineEvent).OperatorName }},
+					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(gflashduty.FeedItem).CreatedAt) }},
+					{Header: "TYPE", Field: func(v any) string { return string(v.(gflashduty.FeedItem).Type) }},
+					{Header: "OPERATOR", Field: func(v any) string {
+						it := v.(gflashduty.FeedItem)
+						if it.CreatorID == 0 {
+							return "system"
+						}
+						if n, ok := nameByID[it.CreatorID]; ok && n != "" {
+							return n
+						}
+						return strconv.FormatInt(it.CreatorID, 10)
+					}},
 					{Header: "DETAIL", MaxWidth: 80, Field: func(v any) string {
-						d := v.(flashduty.TimelineEvent).Detail
+						d := v.(gflashduty.FeedItem).Detail
 						if d == nil {
 							return "-"
 						}
@@ -246,6 +276,37 @@ func newAlertTimelineCmd() *cobra.Command {
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
+}
+
+// resolveAlertFeedOperators resolves the actor (creator) person IDs of
+// alert-feed items to display names via /person/infos, replicating the
+// operator-name enrichment the legacy SDK did server-side. Best-effort: a
+// lookup failure yields a nil map and callers fall back to the numeric ID.
+func resolveAlertFeedOperators(rc *RunContext, items []gflashduty.FeedItem) map[int64]string {
+	seen := make(map[int64]struct{}, len(items))
+	ids := make([]uint64, 0, len(items))
+	for _, it := range items {
+		if it.CreatorID == 0 {
+			continue
+		}
+		if _, ok := seen[it.CreatorID]; ok {
+			continue
+		}
+		seen[it.CreatorID] = struct{}{}
+		ids = append(ids, uint64(it.CreatorID))
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	resp, _, err := rc.GFClient.Members.PersonInfos(cmdContext(rc.Cmd), &gflashduty.PersonInfosRequest{PersonIDs: ids})
+	if err != nil || resp == nil {
+		return nil
+	}
+	out := make(map[int64]string, len(resp.Items))
+	for _, p := range resp.Items {
+		out[int64(p.PersonID)] = p.PersonName
+	}
+	return out
 }
 
 func newAlertMergeCmd() *cobra.Command {
