@@ -72,14 +72,15 @@ func genGroup(parent *cobra.Command, name, short string) *cobra.Command {
 }
 
 // genAddLeaf attaches a generated leaf command under parent unless a command
-// with the same name already exists there (a curated command owns it — curated
-// always wins). Returns true if the leaf was added.
-func genAddLeaf(parent *cobra.Command, leaf *cobra.Command) bool {
+// with the same name already exists there. A curated command always wins the
+// exact path-name (it registers first, in init()), so its richer implementation
+// keeps the canonical command while the generated twin is harmlessly dropped;
+// the operation remains reachable at its path-name either way.
+func genAddLeaf(parent *cobra.Command, leaf *cobra.Command) {
 	for _, c := range parent.Commands() {
 		if c.Name() == leaf.Name() {
-			return false
+			return
 		}
 	}
 	parent.AddCommand(leaf)
-	return true
 }

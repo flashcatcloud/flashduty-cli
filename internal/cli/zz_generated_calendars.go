@@ -13,7 +13,7 @@ func genCalendarsCalEventDeleteCmd() *cobra.Command {
 	var fCalID string
 	var fEventID string
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "event-delete",
 		Short: "Delete calendar event",
 		Long: `Delete calendar event.
 
@@ -25,7 +25,7 @@ Request fields:
   --cal-id string (required) — Calendar ID.
   --event-id string (required) — Event ID.
 `,
-		Example: `  flashduty calendar event delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","event_id":"cale.KyG9XWTCU5CucbwukEVBQ4"}'`,
+		Example: `  flashduty calendar event-delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","event_id":"cale.KyG9XWTCU5CucbwukEVBQ4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
@@ -65,7 +65,7 @@ func genCalendarsCalEventListCmd() *cobra.Command {
 	var fMonth int64
 	var fYear int64
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "event-list",
 		Short: "List calendar events",
 		Long: `List calendar events.
 
@@ -79,7 +79,7 @@ Request fields:
   --month int — Month (1-12). 0 means no month filter.
   --year int — Year. Defaults to the current year when omitted.
 `,
-		Example: `  flashduty calendar event list --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","month":5,"year":2024}'`,
+		Example: `  flashduty calendar event-list --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","month":5,"year":2024}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
@@ -129,7 +129,7 @@ func genCalendarsCalEventUpsertCmd() *cobra.Command {
 	var fStartAt string
 	var fSummary string
 	cmd := &cobra.Command{
-		Use:   "upsert",
+		Use:   "event-upsert",
 		Short: "Upsert calendar event",
 		Long: `Upsert calendar event.
 
@@ -146,7 +146,7 @@ Request fields:
   --start-at string (required) — Event start date in YYYY-MM-DD.
   --summary string (required) — Event summary.
 `,
-		Example: `  flashduty calendar event upsert --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","description":"International Workers Day holiday","end_at":"2024-05-06","is_off":true,"start_at":"2024-05-01","summary":"Labour Day"}'`,
+		Example: `  flashduty calendar event-upsert --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","description":"International Workers Day holiday","end_at":"2024-05-06","is_off":true,"start_at":"2024-05-01","summary":"Labour Day"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
@@ -489,10 +489,9 @@ Request fields:
 
 func registerGeneratedCalendars(root *cobra.Command) {
 	gCalendar := genGroup(root, "calendar", "On-call/Calendars API")
-	gCalendarEvent := genGroup(gCalendar, "event", "On-call/Calendars API")
-	genAddLeaf(gCalendarEvent, genCalendarsCalEventDeleteCmd())
-	genAddLeaf(gCalendarEvent, genCalendarsCalEventListCmd())
-	genAddLeaf(gCalendarEvent, genCalendarsCalEventUpsertCmd())
+	genAddLeaf(gCalendar, genCalendarsCalEventDeleteCmd())
+	genAddLeaf(gCalendar, genCalendarsCalEventListCmd())
+	genAddLeaf(gCalendar, genCalendarsCalEventUpsertCmd())
 	genAddLeaf(gCalendar, genCalendarsCalendarCreateCmd())
 	genAddLeaf(gCalendar, genCalendarsCalendarDeleteCmd())
 	genAddLeaf(gCalendar, genCalendarsCalendarInfoCmd())

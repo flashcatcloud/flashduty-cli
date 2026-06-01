@@ -82,15 +82,12 @@ func init() {
 	rootCmd.AddCommand(newMemberCmd())
 	rootCmd.AddCommand(newTeamCmd())
 	rootCmd.AddCommand(newChannelCmd())
-	rootCmd.AddCommand(newEscalationRuleCmd())
 	rootCmd.AddCommand(newFieldCmd())
-	rootCmd.AddCommand(newStatusPageCmd())
 	rootCmd.AddCommand(newTemplateCmd())
 
 	// Phase 1
 	rootCmd.AddCommand(newAlertCmd())
 	rootCmd.AddCommand(newAlertEventCmd())
-	rootCmd.AddCommand(newPostmortemCmd())
 
 	// Phase 2
 	rootCmd.AddCommand(newOncallCmd())
@@ -102,10 +99,7 @@ func init() {
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 
-	// CLI Phase 1
-	rootCmd.AddCommand(newMCPCmd())
-
-	// CLI Phase 2
+	// Diagnostics entry points (value-add over the raw API).
 	rootCmd.AddCommand(newMonitQueryCmd())
 	rootCmd.AddCommand(newMonitAgentCmd())
 

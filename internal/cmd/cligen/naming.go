@@ -30,6 +30,7 @@ func tokens(s string) []string {
 
 func splitNonAlnum(s string) []string {
 	return strings.FieldsFunc(s, func(r rune) bool {
+		//nolint:staticcheck // QF1001: keep the explicit !(isAlnum) form; De Morgan rewrite is less readable (matches go-flashduty .golangci.yml).
 		return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
 	})
 }

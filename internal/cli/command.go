@@ -14,12 +14,12 @@ import (
 // runCommand and passed to the command's handler function. Client is the
 // typed go-flashduty SDK every command calls through.
 type RunContext struct {
-	Client *flashduty.Client
-	Cmd      *cobra.Command
-	Args     []string
-	Writer   io.Writer
-	Printer  output.Printer
-	Format   output.Format
+	Client  *flashduty.Client
+	Cmd     *cobra.Command
+	Args    []string
+	Writer  io.Writer
+	Printer output.Printer
+	Format  output.Format
 }
 
 // Structured reports whether output should be a machine-readable dump (JSON or
@@ -36,12 +36,12 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 		return err
 	}
 	ctx := &RunContext{
-		Client: client,
-		Cmd:      cmd,
-		Args:     args,
-		Writer:   cmd.OutOrStdout(),
-		Printer:  newPrinter(cmd.OutOrStdout()),
-		Format:   currentOutputFormat(),
+		Client:  client,
+		Cmd:     cmd,
+		Args:    args,
+		Writer:  cmd.OutOrStdout(),
+		Printer: newPrinter(cmd.OutOrStdout()),
+		Format:  currentOutputFormat(),
 	}
 	return fn(ctx)
 }
