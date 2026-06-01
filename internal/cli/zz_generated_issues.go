@@ -22,6 +22,42 @@ API: POST /rum/issue/info (rum-issue-read-info)
 
 Request fields:
   --issue-id string (required) — Issue ID.
+
+Response fields (under 'data'):
+  - age (integer)
+  - application_id (string)
+  - application_name (string)
+  - created_at (integer)
+  - error (object)
+    - message (string)
+    - type (string)
+  - error_count (integer) — Total error occurrences.
+  - first_seen (object)
+    - timestamp (integer)
+    - version (string)
+  - is_crash (boolean) — Whether the error caused an app crash.
+  - issue_id (string) — Unique issue ID.
+  - last_seen (object)
+    - timestamp (integer)
+    - version (string)
+  - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
+    - regressed_at (integer) — Timestamp when the regression was detected.
+    - regressed_at_version (string) — Application version in which the regression was observed.
+    - resolved_at (integer) — Timestamp of the previous resolution before the regression.
+  - resolved_at (integer)
+  - resolved_by (integer)
+  - service (string)
+  - session_count (integer) — Affected user sessions.
+  - severity (string) — Issue severity level.
+  - status (string) [for_review, reviewed, ignored, resolved]
+  - suspected_cause (object)
+    - person_id (integer)
+    - reason (string)
+    - source (string) [auto, user]
+    - value (string) [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  - team_id (integer)
+  - updated_at (integer)
+  - versions (array<string>)
 `,
 		Example: `  flashduty rum issue-info --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,7 +114,7 @@ Return a paginated list of RUM error tracking issues matching the given filters.
 API: POST /rum/issue/list (rum-issue-read-list)
 
 Request fields:
-  --p int — Page number. Default: 1.
+  --page int — Page number. Default: 1.
   --limit int — Page size. Range: 1–100. Default: 20.
   --search-after-ctx string
   --application-ids []string — Filter by application IDs.
@@ -90,15 +126,54 @@ Request fields:
   --orderby string [created_at, updated_at, session_count, error_count]
   --sql string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
   --start-time int (required) — Start of time range, millisecond timestamp.
-  --statuses []string — Filter by statuses.
+  --statuses []string — Filter by statuses. [for_review, reviewed, ignored, resolved]
   --suspected-causes []string — Filter by suspected causes.
   --team-ids []int — Filter by team IDs.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - age (integer)
+    - application_id (string)
+    - application_name (string)
+    - created_at (integer)
+    - error (object)
+      - message (string)
+      - type (string)
+    - error_count (integer) — Total error occurrences.
+    - first_seen (object)
+      - timestamp (integer)
+      - version (string)
+    - is_crash (boolean) — Whether the error caused an app crash.
+    - issue_id (string) — Unique issue ID.
+    - last_seen (object)
+      - timestamp (integer)
+      - version (string)
+    - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
+      - regressed_at (integer) — Timestamp when the regression was detected.
+      - regressed_at_version (string) — Application version in which the regression was observed.
+      - resolved_at (integer) — Timestamp of the previous resolution before the regression.
+    - resolved_at (integer)
+    - resolved_by (integer)
+    - service (string)
+    - session_count (integer) — Affected user sessions.
+    - severity (string) — Issue severity level.
+    - status (string) [for_review, reviewed, ignored, resolved]
+    - suspected_cause (object)
+      - person_id (integer)
+      - reason (string)
+      - source (string) [auto, user]
+      - value (string) [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+    - team_id (integer)
+    - updated_at (integer)
+    - versions (array<string>)
+  - total (integer)
 `,
 		Example: `  flashduty rum issue-list --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD"],"end_time":1775961914595,"limit":20,"orderby":"updated_at","p":1,"start_time":1772611200000,"statuses":["for_review"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -159,19 +234,19 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number. Default: 1.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number. Default: 1.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Filter by application IDs.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Request field asc")
 	cmd.Flags().BoolVar(&fByIntersection, "by-intersection", false, "Request field by_intersection")
-	cmd.Flags().StringVar(&fDql, "dql", "", "DQL query for advanced filtering. Cannot be used with `sql`.")
+	cmd.Flags().StringVar(&fDql, "dql", "", "DQL query for advanced filtering. Cannot be used with 'sql'.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of time range, millisecond timestamp. Maximum range: 183 days. (required)")
-	cmd.Flags().BoolVar(&fErrorRequired, "error-required", false, "If `true`, only return issues with at least one associated error event.")
+	cmd.Flags().BoolVar(&fErrorRequired, "error-required", false, "If 'true', only return issues with at least one associated error event.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Request field orderby [created_at, updated_at, session_count, error_count]")
-	cmd.Flags().StringVar(&fSql, "sql", "", "SQL-style query for advanced filtering. Cannot be used with `dql`.")
+	cmd.Flags().StringVar(&fSql, "sql", "", "SQL-style query for advanced filtering. Cannot be used with 'dql'.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of time range, millisecond timestamp. (required)")
-	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by statuses.")
+	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by statuses. [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected causes.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")

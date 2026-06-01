@@ -23,10 +23,12 @@ func newChangeListCmd() *cobra.Command {
 	var channel string
 	var since, until string
 	var limit, page int
+	var query, integration string
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List changes",
+		Long:  curatedLong("List changes recorded in the change feed. Time window must be < 31 days; --limit max is 100.", "Changes", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -65,6 +67,14 @@ func newChangeListCmd() *cobra.Command {
 					}
 					input.ChannelIDs = channelIDs
 				}
+				if integration != "" {
+					integrationIDs, err := parseIntSlice(integration)
+					if err != nil {
+						return fmt.Errorf("invalid --integration: %w", err)
+					}
+					input.IntegrationIDs = integrationIDs
+				}
+				input.Query = query
 
 				result, _, err := ctx.Client.Changes.List(cmdContext(ctx.Cmd), input)
 				if err != nil {
@@ -85,9 +95,11 @@ func newChangeListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
-	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
-	cmd.Flags().StringVar(&until, "until", "now", "End time")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().StringVar(&query, "query", "", "Free-text/regex search over change fields")
+	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated reporting integration IDs")
+	cmd.Flags().StringVar(&since, "since", "24h", "Start time (accepts 7d/24h/now, RFC3339, or Unix epoch; window must be < 31 days)")
+	cmd.Flags().StringVar(&until, "until", "now", "End time (accepts 7d/24h/now, RFC3339, or Unix epoch)")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd

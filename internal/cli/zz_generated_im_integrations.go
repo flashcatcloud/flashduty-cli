@@ -14,6 +14,30 @@ func genImIntegrationsListCmd() *cobra.Command {
 List IM integrations that have the war-room feature enabled for the account.
 
 API: POST /datasource/im/war-room-enabled/list (im-war-room-enabled-list)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) — IM integrations with the war-room feature enabled.
+    - account_id (integer) — Account this integration belongs to.
+    - category (string) — Category of the integration plugin.
+    - created_at (integer) — Unix timestamp in seconds when the integration was created.
+    - creator_id (integer) — Person who created the integration.
+    - data_source_id (integer) — Integration ID.
+    - description (string) — Integration description.
+    - exclusive_data_source_id (integer) — Exclusive integration ID associated with this integration.
+    - integration_id (integer) — Integration ID, alias of data_source_id.
+    - integration_key (string) — Push key used by alert sources to send to this integration.
+    - last_time (integer) — Unix timestamp in seconds of the most recent activity on the integration.
+    - name (string) — Integration name.
+    - no_editable (boolean) — Whether the integration is read-only.
+    - plugin_id (integer) — Plugin ID backing this integration.
+    - plugin_type (string) — Type identifier of the integration plugin.
+    - plugin_type_name (string) — Localized display name of the integration plugin type.
+    - ref_id (string) — External reference ID of the integration.
+    - settings (object) — Plugin-specific configuration of the integration.
+    - status (string) — Current status of the integration.
+    - team_id (integer) — Team that owns this integration.
+    - updated_at (integer) — Unix timestamp in seconds when the integration was last updated.
+    - updated_by (integer) — Person who last updated the integration.
 `,
 		Example: `  flashduty datasource im-war-room-enabled-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

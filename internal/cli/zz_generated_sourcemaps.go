@@ -33,8 +33,8 @@ Return a paginated list of uploaded sourcemap files filtered by platform type, s
 API: POST /sourcemap/list (sourcemap-read-list)
 
 Request fields:
-  --p int — Page number, starting at 1.
-  --limit int — Page size. Maximum 100. Default 20.
+  --page int — Page number, starting at 1. (min 1)
+  --limit int — Page size. Maximum 100. Default 20. (max 100)
   --search-after-ctx string
   --asc bool — Sort ascending. Default false (descending).
   --build-id string — Android only. Filter by Gradle plugin build identifier. Max 200 characters.
@@ -46,12 +46,26 @@ Request fields:
   --type string — Platform type. Defaults to 'browser' when omitted. [browser, android, ios]
   --uuid string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
   --versions []string — Filter by version strings. Up to 100 values.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - created_at (integer) — Upload timestamp, Unix epoch seconds.
+    - git_commit_sha (string) — Git commit SHA for this build.
+    - git_repository_url (string) — Git repository URL associated with this build.
+    - key (string) — Storage key uniquely identifying this sourcemap file.
+    - metadata (object) — Free-form key-value metadata attached to the sourcemap. Shape depends on the upload client; common keys include 'git_repository_url' and 'git_commit_sha' (though those are also promoted to top-level fields).
+    - service (string) — Application or service name.
+    - size (integer) — File size in bytes.
+    - type (string) — Platform type: 'browser', 'android', or 'ios'. [browser, android, ios]
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+    - version (string) — Application version string.
+  - total (integer) (required) — Total number of matching records.
 `,
 		Example: `  flashduty sourcemap list --data '{"end_time":1712700000000,"limit":20,"p":1,"services":["my-web-app"],"start_time":1712000000000,"type":"browser"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -106,8 +120,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Maximum 100. Default 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Maximum 100. Default 20. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending. Default false (descending).")
 	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android only. Filter by Gradle plugin build identifier. Max 200 characters.")
@@ -115,8 +129,8 @@ Request fields:
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the minified URL (browser) or build ID (android). Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fServices, "services", nil, "Filter by service names. Up to 100 values.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of upload time range, Unix epoch milliseconds. Must be > 0 and before `end_time`. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to `browser` when omitted. [browser, android, ios]")
+	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to 'browser' when omitted. [browser, android, ios]")
 	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Filter by dSYM bundle UUID. Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fVersions, "versions", nil, "Filter by version strings. Up to 100 values.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")

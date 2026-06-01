@@ -22,6 +22,29 @@ API: POST /safari/a2a-agent/get (remote-agent-read-get)
 
 Request fields:
   --agent-id string (required) — Identifier of the target agent.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Owning account.
+  - agent_card_name (string) — Name resolved from the fetched agent card.
+  - agent_card_skills (array<string>) — Skills advertised on the fetched agent card.
+  - agent_id (string) (required) — Unique identifier of the A2A agent.
+  - agent_name (string) (required) — Display name of the agent.
+  - auth_config (object) — Authentication parameters keyed by name.
+  - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
+  - auth_type (string) (required) — Authentication scheme used when calling the agent.
+  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
+  - card_resolve_timeout (integer) (required) — Timeout for fetching the agent card, in seconds.
+  - card_url (string) (required) — URL of the agent's published A2A agent card.
+  - created_at (integer) (required) — Creation time as a Unix timestamp in seconds.
+  - created_by (integer) (required) — Member who created this resource.
+  - description (string) (required) — What this agent does and when to delegate to it.
+  - oauth_metadata (string) — OAuth metadata JSON.
+  - secret_schema (string) — JSON schema of the per-user secret.
+  - status (string) (required) — Whether the agent is active and reachable. [enabled, disabled]
+  - streaming (boolean) (required) — Whether the agent supports streaming responses.
+  - task_timeout (integer) (required) — Timeout for a single delegated task, in seconds.
+  - team_id (integer) (required) — Owning team; 0 means account scope.
+  - updated_at (integer) (required) — Last-update time as a Unix timestamp in seconds.
 `,
 		Example: `  flashduty safari a2a-agent-get --data '{"agent_id":"a2a_9d4c1f60b3a2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,6 +94,31 @@ Request fields:
   --limit int — Maximum number of rows to return; defaults to 20.
   --offset int — Number of rows to skip for pagination.
   --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — A2A agents on the current page.
+    - account_id (integer) (required) — Owning account.
+    - agent_card_name (string) — Name resolved from the fetched agent card.
+    - agent_card_skills (array<string>) — Skills advertised on the fetched agent card.
+    - agent_id (string) (required) — Unique identifier of the A2A agent.
+    - agent_name (string) (required) — Display name of the agent.
+    - auth_config (object) — Authentication parameters keyed by name.
+    - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
+    - auth_type (string) (required) — Authentication scheme used when calling the agent.
+    - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
+    - card_resolve_timeout (integer) (required) — Timeout for fetching the agent card, in seconds.
+    - card_url (string) (required) — URL of the agent's published A2A agent card.
+    - created_at (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member who created this resource.
+    - description (string) (required) — What this agent does and when to delegate to it.
+    - oauth_metadata (string) — OAuth metadata JSON.
+    - secret_schema (string) — JSON schema of the per-user secret.
+    - status (string) (required) — Whether the agent is active and reachable. [enabled, disabled]
+    - streaming (boolean) (required) — Whether the agent supports streaming responses.
+    - task_timeout (integer) (required) — Timeout for a single delegated task, in seconds.
+    - team_id (integer) (required) — Owning team; 0 means account scope.
+    - updated_at (integer) (required) — Last-update time as a Unix timestamp in seconds.
+  - total (integer) (required) — Total number of agents matching the filters.
 `,
 		Example: `  flashduty safari a2a-agent-list --data '{"include_account":true,"limit":20,"offset":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -133,7 +181,7 @@ Register a new A2A remote agent the SRE agent can delegate tasks to.
 API: POST /safari/a2a-agent/create (remote-agent-write-create)
 
 Request fields:
-  --agent-name string (required) — Display name of the agent.
+  --agent-name string (required) — Display name of the agent. (≤128 chars)
   --auth-mode string — Credential model; defaults to shared.
   --auth-type string — Authentication scheme used when calling the agent.
   --card-url string (required) — URL of the agent's published A2A agent card.
@@ -142,7 +190,10 @@ Request fields:
   --secret-schema string — JSON schema of the per-user secret; required when auth_mode is per_user_secret.
   --streaming bool — Whether the agent supports streaming responses.
   --team-id int — Owning team for the new agent; 0 for account scope.
-  auth_config (JSON, via --data) — Authentication parameters keyed by name.
+  auth_config (object, via --data) — Authentication parameters keyed by name.
+
+Response fields (under 'data'):
+  - agent_id (string) (required) — Identifier of the created agent.
 `,
 		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"Network Diagnostics Agent","auth_config":{"token":"secret"},"auth_type":"bearer","card_url":"https://agents.example.com/network-diag/.well-known/agent.json","description":"Runs traceroute and BGP-path analysis for network incidents.","streaming":true,"team_id":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,7 +242,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentName, "agent-name", "", "Display name of the agent. (required)")
+	cmd.Flags().StringVar(&fAgentName, "agent-name", "", "Display name of the agent. (required) (≤128 chars)")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Credential model; defaults to shared.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication scheme used when calling the agent.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the agent's published A2A agent card. (required)")
@@ -356,7 +407,7 @@ API: POST /safari/a2a-agent/update (remote-agent-write-update)
 
 Request fields:
   --agent-id string (required) — Identifier of the agent to update.
-  --agent-name string — New display name.
+  --agent-name string — New display name. (≤128 chars)
   --auth-mode string — New credential model.
   --auth-type string — New authentication scheme.
   --card-url string — New agent card URL.
@@ -365,7 +416,7 @@ Request fields:
   --secret-schema string — New per-user secret JSON schema.
   --streaming bool — Toggle streaming-response support.
   --team-id int — Reassign the agent to this team; omit to leave unchanged, 0 for account scope.
-  auth_config (JSON, via --data) — New authentication parameters.
+  auth_config (object, via --data) — New authentication parameters.
 `,
 		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_9d4c1f60b3a2","description":"Runs traceroute, BGP, and DNS analysis for network incidents."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -418,7 +469,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the agent to update. (required)")
-	cmd.Flags().StringVar(&fAgentName, "agent-name", "", "New display name.")
+	cmd.Flags().StringVar(&fAgentName, "agent-name", "", "New display name. (≤128 chars)")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New credential model.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New authentication scheme.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "New agent card URL.")

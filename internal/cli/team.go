@@ -39,7 +39,7 @@ func newTeamListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List teams",
-		Long: `List teams in your account.
+		Long: curatedLong(`List teams in your account.
 
 Use --name to search by team name substring.
 Use --person-id to filter teams containing a specific member.
@@ -49,7 +49,7 @@ Examples:
   flashduty team list
   flashduty team list --name "SRE"
   flashduty team list --person-id 12345 --limit 50
-  flashduty team list --orderby team_name --asc`,
+  flashduty team list --orderby team_name --asc`, "Teams", "ReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				result, _, err := ctx.Client.Teams.ReadList(cmdContext(ctx.Cmd), &flashduty.TeamListRequest{
@@ -94,7 +94,7 @@ func newTeamGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get team detail",
-		Long: `Get detailed information about a specific team.
+		Long: curatedLong(`Get detailed information about a specific team.
 
 Specify the team by exactly one of: --id, --name, or --ref-id.
 The output includes team metadata, member list, and audit information.
@@ -103,7 +103,7 @@ Examples:
   flashduty team get --id 123
   flashduty team get --name "SRE Team"
   flashduty team get --ref-id "hr-dept-42"
-  flashduty team get --id 123 --json`,
+  flashduty team get --id 123 --json`, "Teams", "ReadInfo"),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return requireExactlyOneFlag(cmd, "id", "name", "ref-id")
 		},

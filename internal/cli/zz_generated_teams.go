@@ -26,6 +26,21 @@ Request fields:
   --ref-id string — External reference ID.
   --team-id int — Team ID.
   --team-name string — Team name.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Owning account ID.
+  - created_at (integer) (required) — Unix epoch seconds the team was created.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Display name of the creator.
+  - description (string) (required) — Free-form description.
+  - person_ids (array<integer>) (required) — Member IDs of team members.
+  - ref_id (string) (required) — External reference ID for third-party HR system integration.
+  - status (string) (required) — Team status. [enabled, disabled]
+  - team_id (integer) (required) — Unique team ID.
+  - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
+  - updated_at (integer) (required) — Unix epoch seconds the team was last updated.
+  - updated_by (integer) (required) — Member ID of the last editor.
+  - updated_by_name (string) (required) — Display name of the last editor.
 `,
 		Example: `  flashduty team info --data '{"team_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,6 +92,12 @@ API: POST /team/infos (team-read-infos)
 
 Request fields:
   --team-ids []int (required) — List of team IDs to look up. Max 100.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - person_ids (array<integer>)
+    - team_id (integer)
+    - team_name (string)
 `,
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -125,19 +146,38 @@ Return a paginated list of teams in the current account.
 API: POST /team/list (team-read-list)
 
 Request fields:
-  --p int — Page number. Default: 1.
-  --limit int — Page size. Max: 100. Default: 20.
+  --page int — Page number. Default: 1. (min 1)
+  --limit int — Page size. Max: 100. Default: 20. (1-100)
   --search-after-ctx string
   --asc bool — Ascending sort order.
   --orderby string — Sort field. [created_at, updated_at, team_name]
   --person-id int — Filter by member ID — return only teams this person belongs to.
   --query string — Substring match on team name.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - account_id (integer) (required) — Owning account ID.
+    - created_at (integer) (required) — Unix epoch seconds the team was created.
+    - creator_id (integer) (required) — Member ID of the creator.
+    - creator_name (string) (required) — Display name of the creator.
+    - description (string) (required) — Free-form description.
+    - person_ids (array<integer>) (required) — Member IDs of team members.
+    - ref_id (string) (required) — External reference ID for third-party HR system integration.
+    - status (string) (required) — Team status. [enabled, disabled]
+    - team_id (integer) (required) — Unique team ID.
+    - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
+    - updated_at (integer) (required) — Unix epoch seconds the team was last updated.
+    - updated_by (integer) (required) — Member ID of the last editor.
+    - updated_by_name (string) (required) — Display name of the last editor.
+  - limit (integer) (required) — Page size used.
+  - p (integer) (required) — Current page number.
+  - total (integer) (required) — Total number of teams matching the filter.
 `,
 		Example: `  flashduty team list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -174,8 +214,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number. Default: 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max: 100. Default: 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number. Default: 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max: 100. Default: 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at, team_name]")
@@ -263,14 +303,18 @@ API: POST /team/upsert (team-write-upsert)
 
 Request fields:
   --country-code string — Default country code applied to any 'phones' entries that are not in E.164 format.
-  --description string — Free-form description.
+  --description string — Free-form description. (≤500 chars)
   --emails []string — Email addresses to invite as members.
   --person-ids []int — Member IDs to set as team members. Replaces the existing member list.
   --phones []string — Phone numbers to invite as members.
   --ref-id string — External reference ID for HR system integration.
   --reset-if-name-exist bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
   --team-id int — Team ID. Omit or set to 0 to create a new team.
-  --team-name string (required) — Team display name. 1–39 characters.
+  --team-name string (required) — Team display name. 1–39 characters. (1-39 chars)
+
+Response fields (under 'data'):
+  - team_id (integer) (required) — Created or updated team ID.
+  - team_name (string) (required) — Team name echoed from the request.
 `,
 		Example: `  flashduty team upsert --data '{"description":"Backend reliability engineering team","person_ids":[80011,80012],"team_name":"Backend SRE"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -319,15 +363,15 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Default country code applied to any `phones` entries that are not in E.164 format.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description.")
+	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Default country code applied to any 'phones' entries that are not in E.164 format.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. (≤500 chars)")
 	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Email addresses to invite as members.")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to set as team members. Replaces the existing member list.")
 	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Phone numbers to invite as members.")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID for HR system integration.")
 	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "If true and a team with the same name already exists, reset its membership to the provided person_ids.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")
-	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required)")
+	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

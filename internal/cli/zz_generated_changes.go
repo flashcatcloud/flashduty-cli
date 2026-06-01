@@ -31,8 +31,8 @@ Query change records within a time window, with filtering, search, and paginatio
 API: POST /change/list (change-read-list)
 
 Request fields:
-  --p int — Page number, starting at 1.
-  --limit int — Number of items per page.
+  --page int — Page number, starting at 1. (min 1)
+  --limit int — Number of items per page. (1-100)
   --search-after-ctx string
   --asc bool — Sort in ascending order when true.
   --channel-ids []int — Filter by collaboration channel IDs.
@@ -42,12 +42,48 @@ Request fields:
   --orderby string — Field to sort the result by. [start_time, last_time]
   --query string — Free-text or regular-expression search over change fields.
   --start-time int — Unix timestamp in seconds for the start of the query window.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) — Whether more pages are available after this one.
+  - items (array<object>) — Changes on the current page.
+    - account_id (integer) — Account this change belongs to.
+    - change_id (string) — Change ID, a MongoDB ObjectID hex string.
+    - change_key (string) — Stable key that groups events belonging to the same change.
+    - change_status (string) — Current lifecycle status of the change.
+    - channel_id (integer) — Collaboration channel this change is routed to.
+    - channel_name (string) — Name of the collaboration channel.
+    - channel_status (string) — Status of the collaboration channel.
+    - description (string) — Change description.
+    - end_time (integer) — Unix timestamp in seconds when the change ended.
+    - events (array<object>) — Underlying change events, returned only when include_events is true.
+      - account_id (integer) — Account this change event belongs to.
+      - change_key (string) — Stable key that groups events belonging to the same change.
+      - change_status (string) — Lifecycle status of the change event. [Planned, Ready, Processing, Canceled, Done]
+      - channel_id (integer) — Collaboration channel this change event is routed to.
+      - created_at (integer) — Unix timestamp in seconds when the change event was created.
+      - deleted_at (integer) — Unix timestamp in seconds when the change event was deleted.
+      - description (string) — Change event description.
+      - event_id (string) — Change event ID, a MongoDB ObjectID hex string.
+      - event_time (integer) — Unix timestamp in seconds when the change event occurred.
+      - integration_id (integer) — Integration that reported this change event.
+      - labels (object) — Key-value labels attached to the change event.
+      - link (string) — External link to the source change record.
+      - title (string) — Change event title.
+      - updated_at (integer) — Unix timestamp in seconds when the change event was last updated.
+    - integration_id (integer) — Integration that reported this change.
+    - integration_name (string) — Name of the reporting integration.
+    - labels (object) — Key-value labels attached to the change.
+    - last_time (integer) — Unix timestamp in seconds of the most recent change activity.
+    - link (string) — External link to the source change record.
+    - start_time (integer) — Unix timestamp in seconds when the change started.
+    - title (string) — Change title.
+  - total (integer) — Total number of matching changes.
 `,
 		Example: `  flashduty change list --data '{"asc":false,"end_time":1717046400,"include_events":false,"integration_ids":[362],"limit":10,"orderby":"start_time","p":1,"start_time":1716960000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -96,8 +132,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of items per page.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of items per page. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort in ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by collaboration channel IDs.")

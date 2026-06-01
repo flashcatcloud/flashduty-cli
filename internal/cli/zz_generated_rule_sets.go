@@ -28,6 +28,18 @@ Request fields:
   --open-flag int — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.
   --payload string (required) — JSON string containing the alert rule definitions.
   --type-ident string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
+
+Response fields (under 'data'):
+  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - creator_account_id (integer) (required) — Account ID of the creator.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Display name of the creator.
+  - id (integer) (required) — Ruleset ID.
+  - note (string) (required) — Description or title of the ruleset.
+  - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
+  - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
+  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit store-ruleset-create --data '{"note":"CPU usage alerts","open_flag":1,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.8\"}]","type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -62,9 +74,9 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fNote, "note", "", "Description or title of the ruleset. (required)")
-	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "Sharing scope. `0` = private (creator only), `1` = account-shared, `2` = public. Defaults to `0` if omitted.")
+	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.")
 	cmd.Flags().StringVar(&fPayload, "payload", "", "JSON string containing the alert rule definitions. (required)")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier this ruleset applies to, e.g. `prometheus`. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier this ruleset applies to, e.g. 'prometheus'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -127,6 +139,18 @@ API: POST /monit/store/ruleset/info (monit-store-ruleset-info)
 
 Request fields:
   --id int (required) — Resource ID.
+
+Response fields (under 'data'):
+  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - creator_account_id (integer) (required) — Account ID of the creator.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Display name of the creator.
+  - id (integer) (required) — Ruleset ID.
+  - note (string) (required) — Description or title of the ruleset.
+  - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
+  - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
+  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit store-ruleset-info --data '{"id":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -194,7 +218,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier to filter by, e.g. `prometheus`. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier to filter by, e.g. 'prometheus'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -219,6 +243,18 @@ Request fields:
   --note string (required) — New description.
   --open-flag int — New sharing scope. '0' = private, '1' = account-shared, '2' = public.
   --payload string (required) — New JSON string of alert rule definitions.
+
+Response fields (under 'data'):
+  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - creator_account_id (integer) (required) — Account ID of the creator.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Display name of the creator.
+  - id (integer) (required) — Ruleset ID.
+  - note (string) (required) — Description or title of the ruleset.
+  - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
+  - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
+  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit store-ruleset-update --data '{"id":1,"note":"Updated CPU alerts","open_flag":2,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.9\"}]"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -254,7 +290,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Ruleset ID to update. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "New description. (required)")
-	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "New sharing scope. `0` = private, `1` = account-shared, `2` = public.")
+	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "New sharing scope. '0' = private, '1' = account-shared, '2' = public.")
 	cmd.Flags().StringVar(&fPayload, "payload", "", "New JSON string of alert rule definitions. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd

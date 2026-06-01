@@ -99,6 +99,11 @@ func run(only string) error {
 		if err := writeGo(filepath.Join(genDir, "zz_generated_manifest.go"), emitManifest(generatedOpIDs)); err != nil {
 			return err
 		}
+		// Response-help table covers ALL services so curated commands can look up
+		// any method; only complete on a full run.
+		if err := writeGo(filepath.Join(genDir, "zz_generated_response_help.go"), emitResponseHelp(services)); err != nil {
+			return err
+		}
 	}
 	fmt.Printf("cligen: %d services, %d generated commands\n", len(registered), emitted)
 	return nil
@@ -130,21 +135,35 @@ type service struct {
 }
 
 type specOp struct {
-	OpID    string
-	Method  string // Go SDK method name
-	HTTP    string
-	Path    string
-	Summary string
-	Desc    string
-	Example string // compact request-body example JSON, "" if none
-	Fields  []specField
+	OpID     string
+	Method   string // Go SDK method name
+	HTTP     string
+	Path     string
+	Summary  string
+	Desc     string
+	Example  string        // compact request-body example JSON, "" if none
+	Fields   []specField   // flat top-level request fields (drives flag help)
+	ReqTree  []schemaField // full nested request body tree (for --data expansion)
+	RespTree []schemaField // 200 response `data` field tree (output shape)
+}
+
+// schemaField is one node in a (possibly nested) request/response schema tree.
+type schemaField struct {
+	Wire       string
+	Type       string // string,int,bool,number,object,array<object>,...
+	Required   bool
+	Desc       string
+	Enum       []string
+	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
+	Children   []schemaField
 }
 
 type specField struct {
-	Wire     string
-	Required bool
-	Desc     string
-	Enum     []string
+	Wire       string
+	Required   bool
+	Desc       string
+	Enum       []string
+	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
 }
 
 func collectServices(paths, schemas map[string]any) []service {
@@ -193,14 +212,16 @@ func collectServices(paths, schemas map[string]any) []service {
 		for _, e := range entries {
 			opID := str(e.op, "operationId")
 			svc.Ops = append(svc.Ops, specOp{
-				OpID:    opID,
-				Method:  names[opID],
-				HTTP:    e.http,
-				Path:    e.path,
-				Summary: str(e.op, "summary"),
-				Desc:    str(e.op, "description"),
-				Example: walker.example(e.op),
-				Fields:  walker.fields(e.op),
+				OpID:     opID,
+				Method:   names[opID],
+				HTTP:     e.http,
+				Path:     e.path,
+				Summary:  str(e.op, "summary"),
+				Desc:     str(e.op, "description"),
+				Example:  walker.example(e.op),
+				Fields:   walker.fields(e.op),
+				ReqTree:  walker.requestTree(e.op),
+				RespTree: walker.responseTree(e.op),
 			})
 		}
 		if len(svc.Ops) > 0 {
@@ -253,10 +274,11 @@ func (w *specWalker) fields(op map[string]any) []specField {
 		for wire, v := range props {
 			pv := w.deref(asMap(v))
 			fields = append(fields, specField{
-				Wire:     wire,
-				Required: req[wire],
-				Desc:     str(pv, "description"),
-				Enum:     enumStrings(pv),
+				Wire:       wire,
+				Required:   req[wire],
+				Desc:       str(pv, "description"),
+				Enum:       w.enumOf(pv),
+				Constraint: constraintOf(pv),
 			})
 		}
 	}
@@ -265,11 +287,13 @@ func (w *specWalker) fields(op map[string]any) []specField {
 		if str(pm, "in") != "query" {
 			continue
 		}
+		psch := w.deref(asMap(pm["schema"]))
 		fields = append(fields, specField{
-			Wire:     str(pm, "name"),
-			Required: boolOf(pm["required"]),
-			Desc:     str(pm, "description"),
-			Enum:     enumStrings(w.deref(asMap(pm["schema"]))),
+			Wire:       str(pm, "name"),
+			Required:   boolOf(pm["required"]),
+			Desc:       str(pm, "description"),
+			Enum:       w.enumOf(psch),
+			Constraint: constraintOf(psch),
 		})
 	}
 	sort.Slice(fields, func(i, j int) bool { return fields[i].Wire < fields[j].Wire })
@@ -290,6 +314,154 @@ func (w *specWalker) example(op map[string]any) string {
 		return ""
 	}
 	return string(b)
+}
+
+// enumOf returns a schema's enum values, falling back to its array items' enum
+// (so a `[]string` flag whose elements are constrained still advertises them).
+func (w *specWalker) enumOf(s map[string]any) []string {
+	if e := enumStrings(s); len(e) > 0 {
+		return e
+	}
+	if str(s, "type") == "array" {
+		return enumStrings(w.deref(asMap(s["items"])))
+	}
+	return nil
+}
+
+// schemaType renders a compact type label for a (deref'd) property schema.
+func schemaType(s map[string]any) string {
+	switch t := str(s, "type"); t {
+	case "array":
+		it := asMap(s["items"])
+		et := str(it, "type")
+		if et == "" && (it["properties"] != nil || it["allOf"] != nil || it["$ref"] != nil) {
+			et = "object"
+		}
+		if et == "" {
+			et = "any"
+		}
+		return "array<" + et + ">"
+	case "":
+		if s["properties"] != nil || s["allOf"] != nil || s["$ref"] != nil {
+			return "object"
+		}
+		return "any"
+	default:
+		return t
+	}
+}
+
+// constraintOf renders a compact bound string ("max 100", "1-39 chars", "1-100")
+// from a property schema's numeric/length keywords. Agents exceeding a documented
+// limit (e.g. --limit 200 when max is 100) is the single largest source of
+// InvalidParameter 400s, so these bounds belong in --help alongside the type.
+func constraintOf(s map[string]any) string {
+	var parts []string
+	mn, okMn := numStr(s["minimum"])
+	mx, okMx := numStr(s["maximum"])
+	switch {
+	case okMn && okMx:
+		parts = append(parts, mn+"-"+mx)
+	case okMx:
+		parts = append(parts, "max "+mx)
+	case okMn:
+		parts = append(parts, "min "+mn)
+	}
+	lmn, okLmn := numStr(s["minLength"])
+	lmx, okLmx := numStr(s["maxLength"])
+	switch {
+	case okLmn && okLmx:
+		parts = append(parts, lmn+"-"+lmx+" chars")
+	case okLmx:
+		parts = append(parts, "≤"+lmx+" chars")
+	case okLmn:
+		parts = append(parts, "≥"+lmn+" chars")
+	}
+	return strings.Join(parts, ", ")
+}
+
+// numStr formats a JSON number (float64 / json.Number) without a trailing ".0",
+// returning ok=false for nil/non-numeric so callers can omit absent bounds.
+func numStr(v any) (string, bool) {
+	switch n := v.(type) {
+	case float64:
+		if n == float64(int64(n)) {
+			return fmt.Sprintf("%d", int64(n)), true
+		}
+		return fmt.Sprintf("%g", n), true
+	case json.Number:
+		return n.String(), true
+	default:
+		return "", false
+	}
+}
+
+// maxSchemaDepth bounds how deep request/response trees are expanded in --help.
+const maxSchemaDepth = 3
+
+// tree walks an object schema (resolving $ref/allOf) into a sorted field tree,
+// recursing into nested objects and array-element objects up to maxSchemaDepth.
+func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
+	if depth > maxSchemaDepth {
+		return nil
+	}
+	props, req := w.merged(schema)
+	var out []schemaField
+	for wire, v := range props {
+		pv := w.deref(asMap(v))
+		f := schemaField{
+			Wire:       wire,
+			Required:   req[wire],
+			Desc:       str(pv, "description"),
+			Enum:       enumStrings(pv),
+			Type:       schemaType(pv),
+			Constraint: constraintOf(pv),
+		}
+		switch {
+		case pv["properties"] != nil || pv["allOf"] != nil:
+			f.Children = w.tree(pv, depth+1)
+		case str(pv, "type") == "array":
+			it := w.deref(asMap(pv["items"]))
+			if it["properties"] != nil || it["allOf"] != nil {
+				f.Children = w.tree(it, depth+1)
+			} else if len(f.Enum) == 0 {
+				f.Enum = enumStrings(it) // array of constrained scalars
+			}
+		}
+		out = append(out, f)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Wire < out[j].Wire })
+	return out
+}
+
+// requestTree returns the full nested field tree of an operation's JSON body.
+func (w *specWalker) requestTree(op map[string]any) []schemaField {
+	rb := asMap(op["requestBody"])
+	if rb == nil {
+		return nil
+	}
+	sch := asMap(asMap(asMap(rb["content"])["application/json"])["schema"])
+	if sch == nil {
+		return nil
+	}
+	return w.tree(sch, 0)
+}
+
+// responseTree returns the field tree of an operation's 200 response `data`
+// member (unwrapping the {request_id,error,data} envelope), so --help can show
+// the output shape — including the {items[],total} pagination wrapper for lists.
+func (w *specWalker) responseTree(op map[string]any) []schemaField {
+	r200 := asMap(asMap(op["responses"])["200"])
+	sch := asMap(asMap(asMap(r200["content"])["application/json"])["schema"])
+	if sch == nil {
+		return nil
+	}
+	props, _ := w.merged(sch)
+	data := asMap(props["data"])
+	if data == nil {
+		return nil
+	}
+	return w.tree(data, 0)
 }
 
 // ---- reflection over the compiled SDK -------------------------------------
@@ -375,7 +547,13 @@ func reqFields(reqType string) (scalars []scalarField, complex []string) {
 				walk(deref(f.Type))
 				continue
 			}
+			// POST bodies tag fields with `json`; GET query structs tag them with
+			// `url` and carry NO json tag. Fall back to the url wire-name so GET
+			// commands emit typed flags instead of a bare --data nobody can fill.
 			wire := strings.Split(f.Tag.Get("json"), ",")[0]
+			if wire == "" {
+				wire = strings.Split(f.Tag.Get("url"), ",")[0]
+			}
 			if wire == "" || wire == "-" || seen[wire] {
 				continue
 			}
@@ -610,6 +788,38 @@ func emitManifest(generated []string) string {
 	return b.String()
 }
 
+// emitResponseHelp generates a map from SDK "Service.Method" to its rendered
+// Response-fields block, so curated commands (which call the same SDK methods
+// under ergonomic flags) can show the same output schema as generated commands.
+func emitResponseHelp(services []service) string {
+	type kv struct{ k, v string }
+	var rows []kv
+	for _, s := range services {
+		for _, o := range s.Ops {
+			// Curated commands read this map. Every curated list command
+			// flattens its {items,total} envelope to a top-level array, so they
+			// need the flattened ("jq '.[]'") shape, not the wire envelope.
+			sec := responseSectionList(o.RespTree)
+			if sec == "" {
+				continue
+			}
+			rows = append(rows, kv{s.Name + "." + o.Method, sec})
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].k < rows[j].k })
+
+	var b strings.Builder
+	b.WriteString(genHeader)
+	b.WriteString("package cli\n\n")
+	b.WriteString("// responseHelpBySDKMethod maps an SDK \"Service.Method\" to its rendered\n// Response-fields help block. Curated commands look this up via responseHelp()\n// so they document the same output shape as the generated commands.\n")
+	b.WriteString("var responseHelpBySDKMethod = map[string]string{\n")
+	for _, r := range rows {
+		fmt.Fprintf(&b, "\t%q: %q,\n", r.k, r.v)
+	}
+	b.WriteString("}\n")
+	return b.String()
+}
+
 // ---- help text -------------------------------------------------------------
 
 func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire map[string]specField) string {
@@ -636,22 +846,126 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 			if len(f.Enum) > 0 {
 				line += " [" + strings.Join(f.Enum, ", ") + "]"
 			}
+			if f.Constraint != "" {
+				line += " (" + f.Constraint + ")"
+			}
 			b.WriteString(line + "\n")
+		}
+		reqByWire := map[string]schemaField{}
+		for _, n := range o.ReqTree {
+			reqByWire[n.Wire] = n
 		}
 		for _, wire := range complexFields {
 			f := byWire[wire]
+			node := reqByWire[wire]
+			typ := "JSON"
+			if node.Type != "" {
+				typ = node.Type
+			}
 			req := ""
-			if f.Required {
+			if f.Required || node.Required {
 				req = " (required)"
 			}
-			line := fmt.Sprintf("  %s (JSON, via --data)%s", wire, req)
+			line := fmt.Sprintf("  %s (%s, via --data)%s", wire, typ, req)
 			if f.Desc != "" {
 				line += " — " + oneLine(f.Desc)
 			}
 			b.WriteString(line + "\n")
+			// Expand the nested sub-fields so the agent doesn't guess the body shape.
+			renderTree(&b, node.Children, 2)
 		}
 	}
+	// Response shape — so the agent reads/extracts output fields without guessing.
+	if s := responseSection(o.RespTree); s != "" {
+		b.WriteString("\n" + s)
+	}
 	return b.String()
+}
+
+// responseSection renders the "Response fields" help block for a response tree,
+// or "" when the response has no documented schema. Shared by longHelp (embedded
+// in generated commands) and emitResponseHelp (looked up by curated commands).
+// listEnvelope returns the row (array-element) fields and true when resp is a
+// paginated list envelope: exactly one object-array field named items/docs/list
+// with only SCALAR siblings (total, p, limit, has_next_page, search_after_ctx …
+// — all pagination metadata). This is the shape the backend returns under
+// `data`; the CLI's curated list commands flatten it to a top-level array. The
+// scalar-sibling test avoids enumerating every pagination field name.
+func listEnvelope(resp []schemaField) ([]schemaField, bool) {
+	var rows []schemaField
+	found := false
+	for _, f := range resp {
+		if (f.Wire == "items" || f.Wire == "docs" || f.Wire == "list") && strings.HasPrefix(f.Type, "array") && len(f.Children) > 0 {
+			if found {
+				return nil, false
+			}
+			rows, found = f.Children, true
+			continue
+		}
+		// Any non-row sibling must be a scalar (pagination metadata). An array
+		// or object sibling means this is a richer response, not a flat list.
+		if strings.HasPrefix(f.Type, "array") || f.Type == "object" || len(f.Children) > 0 {
+			return nil, false
+		}
+	}
+	return rows, found
+}
+
+// responseSection renders the Response-fields block as the backend returns it
+// under `data` — generated commands print that shape verbatim via
+// printGenericResult, so a list envelope really does nest rows under items[].
+func responseSection(resp []schemaField) string {
+	if len(resp) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	if _, ok := listEnvelope(resp); ok {
+		b.WriteString("Response fields (under `data`; list rows are nested under items[] — pipe `jq '.items[]'`):\n")
+	} else {
+		b.WriteString("Response fields (under `data`):\n")
+	}
+	renderTree(&b, resp, 1)
+	return b.String()
+}
+
+// responseSectionList renders the Response-fields block for a command whose
+// `--json` FLATTENS a list envelope to a top-level array of row objects (every
+// curated list command does this via PrintList). It documents the flattened
+// shape — `jq '.[]'`, not `.items[]` — so an agent that trusts the help writes a
+// jq path that actually matches the output. Non-list responses fall through to
+// responseSection unchanged.
+func responseSectionList(resp []schemaField) string {
+	if rows, ok := listEnvelope(resp); ok {
+		var b strings.Builder
+		b.WriteString("Response fields (this command's `--json` is a TOP-LEVEL array of these row objects — pipe `jq '.[]'`, NOT `.items[]`):\n")
+		renderTree(&b, rows, 1)
+		return b.String()
+	}
+	return responseSection(resp)
+}
+
+// renderTree writes a schema field tree as an indented "- name (type) — desc"
+// list, recursing into nested object/array-element fields. indent is in 2-space
+// units (so it nests under the parent line in longHelp).
+func renderTree(b *strings.Builder, fields []schemaField, indent int) {
+	pad := strings.Repeat("  ", indent)
+	for _, f := range fields {
+		line := pad + "- " + f.Wire + " (" + f.Type + ")"
+		if f.Required {
+			line += " (required)"
+		}
+		if f.Desc != "" {
+			line += " — " + oneLine(f.Desc)
+		}
+		if len(f.Enum) > 0 {
+			line += " [" + strings.Join(f.Enum, ", ") + "]"
+		}
+		if f.Constraint != "" {
+			line += " (" + f.Constraint + ")"
+		}
+		b.WriteString(line + "\n")
+		renderTree(b, f.Children, indent+1)
+	}
 }
 
 func exampleHelp(o specOp, verb string, s service) string {
@@ -663,7 +977,11 @@ func exampleHelp(o specOp, verb string, s service) string {
 }
 
 func flagUsage(f specField) string {
-	u := oneLine(f.Desc)
+	// Spec descriptions use Markdown code-spans (`field`). pflag's UnquoteUsage
+	// treats the first backtick-quoted word as the flag's value-type placeholder,
+	// rendering nonsense like "--dql sql" / "--country-code phones". Convert
+	// backticks to single quotes so pflag falls back to the real type name.
+	u := strings.ReplaceAll(oneLine(f.Desc), "`", "'")
 	if u == "" {
 		u = "Request field " + f.Wire
 	}
@@ -673,12 +991,27 @@ func flagUsage(f specField) string {
 	if len(f.Enum) > 0 {
 		u += " [" + strings.Join(f.Enum, ", ") + "]"
 	}
+	if f.Constraint != "" {
+		u += " (" + f.Constraint + ")"
+	}
 	return u
 }
 
 // ---- small helpers ---------------------------------------------------------
 
-func flagName(wire string) string { return kebab(wire) }
+// flagDisplayName overrides the CLI surface name for a few unintuitive wire
+// keys. The JSON wire key (what we put in the request body) is unchanged; only
+// the flag an agent types differs. "p" → "page" because a bare "--p" is the
+// single most-guessed-wrong list flag (audit), and no request field uses the
+// wire "page", so the rename is collision-free.
+var flagDisplayName = map[string]string{"p": "page"}
+
+func flagName(wire string) string {
+	if n, ok := flagDisplayName[wire]; ok {
+		return n
+	}
+	return kebab(wire)
+}
 func flagVar(wire string) string  { return "f" + pascal(tokens(wire)) }
 
 func goFlagType(kind string) string {

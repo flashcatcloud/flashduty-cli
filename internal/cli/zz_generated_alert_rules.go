@@ -22,6 +22,16 @@ API: POST /monit/rule/audit/detail (monit-rule-read-audit-detail)
 
 Request fields:
   --id int (required) — Rule ID.
+
+Response fields (under 'data'):
+  - account_id (integer) (required)
+  - action (string) (required) — Action performed, e.g. 'create', 'update'.
+  - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
+  - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
+  - created_at (integer) (required)
+  - creator_id (integer) (required)
+  - creator_name (string) (required)
+  - id (integer) (required) — Audit record ID.
 `,
 		Example: `  flashduty monit rule-audit-detail --data '{"id":9001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -311,6 +321,75 @@ API: POST /monit/rule/info (monit-rule-read-info)
 
 Request fields:
   --id int (required) — Rule ID.
+
+Response fields (under 'data'):
+  - account_id (integer) (required)
+  - annotations (object)
+  - channel_ids (array<integer>) — Channel IDs to send alerts to.
+  - created_at (integer) (required)
+  - creator_id (integer) (required)
+  - creator_name (string) (required)
+  - cron_pattern (string) (required) — 5-field cron schedule.
+  - debug_log_enabled (boolean) (required)
+  - delay_seconds (integer) (required)
+  - description (string)
+  - description_type (string) [text, markdown]
+  - ds_ids (array<integer>) — Specific data source IDs.
+  - ds_list (array<string>) — Data source name patterns (supports wildcards).
+  - ds_type (string) (required) — Data source type.
+  - enabled (boolean) (required)
+  - enabled_times (array<object>) — Time windows when the rule is active.
+    - days (array<integer>) — Days of week (0=Sunday).
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  - folder_id (integer) (required) — Folder the rule belongs to.
+  - id (integer) (required)
+  - labels (object) — Custom labels.
+  - name (string) (required) — Rule name.
+  - repeat_interval (integer) — Notification repeat interval in seconds.
+  - repeat_total (integer) — Max number of repeat notifications.
+  - rule_configs (object) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
+  - updated_at (integer) (required)
+  - updater_id (integer) (required)
+  - updater_name (string) (required)
 `,
 		Example: `  flashduty monit rule-info --data '{"id":50001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -353,7 +432,7 @@ Return the basic information of all alert rules in a folder. For full rule detai
 API: POST /monit/rule/list/basic (monit-rule-read-list)
 
 Request fields:
-  --folder-id int — Folder ID. 0 to list all accessible rules.
+  --folder-id int — Folder ID — must be a real folder ID; 0 or empty is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation, then list per folder. Returns only rules directly in that folder, not descendant folders.
 `,
 		Example: `  flashduty monit rule-list-basic --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -378,7 +457,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 to list all accessible rules.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID — must be a real folder ID; 0 or empty is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation, then list per folder. Returns only rules directly in that folder, not descendant folders.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -439,10 +518,120 @@ Request fields:
   --updated-at int
   --updater-id int
   --updater-name string
-  annotations (JSON, via --data)
-  enabled_times (JSON, via --data) — Time windows when the rule is active.
-  labels (JSON, via --data) — Custom labels.
-  rule_configs (JSON, via --data) — Rule evaluation configuration.
+  annotations (object, via --data)
+  enabled_times (array<object>, via --data) — Time windows when the rule is active.
+    - days (array<integer>) — Days of week (0=Sunday).
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  labels (object, via --data) — Custom labels.
+  rule_configs (object, via --data) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
+
+Response fields (under 'data'):
+  - account_id (integer)
+  - annotations (object)
+  - channel_ids (array<integer>) — Channel IDs to send alerts to.
+  - created_at (integer)
+  - creator_id (integer)
+  - creator_name (string)
+  - cron_pattern (string) — 5-field cron schedule.
+  - debug_log_enabled (boolean)
+  - delay_seconds (integer)
+  - description (string)
+  - description_type (string) [text, markdown]
+  - ds_ids (array<integer>) — Specific data source IDs.
+  - ds_list (array<string>) — Data source name patterns (supports wildcards).
+  - ds_type (string) — Data source type.
+  - enabled (boolean)
+  - enabled_times (array<object>) — Time windows when the rule is active.
+    - days (array<integer>) — Days of week (0=Sunday).
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  - folder_id (integer) — Folder the rule belongs to.
+  - id (integer)
+  - labels (object) — Custom labels.
+  - name (string) — Rule name.
+  - repeat_interval (integer) — Notification repeat interval in seconds.
+  - repeat_total (integer) — Max number of repeat notifications.
+  - rule_configs (object) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
+  - updated_at (integer)
+  - updater_id (integer)
+  - updater_name (string)
 `,
 		Example: `  flashduty monit rule-create --data '{"channel_ids":[20001],"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"check_threshold":{"alerting_check_times":1,"critical":"A","enabled":true,"push_recovery_event":true,"recovery":{"mode":"invert"},"recovery_check_times":1},"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -682,9 +871,12 @@ Request fields:
   --ids []int (required) — Rule IDs to update.
   --repeat-interval int
   --repeat-total int
-  annotations (JSON, via --data)
-  enabled_times (JSON, via --data)
-  labels (JSON, via --data)
+  annotations (object, via --data)
+  enabled_times (array<object>, via --data)
+    - days (array<integer>) — Days of week, 0 = Sunday.
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  labels (object, via --data)
 `,
 		Example: `  flashduty monit rule-update-fields --data '{"enabled":false,"fields":["enabled"],"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -859,7 +1051,7 @@ Return the rule trigger summary for all rules under a folder node and its descen
 API: POST /monit/rule/status (monit-rule-write-status)
 
 Request fields:
-  --folder-id int — Folder ID. 0 for all.
+  --folder-id int — Folder ID — must be a real folder ID; 0 is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation.
 `,
 		Example: `  flashduty monit rule-status --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -884,7 +1076,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 for all.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID — must be a real folder ID; 0 is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -945,10 +1137,120 @@ Request fields:
   --updated-at int
   --updater-id int
   --updater-name string
-  annotations (JSON, via --data)
-  enabled_times (JSON, via --data) — Time windows when the rule is active.
-  labels (JSON, via --data) — Custom labels.
-  rule_configs (JSON, via --data) — Rule evaluation configuration.
+  annotations (object, via --data)
+  enabled_times (array<object>, via --data) — Time windows when the rule is active.
+    - days (array<integer>) — Days of week (0=Sunday).
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  labels (object, via --data) — Custom labels.
+  rule_configs (object, via --data) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
+
+Response fields (under 'data'):
+  - account_id (integer)
+  - annotations (object)
+  - channel_ids (array<integer>) — Channel IDs to send alerts to.
+  - created_at (integer)
+  - creator_id (integer)
+  - creator_name (string)
+  - cron_pattern (string) — 5-field cron schedule.
+  - debug_log_enabled (boolean)
+  - delay_seconds (integer)
+  - description (string)
+  - description_type (string) [text, markdown]
+  - ds_ids (array<integer>) — Specific data source IDs.
+  - ds_list (array<string>) — Data source name patterns (supports wildcards).
+  - ds_type (string) — Data source type.
+  - enabled (boolean)
+  - enabled_times (array<object>) — Time windows when the rule is active.
+    - days (array<integer>) — Days of week (0=Sunday).
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  - folder_id (integer) — Folder the rule belongs to.
+  - id (integer)
+  - labels (object) — Custom labels.
+  - name (string) — Rule name.
+  - repeat_interval (integer) — Notification repeat interval in seconds.
+  - repeat_total (integer) — Max number of repeat notifications.
+  - rule_configs (object) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
+  - updated_at (integer)
+  - updater_id (integer)
+  - updater_name (string)
 `,
 		Example: `  flashduty monit rule-update --data '{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"id":50001,"name":"CPU High v2","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 5","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

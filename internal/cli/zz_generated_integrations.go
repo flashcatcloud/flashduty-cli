@@ -23,7 +23,28 @@ API: POST /webhook/history/detail (webhookHistoryDetail)
 
 Request fields:
   --event-id string (required) — Event ID returned by 'ListWebhookHistory'.
-  --integration-id int (required) — Integration ID the event belongs to.
+  --integration-id int (required) — Integration ID the event belongs to. (min 1)
+
+Response fields (under 'data'):
+  - attempt (integer) (required) — Attempt sequence number.
+  - channel_id (integer) — Channel ID when applicable.
+  - channel_name (string) — Name of the associated channel, resolved at query time.
+  - duration (integer) (required) — Total elapsed time of the attempt in milliseconds.
+  - endpoint (string) (required) — Destination URL.
+  - error_message (string) — Error message when delivery failed.
+  - event_id (string) (required) — Event ID.
+  - event_time (string) (required) — Event time as a formatted timestamp string.
+  - event_type (string) (required) — Event type.
+  - integration_id (integer) (required) — Integration ID.
+  - ref_id (string) — Source object ID.
+  - ref_title (string) — Title of the source incident or alert, resolved at query time.
+  - request_body (string) — Outbound request body payload.
+  - request_headers (string) — Serialized outbound request headers.
+  - response_body (string) — Response body.
+  - response_headers (string) — Serialized response headers.
+  - status (string) (required) — Delivery outcome. [success, failed]
+  - status_code (integer) (required) — HTTP status code.
+  - webhook_type (string) (required) — Source object kind. 'incident' or 'alert'.
 `,
 		Example: `  flashduty webhook history-detail --data '{"event_id":"20260412Xatt9hrXsgmFkBR78WF655","integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,8 +72,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by `ListWebhookHistory`. (required)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to. (required)")
+	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by 'ListWebhookHistory'. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -80,15 +101,37 @@ API: POST /webhook/history/list (webhookHistoryList)
 
 Request fields:
   --asc bool — Ascending order by 'event_time' when true; otherwise descending.
-  --end-time int (required) — Window end time in Unix milliseconds. Must be greater than 'start_time'.
+  --end-time int (required) — Window end time in Unix milliseconds. Must be greater than 'start_time'. (1000000000000-9999999999999)
   --event-types []string — Filter by event type values.
-  --integration-id int — Filter by integration ID.
-  --limit int (required) — Page size.
+  --integration-id int — Filter by integration ID. (min 0)
+  --limit int (required) — Page size. (1-100)
   --orderby string — Sort field. Currently only 'event_time' is supported. [event_time]
-  --ref-id string — Reference ID filter (incident or alert ID).
+  --ref-id string — Reference ID filter (incident or alert ID). (≤128 chars)
   --search-after-ctx string — Opaque cursor returned by a previous call for fetching the next page.
-  --start-time int (required) — Window start time in Unix milliseconds.
+  --start-time int (required) — Window start time in Unix milliseconds. (1000000000000-9999999999999)
   --status string — Filter by delivery status. [success, failed]
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - attempt (integer) (required) — Attempt sequence number.
+    - channel_id (integer) — Channel ID associated with the event, when applicable.
+    - duration (integer) (required) — Total elapsed time of the attempt in milliseconds.
+    - endpoint (string) (required) — Destination URL.
+    - error_message (string) — Error message when delivery failed.
+    - event_id (string) (required) — Unique event identifier for the delivery attempt.
+    - event_time (string) (required) — Event time as a formatted timestamp string.
+    - event_type (string) (required) — Event type (e.g. 'created', 'acknowledged', 'closed').
+    - integration_id (integer) (required) — Integration ID that triggered the webhook.
+    - ref_id (string) — Source object ID (incident ID or alert ID).
+    - request_body (string) — Outbound request body payload.
+    - request_headers (string) — Serialized outbound request headers.
+    - response_body (string) — Response body returned by the destination.
+    - response_headers (string) — Serialized response headers from the destination.
+    - status (string) (required) — Delivery outcome. [success, failed]
+    - status_code (integer) (required) — HTTP status code returned by the destination.
+    - webhook_type (string) (required) — Source object kind. 'incident' or 'alert'.
+  - search_after_ctx (string) (required) — Cursor to pass as 'search_after_ctx' to fetch the next page. Empty when no further pages are available.
+  - total (integer) (required) — Total number of matching records.
 `,
 		Example: `  flashduty webhook history-list --data '{"end_time":1775203200000,"integration_id":6113996590131,"limit":20,"start_time":1775116800000,"status":"success"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -140,15 +183,15 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order by `event_time` when true; otherwise descending.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Window end time in Unix milliseconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order by 'event_time' when true; otherwise descending.")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Window end time in Unix milliseconds. Must be greater than 'start_time'. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringSliceVar(&fEventTypes, "event-types", nil, "Filter by event type values.")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by integration ID.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (required)")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Currently only `event_time` is supported. [event_time]")
-	cmd.Flags().StringVar(&fRefID, "ref-id", "", "Reference ID filter (incident or alert ID).")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by integration ID. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (required) (1-100)")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Currently only 'event_time' is supported. [event_time]")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "Reference ID filter (incident or alert ID). (≤128 chars)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required)")
+	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status. [success, failed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd

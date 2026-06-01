@@ -27,6 +27,7 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search audit logs",
+		Long:  curatedLong("Search audit logs within a time window, optionally filtered by person and operation type.", "AuditLogs", "Search"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -107,7 +108,7 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().Int64Var(&person, "person", 0, "Filter by person ID")
 	cmd.Flags().StringVar(&operation, "operation", "", "Filter by operation type")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 99)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd

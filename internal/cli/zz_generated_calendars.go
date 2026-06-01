@@ -75,9 +75,24 @@ API: POST /calendar/event/list (calEventList)
 
 Request fields:
   --cal-id string (required) — Calendar ID.
-  --day int — Day (1-31). 0 means no day filter.
-  --month int — Month (1-12). 0 means no month filter.
-  --year int — Year. Defaults to the current year when omitted.
+  --day int — Day (1-31). 0 means no day filter. (0-31)
+  --month int — Month (1-12). 0 means no month filter. (0-12)
+  --year int — Year. Defaults to the current year when omitted. (min 2023)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Calendar events sorted by start_at.
+    - account_id (integer) — Account ID. Only present for private events.
+    - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
+    - created_at (integer) (required) — Creation timestamp (Unix seconds).
+    - creator_id (integer) — Creator person ID. Only present for private events.
+    - description (string) (required) — Event description.
+    - end_at (string) (required) — Event end date (YYYY-MM-DD, exclusive).
+    - event_id (string) (required) — Event ID.
+    - is_off (boolean) (required) — Whether the event marks a non-working day.
+    - start_at (string) (required) — Event start date (YYYY-MM-DD).
+    - summary (string) (required) — Event summary.
+    - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+  - total (integer) (required) — Total number of events returned.
 `,
 		Example: `  flashduty calendar event-list --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","month":5,"year":2024}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -112,9 +127,9 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter.")
-	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter.")
-	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted.")
+	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter. (0-31)")
+	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter. (0-12)")
+	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted. (min 2023)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -139,12 +154,17 @@ API: POST /calendar/event/upsert (calEventUpsert)
 
 Request fields:
   --cal-id string (required) — Calendar ID.
-  --description string — Event description.
+  --description string — Event description. (≤499 chars)
   --end-at string (required) — Event end date in YYYY-MM-DD (exclusive).
-  --event-id string — Event ID. Omit when creating.
+  --event-id string — Event ID. Omit when creating. (≤63 chars)
   --is-off bool (required) — Whether the event marks a non-working day. true = day off, false = working day override.
   --start-at string (required) — Event start date in YYYY-MM-DD.
-  --summary string (required) — Event summary.
+  --summary string (required) — Event summary. (1-39 chars)
+
+Response fields (under 'data'):
+  - cal_id (string) (required) — Calendar ID.
+  - event_id (string) (required) — Event ID (existing or newly generated).
+  - summary (string) (required) — Event summary.
 `,
 		Example: `  flashduty calendar event-upsert --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","description":"International Workers Day holiday","end_at":"2024-05-06","is_off":true,"start_at":"2024-05-01","summary":"Labour Day"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -188,12 +208,12 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Event description.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Event description. (≤499 chars)")
 	cmd.Flags().StringVar(&fEndAt, "end-at", "", "Event end date in YYYY-MM-DD (exclusive). (required)")
-	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. Omit when creating.")
+	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. Omit when creating. (≤63 chars)")
 	cmd.Flags().BoolVar(&fIsOff, "is-off", false, "Whether the event marks a non-working day. true = day off, false = working day override. (required)")
 	cmd.Flags().StringVar(&fStartAt, "start-at", "", "Event start date in YYYY-MM-DD. (required)")
-	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. (required)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -216,12 +236,16 @@ Create a personal service calendar. Each account is limited to 5 calendars unles
 API: POST /calendar/create (calendarCreate)
 
 Request fields:
-  --cal-name string (required) — Calendar display name.
-  --description string — Calendar description.
+  --cal-name string (required) — Calendar display name. (1-39 chars)
+  --description string — Calendar description. (≤499 chars)
   --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).
   --team-id int — Owning team ID. 0 means no team.
   --timezone string — IANA timezone. Defaults to Asia/Shanghai when empty.
   --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
+
+Response fields (under 'data'):
+  - cal_id (string) (required) — ID of the newly created calendar (format cal.<uuid>).
+  - cal_name (string) (required) — Calendar display name.
 `,
 		Example: `  flashduty calendar create --data '{"cal_name":"Production On-Call Calendar","description":"Calendar for production on-call team","timezone":"Asia/Shanghai","workdays":[1,2,3,4,5]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -261,8 +285,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalName, "cal-name", "", "Calendar display name. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Calendar description.")
+	cmd.Flags().StringVar(&fCalName, "cal-name", "", "Calendar display name. (required) (1-39 chars)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Calendar description. (≤499 chars)")
 	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. 0 means no team.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone. Defaults to Asia/Shanghai when empty.")
@@ -329,6 +353,22 @@ API: POST /calendar/info (calendarInfo)
 
 Request fields:
   --cal-id string (required) — Calendar ID.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - cal_id (string) (required) — Calendar ID.
+  - cal_name (string) (required) — Calendar display name.
+  - created_at (integer) (required) — Creation timestamp (Unix seconds).
+  - creator_id (integer) (required) — Creator person ID.
+  - description (string) (required) — Calendar description.
+  - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
+  - kind (string) (required) — Calendar kind. [region.official.holiday, religion.holiday, personal]
+  - status (string) (required) — Calendar status. [enabled, deleted]
+  - team_id (integer) (required) — Owning team ID (0 when not assigned).
+  - timezone (string) (required) — IANA timezone.
+  - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+  - updated_by (integer) (required) — Last updater person ID.
+  - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
 		Example: `  flashduty calendar info --data '{"cal_id":"cal.eh9gvPtWeH3xXgKeVSRxRg"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -374,6 +414,24 @@ API: POST /calendar/list (calendarList)
 Request fields:
   --kind string — Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]
   --no-locale bool — Disable locale filtering when listing public-holiday calendars.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Calendar items.
+    - account_id (integer) (required) — Account ID.
+    - cal_id (string) (required) — Calendar ID.
+    - cal_name (string) (required) — Calendar display name.
+    - created_at (integer) (required) — Creation timestamp (Unix seconds).
+    - creator_id (integer) (required) — Creator person ID.
+    - description (string) (required) — Calendar description.
+    - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
+    - kind (string) (required) — Calendar kind. [region.official.holiday, religion.holiday, personal]
+    - status (string) (required) — Calendar status. [enabled, deleted]
+    - team_id (integer) (required) — Owning team ID (0 when not assigned).
+    - timezone (string) (required) — IANA timezone.
+    - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+    - updated_by (integer) (required) — Last updater person ID.
+    - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
+  - total (integer) (required) — Total number of calendars returned.
 `,
 		Example: `  flashduty calendar list --data '{"kind":"personal"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -427,8 +485,8 @@ API: POST /calendar/update (calendarUpdate)
 
 Request fields:
   --cal-id string (required) — Calendar ID.
-  --cal-name string — New calendar name.
-  --description string — New description.
+  --cal-name string — New calendar name. (1-39 chars)
+  --description string — New description. (≤499 chars)
   --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from.
   --team-id int — New owning team ID.
   --timezone string — New IANA timezone.
@@ -477,8 +535,8 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
+	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name. (1-39 chars)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤499 chars)")
 	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone.")

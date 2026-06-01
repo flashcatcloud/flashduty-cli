@@ -23,6 +23,7 @@ func newMonitAgentCatalogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "catalog",
 		Short: "List the diagnostic tools the agent exposes for a target",
+		Long:  curatedLong("List the diagnostic tools a monit-agent exposes for a target.", "Diagnostics", "ToolsCatalog"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if targetLocator == "" {
 				return fmt.Errorf("--target-locator is required")
@@ -56,6 +57,7 @@ func newMonitAgentInvokeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
 		Short: "Run up to 8 monit-agent tools concurrently on a target",
+		Long:  curatedLong("Run up to 8 monit-agent diagnostic tools concurrently on a target and return their output.", "Diagnostics", "ToolsInvoke"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if targetLocator == "" {
 				return fmt.Errorf("--target-locator is required")

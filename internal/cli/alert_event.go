@@ -27,6 +27,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alert events globally",
+		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type.", "Alerts", "EventReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)

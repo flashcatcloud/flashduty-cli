@@ -31,7 +31,7 @@ Return a cursor-paginated list of raw alert events across all alerts, with filte
 API: POST /alert-event/list (alert-event-read-list)
 
 Request fields:
-  --p int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
+  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
   --limit int — Page size, max 100, default 20.
   --search-after-ctx string — Opaque cursor for the next page.
   --asc bool — Sort ascending when 'true'.
@@ -42,12 +42,40 @@ Request fields:
   --orderby string — Sort field (ES field name). [event_time]
   --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'.
   --start-time int — Start of search window, Unix epoch seconds.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alert_id (string) — Parent alert ID (MongoDB ObjectID).
+    - alert_key (string) — Deduplication key used to merge events into an alert.
+    - channel_id (integer) — Channel ID the event is routed to.
+    - created_at (integer) — Record creation time, Unix epoch seconds.
+    - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
+    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - description (string) — Event description.
+    - event_id (string) — Event ID (MongoDB ObjectID).
+    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
+    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_time (integer) — Event timestamp, Unix epoch seconds.
+    - images (array<object>) — Images attached to the event.
+      - alt (string) — Alt text.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - integration_id (integer) — Integration that produced this event.
+    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - labels (object) — Label key-value pairs.
+    - title (string) — Event title.
+    - title_rule (string) — Title template used to derive 'title' from labels.
+    - updated_at (integer) — Record update time, Unix epoch seconds.
+  - search_after_ctx (string)
+  - total (integer)
 `,
 		Example: `  flashduty alert-event list --data '{"end_time":1712707200,"limit":20,"severities":"Critical","start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -96,16 +124,16 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1. Used when `search_after_ctx` is not provided.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor for the next page.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. Max 100.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of search window, Unix epoch seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field (ES field name). [event_time]")
-	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. `Critical,Warning`.")
+	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of search window, Unix epoch seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
@@ -125,6 +153,31 @@ API: POST /alert/event/list (alert-read-event-list)
 
 Request fields:
   --alert-id string (required) — Alert ID (ObjectID hex string).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alert_id (string) — Parent alert ID (MongoDB ObjectID).
+    - alert_key (string) — Deduplication key used to merge events into an alert.
+    - channel_id (integer) — Channel ID the event is routed to.
+    - created_at (integer) — Record creation time, Unix epoch seconds.
+    - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
+    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - description (string) — Event description.
+    - event_id (string) — Event ID (MongoDB ObjectID).
+    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
+    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_time (integer) — Event timestamp, Unix epoch seconds.
+    - images (array<object>) — Images attached to the event.
+      - alt (string) — Alt text.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - integration_id (integer) — Integration that produced this event.
+    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - labels (object) — Label key-value pairs.
+    - title (string) — Event title.
+    - title_rule (string) — Title template used to derive 'title' from labels.
+    - updated_at (integer) — Record update time, Unix epoch seconds.
 `,
 		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -172,18 +225,29 @@ Return the activity feed (comments, state changes, merges, silence events) for a
 API: POST /alert/feed (alert-read-feed)
 
 Request fields:
-  --p int — Page number, starting at 1.
+  --page int — Page number, starting at 1.
   --limit int — Page size, max 100, default 20.
   --search-after-ctx string
   --alert-id string (required) — Alert ID.
   --asc bool — Sort ascending.
   --types []string — Filter by feed types.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - account_id (integer) (required) — Account ID.
+    - created_at (integer) (required) — Creation timestamp in Unix epoch milliseconds.
+    - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
+    - detail (any) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - ref_id (string) (required) — ObjectID of the alert this entry references.
+    - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
+    - updated_at (integer) (required) — Last update timestamp in Unix epoch milliseconds.
 `,
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -217,7 +281,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID. (required)")
@@ -241,6 +305,68 @@ API: POST /alert/info (alert-read-info)
 
 Request fields:
   --alert-id string (required) — Alert ID (ObjectID hex string).
+
+Response fields (under 'data'):
+  - account_id (integer) — Account ID.
+  - alert_id (string) — Unique alert ID (ObjectID hex string).
+  - alert_key (string) — Deduplication key.
+  - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
+  - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+  - channel_id (integer) — ID of the channel the alert belongs to.
+  - channel_name (string) — Display name of the channel.
+  - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+  - created_at (integer) — Creation timestamp, Unix epoch seconds.
+  - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
+  - data_source_name (string) — Deprecated. Use 'integration_name' instead.
+  - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
+  - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+  - description (string) — Alert description.
+  - end_time (integer) — Resolution time, Unix epoch seconds. 0 if still active.
+  - event_cnt (integer) — Total number of raw events received by this alert.
+  - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+    - account_id (integer) — Account ID.
+    - alert_id (string) — Parent alert ID (MongoDB ObjectID).
+    - alert_key (string) — Deduplication key used to merge events into an alert.
+    - channel_id (integer) — Channel ID the event is routed to.
+    - created_at (integer) — Record creation time, Unix epoch seconds.
+    - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
+    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - description (string) — Event description.
+    - event_id (string) — Event ID (MongoDB ObjectID).
+    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
+    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_time (integer) — Event timestamp, Unix epoch seconds.
+    - images (array<object>) — Images attached to the event.
+      - alt (string) — Alt text.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - integration_id (integer) — Integration that produced this event.
+    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - labels (object) — Label key-value pairs.
+    - title (string) — Event title.
+    - title_rule (string) — Title template used to derive 'title' from labels.
+    - updated_at (integer) — Record update time, Unix epoch seconds.
+  - ever_muted (boolean) — True if this alert has ever been silenced.
+  - images (array<object>) — Images attached to the alert.
+    - alt (string) — Alt text.
+    - href (string) — Optional link URL when the image is clicked.
+    - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+  - incident (object) — Brief incident reference embedded in an alert.
+    - incident_id (string) — Incident ID (ObjectID hex string).
+    - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+    - title (string) — Incident title.
+  - integration_id (integer) — ID of the integration that produced this alert.
+  - integration_name (string) — Display name of the integration.
+  - integration_ref_id (string) — External reference ID of the integration.
+  - integration_type (string) — Type/plugin key of the integration.
+  - labels (object) — Label key-value pairs.
+  - last_time (integer) — Last-event time, Unix epoch seconds.
+  - responder_email (string) — Email of the current responder (from the associated incident).
+  - responder_name (string) — Display name of the current responder (from the associated incident).
+  - start_time (integer) — First-seen time, Unix epoch seconds.
+  - title (string) — Alert title.
+  - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
+  - updated_at (integer) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty alert info --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -297,7 +423,7 @@ Return a cursor-paginated list of alerts matching the given filters.
 API: POST /alert/list (alert-read-list)
 
 Request fields:
-  --p int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
+  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
   --limit int — Page size. Max 100, default 20.
   --search-after-ctx string — Opaque cursor from the previous response for the next page.
   --alert-ids []string — Filter to specific alert IDs (ObjectID hex strings).
@@ -312,12 +438,78 @@ Request fields:
   --is-active bool — Filter by active ('true') or resolved ('false') status.
   --orderby string — Sort field. [created_at, updated_at]
   --start-time int (required) — Start of the search window, Unix epoch seconds.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) — True if more pages are available.
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alert_id (string) — Unique alert ID (ObjectID hex string).
+    - alert_key (string) — Deduplication key.
+    - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
+    - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+    - channel_id (integer) — ID of the channel the alert belongs to.
+    - channel_name (string) — Display name of the channel.
+    - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+    - created_at (integer) — Creation timestamp, Unix epoch seconds.
+    - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
+    - data_source_name (string) — Deprecated. Use 'integration_name' instead.
+    - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
+    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - description (string) — Alert description.
+    - end_time (integer) — Resolution time, Unix epoch seconds. 0 if still active.
+    - event_cnt (integer) — Total number of raw events received by this alert.
+    - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+      - account_id (integer) — Account ID.
+      - alert_id (string) — Parent alert ID (MongoDB ObjectID).
+      - alert_key (string) — Deduplication key used to merge events into an alert.
+      - channel_id (integer) — Channel ID the event is routed to.
+      - created_at (integer) — Record creation time, Unix epoch seconds.
+      - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
+      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - description (string) — Event description.
+      - event_id (string) — Event ID (MongoDB ObjectID).
+      - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
+      - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+      - event_time (integer) — Event timestamp, Unix epoch seconds.
+      - images (array<object>) — Images attached to the event.
+        - alt (string) — Alt text.
+        - href (string) — Optional link URL when the image is clicked.
+        - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+      - integration_id (integer) — Integration that produced this event.
+      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - labels (object) — Label key-value pairs.
+      - title (string) — Event title.
+      - title_rule (string) — Title template used to derive 'title' from labels.
+      - updated_at (integer) — Record update time, Unix epoch seconds.
+    - ever_muted (boolean) — True if this alert has ever been silenced.
+    - images (array<object>) — Images attached to the alert.
+      - alt (string) — Alt text.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - incident (object) — Brief incident reference embedded in an alert.
+      - incident_id (string) — Incident ID (ObjectID hex string).
+      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - title (string) — Incident title.
+    - integration_id (integer) — ID of the integration that produced this alert.
+    - integration_name (string) — Display name of the integration.
+    - integration_ref_id (string) — External reference ID of the integration.
+    - integration_type (string) — Type/plugin key of the integration.
+    - labels (object) — Label key-value pairs.
+    - last_time (integer) — Last-event time, Unix epoch seconds.
+    - responder_email (string) — Email of the current responder (from the associated incident).
+    - responder_name (string) — Display name of the current responder (from the associated incident).
+    - start_time (integer) — First-seen time, Unix epoch seconds.
+    - title (string) — Alert title.
+    - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+  - search_after_ctx (string) — Cursor for the next page.
+  - total (integer) — Total matching alerts.
 `,
 		Example: `  flashduty alert list --data '{"end_time":1712707200,"is_active":true,"limit":20,"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -378,19 +570,19 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1. Used when `search_after_ctx` is not provided.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max 100, default 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor from the previous response for the next page.")
 	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Filter to specific alert IDs (ObjectID hex strings).")
 	cmd.Flags().StringSliceVar(&fAlertKeys, "alert-keys", nil, "Filter by alert deduplication keys.")
-	cmd.Flags().StringVar(&fAlertSeverity, "alert-severity", "", "Comma-separated severity filter, e.g. `Critical,Warning`. Allowed values: `Critical`, `Warning`, `Info`, `Ok`.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`. Default descending.")
-	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When `true`, the time range filter is applied on `updated_at` rather than `start_time`.")
+	cmd.Flags().StringVar(&fAlertSeverity, "alert-severity", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'. Default descending.")
+	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the search window, Unix epoch seconds. Max span 31 days. (required)")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "Filter by whether the alert has ever been silenced.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
-	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by active (`true`) or resolved (`false`) status.")
+	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by active ('true') or resolved ('false') status.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the search window, Unix epoch seconds. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -411,6 +603,72 @@ API: POST /alert/list-by-ids (alert-read-list-by-ids)
 
 Request fields:
   --alert-ids []string (required) — List of alert IDs (ObjectID hex strings).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) — True if more pages are available.
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alert_id (string) — Unique alert ID (ObjectID hex string).
+    - alert_key (string) — Deduplication key.
+    - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
+    - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+    - channel_id (integer) — ID of the channel the alert belongs to.
+    - channel_name (string) — Display name of the channel.
+    - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+    - created_at (integer) — Creation timestamp, Unix epoch seconds.
+    - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
+    - data_source_name (string) — Deprecated. Use 'integration_name' instead.
+    - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
+    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - description (string) — Alert description.
+    - end_time (integer) — Resolution time, Unix epoch seconds. 0 if still active.
+    - event_cnt (integer) — Total number of raw events received by this alert.
+    - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+      - account_id (integer) — Account ID.
+      - alert_id (string) — Parent alert ID (MongoDB ObjectID).
+      - alert_key (string) — Deduplication key used to merge events into an alert.
+      - channel_id (integer) — Channel ID the event is routed to.
+      - created_at (integer) — Record creation time, Unix epoch seconds.
+      - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
+      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - description (string) — Event description.
+      - event_id (string) — Event ID (MongoDB ObjectID).
+      - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
+      - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+      - event_time (integer) — Event timestamp, Unix epoch seconds.
+      - images (array<object>) — Images attached to the event.
+        - alt (string) — Alt text.
+        - href (string) — Optional link URL when the image is clicked.
+        - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+      - integration_id (integer) — Integration that produced this event.
+      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - labels (object) — Label key-value pairs.
+      - title (string) — Event title.
+      - title_rule (string) — Title template used to derive 'title' from labels.
+      - updated_at (integer) — Record update time, Unix epoch seconds.
+    - ever_muted (boolean) — True if this alert has ever been silenced.
+    - images (array<object>) — Images attached to the alert.
+      - alt (string) — Alt text.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - incident (object) — Brief incident reference embedded in an alert.
+      - incident_id (string) — Incident ID (ObjectID hex string).
+      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - title (string) — Incident title.
+    - integration_id (integer) — ID of the integration that produced this alert.
+    - integration_name (string) — Display name of the integration.
+    - integration_ref_id (string) — External reference ID of the integration.
+    - integration_type (string) — Type/plugin key of the integration.
+    - labels (object) — Label key-value pairs.
+    - last_time (integer) — Last-event time, Unix epoch seconds.
+    - responder_email (string) — Email of the current responder (from the associated incident).
+    - responder_name (string) — Display name of the current responder (from the associated incident).
+    - start_time (integer) — First-seen time, Unix epoch seconds.
+    - title (string) — Alert title.
+    - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+  - search_after_ctx (string) — Cursor for the next page.
+  - total (integer) — Total matching alerts.
 `,
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -454,6 +712,18 @@ API: POST /alert/pipeline/info (alert-read-pipeline-info)
 
 Request fields:
   --integration-id int (required) — Integration ID.
+
+Response fields (under 'data'):
+  - created_at (integer) — Creation timestamp, Unix epoch seconds.
+  - creator_id (integer) — Member ID who created the pipeline.
+  - integration_id (integer) — Integration ID this pipeline applies to.
+  - rules (array<object>) — Ordered list of processing rules.
+    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+  - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
+  - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+  - updated_by (integer) — Member ID who last updated the pipeline.
 `,
 		Example: `  flashduty alert pipeline-info --data '{"integration_id":10001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -497,6 +767,19 @@ API: POST /alert/pipeline/list (alert-read-pipeline-list)
 
 Request fields:
   --integration-ids []int (required) — Integration IDs.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - created_at (integer) — Creation timestamp, Unix epoch seconds.
+    - creator_id (integer) — Member ID who created the pipeline.
+    - integration_id (integer) — Integration ID this pipeline applies to.
+    - rules (array<object>) — Ordered list of processing rules.
+      - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+      - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+      - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+    - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+    - updated_by (integer) — Member ID who last updated the pipeline.
 `,
 		Example: `  flashduty alert pipeline-list --data '{"integration_ids":[10001,10002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -608,7 +891,10 @@ API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 
 Request fields:
   --integration-id int (required) — Integration ID to configure.
-  rules (JSON, via --data) (required) — Rules to apply. Max 50.
+  rules (array<object>, via --data) (required) — Rules to apply. Max 50.
+    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
 `,
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

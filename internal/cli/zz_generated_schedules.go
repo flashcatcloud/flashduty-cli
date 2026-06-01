@@ -27,15 +27,72 @@ Create a new on-call schedule (escalation rule schedule).
 API: POST /schedule/create (scheduleCreate)
 
 Request fields:
-  --description string — Schedule description. Max 500 characters.
+  --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
-  --name string — Legacy schedule name field. Used when schedule_name is empty.
+  --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
-  --schedule-name string — Schedule display name. Max 40 characters.
+  --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
   --team-id int — Owning team ID.
-  layers (JSON, via --data) — Rotation layers.
-  notify (JSON, via --data) — Notification configuration attached to a schedule.
+  layers (array<object>, via --data) — Rotation layers.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+    - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+    - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+    - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+    - groups (array<object>) (required) — Oncall groups participating in the rotation.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+    - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+    - layer_name (string) — User-facing layer name.
+    - layer_start (integer) — Layer start timestamp (Unix seconds).
+    - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+    - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+    - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+      - restrict_end (integer) (required) — End offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+    - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+    - rotation_duration (integer) (required) — Rotation duration in seconds.
+    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+    - schedule_id (integer) (required) — Parent schedule ID.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+    - weight (integer) (required) — Layer weight for ordering.
+  notify (object, via --data) — Notification configuration attached to a schedule.
+    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - by (object) (required) — Per-recipient notification preference.
+      - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+      - personal_channels (array<string>) (required) — Personal notification channel keys.
+    - fixed_time (object) (required) — Fixed-time notification config.
+      - cycle (string) (required) — Notification cycle.
+      - start (string) (required) — Notification start time within the cycle.
+    - im (object) — Legacy IM-type to token map.
+    - webhooks (array<object>) (required) — IM webhook notification channels.
+      - settings (object) (required) — Settings for an IM webhook notification channel.
+        - alias (string) (required) — Channel alias.
+        - chat_ids (array<string>) (required) — Chat IDs.
+        - data_source_id (integer) (required) — Data source ID.
+        - sign_secret (string) (required) — Signature secret.
+        - token (string) (required) — Webhook token.
+        - verify_token (string) (required) — Verification token.
+      - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+
+Response fields (under 'data'):
+  - schedule_id (integer) (required) — ID of the newly created schedule.
 `,
 		Example: `  flashduty schedule create --data '{"description":"Primary on-call rotation for the production team","layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0},{"end":0,"group_name":"B","members":[{"person_ids":[2476123212131],"role_id":0}],"name":"B","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"notify":{"advance_in_time":300,"by":{"follow_preference":true,"personal_channels":null},"fixed_time":null,"webhooks":null},"schedule_name":"Production On-Call","team_id":4291079133131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,11 +135,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
-	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty.")
+	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
-	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters.")
+	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -151,6 +208,151 @@ Request fields:
   --end int (required) — Preview end timestamp (Unix seconds, 10 digits).
   --schedule-id int (required) — Schedule ID.
   --start int (required) — Preview start timestamp (Unix seconds, 10 digits).
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - create_at (integer) (required) — Creation timestamp (Unix seconds).
+  - create_by (integer) (required) — Creator person ID.
+  - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - group (object) (required) — Oncall group definition within a rotation layer.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - index (integer) (required) — Index inside the rotation.
+    - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - weight (integer) (required) — Layer weight the shift comes from.
+  - description (any) (required) — Schedule description. null when returned from /schedule/preview.
+  - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
+  - end (integer) — Window end (Unix seconds).
+  - field (string) — Field name used by the legacy update-field endpoint.
+  - final_schedule (object) (required) — Computed schedule for a single layer.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
+  - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
+  - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - layers (array<object>) (required) — Rotation layers defined on the schedule.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+    - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+    - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+    - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+    - groups (array<object>) (required) — Oncall groups participating in the rotation.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+    - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+    - layer_name (string) — User-facing layer name.
+    - layer_start (integer) — Layer start timestamp (Unix seconds).
+    - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+    - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+    - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+      - restrict_end (integer) (required) — End offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+    - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+    - rotation_duration (integer) (required) — Rotation duration in seconds.
+    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+    - schedule_id (integer) (required) — Parent schedule ID.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+    - weight (integer) (required) — Layer weight for ordering.
+  - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
+  - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - group (object) (required) — Oncall group definition within a rotation layer.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - index (integer) (required) — Index inside the rotation.
+    - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - weight (integer) (required) — Layer weight the shift comes from.
+  - notify (object) (required) — Notification configuration attached to a schedule.
+    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - by (object) (required) — Per-recipient notification preference.
+      - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+      - personal_channels (array<string>) (required) — Personal notification channel keys.
+    - fixed_time (object) (required) — Fixed-time notification config.
+      - cycle (string) (required) — Notification cycle.
+      - start (string) (required) — Notification start time within the cycle.
+    - im (object) — Legacy IM-type to token map.
+    - webhooks (array<object>) (required) — IM webhook notification channels.
+      - settings (object) (required) — Settings for an IM webhook notification channel.
+        - alias (string) (required) — Channel alias.
+        - chat_ids (array<string>) (required) — Chat IDs.
+        - data_source_id (integer) (required) — Data source ID.
+        - sign_secret (string) (required) — Signature secret.
+        - token (string) (required) — Webhook token.
+        - verify_token (string) (required) — Verification token.
+      - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+  - schedule_id (integer) (required) — Schedule ID.
+  - schedule_layers (array<object>) (required) — Computed layers for the requested window.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
+  - start (integer) — Window start (Unix seconds).
+  - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
+  - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
+  - update_at (integer) (required) — Last update timestamp (Unix seconds).
+  - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule info --data '{"end":1712086400,"schedule_id":2001,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -202,6 +404,125 @@ API: POST /schedule/infos (scheduleInfos)
 
 Request fields:
   --schedule-ids []int (required) — Schedule ID list.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - description (any) (required) — Schedule description. null when returned from /schedule/preview.
+    - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
+    - end (integer) — Window end (Unix seconds).
+    - field (string) — Field name used by the legacy update-field endpoint.
+    - final_schedule (object) (required) — Computed schedule for a single layer.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
+    - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
+    - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - layers (array<object>) (required) — Rotation layers defined on the schedule.
+      - account_id (integer) (required) — Account ID.
+      - create_at (integer) (required) — Creation timestamp (Unix seconds).
+      - create_by (integer) (required) — Creator person ID.
+      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+        - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+      - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+      - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+      - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+      - groups (array<object>) (required) — Oncall groups participating in the rotation.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+      - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+      - layer_name (string) — User-facing layer name.
+      - layer_start (integer) — Layer start timestamp (Unix seconds).
+      - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+      - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+      - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+        - restrict_end (integer) (required) — End offset inside the rotation cycle.
+        - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+      - rotation_duration (integer) (required) — Rotation duration in seconds.
+      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+      - schedule_id (integer) (required) — Parent schedule ID.
+      - update_at (integer) (required) — Last update timestamp (Unix seconds).
+      - update_by (integer) (required) — Last updater person ID.
+      - weight (integer) (required) — Layer weight for ordering.
+    - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
+    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - notify (object) (required) — Notification configuration attached to a schedule.
+      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - by (object) (required) — Per-recipient notification preference.
+        - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+        - personal_channels (array<string>) (required) — Personal notification channel keys.
+      - fixed_time (object) (required) — Fixed-time notification config.
+        - cycle (string) (required) — Notification cycle.
+        - start (string) (required) — Notification start time within the cycle.
+      - im (object) — Legacy IM-type to token map.
+      - webhooks (array<object>) (required) — IM webhook notification channels.
+        - settings (object) (required) — Settings for an IM webhook notification channel.
+        - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+    - schedule_id (integer) (required) — Schedule ID.
+    - schedule_layers (array<object>) (required) — Computed layers for the requested window.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
+    - start (integer) — Window start (Unix seconds).
+    - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
+    - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule infos --data '{"schedule_ids":[2001,2002,2003]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -252,8 +573,8 @@ Return a paginated list of on-call schedules. When both start and end are provid
 API: POST /schedule/list (scheduleList)
 
 Request fields:
-  --p int — Page number (1-indexed).
-  --limit int — Page size. Default 10, max 100.
+  --page int — Page number (1-indexed).
+  --limit int — Page size. Default 10, max 100. (max 100)
   --search-after-ctx string
   --end int — Window end timestamp (Unix seconds).
   --is-my-manage bool — Only return schedules created by the current user within their teams.
@@ -261,12 +582,132 @@ Request fields:
   --query string — Search keyword matched against schedule names.
   --start int — When set together with end, computed layer schedules are returned. Span must be less than 45 days.
   --team-ids []int — Filter by team IDs.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Schedules on this page.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - description (any) (required) — Schedule description. null when returned from /schedule/preview.
+    - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
+    - end (integer) — Window end (Unix seconds).
+    - field (string) — Field name used by the legacy update-field endpoint.
+    - final_schedule (object) (required) — Computed schedule for a single layer.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
+    - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
+    - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - layers (array<object>) (required) — Rotation layers defined on the schedule.
+      - account_id (integer) (required) — Account ID.
+      - create_at (integer) (required) — Creation timestamp (Unix seconds).
+      - create_by (integer) (required) — Creator person ID.
+      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+        - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+      - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+      - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+      - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+      - groups (array<object>) (required) — Oncall groups participating in the rotation.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+      - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+      - layer_name (string) — User-facing layer name.
+      - layer_start (integer) — Layer start timestamp (Unix seconds).
+      - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+      - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+      - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+        - restrict_end (integer) (required) — End offset inside the rotation cycle.
+        - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+      - rotation_duration (integer) (required) — Rotation duration in seconds.
+      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+      - schedule_id (integer) (required) — Parent schedule ID.
+      - update_at (integer) (required) — Last update timestamp (Unix seconds).
+      - update_by (integer) (required) — Last updater person ID.
+      - weight (integer) (required) — Layer weight for ordering.
+    - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
+    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - notify (object) (required) — Notification configuration attached to a schedule.
+      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - by (object) (required) — Per-recipient notification preference.
+        - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+        - personal_channels (array<string>) (required) — Personal notification channel keys.
+      - fixed_time (object) (required) — Fixed-time notification config.
+        - cycle (string) (required) — Notification cycle.
+        - start (string) (required) — Notification start time within the cycle.
+      - im (object) — Legacy IM-type to token map.
+      - webhooks (array<object>) (required) — IM webhook notification channels.
+        - settings (object) (required) — Settings for an IM webhook notification channel.
+        - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+    - schedule_id (integer) (required) — Schedule ID.
+    - schedule_layers (array<object>) (required) — Computed layers for the requested window.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
+    - start (integer) — Window start (Unix seconds).
+    - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
+    - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+  - total (integer) (required) — Total number of schedules matching the filters.
 `,
 		Example: `  flashduty schedule list --data '{"is_my_team":true,"limit":20,"p":1,"query":"production"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -309,8 +750,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number (1-indexed).")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 10, max 100.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-indexed).")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 10, max 100. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Window end timestamp (Unix seconds).")
 	cmd.Flags().BoolVar(&fIsMyManage, "is-my-manage", false, "Only return schedules created by the current user within their teams.")
@@ -341,15 +782,214 @@ Preview the coverage generated by a schedule configuration without persisting it
 API: POST /schedule/preview (schedulePreview)
 
 Request fields:
-  --description string — Schedule description. Max 500 characters.
+  --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
-  --name string — Legacy schedule name field. Used when schedule_name is empty.
+  --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
-  --schedule-name string — Schedule display name. Max 40 characters.
+  --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
   --team-id int — Owning team ID.
-  layers (JSON, via --data) — Rotation layers.
-  notify (JSON, via --data) — Notification configuration attached to a schedule.
+  layers (array<object>, via --data) — Rotation layers.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+    - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+    - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+    - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+    - groups (array<object>) (required) — Oncall groups participating in the rotation.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+    - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+    - layer_name (string) — User-facing layer name.
+    - layer_start (integer) — Layer start timestamp (Unix seconds).
+    - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+    - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+    - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+      - restrict_end (integer) (required) — End offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+    - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+    - rotation_duration (integer) (required) — Rotation duration in seconds.
+    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+    - schedule_id (integer) (required) — Parent schedule ID.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+    - weight (integer) (required) — Layer weight for ordering.
+  notify (object, via --data) — Notification configuration attached to a schedule.
+    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - by (object) (required) — Per-recipient notification preference.
+      - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+      - personal_channels (array<string>) (required) — Personal notification channel keys.
+    - fixed_time (object) (required) — Fixed-time notification config.
+      - cycle (string) (required) — Notification cycle.
+      - start (string) (required) — Notification start time within the cycle.
+    - im (object) — Legacy IM-type to token map.
+    - webhooks (array<object>) (required) — IM webhook notification channels.
+      - settings (object) (required) — Settings for an IM webhook notification channel.
+        - alias (string) (required) — Channel alias.
+        - chat_ids (array<string>) (required) — Chat IDs.
+        - data_source_id (integer) (required) — Data source ID.
+        - sign_secret (string) (required) — Signature secret.
+        - token (string) (required) — Webhook token.
+        - verify_token (string) (required) — Verification token.
+      - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - create_at (integer) (required) — Creation timestamp (Unix seconds).
+  - create_by (integer) (required) — Creator person ID.
+  - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - group (object) (required) — Oncall group definition within a rotation layer.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - index (integer) (required) — Index inside the rotation.
+    - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - weight (integer) (required) — Layer weight the shift comes from.
+  - description (any) (required) — Schedule description. null when returned from /schedule/preview.
+  - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
+  - end (integer) — Window end (Unix seconds).
+  - field (string) — Field name used by the legacy update-field endpoint.
+  - final_schedule (object) (required) — Computed schedule for a single layer.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
+  - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
+  - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - layers (array<object>) (required) — Rotation layers defined on the schedule.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+    - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+    - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+    - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+    - groups (array<object>) (required) — Oncall groups participating in the rotation.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+    - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+    - layer_name (string) — User-facing layer name.
+    - layer_start (integer) — Layer start timestamp (Unix seconds).
+    - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+    - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+    - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+      - restrict_end (integer) (required) — End offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+    - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+    - rotation_duration (integer) (required) — Rotation duration in seconds.
+    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+    - schedule_id (integer) (required) — Parent schedule ID.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+    - weight (integer) (required) — Layer weight for ordering.
+  - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
+  - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - group (object) (required) — Oncall group definition within a rotation layer.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - index (integer) (required) — Index inside the rotation.
+    - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - weight (integer) (required) — Layer weight the shift comes from.
+  - notify (object) (required) — Notification configuration attached to a schedule.
+    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - by (object) (required) — Per-recipient notification preference.
+      - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+      - personal_channels (array<string>) (required) — Personal notification channel keys.
+    - fixed_time (object) (required) — Fixed-time notification config.
+      - cycle (string) (required) — Notification cycle.
+      - start (string) (required) — Notification start time within the cycle.
+    - im (object) — Legacy IM-type to token map.
+    - webhooks (array<object>) (required) — IM webhook notification channels.
+      - settings (object) (required) — Settings for an IM webhook notification channel.
+        - alias (string) (required) — Channel alias.
+        - chat_ids (array<string>) (required) — Chat IDs.
+        - data_source_id (integer) (required) — Data source ID.
+        - sign_secret (string) (required) — Signature secret.
+        - token (string) (required) — Webhook token.
+        - verify_token (string) (required) — Verification token.
+      - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+  - schedule_id (integer) (required) — Schedule ID.
+  - schedule_layers (array<object>) (required) — Computed layers for the requested window.
+    - layer_name (string) (required) — Layer display name.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - schedules (array<object>) (required) — Computed shifts.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+  - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
+  - start (integer) — Window start (Unix seconds).
+  - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
+  - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
+  - update_at (integer) (required) — Last update timestamp (Unix seconds).
+  - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule preview --data '{"end":1712086400,"layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"schedule_name":"Preview Schedule","start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -392,11 +1032,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
-	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty.")
+	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
-	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters.")
+	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -419,6 +1059,125 @@ API: POST /schedule/self (scheduleSelf)
 Request fields:
   --end int — Window end (Unix seconds, 10 digits). Must be within 30 days of start.
   --start int — Window start (Unix seconds, 10 digits).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - description (any) (required) — Schedule description. null when returned from /schedule/preview.
+    - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
+    - end (integer) — Window end (Unix seconds).
+    - field (string) — Field name used by the legacy update-field endpoint.
+    - final_schedule (object) (required) — Computed schedule for a single layer.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
+    - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
+    - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - layers (array<object>) (required) — Rotation layers defined on the schedule.
+      - account_id (integer) (required) — Account ID.
+      - create_at (integer) (required) — Creation timestamp (Unix seconds).
+      - create_by (integer) (required) — Creator person ID.
+      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+        - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+      - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+      - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+      - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+      - groups (array<object>) (required) — Oncall groups participating in the rotation.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+      - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+      - layer_name (string) — User-facing layer name.
+      - layer_start (integer) — Layer start timestamp (Unix seconds).
+      - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+      - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+      - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+        - restrict_end (integer) (required) — End offset inside the rotation cycle.
+        - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+      - rotation_duration (integer) (required) — Rotation duration in seconds.
+      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+      - schedule_id (integer) (required) — Parent schedule ID.
+      - update_at (integer) (required) — Last update timestamp (Unix seconds).
+      - update_by (integer) (required) — Last updater person ID.
+      - weight (integer) (required) — Layer weight for ordering.
+    - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
+    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - group (object) (required) — Oncall group definition within a rotation layer.
+        - end (integer) (required) — Group end timestamp (Unix seconds).
+        - group_name (string) (required) — Group display name.
+        - members (array<object>) (required) — Members of this group.
+        - name (string) (required) — Legacy group name.
+        - start (integer) (required) — Group start timestamp (Unix seconds).
+      - index (integer) (required) — Index inside the rotation.
+      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - weight (integer) (required) — Layer weight the shift comes from.
+    - notify (object) (required) — Notification configuration attached to a schedule.
+      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - by (object) (required) — Per-recipient notification preference.
+        - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+        - personal_channels (array<string>) (required) — Personal notification channel keys.
+      - fixed_time (object) (required) — Fixed-time notification config.
+        - cycle (string) (required) — Notification cycle.
+        - start (string) (required) — Notification start time within the cycle.
+      - im (object) — Legacy IM-type to token map.
+      - webhooks (array<object>) (required) — IM webhook notification channels.
+        - settings (object) (required) — Settings for an IM webhook notification channel.
+        - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
+    - schedule_id (integer) (required) — Schedule ID.
+    - schedule_layers (array<object>) (required) — Computed layers for the requested window.
+      - layer_name (string) (required) — Layer display name.
+      - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+      - name (string) (required) — Layer internal name.
+      - schedules (array<object>) (required) — Computed shifts.
+        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - group (object) (required) — Oncall group definition within a rotation layer.
+        - index (integer) (required) — Index inside the rotation.
+        - start (integer) (required) — Shift start timestamp (Unix seconds).
+    - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
+    - start (integer) — Window start (Unix seconds).
+    - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
+    - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule self --data '{"end":1712086400,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -471,15 +1230,69 @@ Update an existing on-call schedule. Provide schedule_id to identify the schedul
 API: POST /schedule/update (scheduleUpdate)
 
 Request fields:
-  --description string — Schedule description. Max 500 characters.
+  --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
-  --name string — Legacy schedule name field. Used when schedule_name is empty.
+  --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
-  --schedule-name string — Schedule display name. Max 40 characters.
+  --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
   --team-id int — Owning team ID.
-  layers (JSON, via --data) — Rotation layers.
-  notify (JSON, via --data) — Notification configuration attached to a schedule.
+  layers (array<object>, via --data) — Rotation layers.
+    - account_id (integer) (required) — Account ID.
+    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_by (integer) (required) — Creator person ID.
+    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
+    - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
+    - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
+    - fair_rotation (boolean) (required) — Whether fair rotation is enabled.
+    - groups (array<object>) (required) — Oncall groups participating in the rotation.
+      - end (integer) (required) — Group end timestamp (Unix seconds).
+      - group_name (string) (required) — Group display name.
+      - members (array<object>) (required) — Members of this group.
+        - person_ids (array<integer>) (required) — Person IDs in this slot.
+        - role_id (integer) (required) — Oncall role ID.
+      - name (string) (required) — Legacy group name.
+      - start (integer) (required) — Group start timestamp (Unix seconds).
+    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
+    - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
+    - layer_name (string) — User-facing layer name.
+    - layer_start (integer) — Layer start timestamp (Unix seconds).
+    - mask_continuous_enabled (boolean) (required) — Whether continuous masking is enabled.
+    - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
+    - name (string) (required) — Layer internal name.
+    - restrict_end (integer) (required) — Legacy end offset inside the restriction window (seconds).
+    - restrict_mode (integer) (required) — Restriction mode: 0 = none, 1 = day, 2 = week.
+    - restrict_periods (array<object>) (required) — Restriction windows inside each rotation cycle.
+      - restrict_end (integer) (required) — End offset inside the rotation cycle.
+      - restrict_start (integer) (required) — Start offset inside the rotation cycle.
+    - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
+    - rotation_duration (integer) (required) — Rotation duration in seconds.
+    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
+    - schedule_id (integer) (required) — Parent schedule ID.
+    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_by (integer) (required) — Last updater person ID.
+    - weight (integer) (required) — Layer weight for ordering.
+  notify (object, via --data) — Notification configuration attached to a schedule.
+    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - by (object) (required) — Per-recipient notification preference.
+      - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
+      - personal_channels (array<string>) (required) — Personal notification channel keys.
+    - fixed_time (object) (required) — Fixed-time notification config.
+      - cycle (string) (required) — Notification cycle.
+      - start (string) (required) — Notification start time within the cycle.
+    - im (object) — Legacy IM-type to token map.
+    - webhooks (array<object>) (required) — IM webhook notification channels.
+      - settings (object) (required) — Settings for an IM webhook notification channel.
+        - alias (string) (required) — Channel alias.
+        - chat_ids (array<string>) (required) — Chat IDs.
+        - data_source_id (integer) (required) — Data source ID.
+        - sign_secret (string) (required) — Signature secret.
+        - token (string) (required) — Webhook token.
+        - verify_token (string) (required) — Verification token.
+      - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
 `,
 		Example: `  flashduty schedule update --data '{"description":"Updated primary on-call rotation","schedule_id":2001,"schedule_name":"Production On-Call (Updated)","team_id":4291079133131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -523,11 +1336,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
-	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty.")
+	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
-	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters.")
+	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")

@@ -55,13 +55,46 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer)
+    - acknowledgement_pct (number)
+    - channel_id (integer)
+    - channel_name (string)
+    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
+    - mean_seconds_to_ack (number)
+    - mean_seconds_to_close (number)
+    - noise_reduction_pct (number)
+    - responder_id (integer)
+    - responder_name (string)
+    - team_id (integer)
+    - team_name (string)
+    - total_alert_cnt (integer)
+    - total_alert_event_cnt (integer)
+    - total_engaged_seconds (integer)
+    - total_incident_cnt (integer)
+    - total_incidents_acknowledged (integer)
+    - total_incidents_auto_closed (integer)
+    - total_incidents_closed (integer)
+    - total_incidents_escalated (integer)
+    - total_incidents_manually_closed (integer)
+    - total_incidents_manually_escalated (integer)
+    - total_incidents_reassigned (integer)
+    - total_incidents_timeout_closed (integer)
+    - total_incidents_timeout_escalated (integer)
+    - total_interruptions (integer)
+    - total_notifications (integer)
+    - total_seconds_to_ack (integer)
+    - total_seconds_to_close (integer)
+    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
 `,
 		Example: `  flashduty insight account --data '{"aggregate_unit":"day","end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,11 +176,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -155,14 +188,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -214,13 +247,46 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer)
+    - acknowledgement_pct (number)
+    - channel_id (integer)
+    - channel_name (string)
+    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
+    - mean_seconds_to_ack (number)
+    - mean_seconds_to_close (number)
+    - noise_reduction_pct (number)
+    - responder_id (integer)
+    - responder_name (string)
+    - team_id (integer)
+    - team_name (string)
+    - total_alert_cnt (integer)
+    - total_alert_event_cnt (integer)
+    - total_engaged_seconds (integer)
+    - total_incident_cnt (integer)
+    - total_incidents_acknowledged (integer)
+    - total_incidents_auto_closed (integer)
+    - total_incidents_closed (integer)
+    - total_incidents_escalated (integer)
+    - total_incidents_manually_closed (integer)
+    - total_incidents_manually_escalated (integer)
+    - total_incidents_reassigned (integer)
+    - total_incidents_timeout_closed (integer)
+    - total_incidents_timeout_escalated (integer)
+    - total_interruptions (integer)
+    - total_notifications (integer)
+    - total_seconds_to_ack (integer)
+    - total_seconds_to_close (integer)
+    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
 `,
 		Example: `  flashduty insight channel --data '{"aggregate_unit":"day","channel_ids":[4321322010131],"end_time":1712604800,"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -302,11 +368,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -314,14 +380,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -373,13 +439,37 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer)
+    - acknowledgement_pct (number)
+    - channel_id (integer)
+    - channel_name (string)
+    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
+    - mean_seconds_to_ack (number)
+    - responder_id (integer)
+    - responder_name (string)
+    - team_id (integer)
+    - team_name (string)
+    - total_engaged_seconds (integer)
+    - total_incident_cnt (integer)
+    - total_incidents_acknowledged (integer)
+    - total_incidents_escalated (integer)
+    - total_incidents_manually_escalated (integer)
+    - total_incidents_reassigned (integer)
+    - total_incidents_timeout_escalated (integer)
+    - total_interruptions (integer)
+    - total_notifications (integer)
+    - total_seconds_to_ack (integer)
+    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
 `,
 		Example: `  flashduty insight responder --data '{"aggregate_unit":"day","end_time":1712604800,"responder_ids":[3790925372131],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -461,11 +551,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -473,14 +563,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -532,13 +622,46 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer)
+    - acknowledgement_pct (number)
+    - channel_id (integer)
+    - channel_name (string)
+    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
+    - mean_seconds_to_ack (number)
+    - mean_seconds_to_close (number)
+    - noise_reduction_pct (number)
+    - responder_id (integer)
+    - responder_name (string)
+    - team_id (integer)
+    - team_name (string)
+    - total_alert_cnt (integer)
+    - total_alert_event_cnt (integer)
+    - total_engaged_seconds (integer)
+    - total_incident_cnt (integer)
+    - total_incidents_acknowledged (integer)
+    - total_incidents_auto_closed (integer)
+    - total_incidents_closed (integer)
+    - total_incidents_escalated (integer)
+    - total_incidents_manually_closed (integer)
+    - total_incidents_manually_escalated (integer)
+    - total_incidents_reassigned (integer)
+    - total_incidents_timeout_closed (integer)
+    - total_incidents_timeout_escalated (integer)
+    - total_interruptions (integer)
+    - total_notifications (integer)
+    - total_seconds_to_ack (integer)
+    - total_seconds_to_close (integer)
+    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
 `,
 		Example: `  flashduty insight team --data '{"aggregate_unit":"day","end_time":1712604800,"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -620,11 +743,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -632,14 +755,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -691,13 +814,13 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
 `,
 		Example: `  flashduty insight channel-export --data '{"channel_ids":[4321322010131],"end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -780,11 +903,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -792,14 +915,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -985,8 +1108,8 @@ Return a paged list of incidents with per-incident handling metrics used by the 
 API: POST /insight/incident/list (insightIncidentList)
 
 Request fields:
-  --p int — Page number, starting at 1. Defaults to 1.
-  --limit int — Page size, between 1 and 100. Defaults to 20.
+  --page int — Page number, starting at 1. Defaults to 1. (min 1)
+  --limit int — Page size, between 1 and 100. Defaults to 20. (1-100)
   --search-after-ctx string — Cursor token returned by a previous page. Pass it back to fetch the next page.
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
@@ -1002,18 +1125,60 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - acknowledgements (integer)
+    - assigned_to (object) — Current assignment target for the incident.
+      - assigned_at (integer) — Unix timestamp (seconds) when this assignment was made.
+      - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) driving the assignment.
+      - escalate_rule_name (string) — Display name of the escalation rule.
+      - id (string) — Internal assignment record ID.
+      - layer_idx (integer) — Current level index within the escalation rule.
+      - person_ids (array<integer>) — Member IDs assigned directly to this incident.
+      - type (string) — Assignment type. [assign, reassign, escalate, reopen]
+    - assignments (integer)
+    - channel_id (integer)
+    - channel_name (string)
+    - closed_by (string) [auto, timeout, manually]
+    - created_at (integer)
+    - creator_id (integer)
+    - creator_name (string)
+    - description (string)
+    - engaged_seconds (integer)
+    - escalations (integer)
+    - fields (object)
+    - hours (string)
+    - incident_id (string)
+    - interruptions (integer)
+    - labels (object)
+    - manual_escalations (integer)
+    - notifications (integer)
+    - progress (string) — Incident progress state (e.g. 'Triggered', 'Acknowledged', 'Closed').
+    - reassignments (integer)
+    - responders (array<object>)
+    - seconds_to_ack (integer)
+    - seconds_to_close (integer)
+    - severity (string) [Critical, Warning, Info, Ok]
+    - team_id (integer)
+    - team_name (string)
+    - timeout_escalations (integer)
+    - title (string)
+  - search_after_ctx (string) — Cursor token to fetch the next page. Pass it back in the next request's 'search_after_ctx'.
+  - total (integer) — Total matching incidents.
 `,
 		Example: `  flashduty insight incident-list --data '{"end_time":1712604800,"limit":20,"p":1,"severities":["Critical"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -1092,13 +1257,13 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1. Defaults to 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, between 1 and 100. Defaults to 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Defaults to 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, between 1 and 100. Defaults to 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor token returned by a previous page. Pass it back to fetch the next page.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -1106,13 +1271,13 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -1164,13 +1329,13 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
 `,
 		Example: `  flashduty insight responder-export --data '{"end_time":1712604800,"responder_ids":[3790925372131],"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1253,11 +1418,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -1265,14 +1430,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -1324,13 +1489,13 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
 `,
 		Example: `  flashduty insight team-export --data '{"end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1413,11 +1578,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -1425,14 +1590,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -1488,13 +1653,20 @@ Request fields:
   --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds.
   --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
-  --severities []string — Filter by severity. At most 3 entries.
+  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
   --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
   --start-time int (required) — Start time, Unix seconds. Must be greater than 0.
   --team-ids []int — Filter by team IDs. At most 100 entries.
   --time-zone string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
-  fields (JSON, via --data) — Custom-field filters (exact match).
-  labels (JSON, via --data) — Label filters (exact match).
+  fields (object, via --data) — Custom-field filters (exact match).
+  labels (object, via --data) — Label filters (exact match).
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - hours (string) — Hour bucket when 'split_hours' is enabled.
+    - label (string) — Aggregation key value (check name or resource identifier).
+    - total_alert_cnt (integer)
+    - total_alert_event_cnt (integer)
 `,
 		Example: `  flashduty insight alert-topk-by-label --data '{"end_time":1712604800,"k":10,"label":"check","orderby":"total_alert_cnt","start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1582,11 +1754,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; `day` additionally caps the range at 31 days. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`, descending otherwise.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than `start_time`. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
@@ -1596,14 +1768,14 @@ Request fields:
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than `seconds_to_ack_from` when both are set.")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than `seconds_to_close_from` when both are set.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries.")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into `work`/`sleep`/`off` hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. `Asia/Shanghai`). Defaults to the account time zone.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

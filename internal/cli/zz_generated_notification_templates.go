@@ -22,6 +22,33 @@ API: POST /template/info (template-read-info)
 
 Request fields:
   --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — ID of the owning account.
+  - created_at (integer) (required) — Unix epoch seconds the template was created.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - deleted_at (integer) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live.
+  - description (string) (required) — Free-form description.
+  - dingtalk (string) (required) — DingTalk robot message template source.
+  - dingtalk_app (string) (required) — DingTalk app message template source.
+  - email (string) (required) — Email body template source (Go 'html/template' syntax).
+  - feishu (string) (required) — Feishu robot message template source.
+  - feishu_app (string) (required) — Feishu app message template source.
+  - slack (string) (required) — Slack robot message template source.
+  - slack_app (string) (required) — Slack app message template source.
+  - sms (string) (required) — SMS template source (Go 'text/template' syntax).
+  - status (string) (required) — Template lifecycle status. [enabled, disabled, deleted]
+  - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
+  - teams_app (string) (required) — Microsoft Teams app message template source.
+  - telegram (string) (required) — Telegram bot message template source.
+  - template_id (string) (required) — Template ID.
+  - template_name (string) (required) — Unique template name within the account.
+  - updated_at (integer) (required) — Unix epoch seconds the template was last updated.
+  - updated_by (integer) (required) — Member ID of the last editor.
+  - voice (string) (required) — Voice call script template source.
+  - wecom (string) (required) — WeCom robot message template source.
+  - wecom_app (string) (required) — WeCom app message template source.
+  - zoom (string) (required) — Zoom bot message template source.
 `,
 		Example: `  flashduty template info --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +73,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass `000000000000000000000001` to address the built-in preset. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -72,8 +99,8 @@ Return a paginated list of notification templates.
 API: POST /template/list (template-read-list)
 
 Request fields:
-  --p int — Page number, starting at 1.
-  --limit int — Page size. Capped at 100.
+  --page int — Page number, starting at 1. (min 1)
+  --limit int — Page size. Capped at 100. (1-100)
   --search-after-ctx string
   --asc bool — Ascending sort order.
   --creator-id int — Filter by creator member ID.
@@ -81,12 +108,42 @@ Request fields:
   --orderby string — Sort field. [created_at, updated_at]
   --query string — Regex or substring match on template_name.
   --team-ids []int — Filter by specific team IDs.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) (required) — True if another page exists after the returned one.
+  - items (array<object>) (required)
+    - account_id (integer) (required) — ID of the owning account.
+    - created_at (integer) (required) — Unix epoch seconds the template was created.
+    - creator_id (integer) (required) — Member ID of the creator.
+    - deleted_at (integer) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live.
+    - description (string) (required) — Free-form description.
+    - dingtalk (string) (required) — DingTalk robot message template source.
+    - dingtalk_app (string) (required) — DingTalk app message template source.
+    - email (string) (required) — Email body template source (Go 'html/template' syntax).
+    - feishu (string) (required) — Feishu robot message template source.
+    - feishu_app (string) (required) — Feishu app message template source.
+    - slack (string) (required) — Slack robot message template source.
+    - slack_app (string) (required) — Slack app message template source.
+    - sms (string) (required) — SMS template source (Go 'text/template' syntax).
+    - status (string) (required) — Template lifecycle status. [enabled, disabled, deleted]
+    - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
+    - teams_app (string) (required) — Microsoft Teams app message template source.
+    - telegram (string) (required) — Telegram bot message template source.
+    - template_id (string) (required) — Template ID.
+    - template_name (string) (required) — Unique template name within the account.
+    - updated_at (integer) (required) — Unix epoch seconds the template was last updated.
+    - updated_by (integer) (required) — Member ID of the last editor.
+    - voice (string) (required) — Voice call script template source.
+    - wecom (string) (required) — WeCom robot message template source.
+    - wecom_app (string) (required) — WeCom app message template source.
+    - zoom (string) (required) — Zoom bot message template source.
+  - total (integer) (required) — Total number of templates matching the filter, across all pages.
 `,
 		Example: `  flashduty template list --data '{"asc":false,"is_my_team":false,"limit":20,"orderby":"updated_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -129,8 +186,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Capped at 100.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Capped at 100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID.")
@@ -160,6 +217,11 @@ Request fields:
   --content string (required) — Template content to render.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine.
+
+Response fields (under 'data'):
+  - content (string) — Rendered template output, present when success is true.
+  - message (string) — Error message describing why rendering failed, present when success is false.
+  - success (boolean) — Whether the template rendered without errors.
 `,
 		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -226,7 +288,7 @@ Create a new notification template.
 API: POST /template/create (template-write-create)
 
 Request fields:
-  --description string — Free-form description. Up to 500 characters.
+  --description string — Free-form description. Up to 500 characters. (≤500 chars)
   --dingtalk string — DingTalk robot message template source.
   --dingtalk-app string — DingTalk app message template source.
   --email string — Email body template source (Go 'html/template' syntax).
@@ -238,11 +300,15 @@ Request fields:
   --team-id int — Team scope. 0 for account-wide.
   --teams-app string — Microsoft Teams app message template source.
   --telegram string — Telegram bot message template source.
-  --template-name string (required) — Template name, unique per account. 1–39 characters.
+  --template-name string (required) — Template name, unique per account. 1–39 characters. (1-39 chars)
   --voice string — Voice call script template source.
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
+
+Response fields (under 'data'):
+  - template_id (string) (required) — Newly created template ID.
+  - template_name (string) (required) — Template name echoed from the request.
 `,
 		Example: `  flashduty template create --data '{"description":"Default template for production incidents.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","team_id":0,"template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -315,19 +381,19 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source.")
 	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source.")
-	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go `html/template` syntax).")
+	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
-	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go `text/template` syntax).")
+	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
 	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source.")
-	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name, unique per account. 1–39 characters. (required)")
+	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name, unique per account. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
@@ -375,7 +441,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass `000000000000000000000001` to address the built-in preset. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -410,7 +476,7 @@ Replace the content of every channel on an existing template.
 API: POST /template/update (template-write-update)
 
 Request fields:
-  --description string — Free-form description. Up to 500 characters.
+  --description string — Free-form description. Up to 500 characters. (≤500 chars)
   --dingtalk string — DingTalk robot message template source.
   --dingtalk-app string — DingTalk app message template source.
   --email string — Email body template source (Go 'html/template' syntax).
@@ -423,7 +489,7 @@ Request fields:
   --teams-app string — Microsoft Teams app message template source.
   --telegram string — Telegram bot message template source.
   --template-id string (required) — Target template ID.
-  --template-name string (required) — Template name. 1–39 characters.
+  --template-name string (required) — Template name. 1–39 characters. (1-39 chars)
   --voice string — Voice call script template source.
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
@@ -504,20 +570,20 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source.")
 	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source.")
-	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go `html/template` syntax).")
+	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
-	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go `text/template` syntax).")
+	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
 	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source.")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. (required)")
-	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name. 1–39 characters. (required)")
+	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")

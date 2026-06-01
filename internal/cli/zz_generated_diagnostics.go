@@ -28,10 +28,44 @@ Request fields:
   --ds-name string (required) — Data source name configured under the tenant.
   --ds-type string (required) — Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'.
   --operation string — Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. [log_patterns, metric_trends]
-  input (JSON, via --data) (required)
-  methods (JSON, via --data) — Diagnostic methods to run. When omitted, 'log_patterns' defaults to 'pattern_snapshot + pattern_compare(previous_window)' and 'metric_trends' defaults to 'single_window_shape + window_compare(previous_window)'.
-  options (JSON, via --data) — Execution options, all upper-bounded by monit-edge.
-  time_range (JSON, via --data) — Diagnostic window in Unix seconds. Defaults to the last 15 minutes when missing or invalid; windows wider than 6 hours are rejected.
+  input (object, via --data) (required)
+    - query (string) (required) — Query expression. LogQL / VictoriaLogs query syntax for 'log_patterns'; PromQL for 'metric_trends'.
+  methods (array<object>, via --data) — Diagnostic methods to run. When omitted, 'log_patterns' defaults to 'pattern_snapshot + pattern_compare(previous_window)' and 'metric_trends' defaults to 'single_window_shape + window_compare(previous_window)'.
+    - baseline (string) — Only meaningful for compare-style methods. Defaults to 'previous_window'. [previous_window, same_window_yesterday, same_window_last_week]
+    - name (string) — 'log_patterns' supports 'pattern_snapshot', 'pattern_compare'. 'metric_trends' supports 'single_window_shape', 'window_compare'.
+  options (object, via --data) — Execution options, all upper-bounded by monit-edge.
+    - examples_per_pattern (integer) — Max redacted examples per pattern. Default 2, hard max 3.
+    - max_logs_scanned (integer) — Per-window log scan cap. Default 10 000, hard max 50 000.
+    - max_patterns (integer) — Max patterns returned. Default 20, hard max 50.
+    - max_series (integer) — 'metric_trends' max series considered. Default 50, hard max 200.
+    - step_seconds (integer) — 'metric_trends' query_range step. Default 60, range [15, 300].
+    - timeout_seconds (integer) — Edge-side diagnostic timeout in seconds. Default 25, hard max 30.
+    - topk (integer) — 'metric_trends' max notable series returned. Default 10, hard max 50.
+  time_range (object, via --data) — Diagnostic window in Unix seconds. Defaults to the last 15 minutes when missing or invalid; windows wider than 6 hours are rejected.
+    - end (integer) — Window end, Unix seconds.
+    - start (integer) — Window start, Unix seconds.
+
+Response fields (under 'data'):
+  - ds_name (string)
+  - ds_type (string)
+  - operation (string) [log_patterns, metric_trends]
+  - query (string) — Query string echoed back from the request.
+  - results (array<object>) — One entry per 'methods[]' in the request, in the same order.
+    - baseline (string) — Only present for compare-style methods.
+    - baseline_window (object) — Only present for compare-style methods.
+      - end (integer)
+      - start (integer)
+    - method (string) — 'pattern_snapshot' / 'pattern_compare' for 'log_patterns'; 'single_window_shape' / 'window_compare' for 'metric_trends'.
+    - patterns (array<object>) — 'log_patterns' only. Sorted RCA-first; each item carries pattern_hash, template, count, severity, sources, examples, and (for compare) baseline_count / change_ratio / is_new / is_gone.
+    - series (array<object>) — 'metric_trends' only. Notable series with current / baseline / change / notable_period.
+    - summary (object) — Aggregate summary for this method. Shape differs between 'log_patterns' (logs_scanned, patterns_total, surging_threshold, …) and 'metric_trends' (series_total, data_quality, observations, …).
+    - warnings (array<string>) — Per-method advisory messages (e.g. 'examples redacted', sampling notices).
+    - window (object)
+      - end (integer)
+      - start (integer)
+  - window (object)
+    - end (integer)
+    - start (integer)
 `,
 		Example: `  flashduty monit query-diagnose --data '{"account_id":10001,"ds_name":"vmlogs-read","ds_type":"victorialogs","input":{"query":"_stream:{status='500'}"},"methods":[{"name":"pattern_snapshot"},{"baseline":"same_window_yesterday","name":"pattern_compare"}],"operation":"log_patterns","options":{"examples_per_pattern":2,"max_logs_scanned":10000,"max_patterns":20,"timeout_seconds":25},"time_range":{"end":1776849344,"start":1776847544}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,8 +101,8 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
 	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name configured under the tenant. (required)")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type. `log_patterns` supports `loki` and `victorialogs`; `metric_trends` supports `prometheus`. (required)")
-	cmd.Flags().StringVar(&fOperation, "operation", "", "Diagnostic operation. When omitted, inferred from `ds_type` (loki / victorialogs → `log_patterns`, prometheus → `metric_trends`). Other sources must specify explicitly. [log_patterns, metric_trends]")
+	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'. (required)")
+	cmd.Flags().StringVar(&fOperation, "operation", "", "Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. [log_patterns, metric_trends]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -95,7 +129,7 @@ Request fields:
   --ds-name string (required) — Data source name; must match a configured data source under the tenant.
   --ds-type string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
   --expr string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
-  args (JSON, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings. Semantics depend on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'; Loki / VictoriaLogs raw mode requires a time range via '<source>.start'/'<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit'; Prometheus and SQL sources ignore it. Always namespace keys by source (e.g. 'sls.project', 'loki.type').
+  args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings. Semantics depend on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'; Loki / VictoriaLogs raw mode requires a time range via '<source>.start'/'<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit'; Prometheus and SQL sources ignore it. Always namespace keys by source (e.g. 'sls.project', 'loki.type').
 `,
 		Example: `  flashduty monit query-rows --data '{"account_id":10001,"delay_seconds":30,"ds_name":"prod-prom","ds_type":"prometheus","expr":"up"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -135,8 +169,8 @@ Request fields:
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.")
 	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name; must match a configured data source under the tenant. (required)")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type; must match a configured data source under the tenant. Examples: `prometheus`, `loki`, `victorialogs`, `sls`, `elasticsearch`, `mysql`, `postgres`, `oracle`, `clickhouse`. (required)")
-	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression. Syntax depends on `ds_type` and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.). (required)")
+	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'. (required)")
+	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -160,7 +194,18 @@ Request fields:
   --account-id int — Optional consistency check. Must equal the authenticated account when supplied.
   --cursor string — Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.
   --keyword string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
-  --limit int — Page size. Default 50, max 200.
+  --limit int — Page size. Default 50, max 200. (max 200)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - agent_version (string) — Most recently observed Agent version.
+    - cluster_name (string) — Edge cluster name.
+    - edge_ipport (string) — Edge instance address ('ip:port'), surfaced for diagnostics.
+    - target_kind (string) — Target kind, e.g. 'host', 'mysql'. Filtering by kind is not supported in v1.
+    - target_locator (string) — Target identifier; the list is sorted by this field ascending.
+    - updated_at (integer) — Last route-projection upsert time, Unix seconds. Treat as 'most recently observed', not a live-online indicator.
+  - next_cursor (string) — Opaque cursor for the next page. Absent / empty means this is the last page.
+  - total (integer) — Total matches for the current '(account_id, keyword)' pair, independent of 'cursor'.
 `,
 		Example: `  flashduty monit targets --data '{"keyword":"db-prod","limit":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -195,9 +240,9 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
-	cmd.Flags().StringVar(&fCursor, "cursor", "", "Opaque pagination cursor from the previous response's `next_cursor`. Omit / pass empty string for the first page. Reset whenever `keyword`, `limit`, or tenant changes.")
-	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Prefix match against `target_locator`. ASCII only, no whitespace, no `|`, max 256 bytes. Substring search is not supported.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 50, max 200.")
+	cmd.Flags().StringVar(&fCursor, "cursor", "", "Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.")
+	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 50, max 200. (max 200)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -222,6 +267,21 @@ Request fields:
   --include-output-shape bool — When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.
   --target-kind string — Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.
   --target-locator string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
+
+Response fields (under 'data'):
+  - error (object) — Business error. 'null' on success.
+    - code (string) [target_unavailable, unknown_toolset_hash, ambiguous_target_kind]
+    - message (string)
+    - target_kinds (array<string>) — Returned for 'ambiguous_target_kind'; lists the candidate kinds.
+  - target (object) — Resolved target. 'null' when locator could not be uniquely resolved.
+    - kind (string)
+    - locator (string)
+  - tools (array<object>) — Tool catalog entries. Empty when 'error' is non-null.
+    - description (string) — Tool capability description for UI / AI-SRE consumption.
+    - input_schema (object) — JSON Schema for 'tools[].params'.
+    - name (string) — Tool name; pass into '/monit/tools/invoke' as 'tools[].tool'.
+    - output_shape (object) — Optional output JSON Schema; only returned when 'include_output_shape=true'.
+    - target_kind (string) — Target kind this tool applies to.
 `,
 		Example: `  flashduty monit tools-catalog --data '{"account_id":10001,"include_output_shape":true,"target_locator":"web-01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -256,9 +316,9 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
-	cmd.Flags().BoolVar(&fIncludeOutputShape, "include-output-shape", false, "When true, each tool entry includes its `output_shape` JSON Schema. Defaults to false to keep responses small for LLM consumption.")
-	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: `host`, `mysql`. Required on retry when the previous call returned `ambiguous_target_kind`.")
-	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or `|`. (required)")
+	cmd.Flags().BoolVar(&fIncludeOutputShape, "include-output-shape", false, "When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.")
+	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.")
+	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -281,7 +341,27 @@ Request fields:
   --account-id int — Optional consistency check. Must equal the authenticated account when supplied.
   --target-kind string — Optional target kind; auto-inferred when omitted.
   --target-locator string (required) — Target identifier. Same validation rules as '/monit/tools/catalog'.
-  tools (JSON, via --data) (required) — Up to 8 tool calls; webapi executes them concurrently and returns results in input order.
+  tools (array<object>, via --data) (required) — Up to 8 tool calls; webapi executes them concurrently and returns results in input order.
+    - params (object) — Tool parameters matching the catalog 'input_schema'. For no-arg tools pass '{}' explicitly.
+    - tool (string) (required) — Tool name, typically from '/monit/tools/catalog'.
+
+Response fields (under 'data'):
+  - error (object) — Request-level business error. 'null' on success.
+    - code (string) [target_unavailable, unknown_toolset_hash, forward_failed, invalid_tool_result, ambiguous_target_kind]
+    - message (string)
+    - target_kinds (array<string>)
+  - results (array<object>) — Per-tool results aligned with the request 'tools[]' order. Empty when 'error' is non-null.
+    - agent_elapsed_ms (integer) — Agent-self-reported tool execution time in milliseconds, excludes network. May be 0 when the failure occurred before the agent started executing.
+    - data (object) — Successful tool payload — passthrough of monit-agent 'ToolResultPayload.data' (typically 'data' / 'summary' / 'truncated'). 'null' when the per-tool 'error' is set.
+    - e2e_elapsed_ms (integer) — Webapi-observed end-to-end time in milliseconds (webapi → ws → edge → agent → ws → webapi). A large gap vs 'agent_elapsed_ms' indicates network / edge slowness.
+    - error (object) — Per-tool error. Mutually exclusive with 'data'.
+      - code (string) — Common values: 'timeout', 'target_unavailable', 'edge_unsupported', 'invalid_tool_result', 'internal', 'invalid_args', 'unknown_tool', 'unknown_tool_version', 'unknown_toolset_hash', 'target_not_owned', 'wrong_agent', 'overloaded', 'denied', 'permission_denied', 'credential_unavailable', 'target_unreachable'.
+      - message (string)
+    - tool (string)
+    - tool_version (string) — Agent-executed tool version. Empty when execution failed before the agent picked a version.
+  - target (object) — Resolved target.
+    - kind (string)
+    - locator (string)
 `,
 		Example: `  flashduty monit tools-invoke --data '{"account_id":10001,"target_locator":"web-01","tools":[{"params":{},"tool":"os.overview"},{"params":{"host":"10.0.0.10","port":3306},"tool":"net.tcp_ping"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -314,7 +394,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
 	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind; auto-inferred when omitted.")
-	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier. Same validation rules as `/monit/tools/catalog`. (required)")
+	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier. Same validation rules as '/monit/tools/catalog'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

@@ -21,7 +21,22 @@ Return the enrichment rule set configured for a specific integration.
 API: POST /enrichment/info (enrichment-read-info)
 
 Request fields:
-  --integration-id int (required) — Integration ID to query enrichment rules for. Must be greater than 0.
+  --integration-id int (required) — Integration ID to query enrichment rules for. Must be greater than 0. (min 1)
+
+Response fields (under 'data'):
+  - created_at (integer) (required) — Creation timestamp, Unix seconds.
+  - creator_id (integer) (required) — Creator member ID.
+  - integration_id (integer) (required) — Integration ID.
+  - rules (array<object>) (required) — Ordered enrichment rules.
+    - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
+      - key (string) (required) — Alert label key.
+      - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to match against.
+    - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+    - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+  - status (string) (required) — Rule set status.
+  - updated_at (integer) (required) — Last update timestamp, Unix seconds.
+  - updated_by (integer) (required) — Last updater member ID.
 `,
 		Example: `  flashduty enrichment info --data '{"integration_id":5001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,7 +61,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to query enrichment rules for. Must be greater than 0. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to query enrichment rules for. Must be greater than 0. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -65,6 +80,22 @@ API: POST /enrichment/list (enrichment-read-list)
 
 Request fields:
   --integration-ids []int (required) — List of integration IDs to query.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Enrichment rule sets.
+    - created_at (integer) (required) — Creation timestamp, Unix seconds.
+    - creator_id (integer) (required) — Creator member ID.
+    - integration_id (integer) (required) — Integration ID.
+    - rules (array<object>) (required) — Ordered enrichment rules.
+      - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
+        - key (string) (required) — Alert label key.
+        - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to match against.
+      - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+      - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+    - status (string) (required) — Rule set status.
+    - updated_at (integer) (required) — Last update timestamp, Unix seconds.
+    - updated_by (integer) (required) — Last updater member ID.
 `,
 		Example: `  flashduty enrichment list --data '{"integration_ids":[5001,5002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -108,7 +139,13 @@ API: POST /enrichment/upsert (enrichment-write-upsert)
 
 Request fields:
   --integration-id int (required) — Integration ID to configure enrichment rules for.
-  rules (JSON, via --data) (required) — Ordered list of enrichment rules. Replaces all existing rules.
+  rules (array<object>, via --data) (required) — Ordered list of enrichment rules. Replaces all existing rules.
+    - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
+      - key (string) (required) — Alert label key.
+      - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to match against.
+    - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+    - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
 `,
 		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.labels.region}}-{{.labels.environment}}"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -153,6 +190,23 @@ API: POST /field/info (field-read-info)
 
 Request fields:
   --field-id string (required) — Field ID — 24-character hex ObjectID.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Owning account ID.
+  - created_at (integer) (required) — Creation timestamp, Unix seconds.
+  - creator_id (integer) (required) — Creator member ID.
+  - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
+  - deleted_at (integer) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields.
+  - description (string) — Optional free-text description. (≤499 chars)
+  - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
+  - field_id (string) (required) — Field ID — 24-character hex ObjectID.
+  - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
+  - field_type (string) (required) — Field input type. [checkbox, multi_select, single_select, text]
+  - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
+  - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
+  - updated_at (integer) (required) — Last update timestamp, Unix seconds.
+  - updated_by (integer) (required) — Last updater member ID.
+  - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
 `,
 		Example: `  flashduty field info --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -202,6 +256,24 @@ Request fields:
   --creator-id int — Filter by creator member ID. Omit or send 'null' to skip.
   --orderby string — Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]
   --query string — Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — All non-deleted custom fields for the account. No pagination.
+    - account_id (integer) (required) — Owning account ID.
+    - created_at (integer) (required) — Creation timestamp, Unix seconds.
+    - creator_id (integer) (required) — Creator member ID.
+    - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
+    - deleted_at (integer) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields.
+    - description (string) — Optional free-text description. (≤499 chars)
+    - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
+    - field_id (string) (required) — Field ID — 24-character hex ObjectID.
+    - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
+    - field_type (string) (required) — Field input type. [checkbox, multi_select, single_select, text]
+    - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
+    - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
+    - updated_at (integer) (required) — Last update timestamp, Unix seconds.
+    - updated_by (integer) (required) — Last updater member ID.
+    - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
 `,
 		Example: `  flashduty field list --data '{"asc":false,"orderby":"updated_at","query":"severity"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -235,10 +307,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`; descending otherwise.")
-	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID. Omit or send `null` to skip.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; descending otherwise.")
+	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID. Omit or send 'null' to skip.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter against `field_name` and `display_name`. Invalid regex is auto-escaped to literal substring match.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -261,13 +333,17 @@ Create a new incident custom field on the account.
 API: POST /field/create (field-write-create)
 
 Request fields:
-  --description string — Optional free-text description.
-  --display-name string (required) — Human-readable name. Must be unique within the account.
-  --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation.
+  --description string — Optional free-text description. (≤499 chars)
+  --display-name string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
+  --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
   --field-type string (required) — Field input type. Immutable after creation. [checkbox, multi_select, single_select, text]
   --options []string — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
   --value-type string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. [string, bool, float]
-  default_value (JSON, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
+  default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
+
+Response fields (under 'data'):
+  - field_id (string) (required) — Newly assigned field ID — 24-character hex ObjectID.
+  - field_name (string) (required) — Echo of the submitted 'field_name'.
 `,
 		Example: `  flashduty field create --data '{"default_value":"Medium","description":"Business severity tier.","display_name":"Severity Class","field_name":"severity_class","field_type":"single_select","options":["Critical","High","Medium","Low"],"value_type":"string"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -307,12 +383,12 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Optional free-text description.")
-	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required)")
-	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name. Must start with a letter or underscore; 1–40 chars of `[a-zA-Z0-9_]`. Immutable after creation. (required)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Optional free-text description. (≤499 chars)")
+	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required) (≤39 chars)")
+	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (required) (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field input type. Immutable after creation. (required) [checkbox, multi_select, single_select, text]")
-	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for `single_select`/`multi_select` (unique strings, each 1–200 chars). Must be omitted or empty for `checkbox`/`text`.")
-	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. `checkbox` requires `bool`; `single_select`/`multi_select`/`text` require `string`. Immutable after creation. (required) [string, bool, float]")
+	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
+	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. (required) [string, bool, float]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -378,10 +454,10 @@ API: POST /field/update (field-write-update)
 
 Request fields:
   --description string — New description.
-  --display-name string — New display name. Must remain unique within the account.
+  --display-name string — New display name. Must remain unique within the account. (≤39 chars)
   --field-id string (required) — Field ID — 24-character hex ObjectID.
   --options []string — Replacement options list. Must obey the same per-type rules as create.
-  default_value (JSON, via --data) — Replacement default value. Type must match the field's existing 'field_type'.
+  default_value (any, via --data) — Replacement default value. Type must match the field's existing 'field_type'.
 `,
 		Example: `  flashduty field update --data '{"default_value":"Medium","description":"Business severity tier.","display_name":"Severity Class","field_id":"66e9d3a4f7c2b04a1c8a91b3","options":["Critical","High","Medium","Low"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -417,7 +493,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
-	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name. Must remain unique within the account.")
+	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name. Must remain unique within the account. (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -438,6 +514,22 @@ API: POST /enrichment/mapping/api/info (mapping-api-read-info)
 
 Request fields:
   --api-id string (required) — Mapping API ID (MongoDB ObjectID hex).
+
+Response fields (under 'data'):
+  - api_id (string) (required) — API ID (MongoDB ObjectID hex).
+  - api_name (string) (required) — API name.
+  - created_at (integer) — Creation timestamp, Unix seconds.
+  - creator_id (integer) (required) — Creator member ID.
+  - description (string) (required) — Description.
+  - headers (object) (required) — Custom request headers.
+  - insecure_skip_verify (boolean) (required) — Whether TLS verification is skipped.
+  - retry_count (integer) (required) — Retry count.
+  - status (string) (required) — API status.
+  - team_id (integer) (required) — Owning team ID.
+  - timeout (integer) (required) — Request timeout in seconds.
+  - updated_at (integer) — Last update timestamp, Unix seconds.
+  - updated_by (integer) (required) — Last updater member ID.
+  - url (string) (required) — Endpoint URL.
 `,
 		Example: `  flashduty enrichment mapping-api-info --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -477,6 +569,24 @@ func genAlertEnrichmentMappingAPIReadListCmd() *cobra.Command {
 Return all mapping APIs configured for the account.
 
 API: POST /enrichment/mapping/api/list (mapping-api-read-list)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Mapping APIs.
+    - api_id (string) (required) — API ID (MongoDB ObjectID hex).
+    - api_name (string) (required) — API name.
+    - created_at (integer) — Creation timestamp, Unix seconds.
+    - creator_id (integer) (required) — Creator member ID.
+    - description (string) (required) — Description.
+    - headers (object) (required) — Custom request headers.
+    - insecure_skip_verify (boolean) (required) — Whether TLS verification is skipped.
+    - retry_count (integer) (required) — Retry count.
+    - status (string) (required) — API status.
+    - team_id (integer) (required) — Owning team ID.
+    - timeout (integer) (required) — Request timeout in seconds.
+    - updated_at (integer) — Last update timestamp, Unix seconds.
+    - updated_by (integer) (required) — Last updater member ID.
+    - url (string) (required) — Endpoint URL.
+  - total (integer) (required) — Total API count.
 `,
 		Example: `  flashduty enrichment mapping-api-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -518,14 +628,18 @@ Create a new external HTTP API endpoint used to enrich alerts via HTTP lookup.
 API: POST /enrichment/mapping/api/create (mapping-api-write-create)
 
 Request fields:
-  --api-name string (required) — Unique API name (max 199 chars).
+  --api-name string (required) — Unique API name (max 199 chars). (≤199 chars)
   --description string — Optional description.
   --insecure-skip-verify bool — Skip TLS certificate verification. Default 'false'.
   --retry-count int — Number of retries on failure (0–1). Default 0.
   --team-id int — Owning team ID.
   --timeout int — Request timeout in seconds (1–3). Default 2.
-  --url string (required) — HTTP/HTTPS endpoint URL (max 500 chars).
-  headers (JSON, via --data) — Custom HTTP request headers.
+  --url string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
+  headers (object, via --data) — Custom HTTP request headers.
+
+Response fields (under 'data'):
+  - api_id (string) (required) — Created API ID (MongoDB ObjectID hex).
+  - api_name (string) (required) — API name.
 `,
 		Example: `  flashduty enrichment mapping-api-create --data '{"api_name":"CMDB API","description":"Query CMDB for host metadata","headers":{"X-Token":"mytoken"},"insecure_skip_verify":false,"retry_count":1,"timeout":2,"url":"https://cmdb.example.com/api/lookup"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -568,13 +682,13 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAPIName, "api-name", "", "Unique API name (max 199 chars). (required)")
+	cmd.Flags().StringVar(&fAPIName, "api-name", "", "Unique API name (max 199 chars). (required) (≤199 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description.")
-	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "Skip TLS certificate verification. Default `false`.")
+	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "Skip TLS certificate verification. Default 'false'.")
 	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "Number of retries on failure (0–1). Default 0.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2.")
-	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required)")
+	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required) (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -644,14 +758,14 @@ API: POST /enrichment/mapping/api/update (mapping-api-write-update)
 
 Request fields:
   --api-id string (required) — Mapping API ID (MongoDB ObjectID hex).
-  --api-name string — New API name (max 199 chars).
+  --api-name string — New API name (max 199 chars). (≤199 chars)
   --description string — New description.
   --insecure-skip-verify bool — New TLS skip-verify setting.
   --retry-count int — New retry count.
   --team-id int — New owning team ID.
   --timeout int — New timeout in seconds.
-  --url string — New endpoint URL (max 500 chars).
-  headers (JSON, via --data) — New headers map (replaces existing).
+  --url string — New endpoint URL (max 500 chars). (≤500 chars)
+  headers (object, via --data) — New headers map (replaces existing).
 `,
 		Example: `  flashduty enrichment mapping-api-update --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02","retry_count":1,"timeout":3}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -699,13 +813,13 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAPIID, "api-id", "", "Mapping API ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&fAPIName, "api-name", "", "New API name (max 199 chars).")
+	cmd.Flags().StringVar(&fAPIName, "api-name", "", "New API name (max 199 chars). (≤199 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
 	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "New TLS skip-verify setting.")
 	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "New retry count.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds.")
-	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars).")
+	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars). (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -771,19 +885,29 @@ Return paginated mapping data rows for a schema, with optional exact-match filte
 API: POST /enrichment/mapping/data/list (mapping-data-read-list)
 
 Request fields:
-  --p int — Page number (1-based). Used for offset-based pagination.
+  --page int — Page number (1-based). Used for offset-based pagination.
   --limit int — Page size (1–100, default 20).
   --search-after-ctx string — Opaque cursor token for cursor-based pagination.
   --asc bool — Sort ascending when 'true'.
   --orderby string — Sort field. [created_at, updated_at]
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
-  query (JSON, via --data) — Exact-match filter on source label values. All source labels must be provided if any are specified.
+  query (object, via --data) — Exact-match filter on source label values. All source labels must be provided if any are specified.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) (required) — Whether more pages exist.
+  - items (array<object>) (required) — Data rows.
+    - created_at (integer) — Creation timestamp, Unix seconds.
+    - fields (object) — All label key-value pairs for this row.
+    - key (string) — Composite key derived from source label values.
+    - updated_at (integer) — Last update timestamp, Unix seconds.
+  - search_after_ctx (string) — Cursor token for the next page.
+  - total (integer) (required) — Total matching rows.
 `,
 		Example: `  flashduty enrichment mapping-data-list --data '{"asc":false,"limit":20,"orderby":"updated_at","p":1,"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -817,10 +941,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number (1-based). Used for offset-based pagination.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Used for offset-based pagination.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1–100, default 20).")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor token for cursor-based pagination.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when `true`.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -985,7 +1109,10 @@ API: POST /enrichment/mapping/data/upsert (mapping-data-write-upsert)
 
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
-  docs (JSON, via --data) (required) — Rows to insert or update. Each row must include all source and result labels.
+  docs (array<object>, via --data) (required) — Rows to insert or update. Each row must include all source and result labels.
+
+Response fields (under 'data'):
+  - keys (array<string>) (required) — Composite keys of upserted rows.
 `,
 		Example: `  flashduty enrichment mapping-data-upsert --data '{"docs":[{"host":"server01","owner":"alice","service":"api","team":"sre"},{"host":"server02","owner":"bob","service":"gateway","team":"platform"}],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1029,6 +1156,19 @@ API: POST /enrichment/mapping/schema/info (mapping-schema-read-info)
 
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
+
+Response fields (under 'data'):
+  - created_at (integer) — Creation timestamp, Unix seconds.
+  - creator_id (integer) (required) — Creator member ID.
+  - description (string) (required) — Schema description.
+  - result_labels (array<string>) (required) — Output label names.
+  - schema_id (string) (required) — Schema ID (MongoDB ObjectID hex).
+  - schema_name (string) (required) — Schema name.
+  - source_labels (array<string>) (required) — Lookup key label names.
+  - status (string) (required) — Schema status.
+  - team_id (integer) (required) — Owning team ID.
+  - updated_at (integer) — Last update timestamp, Unix seconds.
+  - updated_by (integer) (required) — Last updater member ID.
 `,
 		Example: `  flashduty enrichment mapping-schema-info --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1068,6 +1208,21 @@ func genAlertEnrichmentMappingSchemaReadListCmd() *cobra.Command {
 Return all mapping schemas for the account, sorted by creation time ascending.
 
 API: POST /enrichment/mapping/schema/list (mapping-schema-read-list)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required) — Mapping schemas.
+    - created_at (integer) — Creation timestamp, Unix seconds.
+    - creator_id (integer) (required) — Creator member ID.
+    - description (string) (required) — Schema description.
+    - result_labels (array<string>) (required) — Output label names.
+    - schema_id (string) (required) — Schema ID (MongoDB ObjectID hex).
+    - schema_name (string) (required) — Schema name.
+    - source_labels (array<string>) (required) — Lookup key label names.
+    - status (string) (required) — Schema status.
+    - team_id (integer) (required) — Owning team ID.
+    - updated_at (integer) — Last update timestamp, Unix seconds.
+    - updated_by (integer) (required) — Last updater member ID.
+  - total (integer) (required) — Total schema count.
 `,
 		Example: `  flashduty enrichment mapping-schema-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1107,11 +1262,15 @@ Create a new mapping schema defining source lookup labels and the result labels 
 API: POST /enrichment/mapping/schema/create (mapping-schema-write-create)
 
 Request fields:
-  --description string — Optional description (max 500 chars).
+  --description string — Optional description (max 500 chars). (≤500 chars)
   --result-labels []string (required) — Output label names (1–10). Must not overlap with 'source_labels'.
-  --schema-name string (required) — Unique schema name (max 39 chars).
+  --schema-name string (required) — Unique schema name (max 39 chars). (≤39 chars)
   --source-labels []string (required) — Lookup key label names (1–3). Must not overlap with 'result_labels'.
   --team-id int — Owning team ID. '0' means no team.
+
+Response fields (under 'data'):
+  - schema_id (string) (required) — Created schema ID (MongoDB ObjectID hex).
+  - schema_name (string) (required) — Schema name.
 `,
 		Example: `  flashduty enrichment mapping-schema-create --data '{"description":"Enrich alerts with CMDB data","result_labels":["owner","team","service"],"schema_name":"CMDB Lookup","source_labels":["host"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1148,11 +1307,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description (max 500 chars).")
-	cmd.Flags().StringSliceVar(&fResultLabels, "result-labels", nil, "Output label names (1–10). Must not overlap with `source_labels`. (required)")
-	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "Unique schema name (max 39 chars). (required)")
-	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Must not overlap with `result_labels`. (required)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. `0` means no team.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description (max 500 chars). (≤500 chars)")
+	cmd.Flags().StringSliceVar(&fResultLabels, "result-labels", nil, "Output label names (1–10). Must not overlap with 'source_labels'. (required)")
+	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "Unique schema name (max 39 chars). (required) (≤39 chars)")
+	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Must not overlap with 'result_labels'. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. '0' means no team.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -1217,9 +1376,9 @@ Update the name, description, or owning team of a mapping schema. Source and res
 API: POST /enrichment/mapping/schema/update (mapping-schema-write-update)
 
 Request fields:
-  --description string — New description (max 500 chars).
+  --description string — New description (max 500 chars). (≤500 chars)
   --schema-id string (required) — Schema ID (MongoDB ObjectID hex).
-  --schema-name string — New schema name (max 39 chars).
+  --schema-name string — New schema name (max 39 chars). (≤39 chars)
   --team-id int — New owning team ID. '0' removes the team association.
 `,
 		Example: `  flashduty enrichment mapping-schema-update --data '{"description":"Updated description","schema_id":"665f1a2b3c4d5e6f7a8b9c01","schema_name":"CMDB Lookup v2"}'`,
@@ -1255,10 +1414,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description (max 500 chars).")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description (max 500 chars). (≤500 chars)")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "New schema name (max 39 chars).")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID. `0` removes the team association.")
+	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "New schema name (max 39 chars). (≤39 chars)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID. '0' removes the team association.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

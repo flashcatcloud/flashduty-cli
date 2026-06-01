@@ -22,6 +22,30 @@ API: POST /rum/application/info (rum-application-read-info)
 
 Request fields:
   --application-id string (required) — RUM application ID.
+
+Response fields (under 'data'):
+  - account_id (integer) — Account ID.
+  - alerting (object) — Alert settings for the application.
+    - channel_ids (array<integer>) — Channel IDs to send alerts to.
+    - enabled (boolean) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+  - application_id (string) — Unique application ID.
+  - application_name (string) — Application display name.
+  - client_token (string) — Token used to initialize the RUM SDK.
+  - created_at (integer) — Creation timestamp, Unix epoch seconds.
+  - created_by (integer) — Creator member ID.
+  - is_private (boolean) — If 'true', the application is only accessible to team members.
+  - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
+  - no_ip (boolean) — If 'true', IP addresses are not collected.
+  - status (string) — Application status. [enabled, disabled, deleted]
+  - team_id (integer) — Owning team ID.
+  - tracing (object) — APM tracing integration settings.
+    - enabled (boolean) — Whether tracing integration is enabled.
+    - endpoint (string) — Trace endpoint URL (http or https).
+    - open_type (string) — How to open the trace link. [popup, tab]
+  - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+  - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+  - updated_by (integer) — Last updater member ID.
 `,
 		Example: `  flashduty rum application-info --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -65,6 +89,31 @@ API: POST /rum/application/infos (rum-application-read-infos)
 
 Request fields:
   --application-ids []string (required) — Up to 200 application IDs.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alerting (object) — Alert settings for the application.
+      - channel_ids (array<integer>) — Channel IDs to send alerts to.
+      - enabled (boolean) — Whether alerting is enabled.
+      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - application_id (string) — Unique application ID.
+    - application_name (string) — Application display name.
+    - client_token (string) — Token used to initialize the RUM SDK.
+    - created_at (integer) — Creation timestamp, Unix epoch seconds.
+    - created_by (integer) — Creator member ID.
+    - is_private (boolean) — If 'true', the application is only accessible to team members.
+    - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
+    - no_ip (boolean) — If 'true', IP addresses are not collected.
+    - status (string) — Application status. [enabled, disabled, deleted]
+    - team_id (integer) — Owning team ID.
+    - tracing (object) — APM tracing integration settings.
+      - enabled (boolean) — Whether tracing integration is enabled.
+      - endpoint (string) — Trace endpoint URL (http or https).
+      - open_type (string) — How to open the trace link. [popup, tab]
+    - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+    - updated_by (integer) — Last updater member ID.
 `,
 		Example: `  flashduty rum application-infos --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD","WoyQQ3BohkdtPivubEvE8o"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -114,7 +163,7 @@ Return a paginated list of RUM applications accessible to the current user.
 API: POST /rum/application/list (rum-application-read-list)
 
 Request fields:
-  --p int — Page number (1-based). Default: 1.
+  --page int — Page number (1-based). Default: 1.
   --limit int — Page size. Range: 1–100. Default: 20.
   --search-after-ctx string
   --asc bool — Sort ascending if 'true'.
@@ -122,12 +171,39 @@ Request fields:
   --orderby string — Sort field. [created_at, updated_at]
   --query string — Search query to filter by application name.
   --team-id int — Filter by team ID.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - account_id (integer) — Account ID.
+    - alerting (object) — Alert settings for the application.
+      - channel_ids (array<integer>) — Channel IDs to send alerts to.
+      - enabled (boolean) — Whether alerting is enabled.
+      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - application_id (string) — Unique application ID.
+    - application_name (string) — Application display name.
+    - client_token (string) — Token used to initialize the RUM SDK.
+    - created_at (integer) — Creation timestamp, Unix epoch seconds.
+    - created_by (integer) — Creator member ID.
+    - is_private (boolean) — If 'true', the application is only accessible to team members.
+    - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
+    - no_ip (boolean) — If 'true', IP addresses are not collected.
+    - status (string) — Application status. [enabled, disabled, deleted]
+    - team_id (integer) — Owning team ID.
+    - tracing (object) — APM tracing integration settings.
+      - enabled (boolean) — Whether tracing integration is enabled.
+      - endpoint (string) — Trace endpoint URL (http or https).
+      - open_type (string) — How to open the trace link. [popup, tab]
+    - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+    - updated_by (integer) — Last updater member ID.
+  - total (integer)
 `,
 		Example: `  flashduty rum application-list --data '{"is_my_team":false,"limit":20,"p":1,"query":""}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -167,11 +243,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number (1-based). Default: 1.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if `true`.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If `true`, return only applications belonging to the current user's teams.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if 'true'.")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If 'true', return only applications belonging to the current user's teams.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search query to filter by application name.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID.")
@@ -203,8 +279,19 @@ Request fields:
   --no-ip bool — Do not collect IP addresses.
   --team-id int (required) — Owning team ID.
   --type string (required) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
-  alerting (JSON, via --data) — Alert settings for the application.
-  tracing (JSON, via --data) — APM tracing integration settings.
+  alerting (object, via --data) — Alert settings for the application.
+    - channel_ids (array<integer>) — Channel IDs to send alerts to.
+    - enabled (boolean) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+  tracing (object, via --data) — APM tracing integration settings.
+    - enabled (boolean) — Whether tracing integration is enabled.
+    - endpoint (string) — Trace endpoint URL (http or https).
+    - open_type (string) — How to open the trace link. [popup, tab]
+
+Response fields (under 'data'):
+  - application_id (string) — Auto-generated unique application ID.
+  - application_name (string) — Application display name.
+  - client_token (string) — Token for RUM SDK initialization.
 `,
 		Example: `  flashduty rum application-create --data '{"application_name":"My Web App","is_private":false,"team_id":2477033058131,"type":"browser"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -324,8 +411,14 @@ Request fields:
   --no-ip bool
   --team-id int
   --type string [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
-  alerting (JSON, via --data) — Alert settings for the application.
-  tracing (JSON, via --data) — APM tracing integration settings.
+  alerting (object, via --data) — Alert settings for the application.
+    - channel_ids (array<integer>) — Channel IDs to send alerts to.
+    - enabled (boolean) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+  tracing (object, via --data) — APM tracing integration settings.
+    - enabled (boolean) — Whether tracing integration is enabled.
+    - endpoint (string) — Trace endpoint URL (http or https).
+    - open_type (string) — How to open the trace link. [popup, tab]
 `,
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

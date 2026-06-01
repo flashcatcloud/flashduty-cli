@@ -18,6 +18,11 @@ func genAuditLogsOperationListCmd() *cobra.Command {
 Return all operation names that are recorded in the audit log, for use as 'operations' filter values.
 
 API: POST /audit/operation/list (audit-read-operation-list)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - name (string) (required) — Stable machine-readable operation name for use as a filter.
+    - name_cn (string) (required) — Human-readable Chinese label shown in the console.
 `,
 		Example: `  flashduty audit operation-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,12 +69,31 @@ Request fields:
   --end-time int (required) — End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days.
   --is-dangerous bool — When true, return only high-risk (dangerous) operations.
   --is-write bool — When true, return only write operations; when false, return only read operations.
-  --limit int — Page size. Minimum 0, maximum 99.
+  --limit int — Page size. Minimum 0, maximum 99. (0-99)
   --operations []string — Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.
   --person-id int — Filter by the member who performed the action.
   --request-id string — Filter to a single request by its unique request ID.
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
   --start-time int (required) — Start of the search window, Unix epoch seconds.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - docs (array<object>) — Audit log entries for this page.
+    - account_id (integer) (required) — ID of the account.
+    - body (string) (required) — JSON-encoded request body (may be truncated at 10 KB).
+    - created_at (integer) (required) — Timestamp of the operation in Unix epoch milliseconds.
+    - ip (string) (required) — Client IP address of the caller.
+    - is_dangerous (boolean) (required) — True if this is flagged as a high-risk operation.
+    - is_write (boolean) (required) — True for mutating operations; false for read-only ones.
+    - member_id (integer) (required) — ID of the member who performed the action.
+    - member_name (string) (required) — Display name of the member.
+    - operation (string) (required) — Stable machine-readable operation name, e.g. 'template:write:create'.
+    - operation_name (string) (required) — Human-readable operation label in the account's locale.
+    - params (array<object>) (required) — URL path parameters as an array of key-value pairs, or an empty array when none.
+      - Key (string)
+      - Value (string)
+    - request_id (string) (required) — Unique request ID for correlation.
+  - search_after_ctx (string) (required) — Opaque cursor for the next page. Empty string when there are no more results.
+  - total (integer) (required) — Total matching entries in the search window.
 `,
 		Example: `  flashduty audit search --data '{"end_time":1712707200,"limit":20,"operations":["template:write:create","template:write:delete"],"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -118,11 +142,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the search window, Unix epoch seconds. Must be after `start_time`. Maximum span 90 days. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. (required)")
 	cmd.Flags().BoolVar(&fIsDangerous, "is-dangerous", false, "When true, return only high-risk (dangerous) operations.")
 	cmd.Flags().BoolVar(&fIsWrite, "is-write", false, "When true, return only write operations; when false, return only read operations.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Minimum 0, maximum 99.")
-	cmd.Flags().StringSliceVar(&fOperations, "operations", nil, "Filter to specific operation names. Use `POST /audit/operation/list` to get the valid set.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Minimum 0, maximum 99. (0-99)")
+	cmd.Flags().StringSliceVar(&fOperations, "operations", nil, "Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the member who performed the action.")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")

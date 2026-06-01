@@ -80,6 +80,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
+		Long:  curatedLong("List incidents matching the given filters.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -130,6 +131,7 @@ func newIncidentGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id> [<id2> ...]",
 		Short: "Get incident details",
+		Long:  curatedLong("Get details for one or more incidents by ID.", "Incidents", "List"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -457,6 +459,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "timeline <id>",
 		Short: "View incident timeline",
+		Long:  curatedLong("View the timeline (feed entries) for one or more incidents.", "Incidents", "Feed"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -515,6 +518,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alerts <id>",
 		Short: "View incident alerts",
+		Long:  curatedLong("View the alerts attached to an incident.", "Incidents", "AlertList"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -553,6 +557,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "similar <id>",
 		Short: "Find similar incidents",
+		Long:  curatedLong("Find past incidents similar to the given incident.", "Incidents", "PastList"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1031,10 +1036,10 @@ func newIncidentWarRoomListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list <incident_id>",
 		Short: "List incident war rooms",
-		Long: `List war rooms attached to an incident.
+		Long: curatedLong(`List war rooms attached to an incident.
 
 Use this to discover chat IDs and integration IDs for follow-up commands such
-as get, delete, and add-member.`,
+as get, delete, and add-member.`, "Incidents", "WarRoomList"),
 		Example: `  flashduty incident war-room list inc_123
   flashduty incident war-room list inc_123 --integration 42`,
 		Args: requireArgs("incident_id"),
@@ -1062,11 +1067,11 @@ func newIncidentWarRoomGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <chat_id>",
 		Short: "Get incident war room details",
-		Long: `Get incident war room details by IM chat ID.
+		Long: curatedLong(`Get incident war room details by IM chat ID.
 
 This command requires --integration because chat IDs are scoped to an IM
 integration. Use 'flashduty incident war-room list' with an incident ID to find
-the chat ID and integration ID for an incident.`,
+the chat ID and integration ID for an incident.`, "Incidents", "WarRoomDetail"),
 		Example: `  flashduty incident war-room list inc_123
   flashduty incident war-room get chat_123 --integration 42`,
 		Args: requireArgs("chat_id"),
@@ -1184,10 +1189,10 @@ func newIncidentWarRoomDefaultObserversCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "default-observers <incident_id>",
 		Short: "Preview historical responders for war-room observer invitation",
-		Long: `Preview historical responders eligible for war-room observer invitation.
+		Long: curatedLong(`Preview historical responders eligible for war-room observer invitation.
 
 This is a read-only preview of the users FlashDuty would add when
---add-observers is used during war-room creation.`,
+--add-observers is used during war-room creation.`, "Incidents", "ReadGetWarRoomDefaultObservers"),
 		Example: `  flashduty incident war-room default-observers inc_123
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
@@ -1240,6 +1245,7 @@ func newIncidentFeedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "feed <id>",
 		Short: "View incident feed (paginated timeline)",
+		Long:  curatedLong("View the paginated feed (timeline entries) for an incident.", "Incidents", "Feed"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1330,6 +1336,7 @@ func newIncidentDetailCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "detail <id>",
 		Short: "View full incident detail with AI summary",
+		Long:  curatedLong("View full incident detail, including the AI summary, root cause, and resolution.", "Incidents", "Info"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

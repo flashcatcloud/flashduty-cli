@@ -18,6 +18,44 @@ func genStatusPagesReadPageListCmd() *cobra.Command {
 List all status pages owned by the account, including their components and sections.
 
 API: GET /status-page/list (status-page-read-page-list)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) — Status pages owned by the account.
+    - components (array<object>) — Components tracked on the status page.
+      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - component_id (string) — Component ID.
+      - description (string) — Component description.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+      - name (string) (required) — Component display name.
+      - order_id (integer) — Display order within its section.
+      - section_id (string) — Parent section ID.
+    - contact_info (string) — Get-in-touch contact, a mailto or website URL.
+    - custom_domain (string) — Custom domain pointing to the status page.
+    - custom_links (array<object>) — Custom navigation links shown on the status page.
+    - dark_logo (string) — Dark-mode logo image of the status page.
+    - date_view (string) — How the timeline is displayed. [calendar, list]
+    - display_uptime_mode (string) — How uptime is displayed. [chart_and_percentage, chart, none]
+    - favicon (string) — Favicon of the status page.
+    - logo (string) — Logo image of the status page.
+    - logo_url (string) — URL opened when the logo is clicked.
+    - name (string) — Display name of the status page.
+    - page_footer (string) — Footer content of the status page.
+    - page_header (string) — Header content of the status page.
+    - page_id (integer) — Status page ID.
+    - sections (array<object>) — Sections grouping the components.
+      - description (string) — Section description.
+      - hide_all (boolean) — Whether the section and its components are hidden from summary endpoints.
+      - hide_uptime (boolean) — Whether uptime data is hidden from summary responses.
+      - name (string) — Section name.
+      - order_id (integer) — Display order of the section.
+      - section_id (string) — Section ID.
+    - subscription (object)
+      - email (boolean) — Whether email subscription is enabled.
+      - im (boolean) — Whether IM subscription is enabled.
+    - template_preference (string) — Preferred change-event template type.
+    - type (string) — Visibility type of the status page. [public, internal]
+    - url_name (string) — URL-safe slug, unique per account.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -41,6 +79,8 @@ API: GET /status-page/list (status-page-read-page-list)
 
 func genStatusPagesChangeActiveListCmd() *cobra.Command {
 	var dataJSON string
+	var fPageID int64
+	var fType string
 	cmd := &cobra.Command{
 		Use:   "change-active-list",
 		Short: "List active status page events",
@@ -49,10 +89,55 @@ func genStatusPagesChangeActiveListCmd() *cobra.Command {
 List in-progress (non-terminal) events of a given type for a status page.
 
 API: GET /status-page/change/active/list (statusPageChangeActiveList)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --type string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. [incident, maintenance]
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
+      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - component_id (string) — Component ID.
+      - description (string) — Component description.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+      - name (string) (required) — Component display name.
+      - order_id (integer) — Display order within its section.
+      - section_id (string) — Parent section ID.
+      - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+    - change_id (integer) (required) — Event ID.
+    - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+    - description (string) — Event description (Markdown).
+    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
+    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
+    - notify_subscribers (boolean) — Whether subscribers were notified about this event.
+    - page_id (integer) — Parent status page ID.
+    - responder_ids (array<integer>) — Member IDs responsible for this event.
+    - start_at_seconds (integer) — Event start time in unix seconds.
+    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - title (string) (required) — Event title.
+    - type (string) (required) — Event type. [incident, maintenance]
+    - updates (array<object>) — Timeline updates attached to this event, ordered by time.
+      - at_seconds (integer) (required) — Update timestamp in unix seconds.
+      - component_changes (array<object>) — Component status transitions applied by this update.
+        - component_id (string) (required) — Component ID.
+        - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+        - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
+      - description (string) — Update description (Markdown).
+      - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+      - update_id (string) (required) — Update ID.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
 				})
 				if err != nil {
 					return err
@@ -69,6 +154,8 @@ API: GET /status-page/change/active/list (statusPageChangeActiveList)
 			})
 		},
 	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -107,9 +194,20 @@ Request fields:
   --responders []int — Member IDs responsible for this event.
   --start-at-seconds int — Event start time in unix seconds. Defaults to now when omitted.
   --status string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
-  --title string (required) — Event title, up to 255 characters.
+  --title string (required) — Event title, up to 255 characters. (≤255 chars)
   --type string (required) — Event type. [incident, maintenance]
-  updates (JSON, via --data) (required) — Timeline updates. Immediate events normally pass one update; retrospective events must pass all historical updates.
+  updates (array<object>, via --data) (required) — Timeline updates. Immediate events normally pass one update; retrospective events must pass all historical updates.
+    - at_seconds (integer) — Update timestamp in unix seconds.
+    - component_changes (array<object>) — Component status transitions applied by this update.
+      - component_id (string) (required) — Component ID.
+      - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
+    - description (string) — Update description (Markdown).
+    - status (string) — Change status after this update. Omit if the overall status does not change. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - update_id (string) — Update ID. Server-assigned on create; supply when replaying historical updates.
+
+Response fields (under 'data'):
+  - change_id (integer) (required) — Newly created event ID.
+  - change_name (string) (required) — Event title (echoed from the request).
 `,
 		Example: `  flashduty status-page change-create --data '{"description":"We are investigating degraded performance affecting the web console.","notify_subscribers":true,"page_id":5750613685214,"start_at_seconds":1712000000,"status":"investigating","title":"Web Console Degraded Performance","type":"incident","updates":[{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}],"description":"We are currently investigating an issue affecting some users.","status":"investigating"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,7 +266,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().BoolVar(&fAutoUpdateBySchedule, "auto-update-by-schedule", false, "Maintenance only: automatically advance the status based on the scheduled window.")
-	cmd.Flags().Int64Var(&fCloseAtSeconds, "close-at-seconds", 0, "Scheduled close time for retrospective events. Must be greater than `start_at_seconds`.")
+	cmd.Flags().Int64Var(&fCloseAtSeconds, "close-at-seconds", 0, "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Event description (Markdown). Required by the validator.")
 	cmd.Flags().BoolVar(&fIsRetrospective, "is-retrospective", false, "Mark this event as a retrospective (historical) one.")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked change IDs (related incidents, deployments, etc.).")
@@ -176,8 +274,8 @@ Request fields:
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event.")
 	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Event start time in unix seconds. Defaults to now when omitted.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. `investigating`/`identified`/`monitoring`/`resolved` apply to incidents; `scheduled`/`ongoing`/`completed` apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
-	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
@@ -235,6 +333,8 @@ Request fields:
 
 func genStatusPagesChangeInfoCmd() *cobra.Command {
 	var dataJSON string
+	var fPageID int64
+	var fChangeID int64
 	cmd := &cobra.Command{
 		Use:   "change-info",
 		Short: "Get status page event detail",
@@ -243,10 +343,54 @@ func genStatusPagesChangeInfoCmd() *cobra.Command {
 Retrieve details of a specific status page event (incident or maintenance).
 
 API: GET /status-page/change/info (statusPageChangeInfo)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --change-id int (required) — Event (change) ID.
+
+Response fields (under 'data'):
+  - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
+    - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+    - component_id (string) — Component ID.
+    - description (string) — Component description.
+    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+    - name (string) (required) — Component display name.
+    - order_id (integer) — Display order within its section.
+    - section_id (string) — Parent section ID.
+    - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+  - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+  - change_id (integer) (required) — Event ID.
+  - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+  - description (string) — Event description (Markdown).
+  - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
+  - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
+  - notify_subscribers (boolean) — Whether subscribers were notified about this event.
+  - page_id (integer) — Parent status page ID.
+  - responder_ids (array<integer>) — Member IDs responsible for this event.
+  - start_at_seconds (integer) — Event start time in unix seconds.
+  - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  - title (string) (required) — Event title.
+  - type (string) (required) — Event type. [incident, maintenance]
+  - updates (array<object>) — Timeline updates attached to this event, ordered by time.
+    - at_seconds (integer) (required) — Update timestamp in unix seconds.
+    - component_changes (array<object>) — Component status transitions applied by this update.
+      - component_id (string) (required) — Component ID.
+      - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+      - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
+    - description (string) — Update description (Markdown).
+    - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - update_id (string) (required) — Update ID.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("change-id") {
+						body["change_id"] = fChangeID
+					}
 				})
 				if err != nil {
 					return err
@@ -263,12 +407,19 @@ API: GET /status-page/change/info (statusPageChangeInfo)
 			})
 		},
 	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Event (change) ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
 
 func genStatusPagesChangeListCmd() *cobra.Command {
 	var dataJSON string
+	var fPageID int64
+	var fStartAtSeconds int64
+	var fEndAtSeconds int64
+	var fType string
+	var fStatus string
 	cmd := &cobra.Command{
 		Use:   "change-list",
 		Short: "List status page events",
@@ -277,10 +428,67 @@ func genStatusPagesChangeListCmd() *cobra.Command {
 List events (incidents and maintenances) for a status page.
 
 API: GET /status-page/change/list (statusPageChangeList)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --start-at-seconds int — Filter events started at or after this unix timestamp (seconds).
+  --end-at-seconds int — Filter events started at or before this unix timestamp (seconds).
+  --type string (required) — Event type filter. Required. [incident, maintenance]
+  --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
+      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - component_id (string) — Component ID.
+      - description (string) — Component description.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+      - name (string) (required) — Component display name.
+      - order_id (integer) — Display order within its section.
+      - section_id (string) — Parent section ID.
+      - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+    - change_id (integer) (required) — Event ID.
+    - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+    - description (string) — Event description (Markdown).
+    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
+    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
+    - notify_subscribers (boolean) — Whether subscribers were notified about this event.
+    - page_id (integer) — Parent status page ID.
+    - responder_ids (array<integer>) — Member IDs responsible for this event.
+    - start_at_seconds (integer) — Event start time in unix seconds.
+    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - title (string) (required) — Event title.
+    - type (string) (required) — Event type. [incident, maintenance]
+    - updates (array<object>) — Timeline updates attached to this event, ordered by time.
+      - at_seconds (integer) (required) — Update timestamp in unix seconds.
+      - component_changes (array<object>) — Component status transitions applied by this update.
+        - component_id (string) (required) — Component ID.
+        - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+        - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
+      - description (string) — Update description (Markdown).
+      - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+      - update_id (string) (required) — Update ID.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("start-at-seconds") {
+						body["start_at_seconds"] = fStartAtSeconds
+					}
+					if cmd.Flags().Changed("end-at-seconds") {
+						body["end_at_seconds"] = fEndAtSeconds
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
 				})
 				if err != nil {
 					return err
@@ -297,6 +505,11 @@ API: GET /status-page/change/list (statusPageChangeList)
 			})
 		},
 	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Filter events started at or after this unix timestamp (seconds).")
+	cmd.Flags().Int64Var(&fEndAtSeconds, "end-at-seconds", 0, "Filter events started at or before this unix timestamp (seconds).")
+	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -323,7 +536,12 @@ Request fields:
   --description string — Update description (Markdown). Required.
   --page-id int (required) — Status page ID.
   --status string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
-  component_changes (JSON, via --data) — Component status transitions applied by this update. Component IDs must be unique.
+  component_changes (array<object>, via --data) — Component status transitions applied by this update. Component IDs must be unique.
+    - component_id (string) (required) — Component ID.
+    - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
+
+Response fields (under 'data'):
+  - update_id (string) (required) — Newly created update ID.
 `,
 		Example: `  flashduty status-page change-timeline-create --data '{"at_seconds":1712003600,"change_id":5821693893131,"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"partial_outage"}],"description":"We have identified the root cause and are working on a fix.","page_id":5750613685214,"status":"identified"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -364,7 +582,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to `resolved` or `completed`, all referenced components must become `operational`. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -514,7 +732,7 @@ Request fields:
   --linked-changes []string — Linked event IDs. Pass the full replacement list.
   --page-id int (required) — Status page ID.
   --responders []int — Member IDs responsible for this event. Pass the full replacement list.
-  --title string — New event title, up to 255 characters. Omit to keep the existing value.
+  --title string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 `,
 		Example: `  flashduty status-page change-update --data '{"change_id":5821693893131,"page_id":5750613685214,"title":"Web Console Degraded Performance (Updated)"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -556,7 +774,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked event IDs. Pass the full replacement list.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event. Pass the full replacement list.")
-	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -579,6 +797,9 @@ Request fields:
   --api-key string (required) — Atlassian Statuspage API key with access to the source page.
   --source-page-id string (required) — Atlassian Statuspage source page ID.
   --target-page-id int (required) — Flashduty target status page ID that will receive the imported subscribers.
+
+Response fields (under 'data'):
+  - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
 		Example: `  flashduty status-page migrate-email-subscribers --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij","target_page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -634,6 +855,9 @@ Request fields:
   --api-key string (required) — Atlassian Statuspage API key with access to the source page.
   --source-page-id string (required) — Atlassian Statuspage source page ID.
   --url-name string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
+
+Response fields (under 'data'):
+  - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
 		Example: `  flashduty status-page migrate-structure --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -717,6 +941,7 @@ Request fields:
 
 func genStatusPagesMigrationStatusCmd() *cobra.Command {
 	var dataJSON string
+	var fJobID string
 	cmd := &cobra.Command{
 		Use:   "migration-status",
 		Short: "Get migration status",
@@ -725,10 +950,38 @@ func genStatusPagesMigrationStatusCmd() *cobra.Command {
 Get the current status and progress of a status page migration job.
 
 API: GET /status-page/migration/status (statusPageMigrationStatus)
+
+Request fields:
+  --job-id string (required) — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Owner account ID.
+  - created_at (integer) (required) — Job creation time, unix seconds.
+  - error (string) — Terminal error message when 'status' is 'failed'.
+  - job_id (string) (required) — Migration job ID.
+  - phase (string) (required) — Current migration phase. [structure, history, subscribers]
+  - progress (object) (required) — Progress counters for a migration job.
+    - completed_steps (integer) (required) — Steps completed so far.
+    - components_imported (integer) (required)
+    - incidents_imported (integer) (required)
+    - maintenances_imported (integer) (required)
+    - sections_imported (integer) (required)
+    - subscribers_imported (integer) (required)
+    - subscribers_skipped (integer) (required) — Number of subscribers skipped (e.g. because they would create duplicates).
+    - templates_imported (integer) (required)
+    - total_steps (integer) (required) — Total steps this job will perform.
+    - warnings (array<string>) — Non-fatal warnings recorded during the job.
+  - source_page_id (string) (required) — Atlassian Statuspage source page ID.
+  - status (string) (required) — Current job status. [pending, running, completed, failed, cancelled]
+  - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
+  - updated_at (integer) (required) — Last status update time, unix seconds.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+					if cmd.Flags().Changed("job-id") {
+						body["job_id"] = fJobID
+					}
 				})
 				if err != nil {
 					return err
@@ -745,6 +998,7 @@ API: GET /status-page/migration/status (statusPageMigrationStatus)
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -814,7 +1068,12 @@ API: POST /status-page/subscriber/import (statusPageSubscriberImport)
 Request fields:
   --method string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. [email, im]
   --page-id int (required) — Target status page ID.
-  subscribers (JSON, via --data) — Subscribers to import.
+  subscribers (array<object>, via --data) — Subscribers to import.
+    - all (boolean) — When true, the subscriber receives notifications for all components. Must be true when 'component_ids' and 'change_ids' are both empty.
+    - change_ids (array<integer>) — Specific event IDs the subscriber should receive notifications for.
+    - component_ids (array<string>) — Component IDs the subscriber should receive notifications for.
+    - locale (string) — Preferred locale for notifications. Defaults to the request locale when omitted.
+    - recipient (string) (required) — Email address (for public pages) or user ID (for internal pages). (≤255 chars)
 `,
 		Example: `  flashduty status-page subscriber-import --data '{"method":"email","page_id":5750613685214,"subscribers":[{"all":true,"locale":"en-US","recipient":"alice@example.com"},{"all":false,"component_ids":["01KC3GAZ6ZJE40H55GM31RPWZE"],"locale":"zh-CN","recipient":"bob@example.com"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -843,7 +1102,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. `email` is only valid for public pages; `im` is only valid for internal pages. (required) [email, im]")
+	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
@@ -851,6 +1110,10 @@ Request fields:
 
 func genStatusPagesSubscriberListCmd() *cobra.Command {
 	var dataJSON string
+	var fPageID int64
+	var fComponentIDs string
+	var fP int64
+	var fLimit int64
 	cmd := &cobra.Command{
 		Use:   "subscriber-list",
 		Short: "List status page subscribers",
@@ -859,10 +1122,46 @@ func genStatusPagesSubscriberListCmd() *cobra.Command {
 List subscribers who have signed up for status page notifications.
 
 API: GET /status-page/subscriber/list (statusPageSubscriberList)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --component-ids string — Comma-separated component IDs to filter subscribers by.
+  --page int — Page number (1-based). (min 1)
+  --limit int — Page size (1-100). (1-100)
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - has_next_page (boolean) (required) — Whether there is at least one more page after the current one.
+  - items (array<object>) (required)
+    - all (boolean) (required) — Whether the subscriber is subscribed to all components.
+    - components (array<object>) (required) — Components this subscriber has subscribed to.
+      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - component_id (string) — Component ID.
+      - description (string) — Component description.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+      - name (string) (required) — Component display name.
+      - order_id (integer) — Display order within its section.
+      - section_id (string) — Parent section ID.
+    - locale (string) — Preferred locale for notifications.
+    - method (string) (required) — Subscription delivery method. [email, im]
+    - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
+  - total (integer) (required) — Total matching subscribers.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("component-ids") {
+						body["component_ids"] = fComponentIDs
+					}
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
 				})
 				if err != nil {
 					return err
@@ -879,6 +1178,10 @@ API: GET /status-page/subscriber/list (statusPageSubscriberList)
 			})
 		},
 	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fComponentIDs, "component-ids", "", "Comma-separated component IDs to filter subscribers by.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100). (1-100)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

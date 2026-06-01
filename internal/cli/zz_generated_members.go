@@ -148,6 +148,28 @@ func genMembersMemberInfoCmd() *cobra.Command {
 Return the current session member's full profile.
 
 API: POST /member/info (memberInfo)
+
+Response fields (under 'data'):
+  - account_avatar (string) — Account avatar URL
+  - account_email (string) — Account email
+  - account_id (integer) — Account ID
+  - account_locale (string) — Account-level locale preference (e.g. zh-CN or en-US)
+  - account_name (string) — Account name
+  - account_role_ids (array<integer>) — Assigned role IDs
+  - account_time_zone (string) — Account-level time zone (e.g. Asia/Shanghai)
+  - avatar (string) — Member avatar URL
+  - country_code (string) — Phone country code
+  - domain (string) — Account domain
+  - email (string) — Email address
+  - email_verified (boolean) — Whether email is verified
+  - is_external (boolean) — Whether provisioned via SSO
+  - locale (string) — Locale preference
+  - member_id (integer) — Member ID
+  - member_name (string) — Member display name
+  - phone (string) — Masked phone number
+  - phone_verified (boolean) — Whether phone is verified
+  - status (string) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
+  - time_zone (string) — Time zone
 `,
 		Example: `  flashduty member info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -184,7 +206,20 @@ API: POST /member/invite (memberInvite)
 
 Request fields:
   --from string — Invite source context
-  members (JSON, via --data) (required) — Members to invite (max 20)
+  members (array<object>, via --data) (required) — Members to invite (max 20)
+    - country_code (string) — Country code
+    - email (string) — Email address
+    - locale (string) — Locale [zh-CN, en-US]
+    - member_name (string) — Display name (2-39 chars)
+    - phone (string) — Phone number
+    - ref_id (string) — External reference ID
+    - role_ids (array<integer>) — Role IDs to assign
+    - time_zone (string) — Time zone
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) — Newly created members
+    - member_id (integer) — Member ID
+    - member_name (string) — Member display name
 `,
 		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"time_zone":"Asia/Shanghai"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -233,19 +268,42 @@ Return a paginated list of organization members.
 API: POST /member/list (memberList)
 
 Request fields:
-  --p int — Page number
-  --limit int — Page size
+  --page int — Page number (min 1)
+  --limit int — Page size (1-100)
   --search-after-ctx string
   --asc bool — Ascending order
   --orderby string — Sort field [created_at, updated_at]
   --query string — Search keyword
   --role-id int — Filter by role ID
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) — Member items
+    - account_id (integer) (required) — Account ID
+    - account_role_ids (array<integer>) (required) — Role IDs
+    - avatar (string) (required) — Avatar URL
+    - country_code (string) (required) — Phone country code
+    - created_at (integer) (required) — Creation timestamp (Unix seconds)
+    - email (string) (required) — Email address
+    - email_verified (boolean) (required) — Email verified
+    - is_external (boolean) (required) — Provisioned via SSO
+    - locale (string) — Locale
+    - member_id (integer) (required) — Member ID
+    - member_name (string) (required) — Display name
+    - phone (string) (required) — Masked phone number
+    - phone_verified (boolean) (required) — Phone verified
+    - ref_id (string) (required) — External reference ID
+    - status (string) (required) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
+    - time_zone (string) — Time zone
+    - updated_at (integer) (required) — Update timestamp (Unix seconds)
+  - limit (integer) — Page size
+  - p (integer) — Current page
+  - total (integer) — Total count
 `,
 		Example: `  flashduty member list --data '{"limit":5,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("p") {
+					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
 					if cmd.Flags().Changed("limit") {
@@ -282,8 +340,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "p", 0, "Page number")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field [created_at, updated_at]")
@@ -318,7 +376,7 @@ Request fields:
   --email string — Email address
   --locale string — Locale [zh-CN, en-US]
   --member-id int (required) — Member ID of the member to update
-  --member-name string — Display name
+  --member-name string — Display name (2-39 chars)
   --phone string — Phone number
   --time-zone string — Time zone
 `,
@@ -372,7 +430,7 @@ Request fields:
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email address")
 	cmd.Flags().StringVar(&fLocale, "locale", "", "Locale [zh-CN, en-US]")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID of the member to update (required)")
-	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Display name")
+	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Display name (2-39 chars)")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Time zone")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
@@ -493,6 +551,21 @@ API: POST /person/infos (personInfos)
 
 Request fields:
   --person-ids []int (required) — List of person IDs
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) — Person profiles
+    - account_id (integer) (required) — Account ID
+    - as (string) — Login role (account/member)
+    - avatar (string) — Avatar URL
+    - email (string) — Email address
+    - email_verified (boolean) (required) — Email verified
+    - locale (string) — Locale
+    - person_id (integer) (required) — Person ID
+    - person_name (string) — Display name
+    - phone (string) — Phone number
+    - phone_verified (boolean) (required) — Phone verified
+    - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. [enabled, pending, deleted]
+    - time_zone (string) — Time zone
 `,
 		Example: `  flashduty person infos --data '{"person_ids":[2476444212131,3790925372131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -22,6 +22,127 @@ API: POST /monit/datasource/info (monit-datasource-read-info)
 
 Request fields:
   --id int (required) — Resource ID.
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
+  - enabled (boolean) (required) — Whether the datasource is active.
+  - id (integer) (required) — Unique datasource ID.
+  - name (string) (required) — Datasource display name.
+  - note (string) (required) — Optional description.
+  - payload (object) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - database (string) — Default database for authentication.
+      - dial_timeout_mills (integer) — Dial timeout in milliseconds.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - max_execution_seconds (integer) — Max query execution time in seconds.
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_enabled (boolean)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - elasticsearch (object) — Elasticsearch datasource configuration.
+      - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
+      - certificate_fingerprint (string)
+      - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
+      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - headers (array<string>)
+      - password (string)
+      - service_token (string) — Service token; overrides username/password if set.
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - username (string) — Username for 'self-managed' deployment.
+    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - idle_conns (integer) — Maximum idle connections.
+      - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
+      - open_conns (integer) — Maximum open connections.
+      - password (string)
+      - timeout_mills (integer) — Query timeout in milliseconds.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - oracle (object) — Oracle datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - options (object) — Extra connection options as key-value pairs.
+      - password (string)
+      - timeout_mills (integer)
+      - username (string)
+    - postgres (object) — PostgreSQL datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - username (string)
+    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
+      - basic_auth_password (string) — Basic auth password.
+      - basic_auth_username (string) — Basic auth username.
+      - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
+      - params (array<string>) — Custom query parameters in 'key=value' format.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - access_key_id (string) — Alibaba Cloud Access Key ID.
+      - access_key_secret (string) — Alibaba Cloud Access Key Secret.
+      - headers (array<string>) — Custom HTTP headers.
+    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit datasource-info --data '{"id":10}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -89,7 +210,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fType, "type", "", "Filter by datasource type identifier. Omit to return all types. Allowed values: `prometheus`, `loki`, `mysql`, `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`, `victorialogs`.")
+	cmd.Flags().StringVar(&fType, "type", "", "Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -240,7 +361,237 @@ Request fields:
   --name string (required) — Datasource display name.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  payload (JSON, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+  payload (object, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - database (string) — Default database for authentication.
+      - dial_timeout_mills (integer) — Dial timeout in milliseconds.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - max_execution_seconds (integer) — Max query execution time in seconds.
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_enabled (boolean)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - elasticsearch (object) — Elasticsearch datasource configuration.
+      - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
+      - certificate_fingerprint (string)
+      - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
+      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - headers (array<string>)
+      - password (string)
+      - service_token (string) — Service token; overrides username/password if set.
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - username (string) — Username for 'self-managed' deployment.
+    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - idle_conns (integer) — Maximum idle connections.
+      - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
+      - open_conns (integer) — Maximum open connections.
+      - password (string)
+      - timeout_mills (integer) — Query timeout in milliseconds.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - oracle (object) — Oracle datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - options (object) — Extra connection options as key-value pairs.
+      - password (string)
+      - timeout_mills (integer)
+      - username (string)
+    - postgres (object) — PostgreSQL datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - username (string)
+    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
+      - basic_auth_password (string) — Basic auth password.
+      - basic_auth_username (string) — Basic auth username.
+      - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
+      - params (array<string>) — Custom query parameters in 'key=value' format.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - access_key_id (string) — Alibaba Cloud Access Key ID.
+      - access_key_secret (string) — Alibaba Cloud Access Key Secret.
+      - headers (array<string>) — Custom HTTP headers.
+    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
+  - enabled (boolean) (required) — Whether the datasource is active.
+  - id (integer) (required) — Unique datasource ID.
+  - name (string) (required) — Datasource display name.
+  - note (string) (required) — Optional description.
+  - payload (object) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - database (string) — Default database for authentication.
+      - dial_timeout_mills (integer) — Dial timeout in milliseconds.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - max_execution_seconds (integer) — Max query execution time in seconds.
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_enabled (boolean)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - elasticsearch (object) — Elasticsearch datasource configuration.
+      - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
+      - certificate_fingerprint (string)
+      - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
+      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - headers (array<string>)
+      - password (string)
+      - service_token (string) — Service token; overrides username/password if set.
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - username (string) — Username for 'self-managed' deployment.
+    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - idle_conns (integer) — Maximum idle connections.
+      - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
+      - open_conns (integer) — Maximum open connections.
+      - password (string)
+      - timeout_mills (integer) — Query timeout in milliseconds.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - oracle (object) — Oracle datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - options (object) — Extra connection options as key-value pairs.
+      - password (string)
+      - timeout_mills (integer)
+      - username (string)
+    - postgres (object) — PostgreSQL datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - username (string)
+    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
+      - basic_auth_password (string) — Basic auth password.
+      - basic_auth_username (string) — Basic auth username.
+      - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
+      - params (array<string>) — Custom query parameters in 'key=value' format.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - access_key_id (string) — Alibaba Cloud Access Key ID.
+      - access_key_secret (string) — Alibaba Cloud Access Key Secret.
+      - headers (array<string>) — Custom HTTP headers.
+    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit datasource-create --data '{"address":"http://prometheus.example.com:9090","edge_cluster_name":"default","name":"Prometheus Prod","note":"Production Prometheus","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -280,12 +631,12 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: `host:port`. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: `prometheus`, `loki`, `mysql`, `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`, `victorialogs`. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -358,7 +709,237 @@ Request fields:
   --name string (required) — Datasource display name.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  payload (JSON, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+  payload (object, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - database (string) — Default database for authentication.
+      - dial_timeout_mills (integer) — Dial timeout in milliseconds.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - max_execution_seconds (integer) — Max query execution time in seconds.
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_enabled (boolean)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - elasticsearch (object) — Elasticsearch datasource configuration.
+      - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
+      - certificate_fingerprint (string)
+      - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
+      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - headers (array<string>)
+      - password (string)
+      - service_token (string) — Service token; overrides username/password if set.
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - username (string) — Username for 'self-managed' deployment.
+    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - idle_conns (integer) — Maximum idle connections.
+      - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
+      - open_conns (integer) — Maximum open connections.
+      - password (string)
+      - timeout_mills (integer) — Query timeout in milliseconds.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - oracle (object) — Oracle datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - options (object) — Extra connection options as key-value pairs.
+      - password (string)
+      - timeout_mills (integer)
+      - username (string)
+    - postgres (object) — PostgreSQL datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - username (string)
+    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
+      - basic_auth_password (string) — Basic auth password.
+      - basic_auth_username (string) — Basic auth username.
+      - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
+      - params (array<string>) — Custom query parameters in 'key=value' format.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - access_key_id (string) — Alibaba Cloud Access Key ID.
+      - access_key_secret (string) — Alibaba Cloud Access Key Secret.
+      - headers (array<string>) — Custom HTTP headers.
+    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+
+Response fields (under 'data'):
+  - account_id (integer) (required) — Account ID.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
+  - enabled (boolean) (required) — Whether the datasource is active.
+  - id (integer) (required) — Unique datasource ID.
+  - name (string) (required) — Datasource display name.
+  - note (string) (required) — Optional description.
+  - payload (object) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - database (string) — Default database for authentication.
+      - dial_timeout_mills (integer) — Dial timeout in milliseconds.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - max_execution_seconds (integer) — Max query execution time in seconds.
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_enabled (boolean)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - elasticsearch (object) — Elasticsearch datasource configuration.
+      - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
+      - certificate_fingerprint (string)
+      - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
+      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - headers (array<string>)
+      - password (string)
+      - service_token (string) — Service token; overrides username/password if set.
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - username (string) — Username for 'self-managed' deployment.
+    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - idle_conns (integer) — Maximum idle connections.
+      - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
+      - open_conns (integer) — Maximum open connections.
+      - password (string)
+      - timeout_mills (integer) — Query timeout in milliseconds.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+      - username (string)
+    - oracle (object) — Oracle datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - options (object) — Extra connection options as key-value pairs.
+      - password (string)
+      - timeout_mills (integer)
+      - username (string)
+    - postgres (object) — PostgreSQL datasource configuration.
+      - idle_conns (integer)
+      - lifetime_seconds (integer)
+      - open_conns (integer)
+      - password (string)
+      - timeout_mills (integer)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - username (string)
+    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
+      - basic_auth_password (string) — Basic auth password.
+      - basic_auth_username (string) — Basic auth username.
+      - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
+      - params (array<string>) — Custom query parameters in 'key=value' format.
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - access_key_id (string) — Alibaba Cloud Access Key ID.
+      - access_key_secret (string) — Alibaba Cloud Access Key Secret.
+      - headers (array<string>) — Custom HTTP headers.
+    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - basic_auth_enabled (boolean)
+      - basic_auth_password (string)
+      - basic_auth_username (string)
+      - headers (array<string>)
+      - params (array<string>)
+      - tls_ca (string)
+      - tls_cert (string)
+      - tls_key (string)
+      - tls_key_pwd (string)
+      - tls_max_version (string)
+      - tls_min_version (string)
+      - tls_server_name (string)
+      - tls_skip_verify (boolean)
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
+  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
 `,
 		Example: `  flashduty monit datasource-update --data '{"address":"http://prometheus-v2.example.com:9090","edge_cluster_name":"default","id":10,"name":"Prometheus Prod v2","note":"Updated","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -398,12 +979,12 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: `host:port`. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: `prometheus`, `loki`, `mysql`, `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`, `victorialogs`. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }

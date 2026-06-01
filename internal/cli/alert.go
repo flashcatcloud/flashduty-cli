@@ -34,6 +34,7 @@ func newAlertListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts",
+		Long:  curatedLong("List alerts within a time window, optionally filtered by severity, channel, active/recovered/muted state. No server-side title/text filter — to search by title, pipe --json to jq: 'select(.title|test(\"pat\";\"i\"))'. --limit max 100; --since/--until window must be < 31 days.", "Alerts", "ReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if active && recovered {
@@ -114,6 +115,7 @@ func newAlertGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <alert_id>",
 		Short: "Get alert detail",
+		Long:  curatedLong("Get the full detail of a single alert by ID.", "Alerts", "ReadInfo"),
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -176,6 +178,7 @@ func newAlertEventsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "events <alert_id>",
 		Short: "List alert events",
+		Long:  curatedLong("List the individual events that compose a given alert.", "Alerts", "ReadEventList"),
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -211,6 +214,7 @@ func newAlertTimelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "timeline <alert_id>",
 		Short: "View alert timeline",
+		Long:  curatedLong("View the chronological feed of timeline events (actions, state changes) for an alert.", "Alerts", "ReadFeed"),
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

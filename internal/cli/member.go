@@ -22,10 +22,12 @@ func newMemberCmd() *cobra.Command {
 func newMemberListCmd() *cobra.Command {
 	var name, email string
 	var page int
+	var roleID int64
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List members",
+		Long:  curatedLong("List members in your account.", "Members", "MemberList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// go-flashduty's MemberListRequest exposes a single search
@@ -40,6 +42,9 @@ func newMemberListCmd() *cobra.Command {
 					Query: query,
 				}
 				req.Page = page
+				if roleID != 0 {
+					req.RoleID = uint64(roleID)
+				}
 
 				result, _, err := ctx.Client.Members.MemberList(cmdContext(ctx.Cmd), req)
 				if err != nil {
@@ -78,6 +83,7 @@ func newMemberListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Search by name")
 	cmd.Flags().StringVar(&email, "email", "", "Search by email")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().Int64Var(&roleID, "role-id", 0, "Filter to members holding this role ID")
 
 	return cmd
 }

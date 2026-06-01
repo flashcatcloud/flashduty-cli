@@ -14,6 +14,25 @@ func genAccountInfoCmd() *cobra.Command {
 Return the current account's profile and settings.
 
 API: POST /account/info (account-read-info)
+
+Response fields (under 'data'):
+  - account_id (integer) — Account identifier.
+  - account_name (string) — Account name.
+  - avatar (string) — Account avatar URL.
+  - country_code (string) — Calling country code for the contact phone.
+  - created_at (integer) — Account creation time, Unix timestamp in seconds.
+  - domain (string) — Primary account domain (login subdomain).
+  - email (string) — Account contact email.
+  - extra_domains (array<string>) — Additional account domains.
+  - locale (string) — Account language preference (e.g. zh-CN, en-US).
+  - mp_account_id (string) — Account identifier on the cloud marketplace platform (present only for marketplace accounts).
+  - mp_plat (string) — Cloud marketplace platform the account was provisioned from (present only for marketplace accounts).
+  - phone (string) — Account contact phone, masked for privacy.
+  - restrictions (object) — Account access restrictions (present only when configured).
+    - allow_subdomain (boolean) — Whether subdomains of the allowed email domains are also accepted.
+    - email_domains (array<string>) — Allowed login email domains.
+    - ips (array<string>) — Allowed source IP/CIDR whitelist.
+  - time_zone (string) — Account default timezone (IANA name, e.g. Asia/Shanghai).
 `,
 		Example: `  flashduty account info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -22,6 +22,16 @@ API: POST /role/info (role-read-info)
 
 Request fields:
   --role-id int (required) — Role ID.
+
+Response fields (under 'data'):
+  - created_at (integer) (required) — Unix epoch seconds the role was created.
+  - description (string) (required) — Role description.
+  - editable (boolean) (required) — False for built-in roles which cannot be modified.
+  - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
+  - role_id (integer) (required) — Unique role ID.
+  - role_name (string) (required) — Role display name.
+  - status (string) (required) — Role status. [enabled, disabled]
+  - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
 `,
 		Example: `  flashduty role info --data '{"role_id":2}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,6 +77,18 @@ API: POST /role/list (role-read-list)
 Request fields:
   --asc bool — Ascending sort order.
   --orderby string — Sort field. [created_at, updated_at]
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - created_at (integer) (required) — Unix epoch seconds the role was created.
+    - description (string) (required) — Role description.
+    - editable (boolean) (required) — False for built-in roles which cannot be modified.
+    - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
+    - role_id (integer) (required) — Unique role ID.
+    - role_name (string) (required) — Role display name.
+    - status (string) (required) — Role status. [enabled, disabled]
+    - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
+  - total (integer) (required) — Total role count.
 `,
 		Example: `  flashduty role list --data '{"asc":false,"orderby":"created_at"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -116,6 +138,17 @@ API: POST /role/permission/list (role-read-list-permission)
 Request fields:
   --role-ids []int — Filter to permissions granted to these roles.
   --with-all bool — If true, return all permissions with is_granted set to indicate which are granted.
+
+Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+  - items (array<object>) (required)
+    - class (string) (required) — Permission class (e.g., 'On-call', 'Organization').
+    - description (string) (required) — Human-readable permission description.
+    - id (integer) (required) — Unique permission ID.
+    - is_granted (boolean) — Present when with_all is true. Indicates whether this permission is granted to the requested roles.
+    - permission_name (string) (required) — Permission display name.
+    - permission_type (string) (required) — Whether this is a read or manage permission. [read, manage]
+    - scope (string) (required) — Permission scope (e.g., 'on-call', 'organization').
+    - status (string) (required) — Permission status. [enabled, disabled]
 `,
 		Example: `  flashduty role permission-list --data '{"role_ids":[150],"with_all":true}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -162,7 +195,7 @@ Return all permission factors (API, button, menu, URL, visit) optionally filtere
 API: POST /role/permission/factor/list (role-read-list-permission-factor)
 
 Request fields:
-  --factor-types []string — Filter by factor type.
+  --factor-types []string — Filter by factor type. [api, button, visit, menu, url]
 `,
 		Example: `  flashduty role permission-factor-list --data '{"factor_types":["api"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -187,7 +220,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fFactorTypes, "factor-types", nil, "Filter by factor type.")
+	cmd.Flags().StringSliceVar(&fFactorTypes, "factor-types", nil, "Filter by factor type. [api, button, visit, menu, url]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -440,10 +473,14 @@ Create a new custom role or update an existing one. Pass 'role_id' to update.
 API: POST /role/upsert (role-write-upsert)
 
 Request fields:
-  --description string — Role description.
+  --description string — Role description. (≤499 chars)
   --permission-ids []int — Permission IDs to grant. Replaces the existing set.
   --role-id int — Role ID. Omit or set to 0 to create.
-  --role-name string (required) — Role display name. 1–39 characters.
+  --role-name string (required) — Role display name. 1–39 characters. (1-39 chars)
+
+Response fields (under 'data'):
+  - role_id (integer) (required) — Created or updated role ID.
+  - role_name (string) (required) — Role name echoed from the request.
 `,
 		Example: `  flashduty role upsert --data '{"description":"Manage on-call rotations and incidents.","permission_ids":[501,502],"role_name":"On-call Manager"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -477,10 +514,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Role description.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Role description. (≤499 chars)")
 	cmd.Flags().IntSliceVar(&fPermissionIDs, "permission-ids", nil, "Permission IDs to grant. Replaces the existing set.")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. Omit or set to 0 to create.")
-	cmd.Flags().StringVar(&fRoleName, "role-name", "", "Role display name. 1–39 characters. (required)")
+	cmd.Flags().StringVar(&fRoleName, "role-name", "", "Role display name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
