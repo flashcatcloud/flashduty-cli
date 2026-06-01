@@ -126,7 +126,8 @@ flashduty config set base_url URL  # Override API endpoint
 
 | Flag | Description |
 |------|-------------|
-| `--json` | Output as JSON instead of table |
+| `--output-format` | Output format: `table` (default), `json`, or `toon` (compact, fewer tokens) |
+| `--json` | Output as JSON (alias for `--output-format json`) |
 | `--no-trunc` | Do not truncate long fields in table output |
 | `--base-url` | Override the API base URL |
 
@@ -272,10 +273,16 @@ inc_def456   High memory usage        Warning    Processing   Staging       2026
 Showing 2 results (page 1, total 2).
 ```
 
-**JSON (`--json`):** Machine-parseable, full data, no truncation.
+**JSON (`--json` / `--output-format json`):** Machine-parseable, full data, no truncation.
 
 ```bash
 flashduty incident list --json | jq '.[].title'
+```
+
+**TOON (`--output-format toon`):** Token-Oriented Object Notation — full data, no truncation, but drops the per-row repeated keys that JSON emits for uniform arrays, so list output costs materially fewer tokens. Preferred for LLM/agent consumption. Not directly `jq`-able; use `--json` when you need to pipe into `jq`.
+
+```bash
+flashduty incident list --output-format toon
 ```
 
 **No truncation (`--no-trunc`):** Table with full field content.

@@ -127,6 +127,7 @@ func newStatusPageChangesCmd() *cobra.Command {
 
 	cmd.Flags().Int64Var(&pageID, "page-id", 0, "Page ID (required)")
 	cmd.Flags().StringVar(&changeType, "type", "", "Change type: incident or maintenance (required)")
+	registerEnumFlag(cmd, "type", "incident", "maintenance")
 	_ = cmd.MarkFlagRequired("page-id")
 	_ = cmd.MarkFlagRequired("type")
 

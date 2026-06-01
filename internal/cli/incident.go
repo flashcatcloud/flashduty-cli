@@ -121,6 +121,8 @@ func newIncidentListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&progress, "progress", "", "Filter: Triggered,Processing,Closed")
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
+	registerEnumFlag(cmd, "progress", "Triggered", "Processing", "Closed")
+	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
@@ -338,6 +340,7 @@ func newIncidentCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Incident title (required, 3-200 chars)")
 	cmd.Flags().StringVar(&severity, "severity", "", "Severity: Critical, Warning, Info (required)")
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Channel ID")
+	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
 	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Person IDs to assign (use 'flashduty member list' to look up IDs)")
 
@@ -429,6 +432,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "New description")
 	cmd.Flags().StringVar(&severity, "severity", "", "New severity: Critical, Warning, Info")
 	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, "Custom field: key=value (repeatable)")
+	registerEnumFlag(cmd, "severity", severityEnum...)
 
 	return cmd
 }
