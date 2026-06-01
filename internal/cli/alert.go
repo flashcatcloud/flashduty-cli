@@ -99,6 +99,7 @@ func newAlertListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	cmd.Flags().BoolVar(&active, "active", false, "Show active only")
+	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().BoolVar(&recovered, "recovered", false, "Show recovered only")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")

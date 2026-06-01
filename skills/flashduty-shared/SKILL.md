@@ -1,7 +1,7 @@
 ---
 name: flashduty-shared
 version: 1.0.0
-description: "Flashduty CLI foundation: authentication (login, app_key, config), the 3-layer noise reduction model (Alert Event to Alert to Incident), global flags (--json, --no-trunc), output modes (table, JSON, vertical detail), pagination (--limit, --page), time parsing (relative, absolute, unix, future durations), reference data lookups (member, team, channel, field, escalation-rule), and safety rules. Prerequisite for all other flashduty-* skills. Use when setting up flashduty-cli, encountering auth errors, looking up IDs, or needing to understand the Flashduty data model."
+description: "Flashduty CLI foundation: authentication (login, app_key, config), the 3-layer noise reduction model (Alert Event to Alert to Incident), global flags (--output-format, --json, --no-trunc), output modes (table, JSON, TOON, vertical detail), pagination (--limit, --page), time parsing (relative, absolute, unix, future durations), reference data lookups (member, team, channel, field, escalation-rule), and safety rules. Prerequisite for all other flashduty-* skills. Use when setting up flashduty-cli, encountering auth errors, looking up IDs, or needing to understand the Flashduty data model."
 metadata:
   requires:
     bins: ["flashduty"]
@@ -107,7 +107,8 @@ These flags are available on **every** command via Cobra `PersistentFlags`:
 
 | Flag | Type | Default | Effect |
 |------|------|---------|--------|
-| `--json` | bool | `false` | Output as JSON instead of table |
+| `--output-format` | string | `table` | Output format: `table`, `json`, or `toon` (compact, fewer tokens) |
+| `--json` | bool | `false` | Output as JSON (alias for `--output-format json`) |
 | `--no-trunc` | bool | `false` | Do not truncate long values in table output |
 | `--app-key` | string | `""` | Override app key (hidden flag) |
 | `--base-url` | string | `""` | Override base URL |
@@ -124,9 +125,13 @@ Human-readable aligned columns. Long values are truncated with `...` unless `--n
 Showing 20 results (page 1, total 142).
 ```
 
-### JSON (`--json`)
+### JSON (`--json` / `--output-format json`)
 
 Machine-readable full output. No truncation. Suitable for piping to `jq`. Success messages are wrapped as `{"message": "..."}`.
+
+### TOON (`--output-format toon`)
+
+Token-Oriented Object Notation — machine-readable full output, no truncation, encoded via the same path as the Flashduty MCP server. For uniform arrays (list commands) it emits the field keys once as a header instead of repeating them on every row, so list output costs materially fewer tokens than JSON. **Preferred when an LLM/agent reads the output.** Not directly `jq`-able — use `--json` when you need `jq` field selection.
 
 ### Vertical Detail
 

@@ -88,6 +88,7 @@ func newPostmortemListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&status, "status", "", "Filter: drafting or published")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	registerEnumFlag(cmd, "status", "drafting", "published")
 	cmd.Flags().StringVar(&team, "team", "", "Comma-separated team IDs")
 	cmd.Flags().StringVar(&since, "since", "", "Created after (time filter)")
 	cmd.Flags().StringVar(&until, "until", "", "Created before (time filter)")
