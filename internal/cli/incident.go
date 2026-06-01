@@ -2,9 +2,11 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -73,7 +75,7 @@ func pastIncidentColumns() []output.Column {
 }
 
 func newIncidentListCmd() *cobra.Command {
-	var progress, severity, query, since, until string
+	var progress, severity, query, since, until, nums string
 	var channelID int64
 	var limit, page int
 
@@ -103,6 +105,9 @@ func newIncidentListCmd() *cobra.Command {
 				if channelID != 0 {
 					req.ChannelIDs = []int64{channelID}
 				}
+				if nums != "" {
+					req.Nums = parseStringSlice(nums)
+				}
 
 				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
@@ -118,12 +123,69 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
+	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
+}
+
+// shortIDResolveDays bounds how far back a 6-char short id is resolved.
+// /incident/list is the only endpoint that accepts a num, and the backend caps
+// its query span at ~30 days, so older incidents can only be looked up by their
+// full 24-char id.
+const shortIDResolveDays = 30
+
+var reShortIncidentID = regexp.MustCompile(`^[0-9a-fA-F]{6}$`)
+
+// resolveIncidentArg maps a user-supplied incident argument to a full 24-char
+// incident id. A full id — or any value that isn't a 6-char short id — passes
+// through unchanged, preserving existing behavior. A 6-char short id ("num", as
+// shown in the UI) is resolved against the last shortIDResolveDays days via
+// /incident/list. A unique hit returns the full id; multiple hits return the
+// candidates (the short id is non-unique by design) so the caller can surface
+// them; no hit returns a descriptive error.
+func resolveIncidentArg(ctx *RunContext, arg string) (fullID string, candidates []flashduty.IncidentInfo, err error) {
+	if !reShortIncidentID.MatchString(arg) {
+		return arg, nil, nil
+	}
+
+	end := time.Now().Unix()
+	start := end - int64(shortIDResolveDays)*24*60*60
+	res, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), &flashduty.ListIncidentsRequest{
+		Nums:      []string{strings.ToUpper(arg)},
+		StartTime: start,
+		EndTime:   end,
+	})
+	if err != nil {
+		return "", nil, err
+	}
+
+	switch len(res.Items) {
+	case 0:
+		return "", nil, fmt.Errorf(
+			"no incident with short id %q in the last %d days; older incidents must be queried by their full 24-char id",
+			arg, shortIDResolveDays)
+	case 1:
+		return res.Items[0].IncidentID, nil, nil
+	default:
+		return "", res.Items, nil
+	}
+}
+
+// ambiguousShortIDError reports a short id that resolved to more than one
+// incident, listing each candidate's full id so the caller can disambiguate.
+func ambiguousShortIDError(shortID string, candidates []flashduty.IncidentInfo) error {
+	var b strings.Builder
+	_, _ = fmt.Fprintf(&b, "short id %q matches %d incidents in the last %d days — re-run with one of these full ids:",
+		shortID, len(candidates), shortIDResolveDays)
+	for _, c := range candidates {
+		_, _ = fmt.Fprintf(&b, "\n  %s  %-8s  %-10s  %s  %s",
+			c.IncidentID, orDash(c.IncidentSeverity), orDash(c.Progress), output.FormatTime(c.StartTime), c.Title)
+	}
+	return errors.New(b.String())
 }
 
 func newIncidentGetCmd() *cobra.Command {
@@ -133,8 +195,20 @@ func newIncidentGetCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				ids := make([]string, 0, len(ctx.Args))
+				for _, a := range ctx.Args {
+					fullID, candidates, err := resolveIncidentArg(ctx, a)
+					if err != nil {
+						return err
+					}
+					if len(candidates) > 0 {
+						return ambiguousShortIDError(a, candidates)
+					}
+					ids = append(ids, fullID)
+				}
+
 				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), &flashduty.ListIncidentsRequest{
-					IncidentIDs: ctx.Args,
+					IncidentIDs: ids,
 				})
 				if err != nil {
 					return err
@@ -1333,8 +1407,16 @@ func newIncidentDetailCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				fullID, candidates, err := resolveIncidentArg(ctx, ctx.Args[0])
+				if err != nil {
+					return err
+				}
+				if len(candidates) > 0 {
+					return ambiguousShortIDError(ctx.Args[0], candidates)
+				}
+
 				result, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), &flashduty.IncidentInfoRequest{
-					IncidentID: ctx.Args[0],
+					IncidentID: fullID,
 				})
 				if err != nil {
 					return err
