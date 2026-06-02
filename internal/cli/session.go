@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +37,13 @@ const (
 	sessionFormatJSON  = "json"
 	sessionFormatTOON  = "toon"
 )
+
+// sessionPageLimit is the largest per-page Limit the /safari/session/list
+// handler accepts. The server validates limit with binding "lte=100": a
+// limit > 100 is a hard 400 bind failure, NOT a clamp, so every page request
+// must carry Limit <= 100. To honor a --limit above this, `session list`
+// paginates server-side (see fetchSessionsPaged).
+const sessionPageLimit = 100
 
 func newSessionListCmd() *cobra.Command {
 	var (
@@ -86,23 +94,20 @@ func newSessionListCmd() *cobra.Command {
 					Status:  status,
 					Orderby: "updated_at",
 				}
-				req.Limit = limit
-				req.Page = page
 				if teamID > 0 {
 					req.TeamIDs = []int64{teamID}
 				}
 
-				resp, _, err := ctx.Client.Sessions.List(cmdContext(ctx.Cmd), req)
+				sessions, total, err := fetchSessionsPaged(cmdContext(ctx.Cmd), ctx.Client, req, page, limit)
 				if err != nil {
 					return err
 				}
 
-				sessions := resp.Sessions
 				if sinceUnix > 0 {
 					sessions = filterSessionsSince(sessions, sinceUnix)
 				}
 
-				return writeSessionList(ctx.Writer, format, sessions, resp.Total)
+				return writeSessionList(ctx.Writer, format, sessions, total)
 			})
 		},
 	}
@@ -114,12 +119,76 @@ func newSessionListCmd() *cobra.Command {
 	registerEnumFlag(cmd, "status", "active", "archived", "all")
 	cmd.Flags().StringVar(&since, "since", "", "Keep only sessions updated within this window (client-side), e.g. 30d, 24h, 2026-05-01")
 	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Restrict to one team ID")
-	cmd.Flags().IntVar(&limit, "limit", 200, "Max sessions to fetch (server caps at 100/page)")
-	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 200, "Max sessions to fetch; fetched across multiple 100-row server pages as needed")
+	cmd.Flags().IntVar(&page, "page", 1, "1-based page to start paginating from")
 	cmd.Flags().StringVar(&format, "format", sessionFormatJSONL, "Output format: jsonl (default), json, or toon")
 	registerEnumFlag(cmd, "format", sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON)
 
 	return cmd
+}
+
+// fetchSessionsPaged collects up to `limit` sessions across as many server pages
+// as needed, starting at page `startPage`. The /safari/session/list handler
+// rejects any single request with Limit > 100 (binding "lte=100" → HTTP 400, not
+// a clamp), so a --limit above 100 must be satisfied by paginating: each page
+// requests min(remaining, 100) rows and advances the 1-based page number P. The
+// loop stops once it has `limit` rows, the server reports it has returned every
+// matching row (accumulated >= Total), or a page comes back short (fewer rows
+// than requested means the server is exhausted). The Total from the last
+// response is returned so the caller can report the full match count even when
+// the rows were truncated to --limit.
+func fetchSessionsPaged(
+	ctx context.Context,
+	client *flashduty.Client,
+	base *flashduty.SessionListRequest,
+	startPage, limit int,
+) ([]flashduty.SessionItem, int64, error) {
+	if startPage < 1 {
+		startPage = 1
+	}
+	if limit < 1 {
+		limit = 1
+	}
+
+	// Hint the slice at one page; it grows naturally across pages. Sizing it to
+	// `limit` would over-allocate when a huge --limit far exceeds what the server
+	// actually has (e.g. --limit 1000000 on an account with a few hundred rows).
+	capHint := limit
+	if capHint > sessionPageLimit {
+		capHint = sessionPageLimit
+	}
+	collected := make([]flashduty.SessionItem, 0, capHint)
+	var total int64
+	for page := startPage; len(collected) < limit; page++ {
+		pageLimit := limit - len(collected)
+		if pageLimit > sessionPageLimit {
+			pageLimit = sessionPageLimit
+		}
+
+		// Copy the filter so each page reuses the same scope/app/team but
+		// carries its own pagination cursor.
+		req := *base
+		req.Page = page
+		req.Limit = pageLimit
+
+		resp, _, err := client.Sessions.List(ctx, &req)
+		if err != nil {
+			return nil, 0, err
+		}
+		total = resp.Total
+		collected = append(collected, resp.Sessions...)
+
+		// Server exhausted: a short page (fewer rows than asked for) or we have
+		// already gathered every matching row. Either ends the loop.
+		if len(resp.Sessions) < pageLimit || int64(len(collected)) >= total {
+			break
+		}
+	}
+
+	if len(collected) > limit {
+		collected = collected[:limit]
+	}
+	return collected, total, nil
 }
 
 // filterSessionsSince keeps sessions whose updated_at is at or after sinceUnix

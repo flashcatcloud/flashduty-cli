@@ -89,6 +89,134 @@ func TestCommandSessionListJSONL(t *testing.T) {
 	}
 }
 
+// TestCommandSessionListPaginatesBeyond100 is the regression guard for the
+// limit>100 bug: the /safari/session/list handler binds limit with "lte=100",
+// so a single request with limit 200 is a hard 400 bind failure, not a clamp.
+// `session list --limit 200` must therefore satisfy the request by paginating —
+// issuing MULTIPLE page requests each with limit<=100 and advancing p — then
+// concatenating the rows. This test serves 250 matching sessions in pages of at
+// most 100 and asserts the command (a) never asks for more than 100 in any page,
+// (b) advances p across pages, and (c) returns exactly the requested 200 rows.
+func TestCommandSessionListPaginatesBeyond100(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const totalAvailable = 250
+	// Serve a page computed from the request's p/limit so we exercise the real
+	// loop: each page returns min(limit, remaining) sessions, never more than
+	// the server-accepted ceiling.
+	stub.dataFor = func(body map[string]any) any {
+		p := int(asFloat(body["p"]))
+		limit := int(asFloat(body["limit"]))
+		if p < 1 {
+			p = 1
+		}
+		if limit > 100 {
+			// Mirror the real handler: limit>100 is a bind FAILURE, never a
+			// clamp. If the CLI ever sends this, the test must fail loudly.
+			t.Fatalf("page request used limit=%d (>100) — server would 400, CLI must paginate", limit)
+		}
+		offset := (p - 1) * limit
+		sessions := make([]map[string]any, 0, limit)
+		for i := offset; i < offset+limit && i < totalAvailable; i++ {
+			sessions = append(sessions, map[string]any{
+				"session_id":   fmt.Sprintf("sess-%03d", i),
+				"app_name":     "ai-sre",
+				"updated_at":   1779432894000,
+				"session_name": fmt.Sprintf("row %d", i),
+			})
+		}
+		return map[string]any{"sessions": sessions, "total": totalAvailable}
+	}
+
+	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("[session-paginate] unexpected error: %v", err)
+	}
+
+	// (a) Multiple page requests were issued, and (b) p advanced across them.
+	if stub.requests < 2 {
+		t.Fatalf("[session-paginate] expected >=2 page requests for limit 200, got %d", stub.requests)
+	}
+	seenPages := make(map[int]bool)
+	for i, b := range stub.bodies {
+		limit := int(asFloat(b["limit"]))
+		if limit > 100 {
+			t.Errorf("[session-paginate] request %d used limit=%d, want <=100", i, limit)
+		}
+		seenPages[int(asFloat(b["p"]))] = true
+	}
+	if !seenPages[1] || !seenPages[2] {
+		t.Errorf("[session-paginate] expected requests for p=1 and p=2, saw pages %v", seenPages)
+	}
+
+	// (c) Exactly 200 rows came back, concatenated and in order across pages.
+	lines := nonEmptyLines(out)
+	if len(lines) != 200 {
+		t.Fatalf("[session-paginate] expected 200 concatenated rows, got %d", len(lines))
+	}
+	var first, last flashduty.SessionItem
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatalf("[session-paginate] line 0 not a SessionItem: %v", err)
+	}
+	if err := json.Unmarshal([]byte(lines[199]), &last); err != nil {
+		t.Fatalf("[session-paginate] line 199 not a SessionItem: %v", err)
+	}
+	if first.SessionID != "sess-000" {
+		t.Errorf("[session-paginate] first row = %q, want sess-000", first.SessionID)
+	}
+	if last.SessionID != "sess-199" {
+		t.Errorf("[session-paginate] last row = %q, want sess-199", last.SessionID)
+	}
+}
+
+// TestCommandSessionListStopsWhenServerExhausted proves the loop terminates when
+// the server returns fewer rows than requested (a short page) even though
+// --limit asks for more, rather than spinning forever.
+func TestCommandSessionListStopsWhenServerExhausted(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const totalAvailable = 130 // exhausts mid-way through page 2
+	stub.dataFor = func(body map[string]any) any {
+		p := int(asFloat(body["p"]))
+		limit := int(asFloat(body["limit"]))
+		if limit > 100 {
+			t.Fatalf("page request used limit=%d (>100)", limit)
+		}
+		offset := (p - 1) * limit
+		sessions := make([]map[string]any, 0, limit)
+		for i := offset; i < offset+limit && i < totalAvailable; i++ {
+			sessions = append(sessions, map[string]any{
+				"session_id": fmt.Sprintf("sess-%03d", i),
+				"app_name":   "ai-sre",
+				"updated_at": 1779432894000,
+			})
+		}
+		return map[string]any{"sessions": sessions, "total": totalAvailable}
+	}
+
+	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--format", "jsonl")
+	if err != nil {
+		t.Fatalf("[session-exhaust] unexpected error: %v", err)
+	}
+	lines := nonEmptyLines(out)
+	if len(lines) != totalAvailable {
+		t.Fatalf("[session-exhaust] expected %d rows (server exhausted), got %d", totalAvailable, len(lines))
+	}
+	// Page 1 (100) + page 2 (30, short) → exactly 2 requests, no extra spin.
+	if stub.requests != 2 {
+		t.Errorf("[session-exhaust] expected exactly 2 requests, got %d", stub.requests)
+	}
+}
+
+// asFloat coerces a decoded JSON number (always float64) to float64, tolerating
+// a missing key (returns 0).
+func asFloat(v any) float64 {
+	f, _ := v.(float64)
+	return f
+}
+
 // TestCommandSessionListSinceFiltersClientSide proves --since drops rows older
 // than the window using the response's updated_at (the API has no time filter).
 func TestCommandSessionListSinceFiltersClientSide(t *testing.T) {
