@@ -73,6 +73,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flagAppKey, "app-key", "", "Override app key")
 	rootCmd.PersistentFlags().StringVar(&flagBaseURL, "base-url", "", "Override base URL")
 	_ = rootCmd.PersistentFlags().MarkHidden("app-key")
+	registerEnumFlag(rootCmd, "output-format", "table", "json", "toon")
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLoginCmd())

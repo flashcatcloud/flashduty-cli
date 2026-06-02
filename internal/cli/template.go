@@ -287,6 +287,7 @@ func newTemplateFunctionsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&funcType, "type", "all", "Filter: custom, sprig, or all")
+	registerEnumFlag(cmd, "type", "custom", "sprig", "all")
 
 	return cmd
 }

@@ -84,6 +84,7 @@ func newAlertEventListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info (comma-separated)")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types")
 	cmd.Flags().StringVar(&since, "since", "1h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
