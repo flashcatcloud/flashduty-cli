@@ -9,6 +9,7 @@ import "github.com/spf13/cobra"
 func registerGenerated(root *cobra.Command) {
 	registerGeneratedA2aAgents(root)
 	registerGeneratedMcpServers(root)
+	registerGeneratedSessions(root)
 	registerGeneratedSkills(root)
 	registerGeneratedAlertRules(root)
 	registerGeneratedDataSources(root)

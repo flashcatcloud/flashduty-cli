@@ -11,10 +11,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// loadSpecPaths reads every GET/POST operation from the openapi spec shipped in
-// the linked go-flashduty module — the same spec cligen generates against —
-// returning operationId -> path.
-func loadSpecPaths(t *testing.T) map[string]string {
+// specOpMeta is the slice of an operation the coverage tests reason about.
+type specOpMeta struct {
+	id        string
+	path      string
+	streaming bool // 200 body is not application/json (e.g. application/x-ndjson)
+}
+
+// loadSpecOps reads every public GET/POST operation from the openapi spec
+// shipped in the linked go-flashduty module — the same spec cligen generates
+// against — recording each op's id, path, and whether its 200 response is a
+// non-JSON streaming body. Streaming ops are served by curated commands (the
+// generated typed-response template cannot model an io.ReadCloser), so the
+// generator-coverage check excludes them.
+func loadSpecOps(t *testing.T) []specOpMeta {
 	t.Helper()
 	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/flashcatcloud/go-flashduty").Output()
 	if err != nil {
@@ -29,12 +39,15 @@ func loadSpecPaths(t *testing.T) map[string]string {
 		Paths map[string]map[string]struct {
 			OperationID string   `json:"operationId"`
 			Tags        []string `json:"tags"`
+			Responses   map[string]struct {
+				Content map[string]json.RawMessage `json:"content"`
+			} `json:"responses"`
 		} `json:"paths"`
 	}
 	if err := json.Unmarshal(data, &spec); err != nil {
 		t.Fatalf("parse spec: %v", err)
 	}
-	ids := map[string]string{}
+	var ops []specOpMeta
 	for path, methods := range spec.Paths {
 		for verb, op := range methods {
 			v := strings.ToUpper(verb)
@@ -44,8 +57,24 @@ func loadSpecPaths(t *testing.T) map[string]string {
 			if op.OperationID == "" || len(op.Tags) == 0 {
 				continue
 			}
-			ids[op.OperationID] = path
+			streaming := false
+			if resp, ok := op.Responses["200"]; ok && len(resp.Content) > 0 {
+				if _, hasJSON := resp.Content["application/json"]; !hasJSON {
+					streaming = true
+				}
+			}
+			ops = append(ops, specOpMeta{id: op.OperationID, path: path, streaming: streaming})
 		}
+	}
+	return ops
+}
+
+// loadSpecPaths returns operationId -> path for every public GET/POST operation.
+func loadSpecPaths(t *testing.T) map[string]string {
+	t.Helper()
+	ids := map[string]string{}
+	for _, op := range loadSpecOps(t) {
+		ids[op.id] = op.path
 	}
 	return ids
 }
@@ -110,20 +139,38 @@ func TestEveryOperationHasPathCommand(t *testing.T) {
 }
 
 // TestGeneratorTargetsFullSpec asserts the generator emitted a command for every
-// spec operation (no gaps, no phantom manifest entries from a stale run).
+// non-streaming spec operation (no gaps, no phantom manifest entries from a
+// stale run). Streaming ops (200 body is not application/json) are deliberately
+// excluded from generation — they cannot be modeled by the typed-response
+// template and are served by curated commands instead — so the manifest must NOT
+// contain them and they are not required to be generated.
 func TestGeneratorTargetsFullSpec(t *testing.T) {
-	specPaths := loadSpecPaths(t)
+	ops := loadSpecOps(t)
+	streaming := map[string]bool{}
+	wantGenerated := map[string]bool{}
+	for _, op := range ops {
+		if op.streaming {
+			streaming[op.id] = true
+			continue
+		}
+		wantGenerated[op.id] = true
+	}
+
 	gen := map[string]bool{}
 	for _, id := range generatedOpIDs {
 		gen[id] = true
-		if _, ok := specPaths[id]; !ok {
+		if streaming[id] {
+			t.Errorf("manifest op %q is streaming and must not be generated (curated only)", id)
+		}
+		if !wantGenerated[id] && !streaming[id] {
 			t.Errorf("manifest op %q is not in the current spec (regenerate cligen)", id)
 		}
 	}
-	for id := range specPaths {
+	for id := range wantGenerated {
 		if !gen[id] {
 			t.Errorf("op %q has no generated command (regenerate cligen)", id)
 		}
 	}
-	t.Logf("generator targets %d/%d spec operations", len(gen), len(specPaths))
+	t.Logf("generator targets %d/%d non-streaming spec operations (%d streaming, curated)",
+		len(gen), len(wantGenerated), len(streaming))
 }

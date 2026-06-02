@@ -188,6 +188,17 @@ func collectServices(paths, schemas map[string]any) []service {
 			if len(tags) == 0 {
 				continue
 			}
+			// Streaming endpoints (200 body is not application/json, e.g.
+			// session/export's application/x-ndjson) cannot be modeled by the
+			// generated typed-response command: the SDK exposes them as a
+			// hand-written streaming method with a non-standard signature
+			// (io.ReadCloser, *Response, error), not the (out, *Response, error)
+			// the template expects. Skip them here — they are covered by a
+			// curated command at their path-name — mirroring go-flashduty's own
+			// generator, which skips the same ops.
+			if isStreamingOp(o) {
+				continue
+			}
 			tag, _ := tags[0].(string)
 			byTag[tag] = append(byTag[tag], struct {
 				path, http string
@@ -236,6 +247,21 @@ func collectServices(paths, schemas map[string]any) []service {
 		}
 	}
 	return out
+}
+
+// isStreamingOp reports whether an operation's 200 response is a non-JSON
+// streaming body (its 200 content has no "application/json" key, e.g.
+// session/export's application/x-ndjson). Such ops cannot be modeled by a
+// generated typed-response command and are served by a curated command instead.
+// This mirrors go-flashduty's generator, which excludes the same ops from the
+// SDK's typed do() path in favor of a hand-written streaming method.
+func isStreamingOp(o map[string]any) bool {
+	content := asMap(asMap(asMap(o["responses"])["200"])["content"])
+	if len(content) == 0 {
+		return false // no body at all is not a streaming response
+	}
+	_, hasJSON := content["application/json"]
+	return !hasJSON
 }
 
 type specWalker struct{ schemas map[string]any }
@@ -1064,7 +1090,7 @@ func flagName(wire string) string {
 	}
 	return kebab(wire)
 }
-func flagVar(wire string) string  { return "f" + pascal(tokens(wire)) }
+func flagVar(wire string) string { return "f" + pascal(tokens(wire)) }
 
 func goFlagType(kind string) string {
 	switch kind {
