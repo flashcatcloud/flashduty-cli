@@ -22,12 +22,14 @@ func saveAndResetGlobals(t *testing.T) {
 	origFlagNoTrunc := flagNoTrunc
 	origFlagAppKey := flagAppKey
 	origFlagBaseURL := flagBaseURL
+	origFlagOutputFormat := flagOutputFormat
 
 	// Reset to defaults so tests start clean.
 	flagJSON = false
 	flagNoTrunc = false
 	flagAppKey = ""
 	flagBaseURL = ""
+	flagOutputFormat = ""
 
 	t.Cleanup(func() {
 		newClientFn = origNewClientFn
@@ -35,6 +37,7 @@ func saveAndResetGlobals(t *testing.T) {
 		flagNoTrunc = origFlagNoTrunc
 		flagAppKey = origFlagAppKey
 		flagBaseURL = origFlagBaseURL
+		flagOutputFormat = origFlagOutputFormat
 	})
 }
 
