@@ -43,6 +43,7 @@ func newChannelListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List channels",
+		Long:  curatedLong("List channels in the account, optionally filtered by name.", "Channels", "ChannelList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// Legacy parity: the hand-written SDK called /channel/list with an

@@ -39,6 +39,7 @@ func newOncallWhoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "who",
 		Short: "Show who is currently on call",
+		Long:  curatedLong("Show who is currently on call across schedules within a time window, optionally filtered by team or schedule name. Returns person_ids (numeric) only; resolve names/phones by dumping 'fduty member list' and joining client-side (member list has no by-id lookup).", "Schedules", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -113,6 +114,7 @@ func newOncallScheduleListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List schedules",
+		Long:  curatedLong("List on-call schedules within a time window, optionally filtered by team or schedule name.", "Schedules", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -185,6 +187,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <schedule_id>",
 		Short: "Get schedule detail",
+		Long:  curatedLong("Get the full detail of a single schedule by ID, including its computed on-call slots over a time window.", "Schedules", "Info"),
 		Args:  requireArgs("schedule_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

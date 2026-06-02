@@ -29,6 +29,7 @@ func newInsightTeamCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "team",
 		Short: "Query insights by team",
+		Long:  curatedLong("Query incident response insight metrics aggregated by team over a time window.", "Analytics", "ByTeam"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -92,6 +93,7 @@ func newInsightChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel",
 		Short: "Query insights by channel",
+		Long:  curatedLong("Query incident response insight metrics aggregated by channel over a time window.", "Analytics", "ByChannel"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -155,6 +157,7 @@ func newInsightResponderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "responder",
 		Short: "Query insights by responder",
+		Long:  curatedLong("Query incident response insight metrics aggregated by responder over a time window.", "Analytics", "ByResponder"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -213,6 +216,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "top-alerts",
 		Short: "Query top alert sources by label",
+		Long:  curatedLong("Query the top-K noisiest alert sources grouped by a label dimension over a time window.", "Analytics", "TopkAlertsByLabel"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -251,7 +255,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&label, "label", "", "Label key to group by (e.g., \"integration_name\")")
+	cmd.Flags().StringVar(&label, "label", "", "Group-by label dimension: one of [check, resource] (required)")
 	cmd.Flags().StringVar(&since, "since", "7d", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Top K results")
@@ -267,6 +271,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "incidents",
 		Short: "Query incidents with performance metrics",
+		Long:  curatedLong("List incidents with per-incident performance metrics (MTTA, MTTR, notifications) over a time window.", "Analytics", "IncidentList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)

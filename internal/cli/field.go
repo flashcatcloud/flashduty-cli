@@ -24,6 +24,7 @@ func newFieldListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List custom fields",
+		Long:  curatedLong("List custom fields, optionally filtered by exact field name.", "AlertEnrichment", "FieldReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				result, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &flashduty.FieldListRequest{})

@@ -27,6 +27,7 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search audit logs",
+		Long:  curatedLong("Search audit logs within a time window, optionally filtered by person and operation type. The --since/--until window must be < 90 days; --limit max is 99.", "AuditLogs", "Search"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -106,8 +107,8 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "7d", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().Int64Var(&person, "person", 0, "Filter by person ID")
-	cmd.Flags().StringVar(&operation, "operation", "", "Filter by operation type")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().StringVar(&operation, "operation", "", "Filter by exact operation name(s) from 'fduty audit operation-list' (e.g. monitRule:write:update); comma-separate to match several in one call. Prefixes do NOT match (\"monitRule\" returns nothing).")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 99)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd

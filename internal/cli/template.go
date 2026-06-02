@@ -67,6 +67,7 @@ func newTemplateGetPresetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-preset",
 		Short: "Get the preset template for a channel",
+		Long:  curatedLong("Get the preset notification template code for a channel.", "NotificationTemplates", "ReadInfo"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				fieldName, ok := templateChannels[channel]
@@ -116,6 +117,7 @@ func newTemplateValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate and preview a template",
+		Long:  curatedLong("Validate a template file and render a preview for a channel.", "NotificationTemplates", "ReadPreview"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			templateCode, err := os.ReadFile(file)
 			if err != nil {

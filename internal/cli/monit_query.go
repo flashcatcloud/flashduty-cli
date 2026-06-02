@@ -29,6 +29,7 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diagnose",
 		Short: "Pre-clustered RCA findings (log_patterns or metric_trends)",
+		Long:  curatedLong("Run pre-clustered RCA over a datasource window, returning log_patterns or metric_trends findings.", "Diagnostics", "QueryDiagnose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dsType == "" || dsName == "" || inputQuery == "" {
 				return fmt.Errorf("--ds-type, --ds-name, --input-query are required")
@@ -92,6 +93,7 @@ func newMonitQueryRowsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rows",
 		Short: "Raw datasource passthrough (returns values/rows as the datasource itself would)",
+		Long:  curatedLong("Raw datasource passthrough returning values/rows as the datasource itself would.", "Diagnostics", "QueryRows"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dsType == "" || dsName == "" || expr == "" {
 				return fmt.Errorf("--ds-type, --ds-name, --expr are required")

@@ -14,12 +14,12 @@ import (
 // runCommand and passed to the command's handler function. Client is the
 // typed go-flashduty SDK every command calls through.
 type RunContext struct {
-	Client *flashduty.Client
-	Cmd      *cobra.Command
-	Args     []string
-	Writer   io.Writer
-	Printer  output.Printer
-	Format   output.Format
+	Client  *flashduty.Client
+	Cmd     *cobra.Command
+	Args    []string
+	Writer  io.Writer
+	Printer output.Printer
+	Format  output.Format
 }
 
 // Structured reports whether output should be a machine-readable dump (JSON or
@@ -36,12 +36,12 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 		return err
 	}
 	ctx := &RunContext{
-		Client: client,
-		Cmd:      cmd,
-		Args:     args,
-		Writer:   cmd.OutOrStdout(),
-		Printer:  newPrinter(cmd.OutOrStdout()),
-		Format:   currentOutputFormat(),
+		Client:  client,
+		Cmd:     cmd,
+		Args:    args,
+		Writer:  cmd.OutOrStdout(),
+		Printer: newPrinter(cmd.OutOrStdout()),
+		Format:  currentOutputFormat(),
 	}
 	return fn(ctx)
 }
@@ -71,6 +71,15 @@ func (ctx *RunContext) PrintTotal(items any, cols []output.Column, total int) er
 // WriteResult prints a success message as plain text or JSON.
 func (ctx *RunContext) WriteResult(message string) {
 	writeResult(ctx.Writer, message)
+}
+
+// WriteRaw writes a non-JSON response body (e.g. a CSV/file download surfaced
+// on Response.Raw by the *export endpoints) straight to the output writer, so
+// shell redirection (`> file.csv`) captures the bytes verbatim instead of the
+// canned "OK: POST ..." acknowledgment.
+func (ctx *RunContext) WriteRaw(body []byte) error {
+	_, err := ctx.Writer.Write(body)
+	return err
 }
 
 // WriteResultJSON outputs structured data in JSON or TOON mode, or a
