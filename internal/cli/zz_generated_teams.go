@@ -27,7 +27,7 @@ Request fields:
   --team-id int — Team ID.
   --team-name string — Team name.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - created_at (integer) (required) — Unix epoch seconds the team was created.
   - creator_id (integer) (required) — Member ID of the creator.
@@ -93,7 +93,7 @@ API: POST /team/infos (team-read-infos)
 Request fields:
   --team-ids []int (required) — List of team IDs to look up. Max 100.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - person_ids (array<integer>)
     - team_id (integer)
@@ -154,7 +154,7 @@ Request fields:
   --person-id int — Filter by member ID — return only teams this person belongs to.
   --query string — Substring match on team name.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required) — Owning account ID.
     - created_at (integer) (required) — Unix epoch seconds the team was created.
@@ -265,9 +265,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Teams.WriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Teams.WriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /team/delete")
 				return nil
@@ -312,7 +315,7 @@ Request fields:
   --team-id int — Team ID. Omit or set to 0 to create a new team.
   --team-name string (required) — Team display name. 1–39 characters. (1-39 chars)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - team_id (integer) (required) — Created or updated team ID.
   - team_name (string) (required) — Team name echoed from the request.
 `,

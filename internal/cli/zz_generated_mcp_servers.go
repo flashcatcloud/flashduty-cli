@@ -23,7 +23,7 @@ API: POST /safari/mcp/server/get (mcp-read-server-get)
 Request fields:
   --server-id string (required) — Identifier of the server to fetch.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - ai_description (string) — LLM-generated description, preferred over description when present.
   - args (array<string>) — Command-line arguments for the stdio executable.
@@ -105,7 +105,7 @@ Request fields:
   --include-account bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
   --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - servers (array<object>) (required) — MCP servers on the current page.
     - account_id (integer) (required) — Owning account.
     - ai_description (string) — LLM-generated description, preferred over description when present.
@@ -223,7 +223,7 @@ Request fields:
   env (object, via --data) — Environment variables for the stdio process.
   headers (object, via --data) — HTTP headers sent to the remote endpoint.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - ai_description (string) — LLM-generated description, preferred over description when present.
   - args (array<string>) — Command-line arguments for the stdio executable.
@@ -500,7 +500,7 @@ Request fields:
   env (object, via --data) — New stdio environment variables.
   headers (object, via --data) — New HTTP headers for the remote endpoint.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - ai_description (string) — LLM-generated description, preferred over description when present.
   - args (array<string>) — Command-line arguments for the stdio executable.

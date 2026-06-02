@@ -23,7 +23,7 @@ API: POST /incident/war-room/default-observers (incident-read-get-war-room-defau
 Request fields:
   --incident-id string (required) — Incident ID, a MongoDB ObjectID hex string.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - observers (array<object>) — Historical responders suggested as default war-room observers.
     - account_id (integer) — Account this person belongs to.
     - as (string) — Role the person holds in the related context.
@@ -149,9 +149,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Ack(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Ack(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/ack")
 				return nil
@@ -188,7 +191,7 @@ Request fields:
   --include-events bool — When true, include raw alert events in each alert item.
   --is-active bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Alert list.
     - account_id (integer) (required) — Account ID.
     - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
@@ -237,7 +240,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - incident (object) — Brief incident reference embedded in an alert.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
     - integration_id (integer) (required) — Integration ID that produced the alert.
     - integration_name (string) (required) — Integration display name.
@@ -345,9 +348,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Assign(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Assign(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/assign")
 				return nil
@@ -400,9 +406,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/comment")
 				return nil
@@ -447,7 +456,7 @@ Request fields:
     - person_ids (array<integer>) — Member IDs to assign directly.
     - type (string) — Assignment type.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - incident_id (string) (required) — Newly created incident ID (MongoDB ObjectID).
   - title (string) (required) — Echoes the incident title from the request.
 `,
@@ -508,7 +517,7 @@ Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   --integration-id int (required) — Custom action integration ID. Must be enabled and associated with the incident's channel.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - message (string) — Error message if the action's HTTP call failed; omitted on success.
 `,
 		Example: `  flashduty incident custom-action-do --data '{"incident_id":"69da451ef77b1b51f40e83ee","integration_id":2490562293131}'`,
@@ -573,9 +582,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.DisableMerge(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.DisableMerge(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/disable-merge")
 				return nil
@@ -612,7 +624,7 @@ Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   --types []string — Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more entries are available.
   - items (array<object>) (required) — Timeline entries for the current page.
     - account_id (integer) (required) — Account ID.
@@ -708,9 +720,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/field/reset")
 				return nil
@@ -738,7 +753,7 @@ API: POST /incident/info (incidentInfo)
 Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID that owns the incident.
   - account_locale (string) (required) — Account locale.
   - account_name (string) (required) — Account name.
@@ -796,7 +811,7 @@ Response fields (under 'data'):
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - incident (object) — Brief incident reference embedded in an alert.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
     - integration_id (integer) (required) — Integration ID that produced the alert.
     - integration_name (string) (required) — Integration display name.
@@ -979,7 +994,7 @@ Request fields:
   --start-time int (required) — Window start, Unix seconds.
   --team-ids []int — Team IDs; resolved to channels via channel ownership.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
   - items (array<object>) (required) — Incident list for the current page.
     - account_id (integer) (required) — Account ID that owns the incident.
@@ -1036,7 +1051,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Brief incident reference embedded in an alert.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
@@ -1263,7 +1278,7 @@ API: POST /incident/list-by-ids (incidentListByIds)
 Request fields:
   --incident-ids []string (required) — Incident IDs to fetch.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
   - items (array<object>) (required) — Incident list for the current page.
     - account_id (integer) (required) — Account ID that owns the incident.
@@ -1320,7 +1335,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Brief incident reference embedded in an alert.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
@@ -1503,9 +1518,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/merge")
 				return nil
@@ -1539,7 +1557,7 @@ Request fields:
   --incident-id string (required) — Reference incident ID (MongoDB ObjectID).
   --limit int — Maximum number of similar incidents to return. (0-100)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Similar past incidents with similarity scores.
     - account_id (integer) (required) — Account ID that owns the incident.
     - account_locale (string) (required) — Account locale.
@@ -1595,7 +1613,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Brief incident reference embedded in an alert.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
@@ -1756,9 +1774,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.PostMortemDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.PostMortemDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/post-mortem/delete")
 				return nil
@@ -1778,14 +1799,14 @@ func genIncidentsPostMortemInfoCmd() *cobra.Command {
 		Short: "Get post-mortem",
 		Long: `Get post-mortem.
 
-Retrieve the post-mortem report for a specific incident.
+Retrieve a post-mortem report by its 'post_mortem_id'. List reports via '/incident/post-mortem/list' first — each row carries the incident it covers — then fetch the full report here by that id.
 
 API: GET /incident/post-mortem/info (incidentPostMortemInfo)
 
 Request fields:
   --post-mortem-id string (required) — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - basics (object) (required)
     - incidents_earliest_start_seconds (integer) (required) — Earliest start time among linked incidents (seconds).
     - incidents_highest_severity (string) (required) — Highest severity among linked incidents.
@@ -1877,7 +1898,7 @@ Request fields:
   --status string — Report status. Defaults to 'published' on the server when omitted. [drafting, published]
   --team-ids []int — Team IDs to restrict the query to.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
   - items (array<object>) (required) — Post-mortem metadata for the current page.
     - account_id (integer) (required) — Account ID.
@@ -1991,9 +2012,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Remove(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Remove(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/remove")
 				return nil
@@ -2040,9 +2064,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Reopen(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Reopen(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/reopen")
 				return nil
@@ -2115,9 +2142,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Reset(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Reset(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/reset")
 				return nil
@@ -2175,9 +2205,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Resolve(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Resolve(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/resolve")
 				return nil
@@ -2230,9 +2263,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.ResponderAdd(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.ResponderAdd(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/responder/add")
 				return nil
@@ -2280,9 +2316,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/snooze")
 				return nil
@@ -2325,9 +2364,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Unack(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Unack(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/unack")
 				return nil
@@ -2369,9 +2411,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.Wake(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.Wake(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/wake")
 				return nil
@@ -2404,7 +2449,7 @@ Request fields:
   --integration-id int (required) — IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported.
   --member-ids []int — Additional member IDs to add to the war room.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - chat_id (string) (required) — Chat/group ID on the IM side.
   - chat_name (string) (required) — Chat/group display name.
   - share_link (string) (required) — Join link for the war room, if provided by the IM.
@@ -2484,9 +2529,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /incident/war-room/delete")
 				return nil
@@ -2516,7 +2564,7 @@ Request fields:
   --chat-id string (required) — Chat/group ID on the IM side.
   --integration-id int (required) — IM integration ID that hosts the war room.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - chat_id (string) (required) — Chat/group ID on the IM side.
   - chat_name (string) (required) — Chat/group display name.
   - share_link (string) (required) — Join link for the war room, if provided by the IM.
@@ -2570,7 +2618,7 @@ Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   --integration-id int — Optional filter: only return war rooms for this IM integration.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — War room records.
     - account_id (integer) (required) — Account ID.
     - chat_id (string) (required) — Chat/group ID on the IM side.

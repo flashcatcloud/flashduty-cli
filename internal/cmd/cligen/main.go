@@ -145,6 +145,11 @@ type specOp struct {
 	Fields   []specField   // flat top-level request fields (drives flag help)
 	ReqTree  []schemaField // full nested request body tree (for --data expansion)
 	RespTree []schemaField // 200 response `data` field tree (output shape)
+	// RespArray is true when the 200 `data` payload is itself a bare top-level
+	// array (`type:array, items:$ref`) rather than an object or {items,total}
+	// envelope. RespTree then holds the ROW (array-element) fields, and help must
+	// document the output as a TOP-LEVEL array (`jq '.[]'`), not `under data`.
+	RespArray bool
 }
 
 // schemaField is one node in a (possibly nested) request/response schema tree.
@@ -211,17 +216,19 @@ func collectServices(paths, schemas map[string]any) []service {
 		svc := service{Name: serviceName(tag), Tag: tag}
 		for _, e := range entries {
 			opID := str(e.op, "operationId")
+			respTree, respArray := walker.responseTree(e.op)
 			svc.Ops = append(svc.Ops, specOp{
-				OpID:     opID,
-				Method:   names[opID],
-				HTTP:     e.http,
-				Path:     e.path,
-				Summary:  str(e.op, "summary"),
-				Desc:     str(e.op, "description"),
-				Example:  walker.example(e.op),
-				Fields:   walker.fields(e.op),
-				ReqTree:  walker.requestTree(e.op),
-				RespTree: walker.responseTree(e.op),
+				OpID:      opID,
+				Method:    names[opID],
+				HTTP:      e.http,
+				Path:      e.path,
+				Summary:   str(e.op, "summary"),
+				Desc:      str(e.op, "description"),
+				Example:   walker.example(e.op),
+				Fields:    walker.fields(e.op),
+				ReqTree:   walker.requestTree(e.op),
+				RespTree:  respTree,
+				RespArray: respArray,
 			})
 		}
 		if len(svc.Ops) > 0 {
@@ -450,18 +457,31 @@ func (w *specWalker) requestTree(op map[string]any) []schemaField {
 // responseTree returns the field tree of an operation's 200 response `data`
 // member (unwrapping the {request_id,error,data} envelope), so --help can show
 // the output shape — including the {items[],total} pagination wrapper for lists.
-func (w *specWalker) responseTree(op map[string]any) []schemaField {
+// The bool is true when `data` is itself a bare top-level array
+// (`type:array, items:$ref`): the returned tree then holds the array-element
+// (row) fields, since an array schema has no `properties` of its own and tree()
+// would otherwise yield nothing — leaving every such list endpoint (e.g.
+// rule-list-basic) with an empty Response-fields block that forced agents to
+// guess jq keys. Callers document this shape as a TOP-LEVEL array (`jq '.[]'`).
+func (w *specWalker) responseTree(op map[string]any) ([]schemaField, bool) {
 	r200 := asMap(asMap(op["responses"])["200"])
 	sch := asMap(asMap(asMap(r200["content"])["application/json"])["schema"])
 	if sch == nil {
-		return nil
+		return nil, false
 	}
 	props, _ := w.merged(sch)
-	data := asMap(props["data"])
+	data := w.deref(asMap(props["data"]))
 	if data == nil {
-		return nil
+		return nil, false
 	}
-	return w.tree(data, 0)
+	if str(data, "type") == "array" {
+		it := w.deref(asMap(data["items"]))
+		if it["properties"] != nil || it["allOf"] != nil {
+			return w.tree(it, 0), true
+		}
+		return nil, false // array of bare scalars — no row field tree to document
+	}
+	return w.tree(data, 0), false
 }
 
 // ---- reflection over the compiled SDK -------------------------------------
@@ -739,8 +759,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 		b.WriteString("\t\t\t\treturn printGenericResult(ctx, out)\n")
 	default:
-		fmt.Fprintf(&b, "\t\t\t\t_, err = %s\n", call)
+		// (*Response, error): a mutation, OR an export/attachment endpoint
+		// whose CSV/file body the SDK surfaces on Response.Raw. Capture the
+		// response and stream Raw verbatim when present (so `> file.csv`
+		// works); otherwise fall back to the canned OK acknowledgment.
+		fmt.Fprintf(&b, "\t\t\t\tresp, err := %s\n", call)
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
+		b.WriteString("\t\t\t\tif resp != nil && len(resp.Raw) > 0 {\n\t\t\t\t\treturn ctx.WriteRaw(resp.Raw)\n\t\t\t\t}\n")
 		fmt.Fprintf(&b, "\t\t\t\tctx.WriteResult(%q)\n", "OK: "+o.HTTP+" "+o.Path)
 		b.WriteString("\t\t\t\treturn nil\n")
 	}
@@ -798,8 +823,13 @@ func emitResponseHelp(services []service) string {
 		for _, o := range s.Ops {
 			// Curated commands read this map. Every curated list command
 			// flattens its {items,total} envelope to a top-level array, so they
-			// need the flattened ("jq '.[]'") shape, not the wire envelope.
+			// need the flattened ("jq '.[]'") shape, not the wire envelope. An
+			// endpoint whose `data` is already a bare top-level array documents
+			// the same `.[]` shape directly from its row fields.
 			sec := responseSectionList(o.RespTree)
+			if o.RespArray {
+				sec = responseSectionTopArray(o.RespTree)
+			}
 			if sec == "" {
 				continue
 			}
@@ -876,7 +906,11 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 		}
 	}
 	// Response shape — so the agent reads/extracts output fields without guessing.
-	if s := responseSection(o.RespTree); s != "" {
+	s := responseSection(o.RespTree)
+	if o.RespArray {
+		s = responseSectionTopArray(o.RespTree)
+	}
+	if s != "" {
 		b.WriteString("\n" + s)
 	}
 	return b.String()
@@ -911,20 +945,38 @@ func listEnvelope(resp []schemaField) ([]schemaField, bool) {
 	return rows, found
 }
 
-// responseSection renders the Response-fields block as the backend returns it
-// under `data` — generated commands print that shape verbatim via
-// printGenericResult, so a list envelope really does nest rows under items[].
+// responseSection renders the Response-fields block. printGenericResult UNWRAPS
+// the {request_id,error,data} envelope and prints `data`'s content at the top
+// level (verified: `fduty schedule list --json | jq 'keys'` → [items,total], and
+// `jq '.data'` → null). So the printed shape is `data`'s content directly — never
+// nested under a `.data` key. A list envelope keeps its rows under items[]; the
+// correct jq is `.items[]`, NOT `.data.items[]`.
 func responseSection(resp []schemaField) string {
 	if len(resp) == 0 {
 		return ""
 	}
 	var b strings.Builder
 	if _, ok := listEnvelope(resp); ok {
-		b.WriteString("Response fields (under `data`; list rows are nested under items[] — pipe `jq '.items[]'`):\n")
+		b.WriteString("Response fields (`data` envelope is unwrapped — rows are nested under items[]; pipe `jq '.items[]'`, NOT `.data.items[]`):\n")
 	} else {
-		b.WriteString("Response fields (under `data`):\n")
+		b.WriteString("Response fields (`data` envelope is unwrapped — these fields are at the top level):\n")
 	}
 	renderTree(&b, resp, 1)
+	return b.String()
+}
+
+// responseSectionTopArray renders the Response-fields block for an endpoint whose
+// `data` payload is itself a bare top-level array of row objects (no items[]
+// wrapper) — both the generated command's raw print and a curated command emit a
+// top-level array, so the documented jq path is `.[]`. rows are the
+// array-element fields produced by responseTree's array descent.
+func responseSectionTopArray(rows []schemaField) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("Response fields (`data` is a TOP-LEVEL array of these row objects — pipe `jq '.[]'`, NOT `.items[]`):\n")
+	renderTree(&b, rows, 1)
 	return b.String()
 }
 

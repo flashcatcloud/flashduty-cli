@@ -43,7 +43,7 @@ Request fields:
   --query string — Free-text or regular-expression search over change fields.
   --start-time int — Unix timestamp in seconds for the start of the query window.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether more pages are available after this one.
   - items (array<object>) — Changes on the current page.
     - account_id (integer) — Account this change belongs to.

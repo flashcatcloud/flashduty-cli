@@ -15,7 +15,7 @@ Return the current account's profile and settings.
 
 API: POST /account/info (account-read-info)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Account identifier.
   - account_name (string) — Account name.
   - avatar (string) — Account avatar URL.

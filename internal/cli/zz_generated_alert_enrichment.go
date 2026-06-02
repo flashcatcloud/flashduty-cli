@@ -23,7 +23,7 @@ API: POST /enrichment/info (enrichment-read-info)
 Request fields:
   --integration-id int (required) — Integration ID to query enrichment rules for. Must be greater than 0. (min 1)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) (required) — Creation timestamp, Unix seconds.
   - creator_id (integer) (required) — Creator member ID.
   - integration_id (integer) (required) — Integration ID.
@@ -81,7 +81,7 @@ API: POST /enrichment/list (enrichment-read-list)
 Request fields:
   --integration-ids []int (required) — List of integration IDs to query.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Enrichment rule sets.
     - created_at (integer) (required) — Creation timestamp, Unix seconds.
     - creator_id (integer) (required) — Creator member ID.
@@ -162,9 +162,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.EnrichmentWriteUpsert(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.EnrichmentWriteUpsert(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/upsert")
 				return nil
@@ -191,7 +194,7 @@ API: POST /field/info (field-read-info)
 Request fields:
   --field-id string (required) — Field ID — 24-character hex ObjectID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - created_at (integer) (required) — Creation timestamp, Unix seconds.
   - creator_id (integer) (required) — Creator member ID.
@@ -257,7 +260,7 @@ Request fields:
   --orderby string — Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]
   --query string — Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — All non-deleted custom fields for the account. No pagination.
     - account_id (integer) (required) — Owning account ID.
     - created_at (integer) (required) — Creation timestamp, Unix seconds.
@@ -341,7 +344,7 @@ Request fields:
   --value-type string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. [string, bool, float]
   default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - field_id (string) (required) — Newly assigned field ID — 24-character hex ObjectID.
   - field_name (string) (required) — Echo of the submitted 'field_name'.
 `,
@@ -423,9 +426,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.FieldWriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.FieldWriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /field/delete")
 				return nil
@@ -483,9 +489,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.FieldWriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.FieldWriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /field/update")
 				return nil
@@ -515,7 +524,7 @@ API: POST /enrichment/mapping/api/info (mapping-api-read-info)
 Request fields:
   --api-id string (required) — Mapping API ID (MongoDB ObjectID hex).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - api_id (string) (required) — API ID (MongoDB ObjectID hex).
   - api_name (string) (required) — API name.
   - created_at (integer) — Creation timestamp, Unix seconds.
@@ -570,7 +579,7 @@ Return all mapping APIs configured for the account.
 
 API: POST /enrichment/mapping/api/list (mapping-api-read-list)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Mapping APIs.
     - api_id (string) (required) — API ID (MongoDB ObjectID hex).
     - api_name (string) (required) — API name.
@@ -637,7 +646,7 @@ Request fields:
   --url string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
   headers (object, via --data) — Custom HTTP request headers.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - api_id (string) (required) — Created API ID (MongoDB ObjectID hex).
   - api_name (string) (required) — API name.
 `,
@@ -723,9 +732,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingAPIWriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingAPIWriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/api/delete")
 				return nil
@@ -803,9 +815,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingAPIWriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingAPIWriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/api/update")
 				return nil
@@ -893,7 +908,7 @@ Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
   query (object, via --data) — Exact-match filter on source label values. All source labels must be provided if any are specified.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether more pages exist.
   - items (array<object>) (required) — Data rows.
     - created_at (integer) — Creation timestamp, Unix seconds.
@@ -986,9 +1001,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingDataWriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/data/delete")
 				return nil
@@ -1031,9 +1049,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingDataWriteTruncate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteTruncate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/data/truncate")
 				return nil
@@ -1080,9 +1101,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/data/upload")
 				return nil
@@ -1111,7 +1135,7 @@ Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
   docs (array<object>, via --data) (required) — Rows to insert or update. Each row must include all source and result labels.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - keys (array<string>) (required) — Composite keys of upserted rows.
 `,
 		Example: `  flashduty enrichment mapping-data-upsert --data '{"docs":[{"host":"server01","owner":"alice","service":"api","team":"sre"},{"host":"server02","owner":"bob","service":"gateway","team":"platform"}],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
@@ -1157,7 +1181,7 @@ API: POST /enrichment/mapping/schema/info (mapping-schema-read-info)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) — Creation timestamp, Unix seconds.
   - creator_id (integer) (required) — Creator member ID.
   - description (string) (required) — Schema description.
@@ -1209,7 +1233,7 @@ Return all mapping schemas for the account, sorted by creation time ascending.
 
 API: POST /enrichment/mapping/schema/list (mapping-schema-read-list)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Mapping schemas.
     - created_at (integer) — Creation timestamp, Unix seconds.
     - creator_id (integer) (required) — Creator member ID.
@@ -1268,7 +1292,7 @@ Request fields:
   --source-labels []string (required) — Lookup key label names (1–3). Must not overlap with 'result_labels'.
   --team-id int — Owning team ID. '0' means no team.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - schema_id (string) (required) — Created schema ID (MongoDB ObjectID hex).
   - schema_name (string) (required) — Schema name.
 `,
@@ -1346,9 +1370,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingSchemaWriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingSchemaWriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/schema/delete")
 				return nil
@@ -1405,9 +1432,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertEnrichment.MappingSchemaWriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingSchemaWriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/schema/update")
 				return nil

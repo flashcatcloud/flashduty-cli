@@ -23,7 +23,7 @@ API: POST /template/info (template-read-info)
 Request fields:
   --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — ID of the owning account.
   - created_at (integer) (required) — Unix epoch seconds the template was created.
   - creator_id (integer) (required) — Member ID of the creator.
@@ -109,7 +109,7 @@ Request fields:
   --query string — Regex or substring match on template_name.
   --team-ids []int — Filter by specific team IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True if another page exists after the returned one.
   - items (array<object>) (required)
     - account_id (integer) (required) — ID of the owning account.
@@ -218,7 +218,7 @@ Request fields:
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content (string) — Rendered template output, present when success is true.
   - message (string) — Error message describing why rendering failed, present when success is false.
   - success (boolean) — Whether the template rendered without errors.
@@ -306,7 +306,7 @@ Request fields:
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — Newly created template ID.
   - template_name (string) (required) — Template name echoed from the request.
 `,
@@ -432,9 +432,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.NotificationTemplates.WriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.NotificationTemplates.WriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /template/delete")
 				return nil
@@ -561,9 +564,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.NotificationTemplates.WriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.NotificationTemplates.WriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /template/update")
 				return nil

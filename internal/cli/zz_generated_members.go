@@ -68,9 +68,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Members.MemberDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Members.MemberDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /member/delete")
 				return nil
@@ -123,9 +126,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Members.MemberGrantRole(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Members.MemberGrantRole(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /member/role/grant")
 				return nil
@@ -149,7 +155,7 @@ Return the current session member's full profile.
 
 API: POST /member/info (memberInfo)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_avatar (string) — Account avatar URL
   - account_email (string) — Account email
   - account_id (integer) — Account ID
@@ -216,7 +222,7 @@ Request fields:
     - role_ids (array<integer>) — Role IDs to assign
     - time_zone (string) — Time zone
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Newly created members
     - member_id (integer) — Member ID
     - member_name (string) — Member display name
@@ -276,7 +282,7 @@ Request fields:
   --query string — Search keyword
   --role-id int — Filter by role ID
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Member items
     - account_id (integer) (required) — Account ID
     - account_role_ids (array<integer>) (required) — Role IDs
@@ -416,9 +422,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Members.MemberResetInfo(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Members.MemberResetInfo(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /member/info/reset")
 				return nil
@@ -472,9 +481,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Members.MemberRevokeRole(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Members.MemberRevokeRole(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /member/role/revoke")
 				return nil
@@ -522,9 +534,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Members.MemberUpdateRole(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Members.MemberUpdateRole(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /member/role/update")
 				return nil
@@ -552,7 +567,7 @@ API: POST /person/infos (personInfos)
 Request fields:
   --person-ids []int (required) — List of person IDs
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Person profiles
     - account_id (integer) (required) — Account ID
     - as (string) — Login role (account/member)

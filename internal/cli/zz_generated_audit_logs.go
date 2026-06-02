@@ -19,7 +19,7 @@ Return all operation names that are recorded in the audit log, for use as 'opera
 
 API: POST /audit/operation/list (audit-read-operation-list)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - name (string) (required) — Stable machine-readable operation name for use as a filter.
     - name_cn (string) (required) — Human-readable Chinese label shown in the console.
@@ -76,7 +76,7 @@ Request fields:
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
   --start-time int (required) — Start of the search window, Unix epoch seconds.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - docs (array<object>) — Audit log entries for this page.
     - account_id (integer) (required) — ID of the account.
     - body (string) (required) — JSON-encoded request body (may be truncated at 10 KB).

@@ -45,7 +45,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -63,7 +63,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer)
     - acknowledgement_pct (number)
@@ -181,7 +181,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -237,7 +237,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -255,7 +255,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer)
     - acknowledgement_pct (number)
@@ -373,7 +373,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -429,7 +429,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -447,7 +447,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer)
     - acknowledgement_pct (number)
@@ -556,7 +556,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -612,7 +612,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -630,7 +630,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer)
     - acknowledgement_pct (number)
@@ -748,7 +748,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -804,7 +804,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -894,9 +894,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Analytics.ChannelExport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Analytics.ChannelExport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /insight/channel/export")
 				return nil
@@ -908,7 +911,7 @@ Request fields:
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -1044,9 +1047,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Analytics.IncidentExport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Analytics.IncidentExport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /insight/incident/export")
 				return nil
@@ -1115,7 +1121,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -1132,7 +1138,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
   - items (array<object>)
     - acknowledgements (integer)
@@ -1161,7 +1167,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
     - labels (object)
     - manual_escalations (integer)
     - notifications (integer)
-    - progress (string) — Incident progress state (e.g. 'Triggered', 'Acknowledged', 'Closed').
+    - progress (string) — Incident progress state — one of 'Triggered', 'Processing', 'Closed'.
     - reassignments (integer)
     - responders (array<object>)
     - seconds_to_ack (integer)
@@ -1264,7 +1270,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -1319,7 +1325,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -1409,9 +1415,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Analytics.ResponderExport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Analytics.ResponderExport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /insight/responder/export")
 				return nil
@@ -1423,7 +1432,7 @@ Request fields:
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -1479,7 +1488,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
@@ -1569,9 +1578,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Analytics.TeamExport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Analytics.TeamExport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /insight/team/export")
 				return nil
@@ -1583,7 +1595,7 @@ Request fields:
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
@@ -1641,7 +1653,7 @@ Request fields:
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time int (required) — End time, Unix seconds. Must be greater than 'start_time'.
-  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.
+  --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --k int — Number of top entries to return, between 1 and 100.
@@ -1661,7 +1673,7 @@ Request fields:
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - hours (string) — Hour bucket when 'split_hours' is enabled.
     - label (string) — Aggregation key value (check name or resource identifier).
@@ -1759,7 +1771,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End time, Unix seconds. Must be greater than 'start_time'. (required)")
-	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().Int64Var(&fK, "k", 0, "Number of top entries to return, between 1 and 100.")

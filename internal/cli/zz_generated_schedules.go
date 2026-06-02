@@ -91,7 +91,7 @@ Request fields:
         - verify_token (string) (required) — Verification token.
       - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - schedule_id (integer) (required) — ID of the newly created schedule.
 `,
 		Example: `  flashduty schedule create --data '{"description":"Primary on-call rotation for the production team","layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0},{"end":0,"group_name":"B","members":[{"person_ids":[2476123212131],"role_id":0}],"name":"B","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"notify":{"advance_in_time":300,"by":{"follow_preference":true,"personal_channels":null},"fixed_time":null,"webhooks":null},"schedule_name":"Production On-Call","team_id":4291079133131}'`,
@@ -176,9 +176,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Schedules.Delete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Schedules.Delete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /schedule/delete")
 				return nil
@@ -209,7 +212,7 @@ Request fields:
   --schedule-id int (required) — Schedule ID.
   --start int (required) — Preview start timestamp (Unix seconds, 10 digits).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - create_at (integer) (required) — Creation timestamp (Unix seconds).
   - create_by (integer) (required) — Creator person ID.
@@ -405,7 +408,7 @@ API: POST /schedule/infos (scheduleInfos)
 Request fields:
   --schedule-ids []int (required) — Schedule ID list.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -583,7 +586,7 @@ Request fields:
   --start int — When set together with end, computed layer schedules are returned. Span must be less than 45 days.
   --team-ids []int — Filter by team IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules on this page.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -846,7 +849,7 @@ Request fields:
         - verify_token (string) (required) — Verification token.
       - type (string) (required) — IM provider type (for example feishu_app, dingtalk_app, wecom_app, teams_app, slack_app).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - create_at (integer) (required) — Creation timestamp (Unix seconds).
   - create_by (integer) (required) — Creator person ID.
@@ -1060,7 +1063,7 @@ Request fields:
   --end int — Window end (Unix seconds, 10 digits). Must be within 30 days of start.
   --start int — Window start (Unix seconds, 10 digits).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -1327,9 +1330,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Schedules.Update(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Schedules.Update(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /schedule/update")
 				return nil

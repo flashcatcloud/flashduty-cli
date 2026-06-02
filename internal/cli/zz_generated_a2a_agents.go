@@ -23,7 +23,7 @@ API: POST /safari/a2a-agent/get (remote-agent-read-get)
 Request fields:
   --agent-id string (required) — Identifier of the target agent.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - agent_card_name (string) — Name resolved from the fetched agent card.
   - agent_card_skills (array<string>) — Skills advertised on the fetched agent card.
@@ -95,7 +95,7 @@ Request fields:
   --offset int — Number of rows to skip for pagination.
   --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — A2A agents on the current page.
     - account_id (integer) (required) — Owning account.
     - agent_card_name (string) — Name resolved from the fetched agent card.
@@ -192,7 +192,7 @@ Request fields:
   --team-id int — Owning team for the new agent; 0 for account scope.
   auth_config (object, via --data) — Authentication parameters keyed by name.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - agent_id (string) (required) — Identifier of the created agent.
 `,
 		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"Network Diagnostics Agent","auth_config":{"token":"secret"},"auth_type":"bearer","card_url":"https://agents.example.com/network-diag/.well-known/agent.json","description":"Runs traceroute and BGP-path analysis for network incidents.","streaming":true,"team_id":0}'`,

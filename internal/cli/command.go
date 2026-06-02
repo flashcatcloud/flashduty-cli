@@ -73,6 +73,15 @@ func (ctx *RunContext) WriteResult(message string) {
 	writeResult(ctx.Writer, message)
 }
 
+// WriteRaw writes a non-JSON response body (e.g. a CSV/file download surfaced
+// on Response.Raw by the *export endpoints) straight to the output writer, so
+// shell redirection (`> file.csv`) captures the bytes verbatim instead of the
+// canned "OK: POST ..." acknowledgment.
+func (ctx *RunContext) WriteRaw(body []byte) error {
+	_, err := ctx.Writer.Write(body)
+	return err
+}
+
 // WriteResultJSON outputs structured data in JSON or TOON mode, or a
 // human-readable message in table mode. JSON stays indented (byte-compatible
 // with the legacy --json path); TOON routes through the SDK marshaller.

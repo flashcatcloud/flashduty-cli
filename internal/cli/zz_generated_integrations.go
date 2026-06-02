@@ -25,7 +25,7 @@ Request fields:
   --event-id string (required) — Event ID returned by 'ListWebhookHistory'.
   --integration-id int (required) — Integration ID the event belongs to. (min 1)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - attempt (integer) (required) — Attempt sequence number.
   - channel_id (integer) — Channel ID when applicable.
   - channel_name (string) — Name of the associated channel, resolved at query time.
@@ -111,7 +111,7 @@ Request fields:
   --start-time int (required) — Window start time in Unix milliseconds. (1000000000000-9999999999999)
   --status string — Filter by delivery status. [success, failed]
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - attempt (integer) (required) — Attempt sequence number.
     - channel_id (integer) — Channel ID associated with the event, when applicable.

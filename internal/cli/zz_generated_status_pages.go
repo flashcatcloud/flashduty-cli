@@ -19,7 +19,7 @@ List all status pages owned by the account, including their components and secti
 
 API: GET /status-page/list (status-page-read-page-list)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Status pages owned by the account.
     - components (array<object>) — Components tracked on the status page.
       - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
@@ -94,7 +94,7 @@ Request fields:
   --page-id int (required) — Status page ID.
   --type string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. [incident, maintenance]
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
       - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
@@ -205,7 +205,7 @@ Request fields:
     - status (string) — Change status after this update. Omit if the overall status does not change. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - update_id (string) — Update ID. Server-assigned on create; supply when replaying historical updates.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - change_id (integer) (required) — Newly created event ID.
   - change_name (string) (required) — Event title (echoed from the request).
 `,
@@ -316,9 +316,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.ChangeDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.ChangeDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/change/delete")
 				return nil
@@ -348,7 +351,7 @@ Request fields:
   --page-id int (required) — Status page ID.
   --change-id int (required) — Event (change) ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
     - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
     - component_id (string) — Component ID.
@@ -436,7 +439,7 @@ Request fields:
   --type string (required) — Event type filter. Required. [incident, maintenance]
   --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
       - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
@@ -540,7 +543,7 @@ Request fields:
     - component_id (string) (required) — Component ID.
     - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - update_id (string) (required) — Newly created update ID.
 `,
 		Example: `  flashduty status-page change-timeline-create --data '{"at_seconds":1712003600,"change_id":5821693893131,"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"partial_outage"}],"description":"We have identified the root cause and are working on a fix.","page_id":5750613685214,"status":"identified"}'`,
@@ -627,9 +630,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.ChangeTimelineDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.ChangeTimelineDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/change/timeline/delete")
 				return nil
@@ -693,9 +699,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.ChangeTimelineUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.ChangeTimelineUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/change/timeline/update")
 				return nil
@@ -761,9 +770,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.ChangeUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.ChangeUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/change/update")
 				return nil
@@ -798,7 +810,7 @@ Request fields:
   --source-page-id string (required) — Atlassian Statuspage source page ID.
   --target-page-id int (required) — Flashduty target status page ID that will receive the imported subscribers.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
 		Example: `  flashduty status-page migrate-email-subscribers --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij","target_page_id":5750613685214}'`,
@@ -856,7 +868,7 @@ Request fields:
   --source-page-id string (required) — Atlassian Statuspage source page ID.
   --url-name string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
 		Example: `  flashduty status-page migrate-structure --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij"}'`,
@@ -925,9 +937,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.MigrationCancel(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.MigrationCancel(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/migration/cancel")
 				return nil
@@ -954,7 +969,7 @@ API: GET /status-page/migration/status (statusPageMigrationStatus)
 Request fields:
   --job-id string (required) — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owner account ID.
   - created_at (integer) (required) — Job creation time, unix seconds.
   - error (string) — Terminal error message when 'status' is 'failed'.
@@ -1093,9 +1108,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.StatusPages.SubscriberImport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.SubscriberImport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /status-page/subscriber/import")
 				return nil
@@ -1129,7 +1147,7 @@ Request fields:
   --page int — Page number (1-based). (min 1)
   --limit int — Page size (1-100). (1-100)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether there is at least one more page after the current one.
   - items (array<object>) (required)
     - all (boolean) (required) — Whether the subscriber is subscribed to all components.

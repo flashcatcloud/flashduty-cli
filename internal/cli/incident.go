@@ -80,7 +80,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -119,7 +119,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
-	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp)")
+	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
@@ -135,25 +135,36 @@ func newIncidentGetCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), &flashduty.ListIncidentsRequest{
-					IncidentIDs: ctx.Args,
-				})
-				if err != nil {
-					return err
+				// Fetch each incident by ID via /incident/info: it works for
+				// any id with no time window. /incident/list cannot serve a
+				// plain get-by-id — it mandates a start/end window and caps it
+				// at 31 days, so it 400s ("StartTime is a required field") when
+				// queried by id alone.
+				items := make([]flashduty.IncidentInfo, 0, len(ctx.Args))
+				for _, id := range ctx.Args {
+					info, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), &flashduty.IncidentInfoRequest{
+						IncidentID: id,
+					})
+					if err != nil {
+						return fmt.Errorf("get incident %s: %w", id, err)
+					}
+					if info != nil {
+						items = append(items, *info)
+					}
 				}
 
 				if ctx.Structured() {
-					return ctx.Printer.Print(result.Items, nil)
+					return ctx.Printer.Print(items, nil)
 				}
 
 				// Single incident: vertical detail view
-				if len(ctx.Args) == 1 && len(result.Items) == 1 {
-					printIncidentDetail(ctx.Writer, result.Items[0])
+				if len(items) == 1 {
+					printIncidentDetail(ctx.Writer, items[0])
 					return nil
 				}
 
 				// Multiple: table
-				return ctx.Printer.Print(result.Items, incidentColumns())
+				return ctx.Printer.Print(items, incidentColumns())
 			})
 		},
 	}

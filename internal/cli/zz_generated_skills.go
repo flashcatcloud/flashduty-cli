@@ -109,7 +109,7 @@ API: POST /safari/skill/get (skill-read-get)
 Request fields:
   --skill-id string (required) — Identifier of the skill to fetch.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - author (string) — Author declared in the skill frontmatter.
   - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
@@ -185,7 +185,7 @@ Request fields:
   --include-account bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
   --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - skills (array<object>) (required) — Skills on the current page.
     - account_id (integer) (required) — Owning account.
     - author (string) — Author declared in the skill frontmatter.
@@ -361,7 +361,7 @@ Request fields:
   --skill-id string (required) — Identifier of the skill to update.
   --team-id int — Reassign the skill to this team; omit to leave unchanged, 0 for account scope.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - author (string) — Author declared in the skill frontmatter.
   - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
@@ -433,7 +433,7 @@ Upload a skill zip package and register it as a new account or team skill.
 
 API: POST /safari/skill/upload (skill-write-upload)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account.
   - author (string) — Author declared in the skill frontmatter.
   - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.

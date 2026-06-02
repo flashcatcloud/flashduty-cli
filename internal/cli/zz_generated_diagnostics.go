@@ -45,7 +45,7 @@ Request fields:
     - end (integer) — Window end, Unix seconds.
     - start (integer) — Window start, Unix seconds.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - ds_name (string)
   - ds_type (string)
   - operation (string) [log_patterns, metric_trends]
@@ -130,6 +130,10 @@ Request fields:
   --ds-type string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
   --expr string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
   args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings. Semantics depend on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'; Loki / VictoriaLogs raw mode requires a time range via '<source>.start'/'<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit'; Prometheus and SQL sources ignore it. Always namespace keys by source (e.g. 'sls.project', 'loki.type').
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - fields (object) — String-valued fields (labels, log fields, SQL columns).
+  - values (object) — Numeric fields. For metric queries the canonical key is '__value__'. May be 'null' for detail-oriented sources.
 `,
 		Example: `  flashduty monit query-rows --data '{"account_id":10001,"delay_seconds":30,"ds_name":"prod-prom","ds_type":"prometheus","expr":"up"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -196,7 +200,7 @@ Request fields:
   --keyword string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
   --limit int — Page size. Default 50, max 200. (max 200)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - agent_version (string) — Most recently observed Agent version.
     - cluster_name (string) — Edge cluster name.
@@ -268,7 +272,7 @@ Request fields:
   --target-kind string — Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.
   --target-locator string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - error (object) — Business error. 'null' on success.
     - code (string) [target_unavailable, unknown_toolset_hash, ambiguous_target_kind]
     - message (string)
@@ -345,7 +349,7 @@ Request fields:
     - params (object) — Tool parameters matching the catalog 'input_schema'. For no-arg tools pass '{}' explicitly.
     - tool (string) (required) — Tool name, typically from '/monit/tools/catalog'.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - error (object) — Request-level business error. 'null' on success.
     - code (string) [target_unavailable, unknown_toolset_hash, forward_failed, invalid_tool_result, ambiguous_target_kind]
     - message (string)

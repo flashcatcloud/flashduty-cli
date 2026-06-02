@@ -23,7 +23,7 @@ API: POST /rum/application/info (rum-application-read-info)
 Request fields:
   --application-id string (required) — RUM application ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Account ID.
   - alerting (object) — Alert settings for the application.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
@@ -90,7 +90,7 @@ API: POST /rum/application/infos (rum-application-read-infos)
 Request fields:
   --application-ids []string (required) — Up to 200 application IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer) — Account ID.
     - alerting (object) — Alert settings for the application.
@@ -172,7 +172,7 @@ Request fields:
   --query string — Search query to filter by application name.
   --team-id int — Filter by team ID.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
   - items (array<object>)
     - account_id (integer) — Account ID.
@@ -288,7 +288,7 @@ Request fields:
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. [popup, tab]
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - application_id (string) — Auto-generated unique application ID.
   - application_name (string) — Application display name.
   - client_token (string) — Token for RUM SDK initialization.
@@ -371,9 +371,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Applications.WriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Applications.WriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /rum/application/delete")
 				return nil
@@ -453,9 +456,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Applications.WriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Applications.WriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /rum/application/update")
 				return nil

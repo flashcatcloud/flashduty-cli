@@ -75,7 +75,7 @@ Request fields:
     - time_window (integer) — Grouping time window in seconds. (min 0)
     - window_type (string) — Window type. Defaults to 'tumbling'. [tumbling, sliding]
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - channel_id (integer) (required) — Newly created channel ID.
   - channel_name (string) (required) — Channel name echoed back from the request.
   - external_report_token (string) — External report token. Emitted only when external reporting is enabled.
@@ -178,9 +178,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/delete")
 				return nil
@@ -222,9 +225,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/disable")
 				return nil
@@ -266,9 +272,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/enable")
 				return nil
@@ -330,7 +339,7 @@ Request fields:
     - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
     - start (string) — Start of the window in 'HH:MM'.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
@@ -417,9 +426,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelEscalateRuleDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelEscalateRuleDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/escalate/rule/delete")
 				return nil
@@ -467,9 +479,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelEscalateRuleDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelEscalateRuleDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/escalate/rule/disable")
 				return nil
@@ -517,9 +532,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelEscalateRuleEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelEscalateRuleEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/escalate/rule/enable")
 				return nil
@@ -549,7 +567,7 @@ Request fields:
   --channel-id int (required) — Channel the rule belongs to.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - aggr_window (integer) (required) — Aggregation window in seconds.
   - channel_id (integer) (required) — Channel the rule belongs to.
@@ -637,7 +655,7 @@ API: POST /channel/escalate/rule/list (channelEscalateRuleList)
 Request fields:
   --channel-id int (required) — Channel to list rules for.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required) — Owning account ID.
     - aggr_window (integer) (required) — Aggregation window in seconds.
@@ -786,9 +804,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelEscalateRuleUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelEscalateRuleUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/escalate/rule/update")
 				return nil
@@ -821,7 +842,7 @@ API: POST /channel/info (channelInfo)
 Request fields:
   --channel-id int (required) — Channel ID to fetch.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Owning account ID.
   - active_incident_highest_severity (string) — Highest severity among active incidents in the channel.
   - auto_resolve_mode (string) — Auto-resolve timer reset mode. [trigger, update]
@@ -906,7 +927,7 @@ API: POST /channel/infos (channelInfos)
 Request fields:
   --channel-ids []int (required) — Channel IDs to look up. Up to 1000.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - channel_id (integer) (required) — Channel ID.
     - channel_name (string) (required) — Channel name.
@@ -967,7 +988,7 @@ Request fields:
   source_filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
   target_filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
@@ -1054,9 +1075,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelInhibitRuleDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelInhibitRuleDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/inhibit/rule/delete")
 				return nil
@@ -1104,9 +1128,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelInhibitRuleDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelInhibitRuleDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/inhibit/rule/disable")
 				return nil
@@ -1154,9 +1181,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelInhibitRuleEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelInhibitRuleEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/inhibit/rule/enable")
 				return nil
@@ -1184,7 +1214,7 @@ API: POST /channel/inhibit/rule/list (channelInhibitRuleList)
 Request fields:
   --channel-id int (required) — Channel to list rules for.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required)
     - channel_id (integer) (required)
@@ -1292,9 +1322,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelInhibitRuleUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelInhibitRuleUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/inhibit/rule/update")
 				return nil
@@ -1351,7 +1384,7 @@ Request fields:
   --query string — Free-text query against channel name/description.
   --team-ids []int — Filter by team IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether more pages are available.
   - items (array<object>) (required)
     - account_id (integer) — Owning account ID.
@@ -1492,9 +1525,12 @@ API: POST /channel/notify/rule/create (channelNotifyRuleCreate)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleCreate(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleCreate(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/create")
 				return nil
@@ -1525,9 +1561,12 @@ API: POST /channel/notify/rule/delete (channelNotifyRuleDelete)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleDelete(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleDelete(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/delete")
 				return nil
@@ -1558,9 +1597,12 @@ API: POST /channel/notify/rule/disable (channelNotifyRuleDisable)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleDisable(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleDisable(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/disable")
 				return nil
@@ -1591,9 +1633,12 @@ API: POST /channel/notify/rule/enable (channelNotifyRuleEnable)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleEnable(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleEnable(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/enable")
 				return nil
@@ -1624,9 +1669,12 @@ API: POST /channel/notify/rule/list (channelNotifyRuleList)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleList(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleList(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/list")
 				return nil
@@ -1657,9 +1705,12 @@ API: POST /channel/notify/rule/update (channelNotifyRuleUpdate)
 					return err
 				}
 				_ = body
-				_, err = ctx.Client.Channels.ChannelNotifyRuleUpdate(cmdContext(ctx.Cmd))
+				resp, err := ctx.Client.Channels.ChannelNotifyRuleUpdate(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/notify/rule/update")
 				return nil
@@ -1707,7 +1758,7 @@ Request fields:
     - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
     - start (string) — Start of the window in 'HH:MM'.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
@@ -1798,9 +1849,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelSilenceRuleDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelSilenceRuleDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/silence/rule/delete")
 				return nil
@@ -1848,9 +1902,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelSilenceRuleDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelSilenceRuleDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/silence/rule/disable")
 				return nil
@@ -1898,9 +1955,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelSilenceRuleEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelSilenceRuleEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/silence/rule/enable")
 				return nil
@@ -1928,7 +1988,7 @@ API: POST /channel/silence/rule/list (channelSilenceRuleList)
 Request fields:
   --channel-id int (required) — Channel to list rules for.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required)
     - channel_id (integer) (required)
@@ -2054,9 +2114,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelSilenceRuleUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelSilenceRuleUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/silence/rule/update")
 				return nil
@@ -2096,7 +2159,7 @@ Request fields:
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
@@ -2175,9 +2238,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelUnsubscribeRuleDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/delete")
 				return nil
@@ -2225,9 +2291,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelUnsubscribeRuleDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/disable")
 				return nil
@@ -2275,9 +2344,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelUnsubscribeRuleEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/enable")
 				return nil
@@ -2305,7 +2377,7 @@ API: POST /channel/unsubscribe/rule/list (channelUnsubscribeRuleList)
 Request fields:
   --channel-id int (required) — Channel to list rules for.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required)
     - channel_id (integer) (required)
@@ -2399,9 +2471,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.ChannelUnsubscribeRuleUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/update")
 				return nil
@@ -2468,7 +2543,7 @@ Request fields:
     - time_window (integer) — Grouping time window in minutes. Default max is 1440 minutes (24 h); extended accounts may allow up to 43200 minutes (30 days). (min 0)
     - window_type (string) — Window type. Defaults to 'tumbling'. [tumbling, sliding]
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - external_report_token (string) — Newly generated token for external reporters. Only returned when 'is_external_report_enabled' is set to 'true' in the request. Callers should store this value; it cannot be retrieved afterwards.
 `,
 		Example: `  flashduty channel update --data '{"channel_id":1001,"channel_name":"Production Alerts (v2)","description":"Updated description"}'`,
@@ -2554,7 +2629,7 @@ API: POST /route/info (routeInfo)
 Request fields:
   --integration-id int (required) — Integration ID. Must be greater than 0.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cases (array<object>) — Ordered list of case branches.
     - channel_ids (array<integer>) (required) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty).
     - fallthrough (boolean) (required) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
@@ -2621,7 +2696,7 @@ API: POST /route/list (routeList)
 Request fields:
   --integration-ids []int (required) — Integration IDs to fetch routing rules for.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Routing rules of the requested integrations. Integrations without a configured rule are omitted.
     - cases (array<object>) — Ordered list of case branches.
       - channel_ids (array<integer>) (required) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty).
@@ -2723,9 +2798,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Channels.RouteUpsert(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Channels.RouteUpsert(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /route/upsert")
 				return nil

@@ -23,7 +23,7 @@ API: POST /role/info (role-read-info)
 Request fields:
   --role-id int (required) — Role ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) (required) — Unix epoch seconds the role was created.
   - description (string) (required) — Role description.
   - editable (boolean) (required) — False for built-in roles which cannot be modified.
@@ -78,7 +78,7 @@ Request fields:
   --asc bool — Ascending sort order.
   --orderby string — Sort field. [created_at, updated_at]
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - created_at (integer) (required) — Unix epoch seconds the role was created.
     - description (string) (required) — Role description.
@@ -139,7 +139,7 @@ Request fields:
   --role-ids []int — Filter to permissions granted to these roles.
   --with-all bool — If true, return all permissions with is_granted set to indicate which are granted.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - class (string) (required) — Permission class (e.g., 'On-call', 'Organization').
     - description (string) (required) — Human-readable permission description.
@@ -196,6 +196,10 @@ API: POST /role/permission/factor/list (role-read-list-permission-factor)
 
 Request fields:
   --factor-types []string — Filter by factor type. [api, button, visit, menu, url]
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - factor_name (string) (required) — Factor identifier (e.g., 'template:read:info').
+  - factor_type (string) (required) — Factor type. [api, button, visit, menu, url]
 `,
 		Example: `  flashduty role permission-factor-list --data '{"factor_types":["api"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -255,9 +259,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.RolesPermissions.WriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.RolesPermissions.WriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /role/delete")
 				return nil
@@ -299,9 +306,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.RolesPermissions.WriteDisable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.RolesPermissions.WriteDisable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /role/disable")
 				return nil
@@ -343,9 +353,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.RolesPermissions.WriteEnable(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.RolesPermissions.WriteEnable(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /role/enable")
 				return nil
@@ -392,9 +405,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.RolesPermissions.WriteGrantRole(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.RolesPermissions.WriteGrantRole(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /role/member/grant")
 				return nil
@@ -442,9 +458,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.RolesPermissions.WriteRevokeRole(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.RolesPermissions.WriteRevokeRole(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /role/member/revoke")
 				return nil
@@ -478,7 +497,7 @@ Request fields:
   --role-id int — Role ID. Omit or set to 0 to create.
   --role-name string (required) — Role display name. 1–39 characters. (1-39 chars)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - role_id (integer) (required) — Created or updated role ID.
   - role_name (string) (required) — Role name echoed from the request.
 `,

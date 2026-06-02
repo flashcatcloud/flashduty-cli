@@ -43,9 +43,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Calendars.CalEventDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Calendars.CalEventDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /calendar/event/delete")
 				return nil
@@ -79,7 +82,7 @@ Request fields:
   --month int — Month (1-12). 0 means no month filter. (0-12)
   --year int — Year. Defaults to the current year when omitted. (min 2023)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Calendar events sorted by start_at.
     - account_id (integer) — Account ID. Only present for private events.
     - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
@@ -161,7 +164,7 @@ Request fields:
   --start-at string (required) — Event start date in YYYY-MM-DD.
   --summary string (required) — Event summary. (1-39 chars)
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cal_id (string) (required) — Calendar ID.
   - event_id (string) (required) — Event ID (existing or newly generated).
   - summary (string) (required) — Event summary.
@@ -243,7 +246,7 @@ Request fields:
   --timezone string — IANA timezone. Defaults to Asia/Shanghai when empty.
   --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cal_id (string) (required) — ID of the newly created calendar (format cal.<uuid>).
   - cal_name (string) (required) — Calendar display name.
 `,
@@ -325,9 +328,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Calendars.CalendarDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Calendars.CalendarDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /calendar/delete")
 				return nil
@@ -354,7 +360,7 @@ API: POST /calendar/info (calendarInfo)
 Request fields:
   --cal-id string (required) — Calendar ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - cal_id (string) (required) — Calendar ID.
   - cal_name (string) (required) — Calendar display name.
@@ -415,7 +421,7 @@ Request fields:
   --kind string — Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]
   --no-locale bool — Disable locale filtering when listing public-holiday calendars.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Calendar items.
     - account_id (integer) (required) — Account ID.
     - cal_id (string) (required) — Calendar ID.
@@ -525,9 +531,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Calendars.CalendarUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Calendars.CalendarUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /calendar/update")
 				return nil

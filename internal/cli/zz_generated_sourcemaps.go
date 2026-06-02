@@ -47,7 +47,7 @@ Request fields:
   --uuid string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
   --versions []string — Filter by version strings. Up to 100 values.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - created_at (integer) — Upload timestamp, Unix epoch seconds.
     - git_commit_sha (string) — Git commit SHA for this build.

@@ -43,7 +43,7 @@ Request fields:
   --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'.
   --start-time int — Start of search window, Unix epoch seconds.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
   - items (array<object>)
     - account_id (integer) — Account ID.
@@ -154,7 +154,7 @@ API: POST /alert/event/list (alert-read-event-list)
 Request fields:
   --alert-id string (required) — Alert ID (ObjectID hex string).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
@@ -232,7 +232,7 @@ Request fields:
   --asc bool — Sort ascending.
   --types []string — Filter by feed types.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
   - items (array<object>)
     - account_id (integer) (required) — Account ID.
@@ -306,7 +306,7 @@ API: POST /alert/info (alert-read-info)
 Request fields:
   --alert-id string (required) — Alert ID (ObjectID hex string).
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Account ID.
   - alert_id (string) — Unique alert ID (ObjectID hex string).
   - alert_key (string) — Deduplication key.
@@ -353,7 +353,7 @@ Response fields (under 'data'):
     - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
   - incident (object) — Brief incident reference embedded in an alert.
     - incident_id (string) — Incident ID (ObjectID hex string).
-    - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+    - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
     - title (string) — Incident title.
   - integration_id (integer) — ID of the integration that produced this alert.
   - integration_name (string) — Display name of the integration.
@@ -439,7 +439,7 @@ Request fields:
   --orderby string — Sort field. [created_at, updated_at]
   --start-time int (required) — Start of the search window, Unix epoch seconds.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
   - items (array<object>)
     - account_id (integer) — Account ID.
@@ -488,7 +488,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - incident (object) — Brief incident reference embedded in an alert.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
     - integration_id (integer) — ID of the integration that produced this alert.
     - integration_name (string) — Display name of the integration.
@@ -604,7 +604,7 @@ API: POST /alert/list-by-ids (alert-read-list-by-ids)
 Request fields:
   --alert-ids []string (required) — List of alert IDs (ObjectID hex strings).
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
   - items (array<object>)
     - account_id (integer) — Account ID.
@@ -653,7 +653,7 @@ Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - incident (object) — Brief incident reference embedded in an alert.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress (e.g. 'Processing', 'Resolved').
+      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
     - integration_id (integer) — ID of the integration that produced this alert.
     - integration_name (string) — Display name of the integration.
@@ -713,7 +713,7 @@ API: POST /alert/pipeline/info (alert-read-pipeline-info)
 Request fields:
   --integration-id int (required) — Integration ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) — Creation timestamp, Unix epoch seconds.
   - creator_id (integer) — Member ID who created the pipeline.
   - integration_id (integer) — Integration ID this pipeline applies to.
@@ -768,7 +768,7 @@ API: POST /alert/pipeline/list (alert-read-pipeline-list)
 Request fields:
   --integration-ids []int (required) — Integration IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
     - created_at (integer) — Creation timestamp, Unix epoch seconds.
     - creator_id (integer) — Member ID who created the pipeline.
@@ -859,9 +859,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Alerts.WriteMerge(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Alerts.WriteMerge(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /alert/merge")
 				return nil
@@ -911,9 +914,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Alerts.WritePipelineUpsert(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Alerts.WritePipelineUpsert(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /alert/pipeline/upsert")
 				return nil

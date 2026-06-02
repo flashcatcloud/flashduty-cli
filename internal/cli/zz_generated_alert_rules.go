@@ -21,9 +21,9 @@ Return the audit record (including the 'content' field, a JSON string of the rul
 API: POST /monit/rule/audit/detail (monit-rule-read-audit-detail)
 
 Request fields:
-  --id int (required) — Rule ID.
+  --id int (required) — Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required)
   - action (string) (required) — Action performed, e.g. 'create', 'update'.
   - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
@@ -44,7 +44,7 @@ Response fields (under 'data'):
 				if err != nil {
 					return err
 				}
-				req := new(flashduty.RuleIDRequest)
+				req := new(flashduty.AuditRecordIDRequest)
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
@@ -56,7 +56,7 @@ Response fields (under 'data'):
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -75,6 +75,16 @@ API: POST /monit/rule/audits (monit-rule-read-audits)
 
 Request fields:
   --id int (required) — Rule ID.
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - account_id (integer) (required)
+  - action (string) (required) — Action performed, e.g. 'create', 'update'.
+  - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
+  - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
+  - created_at (integer) (required)
+  - creator_id (integer) (required)
+  - creator_name (string) (required)
+  - id (integer) (required) — Audit record ID.
 `,
 		Example: `  flashduty monit rule-audits --data '{"id":50001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -178,6 +188,12 @@ func genAlertRulesReadCounterStatusCmd() *cobra.Command {
 Return trigger status summary for all top-level folder nodes — used for the overview dashboard.
 
 API: POST /monit/rule/counter/status (monit-rule-read-counter-status)
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - folder_id (integer) (required)
+  - folder_name (string)
+  - rule_total (integer) (required) — Total rules in the folder family.
+  - triggered_rule_count (integer) (required) — Rules with active alerts.
 `,
 		Example: `  flashduty monit rule-counter-status --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -210,6 +226,12 @@ func genAlertRulesReadCounterTotalCmd() *cobra.Command {
 Return the stored time series of the total rule count across the account — one sample per 'clock' timestamp.
 
 API: POST /monit/rule/counter/total (monit-rule-read-counter-total)
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - account_id (integer) (required)
+  - clock (integer) (required) — Sample timestamp, Unix epoch seconds.
+  - id (integer) (required)
+  - num (integer) (required) — Rule count at the sample time.
 `,
 		Example: `  flashduty monit rule-counter-total --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -242,6 +264,13 @@ func genAlertRulesReadDstypesCmd() *cobra.Command {
 Return the list of datasource types ('DSType' records) that the current account can use when authoring alert rules — combines global types and account-scoped types.
 
 API: POST /monit/rule/dstypes (monit-rule-read-dstypes)
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - account_id (integer) (required) — Owning account ID. '0' for global types.
+  - id (integer) (required)
+  - ident (string) (required) — Identifier used as the 'ds_type' of rules, e.g. 'prometheus'.
+  - name (string) (required) — Display name, e.g. 'Prometheus'.
+  - weight (integer) (required) — Display order weight; higher appears first.
 `,
 		Example: `  flashduty monit rule-dstypes --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -278,6 +307,65 @@ API: POST /monit/rule/export (monit-rule-read-export)
 
 Request fields:
   --ids []int (required) — Rule IDs.
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - annotations (object)
+  - cron_pattern (string) (required)
+  - debug_log_enabled (boolean) (required)
+  - delay_seconds (integer)
+  - description (string)
+  - description_type (string) [text, markdown]
+  - ds_ids (array<integer>)
+  - ds_list (array<string>)
+  - ds_type (string) (required)
+  - enabled (boolean) (required)
+  - enabled_times (array<object>)
+    - days (array<integer>) — Days of week, 0 = Sunday.
+    - etime (string) — End time, e.g. '18:00'.
+    - stime (string) — Start time, e.g. '09:00'.
+  - labels (object)
+  - name (string) (required)
+  - repeat_interval (integer)
+  - repeat_total (integer)
+  - rule_configs (object) — Rule evaluation configuration.
+    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
+        - args (object)
+        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
+        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
+      - recovery_check_times (integer)
+      - severity (string) [Critical, Warning, Info]
+    - check_nodata (object) — No-data check configuration.
+      - alerting_check_times (integer)
+      - enabled (boolean)
+      - push_recovery_event (boolean)
+      - recovery_check_times (integer)
+      - resolve_timeout (integer) — Auto-resolve after N seconds.
+      - severity (string) [Critical, Warning, Info]
+    - check_threshold (object) — Threshold check configuration.
+      - alerting_check_times (integer)
+      - critical (string)
+      - enabled (boolean)
+      - info (string)
+      - push_recovery_event (boolean)
+      - recovery (object)
+        - condition (string)
+        - mode (string) [invert, threshold, ql]
+      - recovery_check_times (integer)
+      - warning (string)
+    - queries (array<object>)
+      - args (object)
+      - expr (string) — Query expression.
+      - label_fields (array<string>)
+      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
+      - value_fields (array<string>)
+    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
+      - args (object)
+      - expr (string) — Query expression.
+      - name (string) — Relate-query identifier.
 `,
 		Example: `  flashduty monit rule-export --data '{"ids":[50001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -322,7 +410,7 @@ API: POST /monit/rule/info (monit-rule-read-info)
 Request fields:
   --id int (required) — Rule ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required)
   - annotations (object)
   - channel_ids (array<integer>) — Channel IDs to send alerts to.
@@ -432,7 +520,26 @@ Return the basic information of all alert rules in a folder. For full rule detai
 API: POST /monit/rule/list/basic (monit-rule-read-list)
 
 Request fields:
-  --folder-id int — Folder ID — must be a real folder ID; 0 or empty is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation, then list per folder. Returns only rules directly in that folder, not descendant folders.
+  --folder-id int — Folder ID. 0 to list all accessible rules.
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - account_id (integer) (required) — Account ID.
+  - created_at (integer) (required)
+  - creator_id (integer) (required)
+  - creator_name (string) (required)
+  - cron_pattern (string) (required) — 5-field cron schedule, e.g. '* * * * *'.
+  - debug_log_enabled (boolean) (required) — Whether debug logging is enabled.
+  - delay_seconds (integer) (required) — Evaluation delay in seconds.
+  - ds_type (string) (required) — Data source type, e.g. 'prometheus'.
+  - enabled (boolean) (required) — Whether the rule is enabled.
+  - folder_id (integer) (required) — Folder ID.
+  - id (integer) (required) — Unique rule ID.
+  - labels (object) — Custom labels.
+  - name (string) (required) — Rule name.
+  - triggered (boolean) (required) — True if the rule currently has active alerts.
+  - updated_at (integer) (required)
+  - updater_id (integer) (required)
+  - updater_name (string) (required)
 `,
 		Example: `  flashduty monit rule-list-basic --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -457,7 +564,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID — must be a real folder ID; 0 or empty is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation, then list per folder. Returns only rules directly in that folder, not descendant folders.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 to list all accessible rules.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -564,7 +671,7 @@ Request fields:
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer)
   - annotations (object)
   - channel_ids (array<integer>) — Channel IDs to send alerts to.
@@ -775,9 +882,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertRules.WriteDelete(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertRules.WriteDelete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /monit/rule/delete")
 				return nil
@@ -819,9 +929,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.AlertRules.WriteDeleteBatch(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertRules.WriteDeleteBatch(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /monit/rule/delete/batch")
 				return nil
@@ -877,6 +990,10 @@ Request fields:
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
   labels (object, via --data)
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - message (string) (required) — Empty on success, error message on failure.
+  - name (string) (required) — Rule name.
 `,
 		Example: `  flashduty monit rule-update-fields --data '{"enabled":false,"fields":["enabled"],"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -964,6 +1081,10 @@ func genAlertRulesWriteImportCmd() *cobra.Command {
 Import one or more alert rules from a JSON array. Returns the result for each rule, indicating success or failure.
 
 API: POST /monit/rule/import (monit-rule-write-import)
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - message (string) (required) — Empty on success, error message on failure.
+  - name (string) (required) — Rule name.
 `,
 		Example: `  flashduty monit rule-import --data '[{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1005,6 +1126,10 @@ API: POST /monit/rule/move (monit-rule-write-move)
 Request fields:
   --dest-folder-id int (required) — Destination folder ID.
   --ids []int (required) — Rule IDs to move.
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - message (string) (required) — Empty on success, error message on failure.
+  - name (string) (required) — Rule name.
 `,
 		Example: `  flashduty monit rule-move --data '{"dest_folder_id":200,"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1051,7 +1176,13 @@ Return the rule trigger summary for all rules under a folder node and its descen
 API: POST /monit/rule/status (monit-rule-write-status)
 
 Request fields:
-  --folder-id int — Folder ID — must be a real folder ID; 0 is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation.
+  --folder-id int — Folder ID. 0 for all.
+
+Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
+  - folder_id (integer) (required)
+  - folder_name (string)
+  - rule_total (integer) (required) — Total rules in the folder family.
+  - triggered_rule_count (integer) (required) — Rules with active alerts.
 `,
 		Example: `  flashduty monit rule-status --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1076,7 +1207,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID — must be a real folder ID; 0 is rejected with HTTP 400 'Folder not found'. Discover folder IDs via the rule-counter-status operation.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 for all.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
 	return cmd
 }
@@ -1183,7 +1314,7 @@ Request fields:
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer)
   - annotations (object)
   - channel_ids (array<integer>) — Channel IDs to send alerts to.

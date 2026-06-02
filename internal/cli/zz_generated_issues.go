@@ -23,7 +23,7 @@ API: POST /rum/issue/info (rum-issue-read-info)
 Request fields:
   --issue-id string (required) — Issue ID.
 
-Response fields (under 'data'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - age (integer)
   - application_id (string)
   - application_name (string)
@@ -130,7 +130,7 @@ Request fields:
   --suspected-causes []string — Filter by suspected causes.
   --team-ids []int — Filter by team IDs.
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
   - items (array<object>)
     - age (integer)
@@ -293,9 +293,12 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				_, err = ctx.Client.Issues.WriteUpdate(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.Issues.WriteUpdate(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
 				}
 				ctx.WriteResult("OK: POST /rum/issue/update")
 				return nil

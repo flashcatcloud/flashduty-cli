@@ -15,7 +15,7 @@ List IM integrations that have the war-room feature enabled for the account.
 
 API: POST /datasource/im/war-room-enabled/list (im-war-room-enabled-list)
 
-Response fields (under 'data'; list rows are nested under items[] — pipe 'jq '.items[]''):
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — IM integrations with the war-room feature enabled.
     - account_id (integer) — Account this integration belongs to.
     - category (string) — Category of the integration plugin.
