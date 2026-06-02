@@ -214,6 +214,8 @@ var generatedOpIDs = []string{
 	"schedulePreview",
 	"scheduleSelf",
 	"scheduleUpdate",
+	"session-read-info",
+	"session-read-list",
 	"skill-read-download",
 	"skill-read-enable",
 	"skill-read-get",

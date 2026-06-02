@@ -100,6 +100,9 @@ func init() {
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newUpdateCmd())
 
+	// AI agent sessions (list + transcript export).
+	rootCmd.AddCommand(newSessionCmd())
+
 	// Diagnostics entry points (value-add over the raw API).
 	rootCmd.AddCommand(newMonitQueryCmd())
 	rootCmd.AddCommand(newMonitAgentCmd())
@@ -107,6 +110,11 @@ func init() {
 	// Generated commands (full OpenAPI coverage). Registered AFTER curated
 	// commands so curated leaves win on any name conflict (see genAddLeaf).
 	registerGenerated(rootCmd)
+
+	// session/export is a streaming op excluded from the generated tree; attach
+	// its path-is-king leaf to the (now-existing) generated `safari` group so the
+	// operation stays reachable at safari session-export.
+	attachSafariSessionExport(rootCmd)
 }
 
 // Execute runs the root command.
