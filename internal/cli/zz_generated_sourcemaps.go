@@ -133,7 +133,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to 'browser' when omitted. [browser, android, ios]")
 	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Filter by dSYM bundle UUID. Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fVersions, "versions", nil, "Filter by version strings. Up to 100 values.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

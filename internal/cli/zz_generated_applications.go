@@ -71,7 +71,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -139,7 +139,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -251,7 +251,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search query to filter by application name.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -337,7 +337,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Application type. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -384,7 +384,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -475,7 +475,7 @@ Request fields:
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Request field no_ip")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Request field team_id")
 	cmd.Flags().StringVar(&fType, "type", "", "Request field type [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

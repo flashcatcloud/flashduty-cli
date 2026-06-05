@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -178,7 +178,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -326,7 +326,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team for the new server; 0 for account scope.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport used to reach the server. (required) [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "Endpoint URL for sse or streamable-http transport.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -369,7 +369,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -412,7 +412,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -455,7 +455,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -603,7 +603,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the server to this team; omit to leave unchanged, 0 for account scope.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "New transport for the server. [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL for remote transports.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

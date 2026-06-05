@@ -70,7 +70,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -156,7 +156,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of rows to return; defaults to 20.")
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Number of rows to skip for pagination.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -251,7 +251,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON schema of the per-user secret; required when auth_mode is per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the agent supports streaming responses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team for the new agent; 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -294,7 +294,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -337,7 +337,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -380,7 +380,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -478,7 +478,7 @@ Request fields:
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New per-user secret JSON schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming-response support.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the agent to this team; omit to leave unchanged, 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

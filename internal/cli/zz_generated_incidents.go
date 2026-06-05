@@ -60,7 +60,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID, a MongoDB ObjectID hex string. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -115,7 +115,7 @@ Request fields:
 	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room within the IM platform. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration that hosts the war room. (required)")
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs to add to the war room. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -162,7 +162,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to acknowledge. At most 100 per call. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -300,7 +300,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "When true, include raw alert events in each alert item.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -362,7 +362,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Single incident ID. Ignored when 'incident_ids' is also provided.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Batch incident IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -421,7 +421,7 @@ Request fields:
 	cmd.Flags().StringVar(&fComment, "comment", "", "Comment body. (≤1024 chars)")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to comment on. At most 100 per call. (required)")
 	cmd.Flags().BoolVar(&fMuteReply, "mute-reply", false, "When true, do not trigger webhook reply actions for this comment.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -496,7 +496,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Incident description, up to 1024 characters. (≤1024 chars)")
 	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Incident severity. (required) [Info, Warning, Critical]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Incident title, up to 512 characters. (≤512 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -548,7 +548,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Custom action integration ID. Must be enabled and associated with the incident's channel. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -595,7 +595,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs whose automatic merge should be disabled. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -680,7 +680,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending chronological order when true.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -734,7 +734,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Custom field name; must match a field defined on the account. (required)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -933,7 +933,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1259,7 +1259,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start, Unix seconds. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs; resolved to channels via channel ownership.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1459,7 +1459,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1536,7 +1536,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fSourceIncidentIDs, "source-incident-ids", nil, "Source incident IDs. The target incident is removed from this set automatically. (required)")
 	cmd.Flags().StringVar(&fTargetIncidentID, "target-incident-id", "", "Target incident ID that source incidents will be merged into. (required)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident. (≤512 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1740,7 +1740,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Reference incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of similar incidents to return. (0-100)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1787,7 +1787,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1861,7 +1861,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1978,7 +1978,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds, updated_at_seconds]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Report status. Defaults to 'published' on the server when omitted. [drafting, published]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs to restrict the query to.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2025,7 +2025,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to remove. At most 100 per call. The caller must have access to every channel the incidents belong to. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2078,7 +2078,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to reopen. At most 100 per call. (required)")
 	cmd.Flags().StringVar(&fReason, "reason", "", "Optional reason recorded on the timeline. (≤1024 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2161,7 +2161,7 @@ Request fields:
 	cmd.Flags().StringVar(&fResolution, "resolution", "", "New resolution notes. (3-6144 chars)")
 	cmd.Flags().StringVar(&fRootCause, "root-cause", "", "New root cause analysis. (3-6144 chars)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New incident title. (3-200 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2220,7 +2220,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to resolve. At most 100 per call. (required)")
 	cmd.Flags().StringVar(&fResolution, "resolution", "", "Optional resolution note applied to every resolved incident. (≤1024 chars)")
 	cmd.Flags().StringVar(&fRootCause, "root-cause", "", "Optional root cause note applied to every resolved incident. (≤1024 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2277,7 +2277,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to add as responders. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2330,7 +2330,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to snooze. At most 100 per call. (required)")
 	cmd.Flags().Int64Var(&fMinutes, "minutes", 0, "Duration in minutes. Must be greater than 0 and at most 1440 (24h). (required) (max 1440)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2377,7 +2377,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to unacknowledge. At most 100 per call. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2424,7 +2424,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to wake. At most 100 per call. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2490,7 +2490,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported. (required)")
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Additional member IDs to add to the war room.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2543,7 +2543,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2597,7 +2597,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat/group ID on the IM side. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID that hosts the war room. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2657,7 +2657,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Optional filter: only return war rooms for this IM integration.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

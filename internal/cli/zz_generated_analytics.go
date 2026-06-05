@@ -196,7 +196,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -388,7 +388,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -571,7 +571,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -763,7 +763,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -926,7 +926,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1077,7 +1077,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Request field ")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Request field ")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Request field ")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1284,7 +1284,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1447,7 +1447,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1610,7 +1610,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1788,7 +1788,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start time, Unix seconds. Must be greater than 0. (required)")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

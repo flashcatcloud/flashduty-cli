@@ -74,7 +74,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -195,7 +195,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Regex or substring match on template_name.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by specific team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -255,7 +255,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fContent, "content", "", "Template content to render. (required)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.")
 	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -398,7 +398,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -445,7 +445,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -594,7 +594,7 @@ Request fields:
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

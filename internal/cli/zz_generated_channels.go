@@ -144,7 +144,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
 	cmd.Flags().IntSliceVar(&fPluginIDs, "plugin-ids", nil, "IDs of plugins (integrations) subscribed to this channel.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -191,7 +191,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -238,7 +238,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -285,7 +285,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -387,7 +387,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first. (0-200)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Notification template ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -440,7 +440,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -493,7 +493,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -546,7 +546,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -636,7 +636,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -715,7 +715,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -823,7 +823,7 @@ Request fields:
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Escalation rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Notification template ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -908,7 +908,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -957,7 +957,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to look up. Up to 1000. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1036,7 +1036,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1089,7 +1089,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1142,7 +1142,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1195,7 +1195,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1256,7 +1256,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1341,7 +1341,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Inhibit rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1501,7 +1501,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field used to order results. [ranking, created_at, updated_at, channel_name, last_incident_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text query against channel name/description.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1594,7 +1594,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, silenced alerts are dropped instead of suppressed into incidents.")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1647,7 +1647,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1700,7 +1700,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1753,7 +1753,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1824,7 +1824,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1917,7 +1917,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Silence rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1983,7 +1983,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2036,7 +2036,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2089,7 +2089,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2142,7 +2142,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2200,7 +2200,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2272,7 +2272,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Drop rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2394,7 +2394,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "When true, the channel is visible only to its managing teams.")
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2461,7 +2461,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. Must be greater than 0. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2529,7 +2529,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Integration IDs to fetch routing rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2596,7 +2596,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration the rule belongs to. (required)")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Expected current version for optimistic concurrency control. Pass the value returned by the latest read.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

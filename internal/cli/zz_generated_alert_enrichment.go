@@ -62,7 +62,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to query enrichment rules for. Must be greater than 0. (required) (min 1)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -121,7 +121,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "List of integration IDs to query. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -175,7 +175,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to configure enrichment rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -235,7 +235,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -314,7 +314,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID. Omit or send 'null' to skip.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -392,7 +392,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field input type. Immutable after creation. (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
 	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. (required) [string, bool, float]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -439,7 +439,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -505,7 +505,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name. Must remain unique within the account. (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -564,7 +564,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAPIID, "api-id", "", "Mapping API ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -614,7 +614,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -698,7 +698,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2.")
 	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required) (≤500 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -745,7 +745,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAPIID, "api-id", "", "Mapping API ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -835,7 +835,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds.")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars). (≤500 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -878,7 +878,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -962,7 +962,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1015,7 +1015,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fKeys, "keys", nil, "Keys of rows to delete. (required)")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1062,7 +1062,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1115,7 +1115,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fFile, "file", "", "CSV file to upload.")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (query parameter).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1162,7 +1162,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1218,7 +1218,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1265,7 +1265,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1336,7 +1336,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "Unique schema name (max 39 chars). (required) (≤39 chars)")
 	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Must not overlap with 'result_labels'. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. '0' means no team.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1383,7 +1383,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1448,7 +1448,7 @@ Request fields:
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Schema ID (MongoDB ObjectID hex). (required)")
 	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "New schema name (max 39 chars). (≤39 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID. '0' removes the team association.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
