@@ -31,8 +31,10 @@ func fakeBroker(t *testing.T, parentFD int, upstream string, realKey string) (st
 		defer close(ctlGone)
 		buf := make([]byte, 8)
 		for {
-			// Blocks until a handshake datagram arrives or parentFD is closed by
-			// stop() (which unblocks Recvmsg with EBADF/EOF → clean exit, no leak).
+			// Blocks until a handshake datagram arrives or stop() shuts down
+			// parentFD (recvmsg then returns EOF → clean exit, no leak). NOTE: a
+			// bare Close(parentFD) does NOT wake a blocked recvmsg on Linux (only on
+			// darwin/BSD), so stop() uses Shutdown — see the stop func below.
 			n, _, _, _, err := syscall.Recvmsg(parentFD, buf, nil, 0)
 			if err != nil || n == 0 {
 				return
@@ -64,10 +66,13 @@ func fakeBroker(t *testing.T, parentFD int, upstream string, realKey string) (st
 		}
 	}()
 	return func() {
-		// Closing parentFD unblocks the control goroutine's Recvmsg so it exits
-		// instead of leaking across -count iterations.
-		_ = syscall.Close(parentFD)
+		// Shutdown (NOT a bare Close) wakes the control goroutine's blocked
+		// Recvmsg portably — on Linux, closing an fd does not interrupt a recvmsg
+		// blocked on it in another goroutine; shutdown returns EOF on both Linux
+		// and darwin. Join, then close.
+		_ = syscall.Shutdown(parentFD, syscall.SHUT_RDWR)
 		<-ctlGone
+		_ = syscall.Close(parentFD)
 		mu.Lock()
 		for _, c := range conns {
 			_ = c.Close()
@@ -231,8 +236,10 @@ func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
 	if _, err := client.Do(req); err == nil {
 		t.Fatal("client.Do must fail when broker refuses with 0xFF")
 	}
-	_ = syscall.Close(parentFD)
+	// Shutdown (not bare Close) to wake the goroutine's blocked Recvmsg on Linux.
+	_ = syscall.Shutdown(parentFD, syscall.SHUT_RDWR)
 	<-done
+	_ = syscall.Close(parentFD)
 }
 
 // serveProxyConn is a tiny test upstream-proxy used by fakeBroker; the real
