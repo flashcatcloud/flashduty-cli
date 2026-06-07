@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"syscall"
 	"testing"
@@ -142,6 +143,38 @@ func TestBrokerHTTPClient_DialAndRewrite(t *testing.T) {
 		if got := <-gotKey; got != "REAL-KEY" {
 			t.Fatalf("concurrent req saw app_key=%q", got)
 		}
+	}
+}
+
+// TestDefaultNewClient_BrokerMode covers the defaultNewClient wiring: with
+// FLASHDUTY_CRED_FD set it builds a client with no configured app_key (the
+// broker supplies the real key), and a malformed fd value is a clean error.
+func TestDefaultNewClient_BrokerMode(t *testing.T) {
+	// Hermetic config: empty HOME (no config file) + no env app key.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FLASHDUTY_APP_KEY", "")
+
+	// A real, open fd so newBrokerHTTPClient gets a usable control channel.
+	pair, err := syscall.Socketpair(syscall.AF_UNIX, controlSockType, 0)
+	if err != nil {
+		t.Fatalf("socketpair: %v", err)
+	}
+	defer syscall.Close(pair[0])
+	defer syscall.Close(pair[1])
+
+	t.Setenv("FLASHDUTY_CRED_FD", strconv.Itoa(pair[0]))
+	client, err := defaultNewClient()
+	if err != nil {
+		t.Fatalf("broker mode with no app key must succeed, got: %v", err)
+	}
+	if client == nil {
+		t.Fatal("broker mode returned nil client")
+	}
+
+	// A malformed fd value is rejected up front (not silently ignored).
+	t.Setenv("FLASHDUTY_CRED_FD", "not-a-number")
+	if _, err := defaultNewClient(); err == nil {
+		t.Fatal("invalid FLASHDUTY_CRED_FD must error")
 	}
 }
 
