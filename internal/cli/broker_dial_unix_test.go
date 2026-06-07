@@ -96,7 +96,7 @@ func TestBrokerHTTPClient_DialAndRewrite(t *testing.T) {
 	}
 	childFD, parentFD := pair[0], pair[1]
 	stop := fakeBroker(t, parentFD, upstream.URL, "REAL-KEY") // owns + closes parentFD
-	defer syscall.Close(childFD)
+	defer func() { _ = syscall.Close(childFD) }()
 	defer stop()
 
 	client := newBrokerHTTPClient(childFD)
@@ -159,8 +159,8 @@ func TestDefaultNewClient_BrokerMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("socketpair: %v", err)
 	}
-	defer syscall.Close(pair[0])
-	defer syscall.Close(pair[1])
+	defer func() { _ = syscall.Close(pair[0]) }()
+	defer func() { _ = syscall.Close(pair[1]) }()
 
 	t.Setenv("FLASHDUTY_CRED_FD", strconv.Itoa(pair[0]))
 	client, err := defaultNewClient()
@@ -210,7 +210,7 @@ func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
 		t.Fatalf("socketpair: %v", err)
 	}
 	childFD, parentFD := pair[0], pair[1]
-	defer syscall.Close(childFD)
+	defer func() { _ = syscall.Close(childFD) }()
 
 	done := make(chan struct{})
 	go func() {
@@ -238,7 +238,7 @@ func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
 // serveProxyConn is a tiny test upstream-proxy used by fakeBroker; the real
 // implementation lives in the runner, this mirrors it for the CLI test.
 func serveProxyConn(conn net.Conn, upstream, realKey string) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	br := newReadProxy(conn, upstream, realKey)
 	br.run()
 }
