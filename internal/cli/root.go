@@ -146,7 +146,10 @@ func defaultNewClient() (*flashduty.Client, error) {
 	appKey := cfg.AppKey
 	if fdStr := os.Getenv("FLASHDUTY_CRED_FD"); fdStr != "" {
 		fd, perr := strconv.Atoi(fdStr)
-		if perr != nil || fd < 0 {
+		// fds 0/1/2 are stdio; the runner inherits the control end at fd 3+. A
+		// value below 3 means a misconfigured runner, not a real control fd —
+		// reject it rather than handshaking on stdin/stdout.
+		if perr != nil || fd < 3 {
 			return nil, fmt.Errorf("invalid FLASHDUTY_CRED_FD=%q", fdStr)
 		}
 		hc := newBrokerHTTPClient(fd)

@@ -176,6 +176,63 @@ func TestDefaultNewClient_BrokerMode(t *testing.T) {
 	if _, err := defaultNewClient(); err == nil {
 		t.Fatal("invalid FLASHDUTY_CRED_FD must error")
 	}
+
+	// Both a configured app key AND a control fd: broker mode wins. The client
+	// builds with the sentinel key (the broker overwrites it with the real
+	// per-person key), so the configured app key never reaches the wire.
+	t.Setenv("FLASHDUTY_APP_KEY", "ENV-KEY-SHOULD-NOT-BE-USED")
+	t.Setenv("FLASHDUTY_CRED_FD", strconv.Itoa(pair[0]))
+	if c, err := defaultNewClient(); err != nil || c == nil {
+		t.Fatalf("both app key + cred fd set: want broker client, got client=%v err=%v", c, err)
+	}
+}
+
+// TestDefaultNewClient_RejectsStdioFD verifies the fd>=3 guard: fds 0/1/2 are
+// stdio and can never be the runner-injected control end, so they are rejected
+// rather than handshaking on stdin/stdout.
+func TestDefaultNewClient_RejectsStdioFD(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FLASHDUTY_APP_KEY", "")
+	for _, fd := range []string{"-1", "0", "1", "2"} {
+		t.Setenv("FLASHDUTY_CRED_FD", fd)
+		if _, err := defaultNewClient(); err == nil {
+			t.Fatalf("FLASHDUTY_CRED_FD=%q must be rejected (stdio/invalid)", fd)
+		}
+	}
+}
+
+// TestBrokerHTTPClient_RefusedReturnsError verifies the dialer surfaces the
+// broker's 0xFF refusal (e.g. the runner failed to mint a connection) as a real
+// error instead of hanging or wrapping a nil conn.
+func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
+	pair, err := syscall.Socketpair(syscall.AF_UNIX, controlSockType, 0)
+	if err != nil {
+		t.Fatalf("socketpair: %v", err)
+	}
+	childFD, parentFD := pair[0], pair[1]
+	defer syscall.Close(childFD)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		buf := make([]byte, 8)
+		for {
+			n, _, _, _, rerr := syscall.Recvmsg(parentFD, buf, nil, 0)
+			if rerr != nil || n == 0 {
+				return
+			}
+			_ = syscall.Sendmsg(parentFD, []byte{0xFF}, nil, nil, 0) // always refuse
+		}
+	}()
+
+	client := newBrokerHTTPClient(childFD)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET",
+		"http://flashduty.broker.local/x?app_key=SENTINEL", nil)
+	if _, err := client.Do(req); err == nil {
+		t.Fatal("client.Do must fail when broker refuses with 0xFF")
+	}
+	_ = syscall.Close(parentFD)
+	<-done
 }
 
 // serveProxyConn is a tiny test upstream-proxy used by fakeBroker; the real

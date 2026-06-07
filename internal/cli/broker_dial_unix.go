@@ -72,9 +72,13 @@ func newBrokerHTTPClient(credFD int) *http.Client {
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			DialContext:           d.dial,
-			DisableCompression:    false,
-			MaxIdleConns:          0,
+			DialContext:        d.dial,
+			DisableCompression: false,
+			MaxIdleConns:       0,
+			// All dials target the same logical host (the broker sentinel base
+			// URL) over the one control fd, so a single idle keep-alive conn is
+			// enough for pagination loops; cap it so dispatched conns don't linger.
+			MaxIdleConnsPerHost:   1,
 			IdleConnTimeout:       90 * time.Second,
 			ResponseHeaderTimeout: 0,
 		},
