@@ -24,7 +24,27 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("flashduty version %s (%s) built %s\n", versionStr, commitStr, dateStr)
+			// A structured (--json / --output-format) request emits a
+			// machine-readable object that includes broker_egress, the capability
+			// the runner probes before advertising broker mode to safari. An older
+			// fduty ignores these flags and prints the plain line below, so the
+			// absence of the broker_egress field reads as "not capable". The plain
+			// human output is unchanged.
+			if currentOutputFormat().Structured() {
+				b, err := marshalStructured(map[string]any{
+					"version":       versionStr,
+					"commit":        commitStr,
+					"date":          dateStr,
+					"broker_egress": brokerEgressCapable,
+				})
+				if err != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), err)
+					return
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(b))
+				return
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "flashduty version %s (%s) built %s\n", versionStr, commitStr, dateStr)
 		},
 	}
 }
