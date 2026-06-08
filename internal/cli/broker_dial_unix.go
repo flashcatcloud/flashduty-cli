@@ -19,6 +19,13 @@ import (
 // never returns nil), but defaultNewClient references it on every platform.
 var errBrokerUnsupported = errors.New("flashduty: broker mode is not supported on this platform")
 
+// brokerEgressCapable reports whether this build can act as a broker-mode client
+// (read FLASHDUTY_CRED_FD and dial over the inherited control fd). The runner
+// probes it via `fduty version --json` and only advertises broker mode to safari
+// when true — otherwise safari would deliver the per-person key out-of-band to an
+// fduty that can't read it. True on unix, where this file is built.
+const brokerEgressCapable = true
+
 // brokerDialer owns the inherited control fd and serializes per-dial handshakes.
 // Each Dial sends a 1-byte request datagram on the control channel and receives
 // one dedicated SOCK_STREAM fd back via SCM_RIGHTS.
