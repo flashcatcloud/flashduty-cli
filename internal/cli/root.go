@@ -40,8 +40,15 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		if _, err := resolveOutputFormat(); err != nil {
-			return err
+		// Commands carrying ownsOutputFormat resolve --output-format against
+		// their own value set (e.g. session commands accept jsonl, which the
+		// global table|json|toon enum rejects). Skip the strict global check
+		// for them; they validate in their own RunE. Every other command still
+		// fails fast here on a bad --output-format.
+		if cmd.Annotations[ownsOutputFormat] != "true" {
+			if _, err := resolveOutputFormat(); err != nil {
+				return err
+			}
 		}
 		if cmd.CommandPath() == "flashduty update" {
 			return nil
@@ -184,6 +191,13 @@ func loadResolvedConfig() (*config.Config, error) {
 
 	return cfg, nil
 }
+
+// ownsOutputFormat is a command annotation key. A command sets it to "true" to
+// declare that it resolves --output-format itself (against a command-specific
+// value set) instead of through the global table|json|toon resolver. The root
+// PersistentPreRunE skips its strict --output-format validation for such
+// commands so a session-only value like jsonl is not rejected before RunE runs.
+const ownsOutputFormat = "owns-output-format"
 
 // resolveOutputFormat maps the global flags to an output.Format. --output-format
 // wins when set; otherwise --json selects JSON; otherwise the human table view.

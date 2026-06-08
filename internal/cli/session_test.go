@@ -14,8 +14,11 @@ import (
 )
 
 // TestSessionListFlags asserts the curated flag surface: --app defaults to
-// ai-sre, --limit to 200, and --format to jsonl. These defaults are what makes
-// `session list` pipe cleanly into the /insight skill without extra flags.
+// ai-sre and --limit to 200. These defaults are what makes `session list` pipe
+// cleanly into the /insight skill without extra flags. Output format is the
+// inherited global --output-format flag (default jsonl for session commands),
+// so there is no bespoke local --format flag; resolution is covered by
+// TestResolveSessionFormat.
 func TestSessionListFlags(t *testing.T) {
 	cmd := newSessionListCmd()
 	flags := cmd.Flags()
@@ -26,7 +29,6 @@ func TestSessionListFlags(t *testing.T) {
 	}{
 		{"app", "ai-sre"},
 		{"limit", "200"},
-		{"format", sessionFormatJSONL},
 	}
 	for _, c := range cases {
 		f := flags.Lookup(c.name)
@@ -36,6 +38,11 @@ func TestSessionListFlags(t *testing.T) {
 		if f.DefValue != c.def {
 			t.Errorf("--%s default = %q, want %q", c.name, f.DefValue, c.def)
 		}
+	}
+
+	// The bespoke --format flag is gone; output format rides the global flag.
+	if f := flags.Lookup("format"); f != nil {
+		t.Errorf("--format must not be registered; use the global --output-format")
 	}
 
 	if f := flags.Lookup("team-id"); f == nil || f.Value.Type() != "int64" {
@@ -89,6 +96,161 @@ func TestCommandSessionListJSONL(t *testing.T) {
 	}
 }
 
+// TestResolveSessionFormat covers the session output-format resolver: it reads
+// the global --output-format / --json flags, defaults to jsonl (not table),
+// accepts jsonl/json/toon, and errors on anything else so a typo fails fast.
+func TestResolveSessionFormat(t *testing.T) {
+	cases := []struct {
+		name    string
+		format  string
+		json    bool
+		want    string
+		wantErr bool
+	}{
+		{"default is jsonl", "", false, sessionFormatJSONL, false},
+		{"json bool alias", "", true, sessionFormatJSON, false},
+		{"explicit jsonl", "jsonl", false, sessionFormatJSONL, false},
+		{"explicit json", "json", false, sessionFormatJSON, false},
+		{"explicit toon", "toon", false, sessionFormatTOON, false},
+		{"explicit wins over json bool", "jsonl", true, sessionFormatJSONL, false},
+		{"case-insensitive", "TOON", false, sessionFormatTOON, false},
+		{"table is invalid here", "table", false, "", true},
+		{"unknown errors", "yaml", false, "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			origFormat, origJSON := flagOutputFormat, flagJSON
+			defer func() { flagOutputFormat, flagJSON = origFormat, origJSON }()
+			flagOutputFormat, flagJSON = tc.format, tc.json
+
+			got, err := resolveSessionFormat()
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q, got nil", tc.format)
+				}
+				if !strings.Contains(err.Error(), "invalid --output-format") {
+					t.Fatalf("expected an invalid --output-format error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("resolveSessionFormat(%q, json=%v) = %q, want %q", tc.format, tc.json, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCommandSessionListOutputFormatJSON proves --output-format json emits the
+// whole SessionListResponse envelope (the value that was silently ignored
+// before the unification), not jsonl rows.
+func TestCommandSessionListOutputFormatJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"sessions": []map[string]any{
+			{"session_id": "sess-1", "app_name": "ai-sre", "updated_at": 1779432894000},
+			{"session_id": "sess-2", "app_name": "ai-sre", "updated_at": 1779432895000},
+		},
+		"total": 2,
+	}
+
+	out, err := execCommand("session", "list", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("[session-list-json] unexpected error: %v", err)
+	}
+	var env flashduty.SessionListResponse
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &env); err != nil {
+		t.Fatalf("[session-list-json] output is not a SessionListResponse envelope: %v\n%s", err, out)
+	}
+	if env.Total != 2 || len(env.Sessions) != 2 {
+		t.Fatalf("[session-list-json] envelope = %+v, want total 2 / 2 sessions", env)
+	}
+}
+
+// TestCommandSessionListOutputFormatTOON proves --output-format toon routes
+// through the TOON encoder (not jsonl, not JSON).
+func TestCommandSessionListOutputFormatTOON(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"sessions": []map[string]any{
+			{"session_id": "sess-1", "app_name": "ai-sre", "updated_at": 1779432894000},
+		},
+		"total": 1,
+	}
+
+	out, err := execCommand("session", "list", "--output-format", "toon")
+	if err != nil {
+		t.Fatalf("[session-list-toon] unexpected error: %v", err)
+	}
+	// TOON list output carries the [N] row-count marker JSON never emits.
+	if !strings.Contains(out, "sessions[1]") {
+		t.Fatalf("[session-list-toon] expected TOON encoding (sessions[1] marker), got:\n%s", out)
+	}
+}
+
+// TestCommandSessionExportOutputFormatJSON proves --output-format json buffers
+// the NDJSON stream into one JSON array of the event objects.
+func TestCommandSessionExportOutputFormatJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = fmt.Fprintln(w, `{"type":"session_meta","session_id":"sess-1"}`)
+		_, _ = fmt.Fprintln(w, `{"type":"user_message","seq":1}`)
+		_, _ = fmt.Fprintln(w, `{"type":"final_answer","seq":2}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
+	}
+
+	out, err := execCommand("session", "export", "sess-1", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("[session-export-json] unexpected error: %v", err)
+	}
+	var events []map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &events); err != nil {
+		t.Fatalf("[session-export-json] output is not a JSON array: %v\n%s", err, out)
+	}
+	if len(events) != 3 {
+		t.Fatalf("[session-export-json] expected 3 events in the array, got %d:\n%s", len(events), out)
+	}
+	if events[0]["type"] != "session_meta" {
+		t.Errorf("[session-export-json] first event = %v, want session_meta", events[0]["type"])
+	}
+}
+
+// TestCommandSessionExportOutputFormatTOON proves --output-format toon encodes
+// the buffered events through the TOON encoder.
+func TestCommandSessionExportOutputFormatTOON(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = fmt.Fprintln(w, `{"type":"session_meta","session_id":"sess-1"}`)
+		_, _ = fmt.Fprintln(w, `{"type":"final_answer","seq":1}`)
+	}))
+	t.Cleanup(srv.Close)
+
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
+	}
+
+	out, err := execCommand("session", "export", "sess-1", "--output-format", "toon")
+	if err != nil {
+		t.Fatalf("[session-export-toon] unexpected error: %v", err)
+	}
+	// A non-empty TOON document mentioning a known field proves it encoded.
+	if strings.TrimSpace(out) == "" || !strings.Contains(out, "session_meta") {
+		t.Fatalf("[session-export-toon] expected a TOON-encoded transcript, got:\n%s", out)
+	}
+}
+
 // TestCommandSessionListPaginatesBeyond100 is the regression guard for the
 // limit>100 bug: the /safari/session/list handler binds limit with "lte=100",
 // so a single request with limit 200 is a hard 400 bind failure, not a clamp.
@@ -129,7 +291,7 @@ func TestCommandSessionListPaginatesBeyond100(t *testing.T) {
 		return map[string]any{"sessions": sessions, "total": totalAvailable}
 	}
 
-	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--format", "jsonl")
+	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--output-format", "jsonl")
 	if err != nil {
 		t.Fatalf("[session-paginate] unexpected error: %v", err)
 	}
@@ -196,7 +358,7 @@ func TestCommandSessionListStopsWhenServerExhausted(t *testing.T) {
 		return map[string]any{"sessions": sessions, "total": totalAvailable}
 	}
 
-	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--format", "jsonl")
+	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--output-format", "jsonl")
 	if err != nil {
 		t.Fatalf("[session-exhaust] unexpected error: %v", err)
 	}
@@ -246,14 +408,21 @@ func TestCommandSessionListSinceFiltersClientSide(t *testing.T) {
 	}
 }
 
-// TestCommandSessionListRejectsBadFormat fails fast on an unknown --format.
+// TestCommandSessionListRejectsBadFormat fails fast on an unknown
+// --output-format value, with the session-specific message (which lists jsonl
+// as a valid value). The global resolver would have rejected it first with a
+// different message, so this also proves session commands are exempted from the
+// global strict check and validate their own set.
 func TestCommandSessionListRejectsBadFormat(t *testing.T) {
 	saveAndResetGlobals(t)
 	newGFStub(t)
 
-	_, err := execCommand("session", "list", "--format", "yaml")
-	if err == nil || !strings.Contains(err.Error(), "invalid --format") {
-		t.Fatalf("expected an invalid --format error, got %v", err)
+	_, err := execCommand("session", "list", "--output-format", "yaml")
+	if err == nil || !strings.Contains(err.Error(), "invalid --output-format") {
+		t.Fatalf("expected an invalid --output-format error, got %v", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "jsonl") {
+		t.Fatalf("expected the session-format error (listing jsonl), got %v", err)
 	}
 }
 

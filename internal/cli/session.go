@@ -27,16 +27,39 @@ func newSessionCmd() *cobra.Command {
 	return cmd
 }
 
-// sessionListFormats are the output shapes 'session list' supports. jsonl (one
-// SessionItem JSON object per line) is the default because the rows feed
-// line-oriented downstream tooling (the /insight skill streams them through jq);
-// json emits the whole SessionListResponse envelope; toon is the compact,
-// fewer-tokens encoding.
+// session commands accept these output shapes via the global --output-format
+// flag (and its --json alias). jsonl (one SessionItem JSON object per line) is
+// the default because the rows feed line-oriented downstream tooling (the
+// /insight skill streams them through jq); json emits the whole
+// SessionListResponse envelope; toon is the compact, fewer-tokens encoding.
+//
+// jsonl is NOT a value the global table|json|toon resolver accepts, so session
+// commands carry the ownsOutputFormat annotation and resolve the flag here via
+// resolveSessionFormat instead of through resolveOutputFormat.
 const (
 	sessionFormatJSONL = "jsonl"
 	sessionFormatJSON  = "json"
 	sessionFormatTOON  = "toon"
 )
+
+// resolveSessionFormat maps the global --output-format / --json flags to a
+// session output shape, defaulting to jsonl. Unlike the account-wide resolver
+// it accepts jsonl (and rejects table, which is meaningless for the bulk
+// streaming rows these commands emit). An unrecognized value errors so a typo
+// fails fast rather than silently falling back.
+func resolveSessionFormat() (string, error) {
+	switch f := strings.ToLower(strings.TrimSpace(flagOutputFormat)); f {
+	case sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON:
+		return f, nil
+	case "":
+		if flagJSON {
+			return sessionFormatJSON, nil
+		}
+		return sessionFormatJSONL, nil
+	default:
+		return "", fmt.Errorf("invalid --output-format %q (want jsonl, json, or toon)", flagOutputFormat)
+	}
+}
 
 // sessionPageLimit is the largest per-page Limit the /safari/session/list
 // handler accepts. The server validates limit with binding "lte=100": a
@@ -51,7 +74,6 @@ func newSessionListCmd() *cobra.Command {
 		scope  string
 		status string
 		since  string
-		format string
 		teamID int64
 		limit  int
 		page   int
@@ -60,6 +82,9 @@ func newSessionListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List agent sessions",
+		// Resolve --output-format ourselves: jsonl is the default and is not a
+		// value the global table|json|toon resolver accepts.
+		Annotations: map[string]string{ownsOutputFormat: "true"},
 		Long: curatedLong(
 			"List agent sessions visible to the caller, newest first. Reads are scoped to the "+
 				"person the app_key resolves to within its account.\n\n"+
@@ -68,15 +93,14 @@ func newSessionListCmd() *cobra.Command {
 				"updated_at after fetching. --team-id restricts to one team (sets team_ids); --scope "+
 				"chooses the visibility bucket (all = own + member-teams, the default). Output is "+
 				"newline-delimited JSON (jsonl) by default so rows pipe straight into jq; use "+
-				"--format json for the full envelope or --format toon for the compact encoding.",
+				"--output-format json for the full envelope or --output-format toon for the compact "+
+				"encoding.",
 			"Sessions", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				format = strings.ToLower(strings.TrimSpace(format))
-				switch format {
-				case sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON:
-				default:
-					return fmt.Errorf("invalid --format %q (want jsonl, json, or toon)", format)
+				format, err := resolveSessionFormat()
+				if err != nil {
+					return err
 				}
 
 				var sinceUnix int64
@@ -121,8 +145,10 @@ func newSessionListCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Restrict to one team ID")
 	cmd.Flags().IntVar(&limit, "limit", 200, "Max sessions to fetch; fetched across multiple 100-row server pages as needed")
 	cmd.Flags().IntVar(&page, "page", 1, "1-based page to start paginating from")
-	cmd.Flags().StringVar(&format, "format", sessionFormatJSONL, "Output format: jsonl (default), json, or toon")
-	registerEnumFlag(cmd, "format", sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON)
+	// --output-format is the inherited global flag; session commands accept
+	// jsonl (default), json, or toon. Override its completion so it advertises
+	// the session set, not the global table|json|toon.
+	registerEnumFlag(cmd, "output-format", sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON)
 
 	return cmd
 }
@@ -259,16 +285,27 @@ func buildSessionExportCmd(use string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   use,
 		Short: "Stream a session's full event transcript as NDJSON",
+		// Resolve --output-format ourselves: jsonl is the default and is not a
+		// value the global table|json|toon resolver accepts.
+		Annotations: map[string]string{ownsOutputFormat: "true"},
 		Long: "Stream one session's full event transcript as newline-delimited JSON (NDJSON) to stdout.\n\n" +
 			"The first line is always a session_meta envelope; each subsequent line is one event\n" +
 			"(user_message, llm_call, tool_call, subagent_dispatch, final_answer, agent_text, error).\n" +
 			"With --include-subagents, each subagent_dispatch line is followed by the child session's\n" +
-			"own stream. The transcript can be large, so redirect it to a file rather than reading it\n" +
-			"into a terminal:\n\n" +
+			"own stream.\n\n" +
+			"The default (jsonl) streams line-by-line so a huge transcript never lands in memory;\n" +
+			"redirect it to a file rather than reading it into a terminal. --output-format json\n" +
+			"buffers the whole transcript into a single JSON array and --output-format toon into the\n" +
+			"compact encoding (both materialize the full transcript, so prefer jsonl for large ones):\n\n" +
 			"  flashduty session export <id> > session.ndjson\n",
 		Args: requireArgs("session_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				format, err := resolveSessionFormat()
+				if err != nil {
+					return err
+				}
+
 				rc, _, err := ctx.Client.Sessions.Export(cmdContext(ctx.Cmd), &flashduty.SessionExportRequest{
 					SessionID:        ctx.Args[0],
 					IncludeSubagents: includeSubagents,
@@ -278,23 +315,73 @@ func buildSessionExportCmd(use string) *cobra.Command {
 				}
 				defer func() { _ = rc.Close() }()
 
-				// Stream the NDJSON straight through to the writer without
-				// buffering the whole transcript: copy line-by-line so a huge
-				// export never lands in memory or the agent's context.
-				sc := flashduty.NewExportScanner(rc)
-				for sc.Scan() {
-					if _, err := fmt.Fprintln(ctx.Writer, sc.Text()); err != nil {
-						return err
-					}
-				}
-				return sc.Err()
+				return writeSessionExport(ctx.Writer, format, rc)
 			})
 		},
 	}
 
 	cmd.Flags().BoolVar(&includeSubagents, "include-subagents", false, "Inline each dispatched subagent's own event stream")
+	// --output-format is the inherited global flag; session export accepts
+	// jsonl (default, streamed), json, or toon. Override its completion so it
+	// advertises the session set, not the global table|json|toon.
+	registerEnumFlag(cmd, "output-format", sessionFormatJSONL, sessionFormatJSON, sessionFormatTOON)
 
 	return cmd
+}
+
+// writeSessionExport renders the export NDJSON stream in the requested format.
+// jsonl streams each line straight through without buffering, so a huge
+// transcript never lands in memory; json and toon necessarily materialize the
+// whole transcript (those encodings need every line) — json emits one indented
+// JSON array of the event objects, toon emits the compact encoding.
+func writeSessionExport(w io.Writer, format string, rc io.Reader) error {
+	sc := flashduty.NewExportScanner(rc)
+
+	if format == sessionFormatJSONL {
+		for sc.Scan() {
+			if _, err := fmt.Fprintln(w, sc.Text()); err != nil {
+				return err
+			}
+		}
+		return sc.Err()
+	}
+
+	// json/toon: collect every event line, then encode the whole array.
+	events := make([]json.RawMessage, 0, 256)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		events = append(events, json.RawMessage(line))
+	}
+	if err := sc.Err(); err != nil {
+		return err
+	}
+
+	var (
+		out []byte
+		err error
+	)
+	if format == sessionFormatTOON {
+		// TOON marshals Go values, not raw JSON, so decode the events first.
+		decoded := make([]any, 0, len(events))
+		for _, raw := range events {
+			var v any
+			if err := json.Unmarshal(raw, &v); err != nil {
+				return fmt.Errorf("failed to decode export event: %w", err)
+			}
+			decoded = append(decoded, v)
+		}
+		out, err = toon.Marshal(decoded)
+	} else {
+		out, err = json.MarshalIndent(events, "", "  ")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to marshal export: %w", err)
+	}
+	_, _ = fmt.Fprintln(w, string(out))
+	return nil
 }
 
 // attachSafariSessionExport adds the path-is-king `safari session-export` leaf to
