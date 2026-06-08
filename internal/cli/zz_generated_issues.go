@@ -83,7 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -249,7 +249,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by statuses. [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected causes.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -308,7 +308,7 @@ Request fields:
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. (required)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "New status. [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

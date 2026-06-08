@@ -3,11 +3,39 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// stdinReader is the source read when --data is exactly "-". A package var so
+// tests can substitute a buffer (mirrors newClientFn); production reads os.Stdin.
+var stdinReader io.Reader = os.Stdin
+
+// resolveDataSource turns a --data flag value into the raw JSON body string,
+// supporting two source forms across EVERY --data-bearing command:
+//
+//	--data '<inline json>'  → returned verbatim
+//	--data -                → contents of STDIN
+//
+// STDIN is read ONLY when the flag is exactly "-"; an empty/absent --data is
+// never treated as a stdin request, so commands driven purely by typed flags
+// don't block on an empty pipe. Reading from STDIN lets callers pipe a quoted
+// heredoc, avoiding shell-quoting hell for JSON bodies that contain commas or
+// quotes (e.g. SQL in params).
+func resolveDataSource(dataFlag string) (string, error) {
+	if dataFlag == "-" {
+		b, err := io.ReadAll(stdinReader)
+		if err != nil {
+			return "", fmt.Errorf("failed to read --data from stdin: %w", err)
+		}
+		return string(b), nil
+	}
+	return dataFlag, nil
+}
 
 // This file is the hand-written runtime support for the generated commands in
 // zz_generated_*.go (produced by internal/cmd/cligen). Generated files stay
@@ -18,7 +46,14 @@ import (
 // overlaid with explicitly-set typed flags. Flags win over --data so an agent
 // can pass a JSON skeleton and override one field. setFlags is called after the
 // --data merge to stamp the changed scalar flags.
-func genAssembleBody(dataJSON string, setFlags func(body map[string]any)) (map[string]any, error) {
+//
+// The --data value accepts two source forms (see resolveDataSource): inline
+// JSON, or - to read STDIN.
+func genAssembleBody(dataFlag string, setFlags func(body map[string]any)) (map[string]any, error) {
+	dataJSON, err := resolveDataSource(dataFlag)
+	if err != nil {
+		return nil, err
+	}
 	body := map[string]any{}
 	if dataJSON != "" {
 		if err := json.Unmarshal([]byte(dataJSON), &body); err != nil {

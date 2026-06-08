@@ -19,10 +19,14 @@ func TestMonitAgentCatalogFlags(t *testing.T) {
 
 func TestMonitAgentInvokeFlags(t *testing.T) {
 	cmd := newMonitAgentInvokeCmd()
-	for _, name := range []string{"target-kind", "target-locator", "tool-spec"} {
+	for _, name := range []string{"target-kind", "target-locator", "data"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag --%s missing", name)
 		}
+	}
+	// The bespoke --tool-spec mini-DSL is gone; tools come via --data.
+	if cmd.Flags().Lookup("tool-spec") != nil {
+		t.Errorf("flag --tool-spec should have been removed")
 	}
 }
 
@@ -101,8 +105,7 @@ func TestMonitAgentInvokeHappyPath(t *testing.T) {
 		"monit-agent", "invoke",
 		"--target-kind", "host",
 		"--target-locator", "10.0.1.5",
-		"--tool-spec", `name=ps_top,params={"limit":5}`,
-		"--tool-spec", "name=uptime",
+		"--data", `{"tools":[{"tool":"ps_top","params":{"limit":5}},{"tool":"uptime"}]}`,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -129,6 +132,73 @@ func TestMonitAgentInvokeHappyPath(t *testing.T) {
 	if tool1["tool"] != "uptime" {
 		t.Errorf("expected second tool uptime, got %v", tool1["tool"])
 	}
+	// A no-arg tool defaults to params {} client-side; the SDK's `omitempty`
+	// then drops the empty map on the wire, so no "params" key is sent — the
+	// same shape the old --tool-spec path produced.
+	if _, ok := tool1["params"]; ok {
+		t.Errorf("expected uptime to omit params on the wire, got %#v", tool1["params"])
+	}
+}
+
+// Regression for the original bug: a params JSON value containing an internal
+// comma (the SQL case) used to shatter under the comma-split --tool-spec DSL.
+// Via the --data body it round-trips intact.
+func TestMonitAgentInvokeParamsWithInternalComma(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const sql = "SELECT a, b FROM t WHERE s='RUNNING'"
+	_, err := execCommand(
+		"monit-agent", "invoke",
+		"--target-locator", "db-1",
+		"--data", `{"tools":[{"tool":"mysql.query","params":{"sql":"`+sql+`","max_rows":50}}]}`,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tools, _ := stub.lastBody["tools"].([]any)
+	if len(tools) != 1 {
+		t.Fatalf("expected 1 tool, got %d", len(tools))
+	}
+	tool0, _ := tools[0].(map[string]any)
+	if tool0["tool"] != "mysql.query" {
+		t.Errorf("expected mysql.query, got %v", tool0["tool"])
+	}
+	params0, _ := tool0["params"].(map[string]any)
+	if params0["sql"] != sql {
+		t.Errorf("expected sql %q to survive intact, got %#v", sql, params0["sql"])
+	}
+	if fmt.Sprint(params0["max_rows"]) != "50" {
+		t.Errorf("expected max_rows=50, got %#v", params0["max_rows"])
+	}
+}
+
+// --data - reads the JSON body from stdin, the canonical heredoc form for
+// quoted/comma SQL.
+func TestMonitAgentInvokeDataFromStdin(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const sql = "SELECT a, b FROM t WHERE s='RUNNING'"
+	stdinReader = strings.NewReader(`{"tools":[{"tool":"mysql.query","params":{"sql":"` + sql + `","max_rows":50}}]}`)
+
+	_, err := execCommand(
+		"monit-agent", "invoke",
+		"--target-locator", "db-1",
+		"--data", "-",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tools, _ := stub.lastBody["tools"].([]any)
+	if len(tools) != 1 {
+		t.Fatalf("expected 1 tool, got %d", len(tools))
+	}
+	tool0, _ := tools[0].(map[string]any)
+	params0, _ := tool0["params"].(map[string]any)
+	if params0["sql"] != sql {
+		t.Errorf("expected sql %q from stdin, got %#v", sql, params0["sql"])
+	}
 }
 
 func TestMonitAgentInvokeOmitsKind(t *testing.T) {
@@ -138,7 +208,7 @@ func TestMonitAgentInvokeOmitsKind(t *testing.T) {
 	_, err := execCommand(
 		"monit-agent", "invoke",
 		"--target-locator", "10.0.1.5",
-		"--tool-spec", "name=uptime",
+		"--data", `{"tools":[{"tool":"uptime"}]}`,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -151,13 +221,35 @@ func TestMonitAgentInvokeOmitsKind(t *testing.T) {
 	}
 }
 
+// Typed --target-* flags override the matching keys in --data.
+func TestMonitAgentInvokeFlagsOverrideData(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"monit-agent", "invoke",
+		"--target-kind", "host",
+		"--target-locator", "10.0.1.5",
+		"--data", `{"target_kind":"mysql","target_locator":"ignored","tools":[{"tool":"uptime"}]}`,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stub.lastBody["target_kind"] != "host" {
+		t.Errorf("expected typed --target-kind to win, got %v", stub.lastBody["target_kind"])
+	}
+	if stub.lastBody["target_locator"] != "10.0.1.5" {
+		t.Errorf("expected typed --target-locator to win, got %v", stub.lastBody["target_locator"])
+	}
+}
+
 func TestMonitAgentInvokeRequiresLocator(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
 	_, err := execCommand(
 		"monit-agent", "invoke",
-		"--tool-spec", "name=ps_top",
+		"--data", `{"tools":[{"tool":"ps_top"}]}`,
 	)
 	if err == nil {
 		t.Fatal("expected required-flag error, got nil")
@@ -170,7 +262,7 @@ func TestMonitAgentInvokeRequiresLocator(t *testing.T) {
 	}
 }
 
-func TestMonitAgentInvokeRequiresToolSpec(t *testing.T) {
+func TestMonitAgentInvokeRequiresTools(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
@@ -179,48 +271,53 @@ func TestMonitAgentInvokeRequiresToolSpec(t *testing.T) {
 		"--target-locator", "10.0.1.5",
 	)
 	if err == nil {
-		t.Fatal("expected required-flag error, got nil")
+		t.Fatal("expected missing-tools error, got nil")
 	}
-	if !strings.Contains(err.Error(), "--tool-spec") {
-		t.Errorf("expected error to mention --tool-spec, got %q", err.Error())
+	if !strings.Contains(err.Error(), "tools") {
+		t.Errorf("expected error to mention tools, got %q", err.Error())
 	}
 	if stub.requests != 0 {
 		t.Errorf("invoke should not have been called: %d request(s)", stub.requests)
 	}
 }
 
-func TestMonitAgentInvokeRejectsMoreThan8Specs(t *testing.T) {
+func TestMonitAgentInvokeRejectsMoreThan8Tools(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
-	args := []string{
+	specs := make([]string, 9)
+	for i := range specs {
+		specs[i] = fmt.Sprintf(`{"tool":"t%d"}`, i)
+	}
+	data := `{"tools":[` + strings.Join(specs, ",") + `]}`
+
+	_, err := execCommand(
 		"monit-agent", "invoke",
 		"--target-locator", "10.0.1.5",
-	}
-	for i := 0; i < 9; i++ {
-		args = append(args, "--tool-spec", "name=t"+string(rune('0'+i)))
-	}
-
-	_, err := execCommand(args...)
+		"--data", data,
+	)
 	if err == nil {
 		t.Fatal("expected too-many-tools error, got nil")
 	}
-	if !strings.Contains(err.Error(), "up to 8") {
-		t.Errorf("expected error to mention 'up to 8', got %q", err.Error())
+	if !strings.Contains(err.Error(), "at most 8") {
+		t.Errorf("expected error to mention 'at most 8', got %q", err.Error())
 	}
 	if stub.requests != 0 {
 		t.Errorf("invoke should not have been called: %d request(s)", stub.requests)
 	}
 }
 
-func TestMonitAgentInvokeMalformedSpec(t *testing.T) {
+func TestMonitAgentInvokeMalformedData(t *testing.T) {
 	cases := []struct {
-		name string
-		spec string
+		name     string
+		data     string
+		wantText string
 	}{
-		{"missing name=", "params={}"},
-		{"missing equals", "no-equals-sign"},
-		{"unknown key", "namez=foo,params={}"},
+		{"invalid json", `{"tools":[`, "invalid --data JSON"},
+		{"tools not array", `{"tools":{"tool":"x"}}`, "must be a JSON array"},
+		{"tool entry not object", `{"tools":["x"]}`, "must be an object"},
+		{"missing tool name", `{"tools":[{"params":{}}]}`, "missing a non-empty"},
+		{"params not object", `{"tools":[{"tool":"x","params":[]}]}`, "params must be a JSON object"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -230,13 +327,13 @@ func TestMonitAgentInvokeMalformedSpec(t *testing.T) {
 			_, err := execCommand(
 				"monit-agent", "invoke",
 				"--target-locator", "10.0.1.5",
-				"--tool-spec", tc.spec,
+				"--data", tc.data,
 			)
 			if err == nil {
 				t.Fatal("expected parse error, got nil")
 			}
-			if !strings.Contains(err.Error(), "--tool-spec") {
-				t.Errorf("expected error to mention --tool-spec, got %q", err.Error())
+			if !strings.Contains(err.Error(), tc.wantText) {
+				t.Errorf("expected error to mention %q, got %q", tc.wantText, err.Error())
 			}
 			if stub.requests != 0 {
 				t.Errorf("invoke should not have been called: %d request(s)", stub.requests)

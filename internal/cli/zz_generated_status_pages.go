@@ -73,7 +73,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -156,7 +156,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. (required) [incident, maintenance]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -277,7 +277,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type. (required) [incident, maintenance]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -330,7 +330,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -412,7 +412,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Event (change) ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -513,7 +513,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fEndAtSeconds, "end-at-seconds", 0, "Filter events started at or before this unix timestamp (seconds).")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -586,7 +586,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -645,7 +645,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -716,7 +716,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "New update description (Markdown).")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -787,7 +787,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event. Pass the full replacement list.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -845,7 +845,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAPIKey, "api-key", "", "Atlassian Statuspage API key with access to the source page. (required)")
 	cmd.Flags().StringVar(&fSourcePageID, "source-page-id", "", "Atlassian Statuspage source page ID. (required)")
 	cmd.Flags().Int64Var(&fTargetPageID, "target-page-id", 0, "Flashduty target status page ID that will receive the imported subscribers. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -903,7 +903,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAPIKey, "api-key", "", "Atlassian Statuspage API key with access to the source page. (required)")
 	cmd.Flags().StringVar(&fSourcePageID, "source-page-id", "", "Atlassian Statuspage source page ID. (required)")
 	cmd.Flags().StringVar(&fURLName, "url-name", "", "Target URL name for the migrated status page. When omitted, the source page's URL name is reused.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -950,7 +950,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1014,7 +1014,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1063,7 +1063,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Optional component IDs to filter subscribers by.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1122,7 +1122,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1200,7 +1200,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fComponentIDs, "component-ids", "", "Comma-separated component IDs to filter subscribers by.")
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100). (1-100)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

@@ -142,7 +142,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -189,7 +189,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule IDs to operate on. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -389,7 +389,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview end timestamp (Unix seconds, 10 digits). (required)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. (required)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview start timestamp (Unix seconds, 10 digits). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -551,7 +551,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule ID list. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -762,7 +762,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword matched against schedule names.")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "When set together with end, computed layer schedules are returned. Span must be less than 45 days.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1042,7 +1042,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1210,7 +1210,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fEnd, "end", 0, "Window end (Unix seconds, 10 digits). Must be within 30 days of start.")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Window start (Unix seconds, 10 digits).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1349,7 +1349,7 @@ Request fields:
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

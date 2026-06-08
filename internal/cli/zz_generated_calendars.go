@@ -57,7 +57,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -133,7 +133,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter. (0-31)")
 	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter. (0-12)")
 	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted. (min 2023)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -217,7 +217,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsOff, "is-off", false, "Whether the event marks a non-working day. true = day off, false = working day override. (required)")
 	cmd.Flags().StringVar(&fStartAt, "start-at", "", "Event start date in YYYY-MM-DD. (required)")
 	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -294,7 +294,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. 0 means no team.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone. Defaults to Asia/Shanghai when empty.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -341,7 +341,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -400,7 +400,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -467,7 +467,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]")
 	cmd.Flags().BoolVar(&fNoLocale, "no-locale", false, "Disable locale filtering when listing public-holiday calendars.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -550,7 +550,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
