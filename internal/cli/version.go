@@ -24,6 +24,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
+			out := cmd.OutOrStdout()
 			// A structured (--json / --output-format) request emits a
 			// machine-readable object that includes broker_egress, the capability
 			// the runner probes before advertising broker mode to safari. An older
@@ -38,13 +39,13 @@ func newVersionCmd() *cobra.Command {
 					"broker_egress": brokerEgressCapable,
 				})
 				if err != nil {
-					fmt.Fprintln(cmd.ErrOrStderr(), err)
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), err)
 					return
 				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(b))
+				_, _ = fmt.Fprintln(out, string(b))
 				return
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "flashduty version %s (%s) built %s\n", versionStr, commitStr, dateStr)
+			_, _ = fmt.Fprintf(out, "flashduty version %s (%s) built %s\n", versionStr, commitStr, dateStr)
 		},
 	}
 }

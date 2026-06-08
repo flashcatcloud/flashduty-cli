@@ -20,9 +20,10 @@ func TestVersionPlainOutput(t *testing.T) {
 }
 
 // TestVersionJSONAdvertisesBrokerEgress locks the capability contract the runner
-// depends on: `fduty version --json` must emit a broker_egress field that is true
-// on this (unix) build. If this regresses, broker-capable runners would stop
-// advertising broker mode and silently fall back to the legacy env-key path.
+// depends on: `fduty version --json` must emit a broker_egress field whose value
+// matches this build's compile-time capability (true on unix, false elsewhere).
+// If the field went missing, broker-capable runners would stop advertising
+// broker mode and silently fall back to the legacy env-key path.
 func TestVersionJSONAdvertisesBrokerEgress(t *testing.T) {
 	origJSON := flagJSON
 	flagJSON = true
@@ -33,14 +34,15 @@ func TestVersionJSONAdvertisesBrokerEgress(t *testing.T) {
 	cmd.SetOut(&buf)
 	cmd.Run(cmd, nil)
 
-	var got struct {
-		Version      string `json:"version"`
-		BrokerEgress bool   `json:"broker_egress"`
-	}
+	var got map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("version --json must be valid JSON, got %q: %v", buf.String(), err)
 	}
-	if !got.BrokerEgress {
-		t.Fatalf("broker_egress must be true on a unix build, got: %q", buf.String())
+	v, ok := got["broker_egress"]
+	if !ok {
+		t.Fatalf("version --json must include the broker_egress field, got: %q", buf.String())
+	}
+	if v != brokerEgressCapable {
+		t.Fatalf("broker_egress = %v, want %v (compile-time capability)", v, brokerEgressCapable)
 	}
 }
