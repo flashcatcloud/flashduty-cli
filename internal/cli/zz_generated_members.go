@@ -87,7 +87,7 @@ Request fields:
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -140,7 +140,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to grant; appended to the member's current roles (duplicates are deduplicated). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -194,7 +194,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -251,7 +251,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringVar(&fFrom, "from", "", "Invite source context")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -353,7 +353,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -442,7 +442,7 @@ Request fields:
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Display name (2-39 chars)")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Time zone")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -495,7 +495,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to remove from the member. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -548,7 +548,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New set of role IDs (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -606,7 +606,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "List of person IDs (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

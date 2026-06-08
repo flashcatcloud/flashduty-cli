@@ -803,7 +803,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		fmt.Fprintf(&b, "\tcmd.Flags().%s(&%s, %q, %s, %q)\n",
 			flagSetter(sf.Kind), flagVar(sf.Wire), flagName(sf.Wire), flagZero(sf.Kind), usage)
 	}
-	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; typed flags override its fields\")\n")
+	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
 	b.WriteString("\treturn cmd\n}\n\n")
 	return b.String()
 }

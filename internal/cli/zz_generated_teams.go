@@ -74,7 +74,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -123,7 +123,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "List of team IDs to look up. Max 100. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -221,7 +221,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at, team_name]")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by member ID — return only teams this person belongs to.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -280,7 +280,7 @@ Request fields:
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -375,7 +375,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "If true and a team with the same name already exists, reset its membership to the provided person_ids.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

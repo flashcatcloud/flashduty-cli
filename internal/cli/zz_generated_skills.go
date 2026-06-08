@@ -47,7 +47,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to download. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -90,7 +90,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -158,7 +158,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -252,7 +252,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -295,7 +295,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -338,7 +338,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -418,7 +418,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description for the skill. (≤1024 chars)")
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to update. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the skill to this team; omit to leave unchanged, 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -474,7 +474,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -23,6 +24,7 @@ func saveAndResetGlobals(t *testing.T) {
 	origFlagAppKey := flagAppKey
 	origFlagBaseURL := flagBaseURL
 	origFlagOutputFormat := flagOutputFormat
+	origStdinReader := stdinReader
 
 	// Reset to defaults so tests start clean.
 	flagJSON = false
@@ -38,6 +40,7 @@ func saveAndResetGlobals(t *testing.T) {
 		flagAppKey = origFlagAppKey
 		flagBaseURL = origFlagBaseURL
 		flagOutputFormat = origFlagOutputFormat
+		stdinReader = origStdinReader
 	})
 }
 
@@ -847,6 +850,76 @@ func TestCommandAuditSearchPageUsesCursorPagination(t *testing.T) {
 		t.Fatalf("[audit-search-page] expected second call cursor %q, got %q", "cursor-1", c)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// CLI-wide --data source forms (inline / stdin), proven on a generated command
+// ---------------------------------------------------------------------------
+
+// A generated command reads its body from STDIN when --data is exactly "-".
+func TestCommandDataFromStdin(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = []any{} // /monit/datasource/list returns a top-level array
+
+	stdinReader = strings.NewReader(`{"type":"prometheus"}`)
+
+	_, err := execCommand("monit", "datasource-list", "--data", "-")
+	if err != nil {
+		t.Fatalf("[data-stdin] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/monit/datasource/list" {
+		t.Fatalf("[data-stdin] expected /monit/datasource/list, got %q", stub.lastPath)
+	}
+	if stub.lastBody["type"] != "prometheus" {
+		t.Errorf("[data-stdin] expected type=prometheus from stdin, got %#v", stub.lastBody["type"])
+	}
+}
+
+// Inline --data still works, and a typed flag overrides a matching --data key.
+func TestCommandDataInlineFlagOverride(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = []any{} // /monit/datasource/list returns a top-level array
+
+	_, err := execCommand(
+		"monit", "datasource-list",
+		"--data", `{"type":"loki"}`,
+		"--type", "prometheus",
+	)
+	if err != nil {
+		t.Fatalf("[data-inline] unexpected error: %v", err)
+	}
+	if stub.lastBody["type"] != "prometheus" {
+		t.Errorf("[data-inline] expected typed --type to win over --data, got %#v", stub.lastBody["type"])
+	}
+}
+
+// With --data absent, stdin is NEVER read (guards against the empty-pipe hang).
+// A non-blocking sentinel reader fails the test if it is ever consumed.
+func TestCommandNoDataDoesNotReadStdin(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = []any{} // /monit/datasource/list returns a top-level array
+
+	stdinReader = readerFunc(func([]byte) (int, error) {
+		t.Fatal("[no-data] stdin was read despite --data being absent")
+		return 0, io.EOF
+	})
+
+	_, err := execCommand("monit", "datasource-list", "--type", "mysql")
+	if err != nil {
+		t.Fatalf("[no-data] unexpected error: %v", err)
+	}
+	if stub.lastBody["type"] != "mysql" {
+		t.Errorf("[no-data] expected type=mysql, got %#v", stub.lastBody["type"])
+	}
+}
+
+// readerFunc adapts a function to io.Reader so a test can assert Read is never
+// called.
+type readerFunc func([]byte) (int, error)
+
+func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
 
 // ---------------------------------------------------------------------------
 // Helpers

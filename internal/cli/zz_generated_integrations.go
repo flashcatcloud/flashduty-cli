@@ -74,7 +74,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by 'ListWebhookHistory'. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to. (required) (min 1)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -193,7 +193,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status. [success, failed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

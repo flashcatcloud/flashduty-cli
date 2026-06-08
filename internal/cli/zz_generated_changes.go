@@ -143,7 +143,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the result by. [start_time, last_time]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text or regular-expression search over change fields.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Unix timestamp in seconds for the start of the query window.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

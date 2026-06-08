@@ -124,7 +124,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Number of most-recent events to return; 0 uses the server default. (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response's search_after_ctx, to page backward through older events. (≤4096 chars)")
 	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Session identifier. (required) (≥1 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -276,7 +276,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: all (own + member-of-team rows, the default), personal (own only), or team (member teams only). [all, personal, team]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default, not archived), archived, or all. [active, archived, all]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersected with the caller's visible set / scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

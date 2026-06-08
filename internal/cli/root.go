@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
@@ -135,26 +136,44 @@ func newClient() (*flashduty.Client, error) {
 }
 
 // defaultNewClient creates a real go-flashduty client from resolved config +
-// flag overrides. This is the typed SDK every command uses.
+// flag overrides. In broker mode (FLASHDUTY_CRED_FD set — runner-injected), it
+// routes all egress over the inherited control fd and sends a sentinel app_key
+// the broker overwrites with the real per-person key.
 func defaultNewClient() (*flashduty.Client, error) {
 	cfg, err := loadResolvedConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	if cfg.AppKey == "" {
-		return nil, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
-	}
-
 	opts := []flashduty.Option{
 		flashduty.WithUserAgent("flashduty-cli/" + versionStr),
 		flashduty.WithLogger(&silentLogger{}),
 	}
+
+	appKey := cfg.AppKey
+	if fdStr := os.Getenv("FLASHDUTY_CRED_FD"); fdStr != "" {
+		fd, perr := strconv.Atoi(fdStr)
+		// fds 0/1/2 are stdio; the runner inherits the control end at fd 3+. A
+		// value below 3 means a misconfigured runner, not a real control fd —
+		// reject it rather than handshaking on stdin/stdout.
+		if perr != nil || fd < 3 {
+			return nil, fmt.Errorf("invalid FLASHDUTY_CRED_FD=%q", fdStr)
+		}
+		hc := newBrokerHTTPClient(fd)
+		if hc == nil {
+			return nil, errBrokerUnsupported
+		}
+		opts = append(opts, flashduty.WithHTTPClient(hc))
+		appKey = "broker-sentinel" // non-empty: go-flashduty rejects ""; broker overwrites it
+	} else if appKey == "" {
+		return nil, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
+	}
+
 	if cfg.BaseURL != "" && cfg.BaseURL != config.DefaultBaseURL {
 		opts = append(opts, flashduty.WithBaseURL(cfg.BaseURL))
 	}
 
-	return flashduty.NewClient(cfg.AppKey, opts...)
+	return flashduty.NewClient(appKey, opts...)
 }
 
 func loadResolvedConfig() (*config.Config, error) {
