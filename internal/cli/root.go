@@ -32,6 +32,9 @@ var (
 )
 
 var updateNotice *update.CheckResult
+var updateCheckWarning string
+var isTerminalFn = term.IsTerminal
+var checkForUpdateAutoFn = update.CheckForUpdateAuto
 
 var rootCmd = &cobra.Command{
 	Use:           "flashduty",
@@ -50,27 +53,41 @@ var rootCmd = &cobra.Command{
 				return err
 			}
 		}
+		updateNotice = nil
+		updateCheckWarning = ""
 		if cmd.CommandPath() == "flashduty update" {
 			return nil
 		}
-		if !term.IsTerminal(int(os.Stderr.Fd())) {
+		if !isTerminalFn(int(os.Stderr.Fd())) {
+			return nil
+		}
+		if update.ShouldCheck(versionStr) {
+			result, err := checkForUpdateAutoFn(versionStr)
+			if err != nil {
+				if update.IsTimeout(err) {
+					updateCheckWarning = "auto update check timeout, please run 'flashduty update --check' manually"
+				} else {
+					updateNotice = update.StateHasUpdate(versionStr)
+				}
+				return nil
+			}
+			if result.UpdateAvailable {
+				updateNotice = result
+			}
 			return nil
 		}
 		updateNotice = update.StateHasUpdate(versionStr)
-		if update.ShouldCheck(versionStr) {
-			go func() {
-				_, _ = update.CheckForUpdate(versionStr)
-			}()
-		}
 		return nil
 	},
-	PersistentPostRun: func(_ *cobra.Command, _ []string) {
-		if updateNotice == nil {
-			return
+	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+		if updateCheckWarning != "" {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n%s\n", updateCheckWarning)
 		}
-		_, _ = fmt.Fprintf(os.Stderr, "\nA new version of flashduty is available: v%s -> %s\n",
-			update.StripV(updateNotice.CurrentVersion), updateNotice.LatestVersion)
-		_, _ = fmt.Fprintf(os.Stderr, "To update, run: flashduty update\n")
+		if updateNotice != nil {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nA new version of flashduty is available: v%s -> %s\n",
+				update.StripV(updateNotice.CurrentVersion), updateNotice.LatestVersion)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "To update, run: flashduty update\n")
+		}
 	},
 }
 

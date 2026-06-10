@@ -1,12 +1,13 @@
 #!/bin/sh
 # Flashduty CLI installer
-# Usage: curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+# Usage: curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | sh
 #
 # Environment:
 #   FLASHDUTY_VERSION      Install a specific version (e.g. v0.1.2). Default: latest.
 #   FLASHDUTY_INSTALL_DIR  Install directory. Default: /usr/local/bin.
-#   MIRROR_URL             Fetch release assets from this https mirror prefix
-#                          instead of github.com. The mirror must replicate
+#   MIRROR_URL             Fetch release assets from this https mirror prefix.
+#                          Default: https://static.flashcat.cloud/flashduty-cli.
+#                          The mirror must replicate
 #                          GitHub's release layout
 #                          (<MIRROR_URL>/releases/download/<tag>/<asset>) and expose
 #                          a plain-text <MIRROR_URL>/releases/latest file containing
@@ -18,8 +19,10 @@ BINARY="flashduty-cli"
 INSTALLED_NAME="${INSTALLED_NAME:-flashduty}"
 INSTALL_DIR="${FLASHDUTY_INSTALL_DIR:-/usr/local/bin}"
 
-# When set, all release downloads are fetched from this prefix instead of github.com.
-MIRROR_URL="${MIRROR_URL:-}"
+# By default release downloads are fetched from the Flashcat CDN. Set MIRROR_URL
+# to another prefix to override, or to an empty string to force GitHub fallback.
+DEFAULT_MIRROR_URL="https://static.flashcat.cloud/flashduty-cli"
+MIRROR_URL="${MIRROR_URL-${DEFAULT_MIRROR_URL}}"
 MIRROR_URL="${MIRROR_URL%/}"
 if [ -n "${MIRROR_URL}" ]; then
     case "${MIRROR_URL}" in

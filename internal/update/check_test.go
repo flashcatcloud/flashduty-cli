@@ -1,12 +1,12 @@
 package update
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,18 +214,13 @@ func TestLoadState_CorruptFile(t *testing.T) {
 
 func TestFetchLatestVersion(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		rel := githubRelease{
-			TagName: "v0.7.0",
-			HTMLURL: "https://github.com/flashcatcloud/flashduty-cli/releases/tag/v0.7.0",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(rel)
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("v0.7.0\n"))
 	}))
 	defer srv.Close()
 
-	origURL := apiURL
-	apiURL = srv.URL
-	defer func() { apiURL = origURL }()
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
 
 	tag, url, err := fetchLatestVersion()
 	if err != nil {
@@ -239,15 +234,100 @@ func TestFetchLatestVersion(t *testing.T) {
 	}
 }
 
+func TestFetchLatestVersion_FromCDNLatestPointer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/releases/latest" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("v1.2.3\n"))
+	}))
+	defer srv.Close()
+
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL+"/")
+	t.Setenv("MIRROR_URL", "")
+
+	tag, url, err := fetchLatestVersion()
+	if err != nil {
+		t.Fatalf("fetchLatestVersion: %v", err)
+	}
+	if tag != "v1.2.3" {
+		t.Errorf("tag = %q, want %q", tag, "v1.2.3")
+	}
+	if url != "https://github.com/flashcatcloud/flashduty-cli/releases/tag/v1.2.3" {
+		t.Errorf("url = %q", url)
+	}
+}
+
+func TestFetchLatestVersion_RejectsInvalidLatestPointer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("../bad\n"))
+	}))
+	defer srv.Close()
+
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
+
+	_, _, err := fetchLatestVersion()
+	if err == nil {
+		t.Fatal("expected invalid latest pointer to fail")
+	}
+}
+
+func TestUpdateBaseURLAndInstallerURLs(t *testing.T) {
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", "")
+	t.Setenv("MIRROR_URL", "")
+	if got := UpdateBaseURL(); got != defaultUpdateBaseURL {
+		t.Fatalf("UpdateBaseURL() = %q, want %q", got, defaultUpdateBaseURL)
+	}
+	if got := InstallShellURL(); got != "https://static.flashcat.cloud/flashduty-cli/install.sh" {
+		t.Fatalf("InstallShellURL() = %q", got)
+	}
+	if got := InstallPowerShellURL(); got != "https://static.flashcat.cloud/flashduty-cli/install.ps1" {
+		t.Fatalf("InstallPowerShellURL() = %q", got)
+	}
+
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", "https://mirror.example.com/fduty/")
+	if got := UpdateBaseURL(); got != "https://mirror.example.com/fduty" {
+		t.Fatalf("UpdateBaseURL() override = %q", got)
+	}
+	if got := InstallShellURL(); got != "https://mirror.example.com/fduty/install.sh" {
+		t.Fatalf("InstallShellURL() override = %q", got)
+	}
+	if got := InstallPowerShellURL(); got != "https://mirror.example.com/fduty/install.ps1" {
+		t.Fatalf("InstallPowerShellURL() override = %q", got)
+	}
+}
+
+func TestInstallerEnvPassesUpdateBaseAsMirrorURL(t *testing.T) {
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", "https://mirror.example.com/fduty/")
+	t.Setenv("MIRROR_URL", "")
+
+	env := InstallerEnv([]string{"PATH=/bin", "MIRROR_URL=https://old.example.com"})
+	want := "MIRROR_URL=https://mirror.example.com/fduty"
+	found := 0
+	for _, item := range env {
+		if strings.HasPrefix(item, "MIRROR_URL=") {
+			found++
+			if item != want {
+				t.Fatalf("MIRROR_URL entry = %q, want %q", item, want)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("found %d MIRROR_URL entries, want 1 in %#v", found, env)
+	}
+}
+
 func TestFetchLatestVersion_Error(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
 
-	origURL := apiURL
-	apiURL = srv.URL
-	defer func() { apiURL = origURL }()
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
 
 	_, _, err := fetchLatestVersion()
 	if err == nil {
@@ -255,20 +335,19 @@ func TestFetchLatestVersion_Error(t *testing.T) {
 	}
 }
 
-func TestFetchLatestVersion_InvalidJSON(t *testing.T) {
+func TestFetchLatestVersion_EmptyLatestPointer(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{not valid json`))
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("\n"))
 	}))
 	defer srv.Close()
 
-	origURL := apiURL
-	apiURL = srv.URL
-	defer func() { apiURL = origURL }()
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
 
 	_, _, err := fetchLatestVersion()
 	if err == nil {
-		t.Error("expected error for invalid JSON response")
+		t.Error("expected error for empty latest pointer")
 	}
 }
 
@@ -277,18 +356,13 @@ func TestCheckForUpdate(t *testing.T) {
 	setTestHome(t, tmp)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		rel := githubRelease{
-			TagName: "v0.7.0",
-			HTMLURL: "https://github.com/flashcatcloud/flashduty-cli/releases/tag/v0.7.0",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(rel)
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("v0.7.0\n"))
 	}))
 	defer srv.Close()
 
-	origURL := apiURL
-	apiURL = srv.URL
-	defer func() { apiURL = origURL }()
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
 
 	result, err := CheckForUpdate("0.6.0")
 	if err != nil {
@@ -304,6 +378,65 @@ func TestCheckForUpdate(t *testing.T) {
 	state := loadState()
 	if state.LatestVersion != "v0.7.0" {
 		t.Errorf("state.LatestVersion = %q, want %q", state.LatestVersion, "v0.7.0")
+	}
+}
+
+func TestCheckForUpdateAuto_RecordsAttemptOnTimeout(t *testing.T) {
+	tmp := t.TempDir()
+	setTestHome(t, tmp)
+	clearCIEnv(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		_, _ = w.Write([]byte("v0.7.0\n"))
+	}))
+	defer srv.Close()
+
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
+
+	origTimeout := autoHTTPTimeout
+	autoHTTPTimeout = time.Nanosecond
+	defer func() { autoHTTPTimeout = origTimeout }()
+
+	_, err := CheckForUpdateAuto("0.6.0")
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !IsTimeout(err) {
+		t.Fatalf("IsTimeout(%v) = false, want true", err)
+	}
+	if ShouldCheck("0.6.0") {
+		t.Fatal("ShouldCheck should be false after an auto-check timeout records today's attempt")
+	}
+	state := loadState()
+	if time.Since(state.CheckedAt) > time.Minute {
+		t.Fatalf("CheckedAt was not refreshed after timeout: %v", state.CheckedAt)
+	}
+}
+
+func TestCheckForUpdateAuto_DoesNotRecordAttemptOnNonTimeoutError(t *testing.T) {
+	tmp := t.TempDir()
+	setTestHome(t, tmp)
+	clearCIEnv(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", srv.URL)
+	t.Setenv("MIRROR_URL", "")
+
+	_, err := CheckForUpdateAuto("0.6.0")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsTimeout(err) {
+		t.Fatalf("IsTimeout(%v) = true, want false", err)
+	}
+	if !ShouldCheck("0.6.0") {
+		t.Fatal("ShouldCheck should stay true after a non-timeout auto-check error")
 	}
 }
 
