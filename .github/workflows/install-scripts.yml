@@ -7,11 +7,13 @@ on:
     paths:
       - install.sh
       - install.ps1
+      - tests/install_sh_sudo_test.sh
       - .github/workflows/install-scripts.yml
   pull_request:
     paths:
       - install.sh
       - install.ps1
+      - tests/install_sh_sudo_test.sh
       - .github/workflows/install-scripts.yml
 
 permissions:
@@ -29,6 +31,8 @@ jobs:
         run: sh -n install.sh
       - name: bash parse
         run: bash -n install.sh
+      - name: installer behavior tests
+        run: sh tests/install_sh_sudo_test.sh
 
   mirror:
     name: mirror install scripts

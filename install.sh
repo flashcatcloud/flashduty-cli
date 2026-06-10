@@ -48,6 +48,15 @@ need_cmd() {
     fi
 }
 
+can_prompt_for_sudo() {
+    command -v sudo > /dev/null 2>&1 || return 1
+    # `curl | sh` leaves stdin as the script pipe, but sudo can still prompt via
+    # the controlling terminal. In CI/agent contexts stderr is usually not a TTY,
+    # so do not risk an unanswerable password prompt there.
+    [ -t 2 ] || return 1
+    [ -r /dev/tty ] || return 1
+}
+
 sha256_of() {
     file="$1"
     if command -v sha256sum > /dev/null 2>&1; then
@@ -298,7 +307,11 @@ main() {
         chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
     elif sudo -n true 2>/dev/null; then
         # Passwordless sudo is available — install to the privileged dir without
-        # prompting (a prompt would hang `curl | sh` in agents/CI: no TTY to answer).
+        # prompting.
+        sudo mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${INSTALLED_NAME}"
+        sudo chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
+    elif can_prompt_for_sudo; then
+        info "Need elevated permissions to install to ${INSTALL_DIR}"
         sudo mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${INSTALLED_NAME}"
         sudo chmod +x "${INSTALL_DIR}/${INSTALLED_NAME}"
     else
