@@ -1,11 +1,12 @@
 # Flashduty CLI installer for Windows
-# Usage: irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
+# Usage: irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 #
 # Environment variables:
 #   FLASHDUTY_VERSION     - specific version to install (e.g. "v0.1.2")
 #   FLASHDUTY_INSTALL_DIR - install directory (default: $HOME\.flashduty\bin)
-#   MIRROR_URL            - fetch release assets from this https mirror prefix
-#                           instead of github.com. The mirror must replicate
+#   MIRROR_URL            - fetch release assets from this https mirror prefix.
+#                           Default: https://static.flashcat.cloud/flashduty-cli.
+#                           The mirror must replicate
 #                           GitHub's release layout
 #                           (<MIRROR_URL>/releases/download/<tag>/<asset>) and
 #                           expose a plain-text <MIRROR_URL>/releases/latest file
@@ -18,8 +19,13 @@ $Repo = "flashcatcloud/flashduty-cli"
 $Binary = "flashduty-cli.exe"
 $InstalledName = "flashduty.exe"
 
-# When set, all release downloads are fetched from this prefix instead of github.com.
-$MirrorUrl = $env:MIRROR_URL
+# By default release downloads are fetched from the Flashcat CDN. Set MIRROR_URL
+# to another prefix to override, or to an empty string to force GitHub fallback.
+$DefaultMirrorUrl = "https://static.flashcat.cloud/flashduty-cli"
+$MirrorUrl = [Environment]::GetEnvironmentVariable("MIRROR_URL")
+if ($null -eq $MirrorUrl) {
+    $MirrorUrl = $DefaultMirrorUrl
+}
 if ($MirrorUrl) {
     $MirrorUrl = $MirrorUrl.TrimEnd('/')
     if ($MirrorUrl -notlike "https://*") {

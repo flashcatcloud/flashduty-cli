@@ -1,9 +1,11 @@
 package update
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,17 +17,16 @@ import (
 )
 
 const (
-	repoOwner        = "flashcatcloud"
-	repoName         = "flashduty-cli"
-	checkInterval    = 24 * time.Hour
-	httpTimeout      = 5 * time.Second
-	stateFileName    = "state.yaml"
-	installShURL     = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.sh"
-	installPs1URL    = "https://raw.githubusercontent.com/" + repoOwner + "/" + repoName + "/main/install.ps1"
-	maxResponseBytes = 1 << 20 // 1MB
+	repoOwner            = "flashcatcloud"
+	repoName             = "flashduty-cli"
+	defaultUpdateBaseURL = "https://static.flashcat.cloud/flashduty-cli"
+	checkInterval        = 24 * time.Hour
+	httpTimeout          = 5 * time.Second
+	stateFileName        = "state.yaml"
+	maxResponseBytes     = 1 << 20 // 1MB
 )
 
-var apiURL = "https://api.github.com/repos/" + repoOwner + "/" + repoName + "/releases/latest"
+var autoHTTPTimeout = 2 * time.Second
 
 type State struct {
 	CheckedAt     time.Time `yaml:"checked_at"`
@@ -40,13 +41,37 @@ type CheckResult struct {
 	UpdateAvailable bool
 }
 
-type githubRelease struct {
-	TagName string `json:"tag_name"`
-	HTMLURL string `json:"html_url"`
+func UpdateBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("FLASHDUTY_UPDATE_BASE_URL")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	if v := strings.TrimSpace(os.Getenv("MIRROR_URL")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return defaultUpdateBaseURL
 }
 
-func InstallShellURL() string      { return installShURL }
-func InstallPowerShellURL() string { return installPs1URL }
+func InstallShellURL() string      { return UpdateBaseURL() + "/install.sh" }
+func InstallPowerShellURL() string { return UpdateBaseURL() + "/install.ps1" }
+
+func InstallerEnv(base []string) []string {
+	env := make([]string, 0, len(base)+1)
+	for _, item := range base {
+		if strings.HasPrefix(item, "MIRROR_URL=") {
+			continue
+		}
+		env = append(env, item)
+	}
+	return append(env, "MIRROR_URL="+UpdateBaseURL())
+}
+
+func latestPointerURL() string {
+	return UpdateBaseURL() + "/releases/latest"
+}
+
+func releasePageURL(tag string) string {
+	return "https://github.com/" + repoOwner + "/" + repoName + "/releases/tag/" + tag
+}
 
 func stateDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -100,25 +125,50 @@ func saveState(s *State) error {
 }
 
 func fetchLatestVersion() (string, string, error) {
-	client := &http.Client{Timeout: httpTimeout}
-	resp, err := client.Get(apiURL)
+	return fetchLatestVersionWithTimeout(httpTimeout)
+}
+
+func fetchLatestVersionWithTimeout(timeout time.Duration) (string, string, error) {
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get(latestPointerURL())
 	if err != nil {
 		return "", "", fmt.Errorf("failed to fetch latest release: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+		return "", "", fmt.Errorf("latest release endpoint returned %d", resp.StatusCode)
 	}
 
-	var rel githubRelease
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&rel); err != nil {
-		return "", "", fmt.Errorf("failed to parse release response: %w", err)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read latest release response: %w", err)
 	}
-	if rel.TagName == "" {
-		return "", "", fmt.Errorf("empty tag_name in response")
+	tag, err := parseLatestTag(string(body))
+	if err != nil {
+		return "", "", err
 	}
-	return rel.TagName, rel.HTMLURL, nil
+	return tag, releasePageURL(tag), nil
+}
+
+func parseLatestTag(body string) (string, error) {
+	line, _, _ := strings.Cut(body, "\n")
+	tag := strings.TrimSpace(line)
+	if tag == "" {
+		return "", fmt.Errorf("empty latest release tag")
+	}
+	if len(tag) < 2 || tag[0] != 'v' || tag[1] < '0' || tag[1] > '9' {
+		return "", fmt.Errorf("latest release tag is not valid: %q", tag)
+	}
+	for i := range len(tag) {
+		ch := tag[i]
+		if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+			(ch >= '0' && ch <= '9') || ch == '.' || ch == '+' || ch == '-' {
+			continue
+		}
+		return "", fmt.Errorf("latest release tag contains illegal characters: %q", tag)
+	}
+	return tag, nil
 }
 
 func StripV(v string) string {
@@ -179,7 +229,22 @@ func ShouldCheck(currentVersion string) bool {
 }
 
 func CheckForUpdate(currentVersion string) (*CheckResult, error) {
-	tag, url, err := fetchLatestVersion()
+	return checkForUpdateWithTimeout(currentVersion, httpTimeout)
+}
+
+func CheckForUpdateAuto(currentVersion string) (*CheckResult, error) {
+	result, err := checkForUpdateWithTimeout(currentVersion, autoHTTPTimeout)
+	if err != nil {
+		if IsTimeout(err) {
+			_ = recordCheckAttempt()
+		}
+		return nil, err
+	}
+	return result, nil
+}
+
+func checkForUpdateWithTimeout(currentVersion string, timeout time.Duration) (*CheckResult, error) {
+	tag, url, err := fetchLatestVersionWithTimeout(timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -196,6 +261,23 @@ func CheckForUpdate(currentVersion string) (*CheckResult, error) {
 		LatestURL:       url,
 		UpdateAvailable: IsNewer(tag, currentVersion),
 	}, nil
+}
+
+func recordCheckAttempt() error {
+	state := loadState()
+	state.CheckedAt = time.Now()
+	return saveState(state)
+}
+
+func IsTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 func StateHasUpdate(currentVersion string) *CheckResult {

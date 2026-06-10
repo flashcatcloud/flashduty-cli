@@ -50,18 +50,13 @@ func newUpdateCmd() *cobra.Command {
 }
 
 func runInstaller(cmd *cobra.Command) error {
-	var c *exec.Cmd
-	if runtime.GOOS == "windows" {
-		c = exec.Command("powershell", "-Command",
-			fmt.Sprintf("irm %s | iex", update.InstallPowerShellURL()))
-	} else {
-		c = exec.Command("sh", "-c",
-			fmt.Sprintf("curl -fsSL %s | sh", update.InstallShellURL()))
-	}
+	name, args := installerCommandSpec(runtime.GOOS, update.InstallShellURL(), update.InstallPowerShellURL())
+	c := exec.Command(name, args...)
 
 	c.Stdout = cmd.OutOrStdout()
 	c.Stderr = cmd.ErrOrStderr()
 	c.Stdin = os.Stdin
+	c.Env = update.InstallerEnv(os.Environ())
 
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("update failed: %w", err)
@@ -69,4 +64,22 @@ func runInstaller(cmd *cobra.Command) error {
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nUpdate complete. Run 'flashduty version' to verify.\n")
 	return nil
+}
+
+func installerCommandSpec(goos, shellURL, powerShellURL string) (string, []string) {
+	if goos == "windows" {
+		return "powershell", []string{
+			"-ExecutionPolicy",
+			"Bypass",
+			"-Command",
+			"$u = $args[0]; irm $u | iex",
+			powerShellURL,
+		}
+	}
+	return "sh", []string{
+		"-c",
+		`curl -fsSL "$1" | sh`,
+		"flashduty-installer",
+		shellURL,
+	}
 }

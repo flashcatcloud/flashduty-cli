@@ -14,13 +14,13 @@ A command-line interface for the [Flashduty](https://flashcat.cloud) platform. M
 ### macOS / Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
+irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 ```
 
 ### Manual Download
@@ -33,6 +33,8 @@ Download the latest release for your platform from [GitHub Releases](https://git
 |----------|-------------|---------|
 | `FLASHDUTY_VERSION` | Install a specific version (e.g. `v0.1.2`) | latest |
 | `FLASHDUTY_INSTALL_DIR` | Custom install directory | `/usr/local/bin` (shell), `~\.flashduty\bin` (PowerShell) |
+| `MIRROR_URL` | Override installer release asset mirror | `https://static.flashcat.cloud/flashduty-cli` |
+| `FLASHDUTY_UPDATE_BASE_URL` | Override `flashduty update` and auto update-check base URL | `https://static.flashcat.cloud/flashduty-cli` |
 
 ## Agent Skills
 

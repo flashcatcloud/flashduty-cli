@@ -24,6 +24,8 @@ func saveAndResetGlobals(t *testing.T) {
 	origFlagAppKey := flagAppKey
 	origFlagBaseURL := flagBaseURL
 	origFlagOutputFormat := flagOutputFormat
+	origUpdateNotice := updateNotice
+	origUpdateCheckWarning := updateCheckWarning
 	origStdinReader := stdinReader
 
 	// Reset to defaults so tests start clean.
@@ -32,6 +34,8 @@ func saveAndResetGlobals(t *testing.T) {
 	flagAppKey = ""
 	flagBaseURL = ""
 	flagOutputFormat = ""
+	updateNotice = nil
+	updateCheckWarning = ""
 
 	t.Cleanup(func() {
 		newClientFn = origNewClientFn
@@ -40,6 +44,8 @@ func saveAndResetGlobals(t *testing.T) {
 		flagAppKey = origFlagAppKey
 		flagBaseURL = origFlagBaseURL
 		flagOutputFormat = origFlagOutputFormat
+		updateNotice = origUpdateNotice
+		updateCheckWarning = origUpdateCheckWarning
 		stdinReader = origStdinReader
 	})
 }

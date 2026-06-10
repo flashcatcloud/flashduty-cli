@@ -14,13 +14,13 @@
 ### macOS / Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.sh | sh
+curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.ps1 | iex
+irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 ```
 
 ### 手动下载
@@ -33,6 +33,8 @@ irm https://raw.githubusercontent.com/flashcatcloud/flashduty-cli/main/install.p
 |------|------|--------|
 | `FLASHDUTY_VERSION` | 安装指定版本（如 `v0.1.2`） | 最新版 |
 | `FLASHDUTY_INSTALL_DIR` | 自定义安装目录 | `/usr/local/bin`（Shell）、`~\.flashduty\bin`（PowerShell） |
+| `MIRROR_URL` | 覆盖安装脚本使用的 release 资源镜像 | `https://static.flashcat.cloud/flashduty-cli` |
+| `FLASHDUTY_UPDATE_BASE_URL` | 覆盖 `flashduty update` 和自动更新检查的 base URL | `https://static.flashcat.cloud/flashduty-cli` |
 
 ## Agent Skills（AI 代理技能）
 
