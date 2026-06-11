@@ -81,7 +81,7 @@ Consolidate multiple incidents caused by the same underlying issue.
 
 ```bash
 # 1. Find related incidents by keyword
-flashduty incident list --title "database" --progress Triggered
+flashduty incident list --query "database" --progress Triggered
 
 # 2. Review the results and identify the primary incident
 
