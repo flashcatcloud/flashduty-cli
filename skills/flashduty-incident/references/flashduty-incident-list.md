@@ -15,7 +15,8 @@ flashduty incident list [flags]
 | `--progress` | string | | Filter by state: `Triggered`, `Processing`, `Closed` |
 | `--severity` | string | | Filter by severity: `Critical`, `Warning`, `Info` |
 | `--channel` | int | | Filter by channel ID |
-| `--title` | string | | Search by title keyword |
+| `--query` | string | | Free-text search across title/labels/content |
+| `--title` | string | | Search by title/content keyword (alias of `--query`; `--query` wins if both set) |
 | `--since` | string | `24h` | Start time (duration like `24h`, date, datetime, or unix timestamp) |
 | `--until` | string | `now` | End time |
 | `--limit` | int | `20` | Max results (max 100) |

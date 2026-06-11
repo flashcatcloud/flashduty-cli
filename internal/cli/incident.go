@@ -75,7 +75,7 @@ func pastIncidentColumns() []output.Column {
 }
 
 func newIncidentListCmd() *cobra.Command {
-	var progress, severity, query, since, until, nums string
+	var progress, severity, query, title, since, until, nums string
 	var channelID int64
 	var limit, page int
 
@@ -100,6 +100,11 @@ func newIncidentListCmd() *cobra.Command {
 					StartTime:        startTime,
 					EndTime:          endTime,
 					Query:            query,
+				}
+				// --title is a convenience alias for --query (same backend
+				// "query" field). --query stays authoritative when both are set.
+				if title != "" && query == "" {
+					req.Query = title
 				}
 				req.Page = page
 				req.Limit = limit
@@ -126,6 +131,7 @@ func newIncidentListCmd() *cobra.Command {
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
+	cmd.Flags().StringVar(&title, "title", "", "Search by title/content keyword (alias of --query; --query wins if both set)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")

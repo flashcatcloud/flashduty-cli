@@ -187,6 +187,35 @@ func TestIncidentListNumsReachesWire(t *testing.T) {
 	}
 }
 
+// TestIncidentListTitleReachesWireAsQuery: --title is sent as the query body field.
+func TestIncidentListTitleReachesWireAsQuery(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = incidentListData()
+	if _, err := execCommand("incident", "list", "--title", "test create incident"); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if stub.lastPath != "/incident/list" {
+		t.Fatalf("path = %q, want /incident/list", stub.lastPath)
+	}
+	if got, _ := stub.lastBody["query"].(string); got != "test create incident" {
+		t.Errorf("query = %q, want %q", got, "test create incident")
+	}
+}
+
+// TestIncidentListQueryWinsOverTitle: when both --query and --title are set, --query is authoritative.
+func TestIncidentListQueryWinsOverTitle(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = incidentListData()
+	if _, err := execCommand("incident", "list", "--query", "q", "--title", "t"); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if got, _ := stub.lastBody["query"].(string); got != "q" {
+		t.Errorf("query = %q, want %q (--query must win)", got, "q")
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
