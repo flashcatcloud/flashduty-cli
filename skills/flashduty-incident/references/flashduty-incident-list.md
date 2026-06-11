@@ -15,7 +15,7 @@ flashduty incident list [flags]
 | `--progress` | string | | Filter by state: `Triggered`, `Processing`, `Closed` |
 | `--severity` | string | | Filter by severity: `Critical`, `Warning`, `Info` |
 | `--channel` | int | | Filter by channel ID |
-| `--title` | string | | Search by title keyword |
+| `--query` | string | | Free-text search across title, labels, and content |
 | `--since` | string | `24h` | Start time (duration like `24h`, date, datetime, or unix timestamp) |
 | `--until` | string | `now` | End time |
 | `--limit` | int | `20` | Max results (max 100) |
@@ -31,8 +31,8 @@ ID, TITLE, SEVERITY, PROGRESS, CHANNEL, CREATED.
 # Critical incidents in the last hour
 flashduty incident list --severity Critical --since 1h
 
-# Triggered incidents containing "database" in the title
-flashduty incident list --progress Triggered --title "database"
+# Triggered incidents matching "database" (title, labels, or content)
+flashduty incident list --progress Triggered --query "database"
 
 # Closed incidents from a specific channel, page 2
 flashduty incident list --progress Closed --channel 12345 --page 2
