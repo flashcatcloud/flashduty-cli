@@ -22,7 +22,10 @@ func newMemberCmd() *cobra.Command {
 func newMemberListCmd() *cobra.Command {
 	var name, email string
 	var page int
+	var limit int
 	var roleID int64
+	var orderBy string
+	var asc bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -39,9 +42,12 @@ func newMemberListCmd() *cobra.Command {
 					query = email
 				}
 				req := &flashduty.MemberListRequest{
-					Query: query,
+					Query:   query,
+					Orderby: orderBy,
+					Asc:     asc,
 				}
 				req.Page = page
+				req.Limit = limit
 				if roleID != 0 {
 					req.RoleID = uint64(roleID)
 				}
@@ -83,6 +89,9 @@ func newMemberListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Search by name")
 	cmd.Flags().StringVar(&email, "email", "", "Search by email")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Page size, max 100 (default 20)")
+	cmd.Flags().StringVar(&orderBy, "orderby", "", "Sort field: created_at, updated_at, member_name")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort in ascending order")
 	cmd.Flags().Int64Var(&roleID, "role-id", 0, "Filter to members holding this role ID")
 
 	return cmd
