@@ -39,19 +39,21 @@ type channelRow struct {
 
 func newChannelListCmd() *cobra.Command {
 	var name string
+	var teamIDs []int64
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List channels",
-		Long:  curatedLong("List channels in the account, optionally filtered by name.", "Channels", "ChannelList"),
+		Long:  curatedLong("List channels in the account, optionally filtered by name or owning team.", "Channels", "ChannelList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				// Legacy parity: the hand-written SDK called /channel/list with an
 				// empty body and applied the --name filter client-side as a
 				// case-insensitive substring match. go-flashduty's ChannelName field
 				// is an exact-match server filter, so we keep the client-side filter
-				// to preserve behavior.
-				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{})
+				// to preserve behavior. --team-ids, by contrast, is a server-side
+				// filter on the channel's owning team (empty = all teams, unchanged).
+				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{TeamIDs: teamIDs})
 				if err != nil {
 					return err
 				}
@@ -87,6 +89,7 @@ func newChannelListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Search by name")
+	cmd.Flags().Int64SliceVar(&teamIDs, "team-ids", nil, "Filter by owning team ID(s), server-side (repeatable or comma-separated)")
 
 	return cmd
 }
