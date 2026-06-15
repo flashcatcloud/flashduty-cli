@@ -430,6 +430,7 @@ func TestCommandIncidentUnack(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
+	// unack is served by the generated twin (positional ids → incident_ids).
 	out, err := execCommand("incident", "unack", "inc-1", "inc-2")
 	if err != nil {
 		t.Fatalf("[incident-unack] unexpected error: %v", err)
@@ -440,7 +441,7 @@ func TestCommandIncidentUnack(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-unack] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "Unacknowledged 2 incident(s).") {
+	if !strings.Contains(out, "OK: POST /incident/unack") {
 		t.Fatalf("[incident-unack] unexpected output:\n%s", out)
 	}
 }
@@ -449,6 +450,7 @@ func TestCommandIncidentWake(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
+	// wake is served by the generated twin (positional id → incident_ids).
 	out, err := execCommand("incident", "wake", "inc-1")
 	if err != nil {
 		t.Fatalf("[incident-wake] unexpected error: %v", err)
@@ -459,7 +461,7 @@ func TestCommandIncidentWake(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1"; got != want {
 		t.Fatalf("[incident-wake] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "Restored notifications for 1 incident(s).") {
+	if !strings.Contains(out, "OK: POST /incident/wake") {
 		t.Fatalf("[incident-wake] unexpected output:\n%s", out)
 	}
 }
@@ -500,13 +502,15 @@ func TestCommandIncidentCommentAllows1024UnicodeRunes(t *testing.T) {
 	}
 }
 
+// TestCommandIncidentLifecycleRejectsMoreThan100IDs covers the curated
+// commands that still enforce the 100-id batch cap client-side. unack and wake
+// were dropped in favor of their generated twins, which carry no client-side
+// cap (the backend enforces the limit), so they are intentionally absent here.
 func TestCommandIncidentLifecycleRejectsMoreThan100IDs(t *testing.T) {
 	commands := []struct {
 		name string
 		args []string
 	}{
-		{name: "unack", args: []string{"incident", "unack"}},
-		{name: "wake", args: []string{"incident", "wake"}},
 		{name: "comment", args: []string{"incident", "comment", "--comment", "too many"}},
 		{name: "remove", args: []string{"incident", "remove"}},
 	}
@@ -612,6 +616,7 @@ func TestCommandIncidentDisableMerge(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
+	// disable-merge is served by the generated twin (positional ids → incident_ids).
 	out, err := execCommand("incident", "disable-merge", "inc-1", "inc-2")
 	if err != nil {
 		t.Fatalf("[incident-disable-merge] unexpected error: %v", err)
@@ -622,7 +627,7 @@ func TestCommandIncidentDisableMerge(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-disable-merge] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "Disabled auto-merge for 2 incident(s).") {
+	if !strings.Contains(out, "OK: POST /incident/disable-merge") {
 		t.Fatalf("[incident-disable-merge] unexpected output:\n%s", out)
 	}
 }
