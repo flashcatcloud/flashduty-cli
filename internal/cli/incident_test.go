@@ -47,18 +47,3 @@ func TestCommandIncidentListChannelIDFlag(t *testing.T) {
 		t.Fatalf("channel_ids = %q, want %q", got, want)
 	}
 }
-
-// TestCommandIncidentListChannelDeprecatedAlias guards the back-compat alias:
-// the original --channel flag must keep working and resolve to the same
-// channel_ids wire field, so existing callers are not broken by the rename.
-func TestCommandIncidentListChannelDeprecatedAlias(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-
-	if _, err := execCommand("incident", "list", "--channel", "456"); err != nil {
-		t.Fatalf("execCommand --channel: %v", err)
-	}
-	if got, want := fmt.Sprint(stub.lastBody["channel_ids"]), "[456]"; got != want {
-		t.Fatalf("channel_ids = %q, want %q", got, want)
-	}
-}

@@ -124,13 +124,9 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	registerEnumFlag(cmd, "progress", "Triggered", "Processing", "Closed")
 	registerEnumFlag(cmd, "severity", severityEnum...)
-	// --channel-id is the canonical name, matching the sibling channel
-	// commands (channel info --channel-id, channel escalate-rule-list
-	// --channel-id). --channel is kept as a deprecated alias so existing
-	// callers keep working; both bind to the same variable.
+	// --channel-id matches the sibling channel commands (channel info
+	// --channel-id, channel escalate-rule-list --channel-id).
 	cmd.Flags().Int64Var(&channelID, "channel-id", 0, "Filter by channel ID")
-	cmd.Flags().Int64Var(&channelID, "channel", 0, "Filter by channel ID")
-	_ = cmd.Flags().MarkDeprecated("channel", "use --channel-id instead")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
