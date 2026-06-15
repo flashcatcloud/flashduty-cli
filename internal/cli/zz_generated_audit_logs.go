@@ -47,7 +47,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genAuditLogsSearchCmd() *cobra.Command {
 	var dataJSON string
-	var fEndTime int64
+	var fEndTime string
 	var fIsDangerous bool
 	var fIsWrite bool
 	var fLimit int64
@@ -55,7 +55,7 @@ func genAuditLogsSearchCmd() *cobra.Command {
 	var fPersonID int64
 	var fRequestID string
 	var fSearchAfterCtx string
-	var fStartTime int64
+	var fStartTime string
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search audit logs",
@@ -66,7 +66,7 @@ Return a cursor-paginated list of audit log entries within a time range.
 API: POST /audit/search (audit-read-search)
 
 Request fields:
-  --end-time int (required) — End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --is-dangerous bool — When true, return only high-risk (dangerous) operations.
   --is-write bool — When true, return only write operations; when false, return only read operations.
   --limit int — Page size. Minimum 0, maximum 99. (0-99)
@@ -74,7 +74,7 @@ Request fields:
   --person-id int — Filter by the member who performed the action.
   --request-id string — Filter to a single request by its unique request ID.
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
-  --start-time int (required) — Start of the search window, Unix epoch seconds.
+  --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - docs (array<object>) — Audit log entries for this page.
@@ -98,9 +98,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty audit search --data '{"end_time":1712707200,"limit":20,"operations":["template:write:create","template:write:delete"],"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("end-time") {
-						body["end_time"] = fEndTime
+					if okEndTime {
+						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("is-dangerous") {
 						body["is_dangerous"] = fIsDangerous
@@ -123,8 +131,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("search-after-ctx") {
 						body["search_after_ctx"] = fSearchAfterCtx
 					}
-					if cmd.Flags().Changed("start-time") {
-						body["start_time"] = fStartTime
+					if okStartTime {
+						body["start_time"] = vStartTime
 					}
 				})
 				if err != nil {
@@ -142,7 +150,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. (required)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIsDangerous, "is-dangerous", false, "When true, return only high-risk (dangerous) operations.")
 	cmd.Flags().BoolVar(&fIsWrite, "is-write", false, "When true, return only write operations; when false, return only read operations.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Minimum 0, maximum 99. (0-99)")
@@ -150,7 +158,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the member who performed the action.")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the search window, Unix epoch seconds. (required)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

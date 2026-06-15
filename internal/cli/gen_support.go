@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 // stdinReader is the source read when --data is exactly "-". A package var so
@@ -172,6 +174,22 @@ func printGenericResult(ctx *RunContext, data any) error {
 		return ctx.Printer.Print(data, nil)
 	}
 	return renderGenericTable(ctx, data)
+}
+
+// genParseTimeFlag parses a relative-or-absolute time flag into unix seconds,
+// mirroring the curated incident-list --since/--until handling: a Go duration
+// ("7d", "24h") is "now minus duration", "+7d" is the future, "now" is now, and
+// a date/datetime/RFC3339/Unix-seconds value passes through. ok is false when the
+// flag was not set, so the caller omits the field from the request body.
+func genParseTimeFlag(cmd *cobra.Command, name, raw string) (val int64, ok bool, err error) {
+	if !cmd.Flags().Changed(name) {
+		return 0, false, nil
+	}
+	v, err := timeutil.Parse(raw)
+	if err != nil {
+		return 0, false, fmt.Errorf("invalid --%s: %w", name, err)
+	}
+	return v, true, nil
 }
 
 // genGroup finds an existing subcommand named `name` under parent, or creates a
