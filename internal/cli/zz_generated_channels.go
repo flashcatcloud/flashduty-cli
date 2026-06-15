@@ -83,7 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty channel create --data '{"auto_resolve_mode":"trigger","auto_resolve_timeout":86400,"channel_name":"Production Alerts","description":"Handles all production environment alerts","group":{"method":"p","time_window":10,"window_type":"tumbling"},"team_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("auto-resolve-mode") {
 						body["auto_resolve_mode"] = fAutoResolveMode
 					}
@@ -117,6 +117,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -144,7 +145,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
 	cmd.Flags().IntSliceVar(&fPluginIDs, "plugin-ids", nil, "IDs of plugins (integrations) subscribed to this channel.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -152,7 +153,7 @@ func genChannelsChannelDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <channel-id>",
 		Short: "Delete channel",
 		Long: `Delete channel.
 
@@ -163,13 +164,18 @@ API: POST /channel/delete (channelDelete)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel delete --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -191,7 +197,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -199,7 +205,7 @@ func genChannelsChannelDisableCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "disable",
+		Use:   "disable <channel-id>",
 		Short: "Disable channel",
 		Long: `Disable channel.
 
@@ -210,13 +216,18 @@ API: POST /channel/disable (channelDisable)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel disable --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -238,7 +249,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -246,7 +257,7 @@ func genChannelsChannelEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "enable",
+		Use:   "enable <channel-id>",
 		Short: "Enable channel",
 		Long: `Enable channel.
 
@@ -257,13 +268,18 @@ API: POST /channel/enable (channelEnable)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel enable --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -285,7 +301,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -346,7 +362,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty channel escalate-rule-create --data '{"channel_id":3521074710131,"description":"Notify primary on-call, then escalate to secondary after 30 minutes","layers":[{"escalate_window":30,"force_escalate":false,"max_times":3,"notify_step":10,"target":{"by":{"follow_preference":true},"person_ids":[3790925372131]}}],"rule_name":"On-call escalation","template_id":"6321aad26c12104586a88916"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggr-window") {
 						body["aggr_window"] = fAggrWindow
 					}
@@ -365,6 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("template-id") {
 						body["template_id"] = fTemplateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -387,7 +404,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first. (0-200)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Notification template ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -411,13 +428,14 @@ Request fields:
 		Example: `  flashduty channel escalate-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -440,7 +458,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -464,13 +482,14 @@ Request fields:
 		Example: `  flashduty channel escalate-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -493,7 +512,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -517,13 +536,14 @@ Request fields:
 		Example: `  flashduty channel escalate-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -546,7 +566,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -611,13 +631,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty channel escalate-rule-info --data '{"channel_id":1001,"rule_id":"6621b23f4a2c5e0012ab34d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -636,7 +657,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -644,7 +665,7 @@ func genChannelsChannelEscalateRuleListCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "escalate-rule-list",
+		Use:   "escalate-rule-list <channel-id>",
 		Short: "List escalation rules",
 		Long: `List escalation rules.
 
@@ -691,13 +712,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (unix seconds).
     - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel escalate-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -715,7 +741,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -774,7 +800,7 @@ Request fields:
 		Example: `  flashduty channel escalate-rule-update --data '{"channel_id":1001,"layers":[{"target":{"by":{"critical":["voice"],"warning":["sms"]},"person_ids":[42]}}],"rule_id":"6621b23f4a2c5e0012ab34d0","rule_name":"Default escalation","template_id":"6621b23f4a2c5e0012ab34d1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggr-window") {
 						body["aggr_window"] = fAggrWindow
 					}
@@ -796,6 +822,7 @@ Request fields:
 					if cmd.Flags().Changed("template-id") {
 						body["template_id"] = fTemplateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -823,7 +850,7 @@ Request fields:
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Escalation rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Notification template ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -831,7 +858,7 @@ func genChannelsChannelInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <channel-id>",
 		Short: "Get channel detail",
 		Long: `Get channel detail.
 
@@ -884,13 +911,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) — Owning team ID.
   - updated_at (integer) — Last update timestamp (unix seconds).
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel info --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -908,7 +940,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -916,7 +948,7 @@ func genChannelsChannelInfosCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelIDs []int
 	cmd := &cobra.Command{
-		Use:   "infos",
+		Use:   "infos <channel-id> [<id2>...]",
 		Short: "Batch get channels",
 		Long: `Batch get channels.
 
@@ -933,13 +965,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel name.
     - status (string) — Channel status. [enabled, disabled]
 `,
+		Args:    requireArgs("channel_ids"),
 		Example: `  flashduty channel infos --data '{"channel_ids":[1001,1002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -957,7 +994,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to look up. Up to 1000. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -970,7 +1007,7 @@ func genChannelsChannelInhibitRuleCreateCmd() *cobra.Command {
 	var fPriority int64
 	var fRuleName string
 	cmd := &cobra.Command{
-		Use:   "inhibit-rule-create",
+		Use:   "inhibit-rule-create <channel-id>",
 		Short: "Create inhibit rule",
 		Long: `Create inhibit rule.
 
@@ -992,10 +1029,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel inhibit-rule-create --data '{"channel_id":3521074710131,"description":"When a Critical alert fires, suppress matching Info alerts","equals":["labels.cluster","labels.service"],"is_directly_discard":false,"rule_name":"Suppress Info when Critical fires","source_filters":[[{"key":"severity","oper":"IN","vals":["Critical"]}]],"target_filters":[[{"key":"severity","oper":"IN","vals":["Info"]}]]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -1014,6 +1055,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1036,7 +1078,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1060,13 +1102,14 @@ Request fields:
 		Example: `  flashduty channel inhibit-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1089,7 +1132,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1113,13 +1156,14 @@ Request fields:
 		Example: `  flashduty channel inhibit-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1142,7 +1186,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1166,13 +1210,14 @@ Request fields:
 		Example: `  flashduty channel inhibit-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1195,7 +1240,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1203,7 +1248,7 @@ func genChannelsChannelInhibitRuleListCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "inhibit-rule-list",
+		Use:   "inhibit-rule-list <channel-id>",
 		Short: "List inhibit rules",
 		Long: `List inhibit rules.
 
@@ -1232,13 +1277,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel inhibit-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1256,7 +1306,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1292,7 +1342,7 @@ Request fields:
 		Example: `  flashduty channel inhibit-rule-update --data '{"channel_id":1001,"equals":["labels.cluster"],"rule_id":"6621b23f4a2c5e0012ab34ce","rule_name":"Suppress downstream"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -1314,6 +1364,7 @@ Request fields:
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1341,7 +1392,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Inhibit rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1432,7 +1483,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty channel list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -1472,6 +1523,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1501,7 +1553,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field used to order results. [ranking, created_at, updated_at, channel_name, last_incident_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text query against channel name/description.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1515,7 +1567,7 @@ func genChannelsChannelSilenceRuleCreateCmd() *cobra.Command {
 	var fPriority int64
 	var fRuleName string
 	cmd := &cobra.Command{
-		Use:   "silence-rule-create",
+		Use:   "silence-rule-create <channel-id>",
 		Short: "Create silence rule",
 		Long: `Create silence rule.
 
@@ -1546,10 +1598,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel silence-rule-create --data '{"channel_id":3521074710131,"description":"Silence all Info alerts during planned maintenance","filters":[[{"key":"severity","oper":"IN","vals":["Info"]}]],"is_directly_discard":false,"rule_name":"Maintenance window silence","time_filter":{"end_time":1773414000,"start_time":1773388800}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -1571,6 +1627,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1594,7 +1651,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, silenced alerts are dropped instead of suppressed into incidents.")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1618,13 +1675,14 @@ Request fields:
 		Example: `  flashduty channel silence-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1647,7 +1705,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1671,13 +1729,14 @@ Request fields:
 		Example: `  flashduty channel silence-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1700,7 +1759,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1724,13 +1783,14 @@ Request fields:
 		Example: `  flashduty channel silence-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1753,7 +1813,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1761,7 +1821,7 @@ func genChannelsChannelSilenceRuleListCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "silence-rule-list",
+		Use:   "silence-rule-list <channel-id>",
 		Short: "List silence rules",
 		Long: `List silence rules.
 
@@ -1800,13 +1860,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel silence-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1824,7 +1889,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1868,7 +1933,7 @@ Request fields:
 		Example: `  flashduty channel silence-rule-update --data '{"channel_id":1001,"filters":[[{"key":"labels.service","oper":"IN","vals":["billing"]}]],"rule_id":"6621b23f4a2c5e0012ab34cd","rule_name":"Mute during maintenance","time_filter":{"end_time":1710086400,"start_time":1710000000}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -1890,6 +1955,7 @@ Request fields:
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1917,7 +1983,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Silence rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1928,7 +1994,7 @@ func genChannelsChannelUnsubscribeRuleCreateCmd() *cobra.Command {
 	var fPriority int64
 	var fRuleName string
 	cmd := &cobra.Command{
-		Use:   "unsubscribe-rule-create",
+		Use:   "unsubscribe-rule-create <channel-id>",
 		Short: "Create drop rule",
 		Long: `Create drop rule.
 
@@ -1947,10 +2013,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel unsubscribe-rule-create --data '{"channel_id":3521074710131,"description":"Discard all alerts from the test environment before they create incidents","filters":[[{"key":"labels.env","oper":"IN","vals":["test","dev"]}]],"rule_name":"Drop test environment alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -1963,6 +2033,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1983,7 +2054,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2007,13 +2078,14 @@ Request fields:
 		Example: `  flashduty channel unsubscribe-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2036,7 +2108,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2060,13 +2132,14 @@ Request fields:
 		Example: `  flashduty channel unsubscribe-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2089,7 +2162,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2113,13 +2186,14 @@ Request fields:
 		Example: `  flashduty channel unsubscribe-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2142,7 +2216,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2150,7 +2224,7 @@ func genChannelsChannelUnsubscribeRuleListCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	cmd := &cobra.Command{
-		Use:   "unsubscribe-rule-list",
+		Use:   "unsubscribe-rule-list <channel-id>",
 		Short: "List drop rules",
 		Long: `List drop rules.
 
@@ -2176,13 +2250,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel unsubscribe-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2200,7 +2279,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2231,7 +2310,7 @@ Request fields:
 		Example: `  flashduty channel unsubscribe-rule-update --data '{"channel_id":1001,"filters":[[{"key":"labels.env","oper":"IN","vals":["test"]}]],"rule_id":"6621b23f4a2c5e0012ab34cf","rule_name":"Drop test alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-id") {
 						body["channel_id"] = fChannelID
 					}
@@ -2247,6 +2326,7 @@ Request fields:
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2272,7 +2352,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Drop rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2290,7 +2370,7 @@ func genChannelsChannelUpdateCmd() *cobra.Command {
 	var fManagingTeamIDs []int
 	var fTeamID int64
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update <channel-id>",
 		Short: "Update channel",
 		Long: `Update channel.
 
@@ -2330,10 +2410,14 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - external_report_token (string) — Newly generated token for external reporters. Only returned when 'is_external_report_enabled' is set to 'true' in the request. Callers should store this value; it cannot be retrieved afterwards.
 `,
+		Args:    requireExactArg("channel_id"),
 		Example: `  flashduty channel update --data '{"channel_id":1001,"channel_name":"Production Alerts (v2)","description":"Updated description"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("auto-resolve-mode") {
 						body["auto_resolve_mode"] = fAutoResolveMode
 					}
@@ -2367,6 +2451,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2394,7 +2479,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "When true, the channel is visible only to its managing teams.")
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2402,7 +2487,7 @@ func genChannelsRouteInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <integration-id>",
 		Short: "Get routing rule detail",
 		Long: `Get routing rule detail.
 
@@ -2437,13 +2522,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — ID of the person who performed the last update.
   - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty route info --data '{"integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2461,7 +2551,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. Must be greater than 0. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2469,7 +2559,7 @@ func genChannelsRouteListCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationIDs []int
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list <integration-id> [<id2>...]",
 		Short: "List routing rules",
 		Long: `List routing rules.
 
@@ -2505,13 +2595,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_by (integer) (required) — ID of the person who performed the last update.
     - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,
+		Args:    requireArgs("integration_ids"),
 		Example: `  flashduty route list --data '{"integration_ids":[6113996590131,6113996590132]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-ids") {
 						body["integration_ids"] = fIntegrationIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2529,7 +2624,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Integration IDs to fetch routing rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -2538,7 +2633,7 @@ func genChannelsRouteUpsertCmd() *cobra.Command {
 	var fIntegrationID int64
 	var fVersion int64
 	cmd := &cobra.Command{
-		Use:   "upsert",
+		Use:   "upsert <integration-id>",
 		Short: "Upsert routing rule",
 		Long: `Upsert routing rule.
 
@@ -2564,16 +2659,21 @@ Request fields:
     - name (string) (required) — Section name. Must be unique within the rule.
     - position (integer) (required) — Index in 'cases' where this section starts. Must be between 0 and the length of 'cases'.
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty route upsert --data '{"cases":[{"channel_ids":[3521074710131],"fallthrough":false,"if":[{"key":"severity","oper":"IN","vals":["Critical"]}],"routing_mode":"standard"}],"default":{"channel_ids":[3521074710131]},"integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
 					if cmd.Flags().Changed("version") {
 						body["version"] = fVersion
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -2596,7 +2696,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration the rule belongs to. (required)")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Expected current version for optimistic concurrency control. Pass the value returned by the latest read.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

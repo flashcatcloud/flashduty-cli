@@ -12,7 +12,7 @@ func genNotificationTemplatesReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fTemplateID string
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <template-id>",
 		Short: "Get template detail",
 		Long: `Get template detail.
 
@@ -50,13 +50,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - wecom_app (string) (required) — WeCom app message template source.
   - zoom (string) (required) — Zoom bot message template source.
 `,
+		Args:    requireExactArg("template_id"),
 		Example: `  flashduty template info --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("template-id") {
 						body["template_id"] = fTemplateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -74,7 +79,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -142,7 +147,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty template list --data '{"asc":false,"is_my_team":false,"limit":20,"orderby":"updated_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -170,6 +175,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -195,7 +201,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Regex or substring match on template_name.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by specific team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -226,7 +232,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("content") {
 						body["content"] = fContent
 					}
@@ -236,6 +242,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -255,7 +262,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fContent, "content", "", "Template content to render. (required)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.")
 	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -313,7 +320,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty template create --data '{"description":"Default template for production incidents.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","team_id":0,"template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -365,6 +372,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("zoom") {
 						body["zoom"] = fZoom
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -398,7 +406,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -406,7 +414,7 @@ func genNotificationTemplatesWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fTemplateID string
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <template-id>",
 		Short: "Delete a template",
 		Long: `Delete a template.
 
@@ -417,13 +425,18 @@ API: POST /template/delete (template-write-delete)
 Request fields:
   --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
 `,
+		Args:    requireExactArg("template_id"),
 		Example: `  flashduty template delete --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("template-id") {
 						body["template_id"] = fTemplateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -445,7 +458,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -470,7 +483,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fWecomApp string
 	var fZoom string
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update <template-id>",
 		Short: "Update a template",
 		Long: `Update a template.
 
@@ -498,10 +511,14 @@ Request fields:
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
 `,
+		Args:    requireExactArg("template_id"),
 		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -556,6 +573,7 @@ Request fields:
 					if cmd.Flags().Changed("zoom") {
 						body["zoom"] = fZoom
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -594,7 +612,7 @@ Request fields:
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

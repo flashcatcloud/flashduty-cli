@@ -42,7 +42,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty datasource im-war-room-enabled-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -56,7 +57,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

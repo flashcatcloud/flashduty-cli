@@ -45,7 +45,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty team info --data '{"team_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("ref-id") {
 						body["ref_id"] = fRefID
 					}
@@ -55,6 +55,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-name") {
 						body["team_name"] = fTeamName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -74,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -82,7 +83,7 @@ func genTeamsReadInfosCmd() *cobra.Command {
 	var dataJSON string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
-		Use:   "infos",
+		Use:   "infos <team-id> [<id2>...]",
 		Short: "Batch get teams",
 		Long: `Batch get teams.
 
@@ -99,13 +100,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - team_id (integer)
     - team_name (string)
 `,
+		Args:    requireArgs("team_ids"),
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "team_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -123,7 +129,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "List of team IDs to look up. Max 100. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -176,7 +182,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty team list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -198,6 +204,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("query") {
 						body["query"] = fQuery
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -221,7 +228,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at, team_name]")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by member ID — return only teams this person belongs to.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -247,7 +254,7 @@ Request fields:
 		Example: `  flashduty team delete --data '{"team_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("ref-id") {
 						body["ref_id"] = fRefID
 					}
@@ -257,6 +264,7 @@ Request fields:
 					if cmd.Flags().Changed("team-name") {
 						body["team_name"] = fTeamName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -280,7 +288,7 @@ Request fields:
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -322,7 +330,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty team upsert --data '{"description":"Backend reliability engineering team","person_ids":[80011,80012],"team_name":"Backend SRE"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("country-code") {
 						body["countryCode"] = fCountryCode
 					}
@@ -350,6 +358,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-name") {
 						body["team_name"] = fTeamName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -375,7 +384,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "If true and a team with the same name already exists, reset its membership to the provided person_ids.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

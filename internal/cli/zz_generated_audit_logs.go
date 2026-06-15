@@ -27,7 +27,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty audit operation-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -41,7 +42,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -106,7 +107,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if okEndTime {
 						body["end_time"] = vEndTime
 					}
@@ -134,6 +135,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if okStartTime {
 						body["start_time"] = vStartTime
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -159,7 +161,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

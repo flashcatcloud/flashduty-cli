@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -47,11 +48,12 @@ func resolveDataSource(dataFlag string) (string, error) {
 // genAssembleBody builds a request body map from an optional --data JSON blob
 // overlaid with explicitly-set typed flags. Flags win over --data so an agent
 // can pass a JSON skeleton and override one field. setFlags is called after the
-// --data merge to stamp the changed scalar flags.
+// --data merge to stamp the changed scalar flags; it may return an error (e.g.
+// int-parse failure from a positional argument).
 //
 // The --data value accepts two source forms (see resolveDataSource): inline
 // JSON, or - to read STDIN.
-func genAssembleBody(dataFlag string, setFlags func(body map[string]any)) (map[string]any, error) {
+func genAssembleBody(dataFlag string, setFlags func(body map[string]any) error) (map[string]any, error) {
 	dataJSON, err := resolveDataSource(dataFlag)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,9 @@ func genAssembleBody(dataFlag string, setFlags func(body map[string]any)) (map[s
 			return nil, fmt.Errorf("invalid --data JSON: %w", err)
 		}
 	}
-	setFlags(body)
+	if err := setFlags(body); err != nil {
+		return nil, err
+	}
 	return body, nil
 }
 
@@ -82,6 +86,56 @@ func curatedLong(intro, service, method string) string {
 		return intro + "\n\n" + rh
 	}
 	return intro
+}
+
+// genFoldPositional folds a generated command's positional argument(s) into the
+// request body under wire, BEFORE the typed flags are stamped. The flag for the
+// same field is kept; folding the positional first lets an explicitly-set flag
+// still override it (matching genAssembleBody's --data-then-flags overlay order).
+//
+// kind selects how args map onto the body, matching the emitted flag type:
+//
+//	"string"   — string scalar     → body[wire] = args[0]
+//	"int"      — int64 scalar       → body[wire] = ParseInt(args[0]) (schedule_id)
+//	"slice"    — []string variadic  → body[wire] = args (string ids)
+//	"intslice" — []int64 variadic   → body[wire] = [ParseInt(a) for a in args]
+//	             (channel_ids, team_ids, … whose SDK field is []uint64)
+//
+// args is the validated positional slice; the cobra Args validator (requireArgs)
+// guarantees the arity below before RunE runs, but the bounds checks keep this
+// safe if it is ever called directly. A no-positional command never calls this.
+func genFoldPositional(args []string, body map[string]any, wire, kind string) error {
+	switch kind {
+	case "slice":
+		if len(args) > 0 {
+			body[wire] = args
+		}
+	case "intslice":
+		if len(args) > 0 {
+			ids := make([]int64, len(args))
+			for i, a := range args {
+				n, err := strconv.ParseInt(a, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid %s %q: must be an integer", wire, a)
+				}
+				ids[i] = n
+			}
+			body[wire] = ids
+		}
+	case "int":
+		if len(args) > 0 {
+			n, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid %s %q: must be an integer", wire, args[0])
+			}
+			body[wire] = n
+		}
+	default: // "string"
+		if len(args) > 0 {
+			body[wire] = args[0]
+		}
+	}
+	return nil
 }
 
 // genBindBody marshals the assembled body map into the typed request struct so

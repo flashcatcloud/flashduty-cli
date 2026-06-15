@@ -49,13 +49,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty webhook history-detail --data '{"event_id":"20260412Xatt9hrXsgmFkBR78WF655","integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("event-id") {
 						body["event_id"] = fEventID
 					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -74,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by 'ListWebhookHistory'. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to. (required) (min 1)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -136,7 +137,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty webhook history-list --data '{"end_time":1775203200000,"integration_id":6113996590131,"limit":20,"start_time":1775116800000,"status":"success"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
 					}
@@ -167,6 +168,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -193,7 +195,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status. [success, failed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

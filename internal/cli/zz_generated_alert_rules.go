@@ -36,10 +36,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit rule-audit-detail --data '{"id":9001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -57,7 +58,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -89,10 +90,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-audits --data '{"id":50001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -110,7 +112,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -128,7 +130,8 @@ API: POST /monit/rule/counter/channel (monit-rule-read-counter-channel)
 		Example: `  flashduty monit rule-counter-channel --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -142,7 +145,7 @@ API: POST /monit/rule/counter/channel (monit-rule-read-counter-channel)
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -160,7 +163,8 @@ API: POST /monit/rule/counter/node (monit-rule-read-counter-node)
 		Example: `  flashduty monit rule-counter-node --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -174,7 +178,7 @@ API: POST /monit/rule/counter/node (monit-rule-read-counter-node)
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -198,7 +202,8 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-counter-status --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -212,7 +217,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -236,7 +241,8 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-counter-total --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -250,7 +256,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -275,7 +281,8 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-dstypes --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -289,7 +296,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -370,10 +377,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-export --data '{"ids":[50001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("ids") {
 						body["ids"] = fIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -391,7 +399,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -482,10 +490,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit rule-info --data '{"id":50001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -503,7 +512,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -544,10 +553,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-list-basic --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("folder-id") {
 						body["folder_id"] = fFolderID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -565,7 +575,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 to list all accessible rules.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -743,7 +753,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit rule-create --data '{"channel_ids":[20001],"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"check_threshold":{"alerting_check_times":1,"critical":"A","enabled":true,"push_recovery_event":true,"recovery":{"mode":"invert"},"recovery_check_times":1},"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -810,6 +820,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("updater-name") {
 						body["updater_name"] = fUpdaterName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -848,7 +859,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fUpdatedAt, "updated-at", 0, "Request field updated_at")
 	cmd.Flags().Int64Var(&fUpdaterID, "updater-id", 0, "Request field updater_id")
 	cmd.Flags().StringVar(&fUpdaterName, "updater-name", "", "Request field updater_name")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -870,10 +881,11 @@ Request fields:
 		Example: `  flashduty monit rule-delete --data '{"id":50001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -895,7 +907,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -917,10 +929,11 @@ Request fields:
 		Example: `  flashduty monit rule-delete-batch --data '{"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("ids") {
 						body["ids"] = fIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -942,7 +955,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -998,7 +1011,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-update-fields --data '{"enabled":false,"fields":["enabled"],"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
@@ -1038,6 +1051,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					if cmd.Flags().Changed("repeat-total") {
 						body["repeat_total"] = fRepeatTotal
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1067,7 +1081,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs to update. (required)")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Request field repeat_interval")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Request field repeat_total")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1089,7 +1103,8 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-import --data '[{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1106,7 +1121,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1134,13 +1149,14 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-move --data '{"dest_folder_id":200,"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("dest-folder-id") {
 						body["dest_folder_id"] = fDestFolderID
 					}
 					if cmd.Flags().Changed("ids") {
 						body["ids"] = fIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1159,7 +1175,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	}
 	cmd.Flags().Int64Var(&fDestFolderID, "dest-folder-id", 0, "Destination folder ID. (required)")
 	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs to move. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1187,10 +1203,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit rule-status --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("folder-id") {
 						body["folder_id"] = fFolderID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1208,7 +1225,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 for all.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1386,7 +1403,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit rule-update --data '{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"id":50001,"name":"CPU High v2","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 5","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -1453,6 +1470,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("updater-name") {
 						body["updater_name"] = fUpdaterName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1491,7 +1509,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fUpdatedAt, "updated-at", 0, "Request field updated_at")
 	cmd.Flags().Int64Var(&fUpdaterID, "updater-id", 0, "Request field updater_id")
 	cmd.Flags().StringVar(&fUpdaterName, "updater-name", "", "Request field updater_name")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
