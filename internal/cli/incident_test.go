@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -24,5 +25,25 @@ func TestCommandIncidentSimilarLimitReachesWire(t *testing.T) {
 	}
 	if stub.lastBody["incident_id"] != "inc-1" {
 		t.Errorf("incident_id = %#v, want inc-1", stub.lastBody["incident_id"])
+	}
+}
+
+// TestCommandIncidentListChannelIDFlag verifies that `incident list` accepts
+// the canonical --channel-id flag (consistent with the sibling channel
+// commands, e.g. `channel info --channel-id`) and forwards it to /incident/list
+// as channel_ids. An agent that transferred --channel-id from those commands
+// previously hit "unknown flag: --channel-id" and wasted a turn.
+func TestCommandIncidentListChannelIDFlag(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("incident", "list", "--channel-id", "123"); err != nil {
+		t.Fatalf("execCommand --channel-id: %v", err)
+	}
+	if stub.lastPath != "/incident/list" {
+		t.Fatalf("path = %q, want /incident/list", stub.lastPath)
+	}
+	if got, want := fmt.Sprint(stub.lastBody["channel_ids"]), "[123]"; got != want {
+		t.Fatalf("channel_ids = %q, want %q", got, want)
 	}
 }
