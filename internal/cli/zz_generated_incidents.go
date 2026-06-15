@@ -947,7 +947,7 @@ func genIncidentsListCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fCloserIDs []int
 	var fCreatorIDs []int
-	var fEndTime int64
+	var fEndTime string
 	var fEverMuted bool
 	var fIncidentIDs []string
 	var fIncidentSeverity string
@@ -959,7 +959,7 @@ func genIncidentsListCmd() *cobra.Command {
 	var fProgress string
 	var fQuery string
 	var fResponderIDs []int
-	var fStartTime int64
+	var fStartTime string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -979,7 +979,7 @@ Request fields:
   --channel-ids []int — Channel IDs to filter by. Use 0 for standalone (global) incidents.
   --closer-ids []int — Closer member IDs. Use 0 for automatically closed incidents.
   --creator-ids []int — Creator member IDs. Use 0 for automatically created incidents.
-  --end-time int (required) — Window end, Unix seconds. Must be greater than 'start_time' and within 31 days.
+  --end-time string (required) — Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --ever-muted bool — When true, include only incidents that were ever silenced.
   --incident-ids []string — Restrict to the given incident IDs.
   --incident-severity string — Comma-separated list of severities ('Critical,Warning,Info').
@@ -991,7 +991,7 @@ Request fields:
   --progress string — Comma-separated list of progress states to match (e.g. 'Triggered,Processing').
   --query string — Full-text search query.
   --responder-ids []int — Responder member IDs.
-  --start-time int (required) — Window start, Unix seconds.
+  --start-time string (required) — Window start, Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Team IDs; resolved to channels via channel ownership.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -1154,6 +1154,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident list --data '{"channel_ids":[2551105804131],"end_time":1712000000,"incident_severity":"Critical,Warning","limit":20,"p":1,"progress":"Triggered,Processing","start_time":1711900800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -1179,8 +1187,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("creator-ids") {
 						body["creator_ids"] = fCreatorIDs
 					}
-					if cmd.Flags().Changed("end-time") {
-						body["end_time"] = fEndTime
+					if okEndTime {
+						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("ever-muted") {
 						body["ever_muted"] = fEverMuted
@@ -1215,8 +1223,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("responder-ids") {
 						body["responder_ids"] = fResponderIDs
 					}
-					if cmd.Flags().Changed("start-time") {
-						body["start_time"] = fStartTime
+					if okStartTime {
+						body["start_time"] = vStartTime
 					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
@@ -1245,7 +1253,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by. Use 0 for standalone (global) incidents.")
 	cmd.Flags().IntSliceVar(&fCloserIDs, "closer-ids", nil, "Closer member IDs. Use 0 for automatically closed incidents.")
 	cmd.Flags().IntSliceVar(&fCreatorIDs, "creator-ids", nil, "Creator member IDs. Use 0 for automatically created incidents.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "When true, include only incidents that were ever silenced.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Restrict to the given incident IDs.")
 	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Comma-separated list of severities ('Critical,Warning,Info').")
@@ -1257,7 +1265,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated list of progress states to match (e.g. 'Triggered,Processing').")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text search query.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start, Unix seconds. (required)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs; resolved to channels via channel ownership.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1872,8 +1880,8 @@ func genIncidentsPostMortemListCmd() *cobra.Command {
 	var fSearchAfterCtx string
 	var fAsc bool
 	var fChannelIDs []int
-	var fCreatedAtEndSeconds int64
-	var fCreatedAtStartSeconds int64
+	var fCreatedAtEndSeconds string
+	var fCreatedAtStartSeconds string
 	var fOrderBy string
 	var fStatus string
 	var fTeamIDs []int
@@ -1892,8 +1900,8 @@ Request fields:
   --search-after-ctx string — Cursor from a previous response for forward pagination.
   --asc bool — Ascending order when true.
   --channel-ids []int — Channel IDs to restrict the query to.
-  --created-at-end-seconds int — Filter by creation time: upper bound in seconds. (min 0)
-  --created-at-start-seconds int — Filter by creation time: lower bound in seconds. (min 0)
+  --created-at-end-seconds string — Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --created-at-start-seconds string — Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --order-by string — Field used to order results. [created_at_seconds, updated_at_seconds]
   --status string — Report status. Defaults to 'published' on the server when omitted. [drafting, published]
   --team-ids []int — Team IDs to restrict the query to.
@@ -1921,6 +1929,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident post-mortem-list --data '{"limit":20,"p":1,"status":"published"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vCreatedAtEndSeconds, okCreatedAtEndSeconds, err := genParseTimeFlag(cmd, "created-at-end-seconds", fCreatedAtEndSeconds)
+				if err != nil {
+					return err
+				}
+				vCreatedAtStartSeconds, okCreatedAtStartSeconds, err := genParseTimeFlag(cmd, "created-at-start-seconds", fCreatedAtStartSeconds)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -1937,11 +1953,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
-					if cmd.Flags().Changed("created-at-end-seconds") {
-						body["created_at_end_seconds"] = fCreatedAtEndSeconds
+					if okCreatedAtEndSeconds {
+						body["created_at_end_seconds"] = vCreatedAtEndSeconds
 					}
-					if cmd.Flags().Changed("created-at-start-seconds") {
-						body["created_at_start_seconds"] = fCreatedAtStartSeconds
+					if okCreatedAtStartSeconds {
+						body["created_at_start_seconds"] = vCreatedAtStartSeconds
 					}
 					if cmd.Flags().Changed("order-by") {
 						body["order_by"] = fOrderBy
@@ -1973,8 +1989,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to restrict the query to.")
-	cmd.Flags().Int64Var(&fCreatedAtEndSeconds, "created-at-end-seconds", 0, "Filter by creation time: upper bound in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fCreatedAtStartSeconds, "created-at-start-seconds", 0, "Filter by creation time: lower bound in seconds. (min 0)")
+	cmd.Flags().StringVar(&fCreatedAtEndSeconds, "created-at-end-seconds", "", "Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fCreatedAtStartSeconds, "created-at-start-seconds", "", "Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds, updated_at_seconds]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Report status. Defaults to 'published' on the server when omitted. [drafting, published]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs to restrict the query to.")

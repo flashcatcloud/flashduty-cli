@@ -163,14 +163,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genStatusPagesChangeCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fAutoUpdateBySchedule bool
-	var fCloseAtSeconds int64
+	var fCloseAtSeconds string
 	var fDescription string
 	var fIsRetrospective bool
 	var fLinkedChanges []string
 	var fNotifySubscribers bool
 	var fPageID int64
 	var fResponders []int
-	var fStartAtSeconds int64
+	var fStartAtSeconds string
 	var fStatus string
 	var fTitle string
 	var fType string
@@ -185,14 +185,14 @@ API: POST /status-page/change/create (statusPageChangeCreate)
 
 Request fields:
   --auto-update-by-schedule bool — Maintenance only: automatically advance the status based on the scheduled window.
-  --close-at-seconds int — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'.
+  --close-at-seconds string — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --description string — Event description (Markdown). Required by the validator.
   --is-retrospective bool — Mark this event as a retrospective (historical) one.
   --linked-changes []string — Linked change IDs (related incidents, deployments, etc.).
   --notify-subscribers bool — Notify subscribers about this event and all its updates.
   --page-id int (required) — Status page ID.
   --responders []int — Member IDs responsible for this event.
-  --start-at-seconds int — Event start time in unix seconds. Defaults to now when omitted.
+  --start-at-seconds string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --status string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   --title string (required) — Event title, up to 255 characters. (≤255 chars)
   --type string (required) — Event type. [incident, maintenance]
@@ -212,12 +212,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty status-page change-create --data '{"description":"We are investigating degraded performance affecting the web console.","notify_subscribers":true,"page_id":5750613685214,"start_at_seconds":1712000000,"status":"investigating","title":"Web Console Degraded Performance","type":"incident","updates":[{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}],"description":"We are currently investigating an issue affecting some users.","status":"investigating"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vCloseAtSeconds, okCloseAtSeconds, err := genParseTimeFlag(cmd, "close-at-seconds", fCloseAtSeconds)
+				if err != nil {
+					return err
+				}
+				vStartAtSeconds, okStartAtSeconds, err := genParseTimeFlag(cmd, "start-at-seconds", fStartAtSeconds)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("auto-update-by-schedule") {
 						body["auto_update_by_schedule"] = fAutoUpdateBySchedule
 					}
-					if cmd.Flags().Changed("close-at-seconds") {
-						body["close_at_seconds"] = fCloseAtSeconds
+					if okCloseAtSeconds {
+						body["close_at_seconds"] = vCloseAtSeconds
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
@@ -237,8 +245,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("responders") {
 						body["responders"] = fResponders
 					}
-					if cmd.Flags().Changed("start-at-seconds") {
-						body["start_at_seconds"] = fStartAtSeconds
+					if okStartAtSeconds {
+						body["start_at_seconds"] = vStartAtSeconds
 					}
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
@@ -266,14 +274,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().BoolVar(&fAutoUpdateBySchedule, "auto-update-by-schedule", false, "Maintenance only: automatically advance the status based on the scheduled window.")
-	cmd.Flags().Int64Var(&fCloseAtSeconds, "close-at-seconds", 0, "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'.")
+	cmd.Flags().StringVar(&fCloseAtSeconds, "close-at-seconds", "", "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Event description (Markdown). Required by the validator.")
 	cmd.Flags().BoolVar(&fIsRetrospective, "is-retrospective", false, "Mark this event as a retrospective (historical) one.")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked change IDs (related incidents, deployments, etc.).")
 	cmd.Flags().BoolVar(&fNotifySubscribers, "notify-subscribers", false, "Notify subscribers about this event and all its updates.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event.")
-	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Event start time in unix seconds. Defaults to now when omitted.")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type. (required) [incident, maintenance]")
@@ -419,8 +427,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genStatusPagesChangeListCmd() *cobra.Command {
 	var dataJSON string
 	var fPageID int64
-	var fStartAtSeconds int64
-	var fEndAtSeconds int64
+	var fStartAtSeconds string
+	var fEndAtSeconds string
 	var fType string
 	var fStatus string
 	cmd := &cobra.Command{
@@ -434,8 +442,8 @@ API: GET /status-page/change/list (statusPageChangeList)
 
 Request fields:
   --page-id int (required) — Status page ID.
-  --start-at-seconds int — Filter events started at or after this unix timestamp (seconds).
-  --end-at-seconds int — Filter events started at or before this unix timestamp (seconds).
+  --start-at-seconds string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-at-seconds string — Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --type string (required) — Event type filter. Required. [incident, maintenance]
   --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
 
@@ -476,15 +484,23 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vStartAtSeconds, okStartAtSeconds, err := genParseTimeFlag(cmd, "start-at-seconds", fStartAtSeconds)
+				if err != nil {
+					return err
+				}
+				vEndAtSeconds, okEndAtSeconds, err := genParseTimeFlag(cmd, "end-at-seconds", fEndAtSeconds)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
-					if cmd.Flags().Changed("start-at-seconds") {
-						body["start_at_seconds"] = fStartAtSeconds
+					if okStartAtSeconds {
+						body["start_at_seconds"] = vStartAtSeconds
 					}
-					if cmd.Flags().Changed("end-at-seconds") {
-						body["end_at_seconds"] = fEndAtSeconds
+					if okEndAtSeconds {
+						body["end_at_seconds"] = vEndAtSeconds
 					}
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
@@ -509,8 +525,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Filter events started at or after this unix timestamp (seconds).")
-	cmd.Flags().Int64Var(&fEndAtSeconds, "end-at-seconds", 0, "Filter events started at or before this unix timestamp (seconds).")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndAtSeconds, "end-at-seconds", "", "Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -519,7 +535,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genStatusPagesChangeTimelineCreateCmd() *cobra.Command {
 	var dataJSON string
-	var fAtSeconds int64
+	var fAtSeconds string
 	var fChangeID int64
 	var fDescription string
 	var fPageID int64
@@ -534,7 +550,7 @@ Add a timeline update to a status page event.
 API: POST /status-page/change/timeline/create (statusPageChangeTimelineCreate)
 
 Request fields:
-  --at-seconds int — Update timestamp in unix seconds. Defaults to now when omitted.
+  --at-seconds string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --change-id int (required) — Target event ID.
   --description string — Update description (Markdown). Required.
   --page-id int (required) — Status page ID.
@@ -549,9 +565,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty status-page change-timeline-create --data '{"at_seconds":1712003600,"change_id":5821693893131,"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"partial_outage"}],"description":"We have identified the root cause and are working on a fix.","page_id":5750613685214,"status":"identified"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vAtSeconds, okAtSeconds, err := genParseTimeFlag(cmd, "at-seconds", fAtSeconds)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("at-seconds") {
-						body["at_seconds"] = fAtSeconds
+					if okAtSeconds {
+						body["at_seconds"] = vAtSeconds
 					}
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
@@ -581,7 +601,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAtSeconds, "at-seconds", 0, "Update timestamp in unix seconds. Defaults to now when omitted.")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
@@ -651,7 +671,7 @@ Request fields:
 
 func genStatusPagesChangeTimelineUpdateCmd() *cobra.Command {
 	var dataJSON string
-	var fAtSeconds int64
+	var fAtSeconds string
 	var fChangeID int64
 	var fDescription string
 	var fPageID int64
@@ -666,7 +686,7 @@ Update a timeline entry for a status page event.
 API: POST /status-page/change/timeline/update (statusPageChangeTimelineUpdate)
 
 Request fields:
-  --at-seconds int — New update timestamp in unix seconds.
+  --at-seconds string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --change-id int (required) — Parent event ID.
   --description string — New update description (Markdown).
   --page-id int (required) — Status page ID.
@@ -675,9 +695,13 @@ Request fields:
 		Example: `  flashduty status-page change-timeline-update --data '{"at_seconds":1712003600,"change_id":5821693893131,"description":"Corrected description: root cause identified in database layer.","page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vAtSeconds, okAtSeconds, err := genParseTimeFlag(cmd, "at-seconds", fAtSeconds)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("at-seconds") {
-						body["at_seconds"] = fAtSeconds
+					if okAtSeconds {
+						body["at_seconds"] = vAtSeconds
 					}
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
@@ -711,7 +735,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAtSeconds, "at-seconds", 0, "New update timestamp in unix seconds.")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New update description (Markdown).")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")

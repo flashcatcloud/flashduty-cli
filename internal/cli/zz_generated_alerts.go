@@ -15,12 +15,12 @@ func genAlertsEventReadListCmd() *cobra.Command {
 	var fSearchAfterCtx string
 	var fAsc bool
 	var fChannelIDs []int
-	var fEndTime int64
+	var fEndTime string
 	var fIntegrationIDs []int
 	var fIntegrationTypes []string
 	var fOrderby string
 	var fSeverities string
-	var fStartTime int64
+	var fStartTime string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List raw alert events",
@@ -36,12 +36,12 @@ Request fields:
   --search-after-ctx string — Opaque cursor for the next page.
   --asc bool — Sort ascending when 'true'.
   --channel-ids []int — Filter by channel IDs. Max 100.
-  --end-time int — End of search window, Unix epoch seconds.
+  --end-time string — End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --integration-ids []int — Filter by integration IDs.
   --integration-types []string — Filter by integration types (plugin keys).
   --orderby string — Sort field (ES field name). [event_time]
   --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'.
-  --start-time int — Start of search window, Unix epoch seconds.
+  --start-time string — Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
@@ -74,6 +74,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty alert-event list --data '{"end_time":1712707200,"limit":20,"severities":"Critical","start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -90,8 +98,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
-					if cmd.Flags().Changed("end-time") {
-						body["end_time"] = fEndTime
+					if okEndTime {
+						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("integration-ids") {
 						body["integration_ids"] = fIntegrationIDs
@@ -105,8 +113,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("severities") {
 						body["severities"] = fSeverities
 					}
-					if cmd.Flags().Changed("start-time") {
-						body["start_time"] = fStartTime
+					if okStartTime {
+						body["start_time"] = vStartTime
 					}
 				})
 				if err != nil {
@@ -129,12 +137,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor for the next page.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. Max 100.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of search window, Unix epoch seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field (ES field name). [event_time]")
 	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of search window, Unix epoch seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -407,12 +415,12 @@ func genAlertsReadListCmd() *cobra.Command {
 	var fAsc bool
 	var fByUpdatedAt bool
 	var fChannelIDs []int
-	var fEndTime int64
+	var fEndTime string
 	var fEverMuted bool
 	var fIntegrationIDs []int
 	var fIsActive bool
 	var fOrderby string
-	var fStartTime int64
+	var fStartTime string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts",
@@ -432,12 +440,12 @@ Request fields:
   --asc bool — Sort ascending when 'true'. Default descending.
   --by-updated-at bool — When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.
   --channel-ids []int — Filter by channel IDs.
-  --end-time int (required) — End of the search window, Unix epoch seconds. Max span 31 days.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Max span 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --ever-muted bool — Filter by whether the alert has ever been silenced.
   --integration-ids []int — Filter by integration IDs.
   --is-active bool — Filter by active ('true') or resolved ('false') status.
   --orderby string — Sort field. [created_at, updated_at]
-  --start-time int (required) — Start of the search window, Unix epoch seconds.
+  --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
@@ -508,6 +516,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty alert list --data '{"end_time":1712707200,"is_active":true,"limit":20,"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -536,8 +552,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
-					if cmd.Flags().Changed("end-time") {
-						body["end_time"] = fEndTime
+					if okEndTime {
+						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("ever-muted") {
 						body["ever_muted"] = fEverMuted
@@ -551,8 +567,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
 					}
-					if cmd.Flags().Changed("start-time") {
-						body["start_time"] = fStartTime
+					if okStartTime {
+						body["start_time"] = vStartTime
 					}
 				})
 				if err != nil {
@@ -579,12 +595,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'. Default descending.")
 	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the search window, Unix epoch seconds. Max span 31 days. (required)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Max span 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "Filter by whether the alert has ever been silenced.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by active ('true') or resolved ('false') status.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the search window, Unix epoch seconds. (required)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

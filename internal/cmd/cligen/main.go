@@ -740,12 +740,27 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	for _, f := range o.Fields {
 		specByWire[f.Wire] = f
 	}
+	// Pre-compute which scalar fields are unix-seconds timestamps so the three
+	// emit loops below can check a map lookup instead of re-evaluating the
+	// string-scanning predicate on every iteration.
+	isTime := map[string]bool{}
+	for _, sf := range scalars {
+		if isUnixSecondsField(sf.Wire, sf.Kind, specByWire[sf.Wire].Desc) {
+			isTime[sf.Wire] = true
+		}
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "func %s() *cobra.Command {\n", fn)
 	b.WriteString("\tvar dataJSON string\n")
 	for _, sf := range scalars {
-		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), goFlagType(sf.Kind))
+		typ := goFlagType(sf.Kind)
+		if isTime[sf.Wire] {
+			// Relative-time flag: a string at the CLI surface ("7d"/"now"/date/
+			// unix), parsed to unix seconds at runtime (see genParseTimeFlag).
+			typ = "string"
+		}
+		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), typ)
 	}
 
 	// Command literal. The leaf verb must match the name registered in
@@ -755,14 +770,29 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	fmt.Fprintf(&b, "\t\tUse:   %q,\n", verb)
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
-	if ex := exampleHelp(o, verb, s); ex != "" {
+	if ex := exampleHelp(o); ex != "" {
 		fmt.Fprintf(&b, "\t\tExample: %s,\n", quoteMultiline(ex))
 	}
 	b.WriteString("\t\tRunE: func(cmd *cobra.Command, args []string) error {\n")
 	b.WriteString("\t\t\treturn runCommand(cmd, args, func(ctx *RunContext) error {\n")
+	// Relative-time flags are parsed to unix seconds before body assembly,
+	// mirroring the curated incident-list --since/--until handling.
+	for _, sf := range scalars {
+		if !isTime[sf.Wire] {
+			continue
+		}
+		fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
+			parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
+		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
+	}
 	// body assembly
 	b.WriteString("\t\t\t\tbody, err := genAssembleBody(dataJSON, func(body map[string]any) {\n")
 	for _, sf := range scalars {
+		if isTime[sf.Wire] {
+			fmt.Fprintf(&b, "\t\t\t\t\tif %s {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
+				okTimeVar(sf.Wire), sf.Wire, parsedTimeVar(sf.Wire))
+			continue
+		}
 		fmt.Fprintf(&b, "\t\t\t\t\tif cmd.Flags().Changed(%q) {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
 			flagName(sf.Wire), sf.Wire, flagVar(sf.Wire))
 	}
@@ -800,6 +830,11 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	// flags
 	for _, sf := range scalars {
 		usage := flagUsage(specByWire[sf.Wire])
+		if isTime[sf.Wire] {
+			fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
+				flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint)
+			continue
+		}
 		fmt.Fprintf(&b, "\tcmd.Flags().%s(&%s, %q, %s, %q)\n",
 			flagSetter(sf.Kind), flagVar(sf.Wire), flagName(sf.Wire), flagZero(sf.Kind), usage)
 	}
@@ -895,7 +930,15 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 			if f.Required {
 				req = " (required)"
 			}
-			line := fmt.Sprintf("  --%s %s%s", flagName(sf.Wire), sf.Kind, req)
+			// A unix-seconds field is a relative-time string flag at the CLI
+			// surface (see emitCmd / isUnixSecondsField); document it as the type
+			// the user actually passes, not the underlying int.
+			isTime := isUnixSecondsField(sf.Wire, sf.Kind, f.Desc)
+			kind := sf.Kind
+			if isTime {
+				kind = "string"
+			}
+			line := fmt.Sprintf("  --%s %s%s", flagName(sf.Wire), kind, req)
 			if f.Desc != "" {
 				line += " — " + oneLine(f.Desc)
 			}
@@ -904,6 +947,9 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 			}
 			if f.Constraint != "" {
 				line += " (" + f.Constraint + ")"
+			}
+			if isTime {
+				line += relativeTimeHint
 			}
 			b.WriteString(line + "\n")
 		}
@@ -1046,12 +1092,11 @@ func renderTree(b *strings.Builder, fields []schemaField, indent int) {
 	}
 }
 
-func exampleHelp(o specOp, verb string, s service) string {
-	cmdPath := "flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path)
-	if o.Example != "" {
-		return "  " + cmdPath + " --data '" + o.Example + "'"
+func exampleHelp(o specOp) string {
+	if o.Example == "" {
+		return ""
 	}
-	return ""
+	return "  flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path) + " --data '" + o.Example + "'"
 }
 
 func flagUsage(f specField) string {
@@ -1091,6 +1136,52 @@ func flagName(wire string) string {
 	return kebab(wire)
 }
 func flagVar(wire string) string { return "f" + pascal(tokens(wire)) }
+
+// parsedTimeVar / okTimeVar name the runtime locals a relative-time flag parses
+// into (the unix-seconds value and whether the flag was set).
+func parsedTimeVar(wire string) string { return "v" + pascal(tokens(wire)) }
+func okTimeVar(wire string) string     { return "ok" + pascal(tokens(wire)) }
+
+// isUnixSecondsField reports whether an integer request field is a unix-SECONDS
+// timestamp — the only kind for which a relative-time flag ("7d"/"now"/date)
+// makes sense. It deliberately excludes:
+//   - millisecond timestamps (RUM/sourcemap/webhook windows): timeutil.Parse
+//     yields seconds, which would be 1000x wrong;
+//   - durations ("timeout in seconds", "seconds_to_ack", "delay_seconds"): a
+//     count of seconds, not a point in time.
+//
+// Detection in priority order:
+//  1. millisecond exclusion always wins (so a misleading name can't override it);
+//  2. the description names it a unix/epoch-seconds timestamp (the common case);
+//  3. name conventions for fields the description under-documents:
+//     - a bare window boundary `start`/`end` (schedule windows describe these in
+//     prose only, e.g. scheduleList.start), and
+//     - the `<point>_at_…_seconds` timestamp convention (close_at_seconds,
+//     created_at_start_seconds). The `_at_` point-in-time marker is what
+//     distinguishes these from a `delay_seconds`-style duration, which has none.
+func isUnixSecondsField(name, kind, desc string) bool {
+	if kind != "int" {
+		return false
+	}
+	d := strings.ToLower(desc)
+	if strings.Contains(d, "millisecond") {
+		return false
+	}
+	if (strings.Contains(d, "unix") || strings.Contains(d, "epoch")) && strings.Contains(d, "second") {
+		return true
+	}
+	n := strings.ToLower(name)
+	if n == "start" || n == "end" {
+		return true
+	}
+	return strings.HasSuffix(n, "_seconds") && strings.Contains(n, "_at_")
+}
+
+// relativeTimeHint documents the forms a relative-time flag accepts. Appended to
+// BOTH the cobra flag usage and the Long "Request fields" doc line so the two
+// renderings of the same flag agree (and the agent skill-doc corpus, which reads
+// the Long block, sees the relative-time capability).
+const relativeTimeHint = " Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds."
 
 func goFlagType(kind string) string {
 	switch kind {
