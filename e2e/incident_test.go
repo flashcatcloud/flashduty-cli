@@ -101,10 +101,10 @@ func TestIncidentLifecycle(t *testing.T) {
 	requireContains(t, r.Stdout, "Triggered")
 	requireContains(t, r.Stdout, name)
 
-	// Step 3: Ack
+	// Step 3: Ack (served by the generated twin; positional id → incident_ids).
 	r = runCLI(t, "incident", "ack", id)
 	requireSuccess(t, r)
-	requireContains(t, r.Stdout, "Acknowledged 1 incident(s).")
+	requireContains(t, r.Stdout, "OK: POST /incident/ack")
 
 	// Step 4: Get - should be Processing
 	r = runCLI(t, "incident", "get", id)

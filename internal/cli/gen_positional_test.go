@@ -11,9 +11,10 @@ import (
 // the variadic marker; an *_id scalar op renders the single id; the override and
 // int cases render their pinned field.
 func TestGenPositionalUseLine(t *testing.T) {
-	// (a) and (b) read the generated constructors directly (the curated commands
-	// own the live `incident ack`/`incident info` path-names, so the generated
-	// twins are dropped at registration but still constructible for assertion).
+	// (a) and (b) call the generated constructors directly so the Use-line
+	// assertions stay independent of registration order. `incident ack` now
+	// surfaces the generated twin (curated shadow dropped); `incident info` was
+	// always generated-only (the curated leaf is named `detail`).
 	ack := genIncidentsAckCmd()
 	if got := ack.Use; got != "ack <incident-id> [<id2>...]" {
 		t.Errorf("ack twin Use = %q, want %q", got, "ack <incident-id> [<id2>...]")
