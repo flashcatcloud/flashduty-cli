@@ -31,10 +31,12 @@ var (
 	flagOutputFormat string
 )
 
-var updateNotice *update.CheckResult
-var updateCheckWarning string
-var isTerminalFn = term.IsTerminal
-var checkForUpdateAutoFn = update.CheckForUpdateAuto
+var (
+	updateNotice         *update.CheckResult
+	updateCheckWarning   string
+	isTerminalFn         = term.IsTerminal
+	checkForUpdateAutoFn = update.CheckForUpdateAuto
+)
 
 var rootCmd = &cobra.Command{
 	Use:           "flashduty",
@@ -105,7 +107,8 @@ func init() {
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newIncidentCmd())
 	rootCmd.AddCommand(newChangeCmd())
-	rootCmd.AddCommand(newMemberCmd())
+	// member is served by the generated command group (member list now exposes
+	// --query/--role-id/--orderby/--asc and the full member API surface).
 	rootCmd.AddCommand(newTeamCmd())
 	rootCmd.AddCommand(newChannelCmd())
 	rootCmd.AddCommand(newFieldCmd())

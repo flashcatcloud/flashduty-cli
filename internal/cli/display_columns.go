@@ -1,14 +1,47 @@
 package cli
 
+import (
+	"fmt"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
+)
+
 // colSpec is a display-only column for the generic table renderer: which row
 // field to show, its header, and an optional width cap. It NEVER affects flags or
 // json/toon output — a wrong entry degrades a single table column at worst, it
 // can't cause a functional error. Field is the Go struct field name on the row
-// type; timestamp fields are detected and formatted automatically.
+// type; timestamp fields are detected and formatted automatically. Format, when
+// set, renders the raw field value with a semantic formatter (percent, duration)
+// the default scalar rendering doesn't apply — display-only, like the rest.
 type colSpec struct {
 	Header   string
 	Field    string
 	MaxWidth int
+	Format   func(any) string
+}
+
+// fmtPercent renders a 0..1 ratio as a whole-number percentage ("85%"), matching
+// the curated insight tables. A non-float value yields "".
+func fmtPercent(v any) string {
+	if f, ok := v.(float64); ok {
+		return fmt.Sprintf("%.0f%%", f*100)
+	}
+	return ""
+}
+
+// fmtSecondsDuration renders a seconds count (int or float) as a human duration
+// ("2m 30s"), matching the curated insight MTTA/MTTR/engaged columns.
+func fmtSecondsDuration(v any) string {
+	switch n := v.(type) {
+	case float64:
+		return output.FormatDurationFloat(n)
+	case int64:
+		return output.FormatDuration(int(n))
+	case int:
+		return output.FormatDuration(n)
+	default:
+		return ""
+	}
 }
 
 // displayColumns maps a go-flashduty response row type (by Go type name) to its
@@ -105,5 +138,27 @@ var displayColumns = map[string][]colSpec{
 		{Header: "NAME", Field: "PersonName"},
 		{Header: "EMAIL", Field: "Email"},
 		{Header: "STATUS", Field: "Status"},
+	},
+	// DimensionInsightItem backs both `insight team` and `insight channel` (same
+	// Go type, different populated name field) — show both name columns, the
+	// irrelevant one renders empty. Columns mirror the curated insight tables.
+	"DimensionInsightItem": {
+		{Header: "TEAM", Field: "TeamName", MaxWidth: 30},
+		{Header: "CHANNEL", Field: "ChannelName", MaxWidth: 30},
+		{Header: "INCIDENTS", Field: "TotalIncidentCnt"},
+		{Header: "ACK%", Field: "AcknowledgementPct", Format: fmtPercent},
+		{Header: "MTTA", Field: "MeanSecondsToAck", Format: fmtSecondsDuration},
+		{Header: "MTTR", Field: "MeanSecondsToClose", Format: fmtSecondsDuration},
+		{Header: "NOISE_REDUCTION", Field: "NoiseReductionPct", Format: fmtPercent},
+		{Header: "ALERTS", Field: "TotalAlertCnt"},
+		{Header: "EVENTS", Field: "TotalAlertEventCnt"},
+	},
+	"ResponderInsightItem": {
+		{Header: "RESPONDER", Field: "ResponderName", MaxWidth: 30},
+		{Header: "INCIDENTS", Field: "TotalIncidentCnt"},
+		{Header: "ACK%", Field: "AcknowledgementPct", Format: fmtPercent},
+		{Header: "MTTA", Field: "MeanSecondsToAck", Format: fmtSecondsDuration},
+		{Header: "INTERRUPTIONS", Field: "TotalInterruptions"},
+		{Header: "ENGAGED", Field: "TotalEngagedSeconds", Format: fmtSecondsDuration},
 	},
 }
