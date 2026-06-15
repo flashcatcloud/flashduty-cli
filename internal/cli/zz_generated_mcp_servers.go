@@ -12,7 +12,7 @@ func genMcpServersReadServerGetCmd() *cobra.Command {
 	var dataJSON string
 	var fServerID string
 	cmd := &cobra.Command{
-		Use:   "mcp-server-get",
+		Use:   "mcp-server-get <server-id>",
 		Short: "Get MCP server detail",
 		Long: `Get MCP server detail.
 
@@ -54,13 +54,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
   - url (string) — Endpoint URL for sse or streamable-http transport.
 `,
+		Args:    requireExactArg("server_id"),
 		Example: `  flashduty safari mcp-server-get --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("server-id") {
 						body["server_id"] = fServerID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -78,7 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -141,7 +146,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty safari mcp-server-list --data '{"include_account":true,"limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -157,6 +162,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -178,7 +184,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -257,7 +263,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty safari mcp-server-create --data '{"args":["-y","@modelcontextprotocol/server-github"],"command":"npx","description":"Read issues and pull requests from GitHub.","env":{"GITHUB_TOKEN":"ghp_xxx"},"server_name":"GitHub Tools","status":"enabled","team_id":0,"transport":"stdio"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("args") {
 						body["args"] = fArgs
 					}
@@ -297,6 +303,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("url") {
 						body["url"] = fURL
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -326,7 +333,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team for the new server; 0 for account scope.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport used to reach the server. (required) [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "Endpoint URL for sse or streamable-http transport.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -334,7 +341,7 @@ func genMcpServersWriteServerDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fServerID string
 	cmd := &cobra.Command{
-		Use:   "mcp-server-delete",
+		Use:   "mcp-server-delete <server-id>",
 		Short: "Delete MCP server",
 		Long: `Delete MCP server.
 
@@ -345,13 +352,18 @@ API: POST /safari/mcp/server/delete (mcp-write-server-delete)
 Request fields:
   --server-id string (required) — Identifier of the server to delete.
 `,
+		Args:    requireExactArg("server_id"),
 		Example: `  flashduty safari mcp-server-delete --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("server-id") {
 						body["server_id"] = fServerID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -369,7 +381,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -377,7 +389,7 @@ func genMcpServersWriteServerDisableCmd() *cobra.Command {
 	var dataJSON string
 	var fServerID string
 	cmd := &cobra.Command{
-		Use:   "mcp-server-disable",
+		Use:   "mcp-server-disable <server-id>",
 		Short: "Disable MCP server",
 		Long: `Disable MCP server.
 
@@ -388,13 +400,18 @@ API: POST /safari/mcp/server/disable (mcp-write-server-disable)
 Request fields:
   --server-id string (required) — Identifier of the target server.
 `,
+		Args:    requireExactArg("server_id"),
 		Example: `  flashduty safari mcp-server-disable --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("server-id") {
 						body["server_id"] = fServerID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -412,7 +429,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -420,7 +437,7 @@ func genMcpServersWriteServerEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fServerID string
 	cmd := &cobra.Command{
-		Use:   "mcp-server-enable",
+		Use:   "mcp-server-enable <server-id>",
 		Short: "Enable MCP server",
 		Long: `Enable MCP server.
 
@@ -431,13 +448,18 @@ API: POST /safari/mcp/server/enable (mcp-write-server-enable)
 Request fields:
   --server-id string (required) — Identifier of the target server.
 `,
+		Args:    requireExactArg("server_id"),
 		Example: `  flashduty safari mcp-server-enable --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("server-id") {
 						body["server_id"] = fServerID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -455,7 +477,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -475,7 +497,7 @@ func genMcpServersWriteServerUpdateCmd() *cobra.Command {
 	var fTransport string
 	var fURL string
 	cmd := &cobra.Command{
-		Use:   "mcp-server-update",
+		Use:   "mcp-server-update <server-id>",
 		Short: "Update MCP server",
 		Long: `Update MCP server.
 
@@ -531,10 +553,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
   - url (string) — Endpoint URL for sse or streamable-http transport.
 `,
+		Args:    requireExactArg("server_id"),
 		Example: `  flashduty safari mcp-server-update --data '{"description":"Read issues, PRs, and commits from GitHub.","server_id":"mcp-2b5e8d14a7c9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("args") {
 						body["args"] = fArgs
 					}
@@ -574,6 +600,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("url") {
 						body["url"] = fURL
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -603,7 +630,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the server to this team; omit to leave unchanged, 0 for account scope.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "New transport for the server. [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL for remote transports.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

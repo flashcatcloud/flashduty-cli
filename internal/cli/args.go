@@ -24,6 +24,23 @@ func requireArgs(argNames ...string) cobra.PositionalArgs {
 	}
 }
 
+// requireExactArg returns a positional argument validator that requires exactly
+// one argument named name, producing friendly messages that match requireArgs style:
+//
+//   - zero args: "missing <name>. Usage: ..."
+//   - >1 args:   "expects exactly one <name>. Usage: ..."
+func requireExactArg(name string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		switch {
+		case len(args) == 0:
+			return fmt.Errorf("missing %s. Usage: %s", name, cmd.UseLine())
+		case len(args) > 1:
+			return fmt.Errorf("expects exactly one %s. Usage: %s", name, cmd.UseLine())
+		}
+		return nil
+	}
+}
+
 // requireExactlyOneFlag validates that exactly one of the named flags is set.
 func requireExactlyOneFlag(cmd *cobra.Command, flagNames ...string) error {
 	set := 0

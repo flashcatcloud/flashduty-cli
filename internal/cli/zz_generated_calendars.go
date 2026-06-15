@@ -28,13 +28,14 @@ Request fields:
 		Example: `  flashduty calendar event-delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","event_id":"cale.KyG9XWTCU5CucbwukEVBQ4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
 					if cmd.Flags().Changed("event-id") {
 						body["event_id"] = fEventID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -57,7 +58,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -68,7 +69,7 @@ func genCalendarsCalEventListCmd() *cobra.Command {
 	var fMonth int64
 	var fYear int64
 	cmd := &cobra.Command{
-		Use:   "event-list",
+		Use:   "event-list <cal-id>",
 		Short: "List calendar events",
 		Long: `List calendar events.
 
@@ -97,10 +98,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (Unix seconds).
   - total (integer) (required) — Total number of events returned.
 `,
+		Args:    requireExactArg("cal_id"),
 		Example: `  flashduty calendar event-list --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","month":5,"year":2024}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
@@ -113,6 +118,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("year") {
 						body["year"] = fYear
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -133,7 +139,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter. (0-31)")
 	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter. (0-12)")
 	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted. (min 2023)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -147,7 +153,7 @@ func genCalendarsCalEventUpsertCmd() *cobra.Command {
 	var fStartAt string
 	var fSummary string
 	cmd := &cobra.Command{
-		Use:   "event-upsert",
+		Use:   "event-upsert <cal-id>",
 		Short: "Upsert calendar event",
 		Long: `Upsert calendar event.
 
@@ -169,10 +175,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - event_id (string) (required) — Event ID (existing or newly generated).
   - summary (string) (required) — Event summary.
 `,
+		Args:    requireExactArg("cal_id"),
 		Example: `  flashduty calendar event-upsert --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","description":"International Workers Day holiday","end_at":"2024-05-06","is_off":true,"start_at":"2024-05-01","summary":"Labour Day"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
@@ -194,6 +204,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("summary") {
 						body["summary"] = fSummary
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -217,7 +228,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsOff, "is-off", false, "Whether the event marks a non-working day. true = day off, false = working day override. (required)")
 	cmd.Flags().StringVar(&fStartAt, "start-at", "", "Event start date in YYYY-MM-DD. (required)")
 	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -253,7 +264,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty calendar create --data '{"cal_name":"Production On-Call Calendar","description":"Calendar for production on-call team","timezone":"Asia/Shanghai","workdays":[1,2,3,4,5]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("cal-name") {
 						body["cal_name"] = fCalName
 					}
@@ -272,6 +283,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("workdays") {
 						body["workdays"] = fWorkdays
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -294,7 +306,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. 0 means no team.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone. Defaults to Asia/Shanghai when empty.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -302,7 +314,7 @@ func genCalendarsCalendarDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fCalID string
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <cal-id>",
 		Short: "Delete calendar",
 		Long: `Delete calendar.
 
@@ -313,13 +325,18 @@ API: POST /calendar/delete (calendarDelete)
 Request fields:
   --cal-id string (required) — Calendar ID.
 `,
+		Args:    requireExactArg("cal_id"),
 		Example: `  flashduty calendar delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -341,7 +358,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -349,7 +366,7 @@ func genCalendarsCalendarInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fCalID string
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <cal-id>",
 		Short: "Get calendar info",
 		Long: `Get calendar info.
 
@@ -376,13 +393,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater person ID.
   - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
+		Args:    requireExactArg("cal_id"),
 		Example: `  flashduty calendar info --data '{"cal_id":"cal.eh9gvPtWeH3xXgKeVSRxRg"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -400,7 +422,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -442,13 +464,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty calendar list --data '{"kind":"personal"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("kind") {
 						body["kind"] = fKind
 					}
 					if cmd.Flags().Changed("no-locale") {
 						body["no_locale"] = fNoLocale
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -467,7 +490,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]")
 	cmd.Flags().BoolVar(&fNoLocale, "no-locale", false, "Disable locale filtering when listing public-holiday calendars.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -481,7 +504,7 @@ func genCalendarsCalendarUpdateCmd() *cobra.Command {
 	var fTimezone string
 	var fWorkdays []int
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update <cal-id>",
 		Short: "Update calendar",
 		Long: `Update calendar.
 
@@ -498,10 +521,14 @@ Request fields:
   --timezone string — New IANA timezone.
   --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
+		Args:    requireExactArg("cal_id"),
 		Example: `  flashduty calendar update --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","cal_name":"Production On-Call Calendar (Updated)","timezone":"America/New_York","workdays":[1,2,3,4,5]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
@@ -523,6 +550,7 @@ Request fields:
 					if cmd.Flags().Changed("workdays") {
 						body["workdays"] = fWorkdays
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -550,7 +578,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

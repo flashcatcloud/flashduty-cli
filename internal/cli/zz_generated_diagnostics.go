@@ -67,10 +67,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - end (integer)
     - start (integer)
 `,
-		Example: `  flashduty monit query-diagnose --data '{"account_id":10001,"ds_name":"vmlogs-read","ds_type":"victorialogs","input":{"query":"_stream:{status='500'}"},"methods":[{"name":"pattern_snapshot"},{"baseline":"same_window_yesterday","name":"pattern_compare"}],"operation":"log_patterns","options":{"examples_per_pattern":2,"max_logs_scanned":10000,"max_patterns":20,"timeout_seconds":25},"time_range":{"end":1776849344,"start":1776847544}}'`,
+		Example: `  flashduty monit query-diagnose --data '{"account_id":10001,"ds_name":"vmlogs-read","ds_type":"victorialogs","input":{"query":"_stream:{status='\''500'\''}"},"methods":[{"name":"pattern_snapshot"},{"baseline":"same_window_yesterday","name":"pattern_compare"}],"operation":"log_patterns","options":{"examples_per_pattern":2,"max_logs_scanned":10000,"max_patterns":20,"timeout_seconds":25},"time_range":{"end":1776849344,"start":1776847544}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -83,6 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("operation") {
 						body["operation"] = fOperation
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -103,7 +104,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name configured under the tenant. (required)")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'. (required)")
 	cmd.Flags().StringVar(&fOperation, "operation", "", "Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. [log_patterns, metric_trends]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -138,7 +139,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit query-rows --data '{"account_id":10001,"delay_seconds":30,"ds_name":"prod-prom","ds_type":"prometheus","expr":"up"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -154,6 +155,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					if cmd.Flags().Changed("expr") {
 						body["expr"] = fExpr
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -175,7 +177,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name; must match a configured data source under the tenant. (required)")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'. (required)")
 	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -214,7 +216,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty monit targets --data '{"keyword":"db-prod","limit":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -227,6 +229,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("limit") {
 						body["limit"] = fLimit
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -247,7 +250,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fCursor, "cursor", "", "Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 50, max 200. (max 200)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -290,7 +293,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit tools-catalog --data '{"account_id":10001,"include_output_shape":true,"target_locator":"web-01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -303,6 +306,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("target-locator") {
 						body["target_locator"] = fTargetLocator
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -323,7 +327,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIncludeOutputShape, "include-output-shape", false, "When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.")
 	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.")
 	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -370,7 +374,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit tools-invoke --data '{"account_id":10001,"target_locator":"web-01","tools":[{"params":{},"tool":"os.overview"},{"params":{"host":"10.0.0.10","port":3306},"tool":"net.tcp_ping"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -380,6 +384,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("target-locator") {
 						body["target_locator"] = fTargetLocator
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -399,7 +404,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
 	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind; auto-inferred when omitted.")
 	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier. Same validation rules as '/monit/tools/catalog'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

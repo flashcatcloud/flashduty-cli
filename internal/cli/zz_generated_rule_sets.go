@@ -44,7 +44,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit store-ruleset-create --data '{"note":"CPU usage alerts","open_flag":1,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.8\"}]","type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("note") {
 						body["note"] = fNote
 					}
@@ -57,6 +57,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -77,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.")
 	cmd.Flags().StringVar(&fPayload, "payload", "", "JSON string containing the alert rule definitions. (required)")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier this ruleset applies to, e.g. 'prometheus'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -99,10 +100,11 @@ Request fields:
 		Example: `  flashduty monit store-ruleset-delete --data '{"id":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -124,7 +126,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -158,10 +160,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit store-ruleset-info --data '{"id":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -179,7 +182,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -213,10 +216,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit store-ruleset-list --data '{"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -234,7 +238,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier to filter by, e.g. 'prometheus'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -274,7 +278,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit store-ruleset-update --data '{"id":1,"note":"Updated CPU alerts","open_flag":2,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.9\"}]"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
@@ -287,6 +291,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("payload") {
 						body["payload"] = fPayload
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -307,7 +312,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fNote, "note", "", "New description. (required)")
 	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "New sharing scope. '0' = private, '1' = account-shared, '2' = public.")
 	cmd.Flags().StringVar(&fPayload, "payload", "", "New JSON string of alert rule definitions. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

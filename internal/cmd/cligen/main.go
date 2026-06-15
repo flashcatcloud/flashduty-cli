@@ -677,6 +677,108 @@ func scalarKind(t reflect.Type) (string, bool) {
 	return "", false
 }
 
+// ---- positional argument selection -----------------------------------------
+
+// positionalOverride maps an operationId to the wire name that should become the
+// command's positional argument, consulted BEFORE the *_id/*_ids heuristic. It
+// exists for ops where the heuristic would pick the wrong field:
+//   - incidentMerge has both a required scalar target_incident_id and a required
+//     array source_incident_ids; array-wins would pick the sources, but the
+//     merge TARGET is the natural positional (sources stay a --source-incident-ids
+//     flag).
+//   - incidentWarRoomDetail / incident-write-add-war-room-member each have two
+//     required scalar *_id fields (chat_id + integration_id); the chat is the
+//     subject, so pin chat_id rather than leave it ambiguous (and skipped).
+//   - monit-rule-write-move: the body has a required `ids` field (not matching
+//     *_ids) for the rules to move, and a required `dest_folder_id` scalar for the
+//     destination. The heuristic sees only dest_folder_id (single required *_id)
+//     and picks it, making the command feel like `rule-move <dest>` while `--ids`
+//     carries the actual subjects. Suppress the positional entirely so both fields
+//     are explicit flags.
+//
+// An empty string in this map means "suppress positional" — no positional is
+// emitted for that operation, even when the heuristic would pick one.
+var positionalOverride = map[string]string{
+	"incidentMerge":                      "target_incident_id",
+	"incidentWarRoomDetail":              "chat_id",
+	"incident-write-add-war-room-member": "chat_id",
+	"monit-rule-write-move":              "", // suppress: `ids` bypasses *_ids heuristic; dest_folder_id is not the natural subject
+}
+
+// positional describes the positional argument a generated command exposes.
+type positional struct {
+	Wire  string // request-body wire key the positional folds into
+	Kind  string // "string" | "slice" | "int" — selects genFoldPositional behavior
+	Array bool   // true => variadic (>=1 arg); false => exactly one arg
+}
+
+// selectPositional decides which (if any) request field becomes the command's
+// positional argument. These ops carry the id in the BODY (no path params), so
+// the positional must map onto an already-emitted body-field flag (a scalar from
+// reqFields). Selection rule:
+//
+//  1. An operationId in positionalOverride wins outright.
+//  2. Otherwise the candidates are REQUIRED body fields whose wire is *_id
+//     (scalar) or *_ids (array). A single required *_ids array wins (array-wins:
+//     it also absorbs a co-present scalar id, e.g. incident_id + person_ids ->
+//     person_ids). With no array and a single required *_id scalar, that scalar
+//     wins.
+//  3. Anything ambiguous — multiple required arrays, or (no override) multiple
+//     required scalar ids such as channel_id + rule_id — emits NO positional, so
+//     a wrong guess can never shadow the right --flag. Such commands are still
+//     fully driveable by their typed flags.
+//
+// kind/array are read off the emitted flag type (reqFields' scalarKind), so the
+// runtime fold matches the flag the user could otherwise set.
+func selectPositional(o specOp, scalars []scalarField, byWire map[string]specField) (positional, bool) {
+	mk := func(wire string) (positional, bool) {
+		for _, sf := range scalars {
+			if sf.Wire != wire {
+				continue
+			}
+			switch sf.Kind {
+			case "[]string":
+				return positional{Wire: wire, Kind: "slice", Array: true}, true
+			case "[]int":
+				return positional{Wire: wire, Kind: "intslice", Array: true}, true
+			case "int", "float":
+				return positional{Wire: wire, Kind: "int"}, true
+			default: // string, bool — treat as string scalar at the CLI surface
+				return positional{Wire: wire, Kind: "string"}, true
+			}
+		}
+		return positional{}, false // chosen field is not a flag-able scalar; skip
+	}
+
+	if wire, ok := positionalOverride[o.OpID]; ok {
+		if wire == "" {
+			return positional{}, false // explicit suppress: empty string means no positional
+		}
+		return mk(wire)
+	}
+
+	var reqScalars, reqArrays []string
+	for _, sf := range scalars {
+		if !byWire[sf.Wire].Required {
+			continue
+		}
+		switch {
+		case strings.HasSuffix(sf.Wire, "_ids") && (sf.Kind == "[]string" || sf.Kind == "[]int"):
+			reqArrays = append(reqArrays, sf.Wire)
+		case strings.HasSuffix(sf.Wire, "_id"):
+			reqScalars = append(reqScalars, sf.Wire)
+		}
+	}
+	switch {
+	case len(reqArrays) == 1:
+		return mk(reqArrays[0]) // array-wins (absorbs any co-present scalar id)
+	case len(reqArrays) == 0 && len(reqScalars) == 1:
+		return mk(reqScalars[0])
+	default:
+		return positional{}, false // none or ambiguous → no positional
+	}
+}
+
 // ---- emission --------------------------------------------------------------
 
 func emitService(s service, sdk map[string]map[string]methodInfo, groupShorts map[string]string) (string, int, []string) {
@@ -740,32 +842,107 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	for _, f := range o.Fields {
 		specByWire[f.Wire] = f
 	}
+	// Pre-compute which scalar fields are unix-seconds timestamps so the three
+	// emit loops below can check a map lookup instead of re-evaluating the
+	// string-scanning predicate on every iteration.
+	isTime := map[string]bool{}
+	for _, sf := range scalars {
+		if isUnixSecondsField(sf.Wire, sf.Kind, specByWire[sf.Wire].Desc) {
+			isTime[sf.Wire] = true
+		}
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "func %s() *cobra.Command {\n", fn)
 	b.WriteString("\tvar dataJSON string\n")
 	for _, sf := range scalars {
-		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), goFlagType(sf.Kind))
+		typ := goFlagType(sf.Kind)
+		if isTime[sf.Wire] {
+			// Relative-time flag: a string at the CLI surface ("7d"/"now"/date/
+			// unix), parsed to unix seconds at runtime (see genParseTimeFlag).
+			typ = "string"
+		}
+		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), typ)
 	}
 
 	// Command literal. The leaf verb must match the name registered in
 	// emitService (cliVerb), so they share the same derivation.
 	verb := cliVerb(o.Path)
+
+	// Positional argument: these body-id ops carry the id in the request body
+	// (no path params), so the positional folds into an already-emitted body-field
+	// flag. The placeholder is appended to Use, an arity validator is added, and
+	// RunE folds the arg(s) into the body before the flags are stamped.
+	//
+	// Create commands never get a positional: their required *_id is a parent/owner
+	// reference (e.g. team_id on channel create), which is awkward as a positional
+	// and better supplied as an explicit flag.
+	pos, hasPos := selectPositional(o, scalars, specByWire)
+	if verb == "create" {
+		hasPos = false
+	}
+
+	use := verb
+	if hasPos {
+		// Scalar: <incident-id>. Array: the first placeholder is the SINGULAR id
+		// (<incident-id>, the *_ids wire minus its trailing "s") followed by
+		// [<id2>...] for the additional variadic ids, which reads as a list of one
+		// id-kind rather than "<incident-ids> id2 id3".
+		name := kebab(pos.Wire)
+		if pos.Array {
+			use = verb + " <" + strings.TrimSuffix(name, "s") + "> [<id2>...]"
+		} else {
+			use = verb + " <" + name + ">"
+		}
+	}
 	fmt.Fprintf(&b, "\tcmd := &cobra.Command{\n")
-	fmt.Fprintf(&b, "\t\tUse:   %q,\n", verb)
+	fmt.Fprintf(&b, "\t\tUse:   %q,\n", use)
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
-	if ex := exampleHelp(o, verb, s); ex != "" {
+	if hasPos {
+		// Scalar positionals use requireExactArg so extra arguments (e.g.
+		// `incident info id1 id2`) are rejected with a clear error instead of
+		// silently dropping id2. Array positionals use requireArgs (>=1) because
+		// they are variadic by design.
+		if pos.Array {
+			fmt.Fprintf(&b, "\t\tArgs:  requireArgs(%q),\n", pos.Wire)
+		} else {
+			fmt.Fprintf(&b, "\t\tArgs:  requireExactArg(%q),\n", pos.Wire)
+		}
+	}
+	if ex := exampleHelp(o); ex != "" {
 		fmt.Fprintf(&b, "\t\tExample: %s,\n", quoteMultiline(ex))
 	}
 	b.WriteString("\t\tRunE: func(cmd *cobra.Command, args []string) error {\n")
 	b.WriteString("\t\t\treturn runCommand(cmd, args, func(ctx *RunContext) error {\n")
-	// body assembly
-	b.WriteString("\t\t\t\tbody, err := genAssembleBody(dataJSON, func(body map[string]any) {\n")
+	// Relative-time flags are parsed to unix seconds before body assembly,
+	// mirroring the curated incident-list --since/--until handling.
 	for _, sf := range scalars {
+		if !isTime[sf.Wire] {
+			continue
+		}
+		fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
+			parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
+		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
+	}
+	// body assembly. The positional argument folds in first (after --data, before
+	// the typed flags) so an explicitly-set flag for the same field overrides it,
+	// matching genAssembleBody's --data-then-flags overlay order. genFoldPositional
+	// can fail (int parse); the error propagates directly via the callback's return.
+	b.WriteString("\t\t\t\tbody, err := genAssembleBody(dataJSON, func(body map[string]any) error {\n")
+	if hasPos {
+		fmt.Fprintf(&b, "\t\t\t\t\tif err := genFoldPositional(args, body, %q, %q); err != nil {\n\t\t\t\t\t\treturn err\n\t\t\t\t\t}\n", pos.Wire, pos.Kind)
+	}
+	for _, sf := range scalars {
+		if isTime[sf.Wire] {
+			fmt.Fprintf(&b, "\t\t\t\t\tif %s {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
+				okTimeVar(sf.Wire), sf.Wire, parsedTimeVar(sf.Wire))
+			continue
+		}
 		fmt.Fprintf(&b, "\t\t\t\t\tif cmd.Flags().Changed(%q) {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
 			flagName(sf.Wire), sf.Wire, flagVar(sf.Wire))
 	}
+	b.WriteString("\t\t\t\t\treturn nil\n")
 	b.WriteString("\t\t\t\t})\n")
 	b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 
@@ -800,10 +977,15 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	// flags
 	for _, sf := range scalars {
 		usage := flagUsage(specByWire[sf.Wire])
+		if isTime[sf.Wire] {
+			fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
+				flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint)
+			continue
+		}
 		fmt.Fprintf(&b, "\tcmd.Flags().%s(&%s, %q, %s, %q)\n",
 			flagSetter(sf.Kind), flagVar(sf.Wire), flagName(sf.Wire), flagZero(sf.Kind), usage)
 	}
-	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
+	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
 	b.WriteString("\treturn cmd\n}\n\n")
 	return b.String()
 }
@@ -895,7 +1077,15 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 			if f.Required {
 				req = " (required)"
 			}
-			line := fmt.Sprintf("  --%s %s%s", flagName(sf.Wire), sf.Kind, req)
+			// A unix-seconds field is a relative-time string flag at the CLI
+			// surface (see emitCmd / isUnixSecondsField); document it as the type
+			// the user actually passes, not the underlying int.
+			isTime := isUnixSecondsField(sf.Wire, sf.Kind, f.Desc)
+			kind := sf.Kind
+			if isTime {
+				kind = "string"
+			}
+			line := fmt.Sprintf("  --%s %s%s", flagName(sf.Wire), kind, req)
 			if f.Desc != "" {
 				line += " — " + oneLine(f.Desc)
 			}
@@ -904,6 +1094,9 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 			}
 			if f.Constraint != "" {
 				line += " (" + f.Constraint + ")"
+			}
+			if isTime {
+				line += relativeTimeHint
 			}
 			b.WriteString(line + "\n")
 		}
@@ -1046,12 +1239,19 @@ func renderTree(b *strings.Builder, fields []schemaField, indent int) {
 	}
 }
 
-func exampleHelp(o specOp, verb string, s service) string {
-	cmdPath := "flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path)
-	if o.Example != "" {
-		return "  " + cmdPath + " --data '" + o.Example + "'"
+func exampleHelp(o specOp) string {
+	if o.Example == "" {
+		return ""
 	}
-	return ""
+	return "  flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path) + " --data " + shellSingleQuote(o.Example)
+}
+
+// shellSingleQuote wraps s in single quotes safe for a POSIX shell, escaping any
+// embedded single quote as the standard '\” sequence so a copy-pasted --data
+// example never breaks out of the quoting (a JSON string value such as an
+// apostrophe-bearing name would otherwise corrupt the example).
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func flagUsage(f specField) string {
@@ -1091,6 +1291,52 @@ func flagName(wire string) string {
 	return kebab(wire)
 }
 func flagVar(wire string) string { return "f" + pascal(tokens(wire)) }
+
+// parsedTimeVar / okTimeVar name the runtime locals a relative-time flag parses
+// into (the unix-seconds value and whether the flag was set).
+func parsedTimeVar(wire string) string { return "v" + pascal(tokens(wire)) }
+func okTimeVar(wire string) string     { return "ok" + pascal(tokens(wire)) }
+
+// isUnixSecondsField reports whether an integer request field is a unix-SECONDS
+// timestamp — the only kind for which a relative-time flag ("7d"/"now"/date)
+// makes sense. It deliberately excludes:
+//   - millisecond timestamps (RUM/sourcemap/webhook windows): timeutil.Parse
+//     yields seconds, which would be 1000x wrong;
+//   - durations ("timeout in seconds", "seconds_to_ack", "delay_seconds"): a
+//     count of seconds, not a point in time.
+//
+// Detection in priority order:
+//  1. millisecond exclusion always wins (so a misleading name can't override it);
+//  2. the description names it a unix/epoch-seconds timestamp (the common case);
+//  3. name conventions for fields the description under-documents:
+//     - a bare window boundary `start`/`end` (schedule windows describe these in
+//     prose only, e.g. scheduleList.start), and
+//     - the `<point>_at_…_seconds` timestamp convention (close_at_seconds,
+//     created_at_start_seconds). The `_at_` point-in-time marker is what
+//     distinguishes these from a `delay_seconds`-style duration, which has none.
+func isUnixSecondsField(name, kind, desc string) bool {
+	if kind != "int" {
+		return false
+	}
+	d := strings.ToLower(desc)
+	if strings.Contains(d, "millisecond") {
+		return false
+	}
+	if (strings.Contains(d, "unix") || strings.Contains(d, "epoch")) && strings.Contains(d, "second") {
+		return true
+	}
+	n := strings.ToLower(name)
+	if n == "start" || n == "end" {
+		return true
+	}
+	return strings.HasSuffix(n, "_seconds") && strings.Contains(n, "_at_")
+}
+
+// relativeTimeHint documents the forms a relative-time flag accepts. Appended to
+// BOTH the cobra flag usage and the Long "Request fields" doc line so the two
+// renderings of the same flag agree (and the agent skill-doc corpus, which reads
+// the Long block, sees the relative-time capability).
+const relativeTimeHint = " Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds."
 
 func goFlagType(kind string) string {
 	switch kind {

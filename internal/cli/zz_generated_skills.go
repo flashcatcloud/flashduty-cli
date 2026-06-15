@@ -12,7 +12,7 @@ func genSkillsReadDownloadCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
 	cmd := &cobra.Command{
-		Use:   "skill-download",
+		Use:   "skill-download <skill-id>",
 		Short: "Download skill",
 		Long: `Download skill.
 
@@ -23,13 +23,18 @@ API: POST /safari/skill/download (skill-read-download)
 Request fields:
   --skill-id string (required) — Identifier of the skill to download.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-download --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -47,7 +52,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to download. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -55,7 +60,7 @@ func genSkillsReadEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
 	cmd := &cobra.Command{
-		Use:   "skill-enable",
+		Use:   "skill-enable <skill-id>",
 		Short: "Enable skill",
 		Long: `Enable skill.
 
@@ -66,13 +71,18 @@ API: POST /safari/skill/enable (skill-read-enable)
 Request fields:
   --skill-id string (required) — Identifier of the target skill.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-enable --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -90,7 +100,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -98,7 +108,7 @@ func genSkillsReadGetCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
 	cmd := &cobra.Command{
-		Use:   "skill-get",
+		Use:   "skill-get <skill-id>",
 		Short: "Get skill detail",
 		Long: `Get skill detail.
 
@@ -134,13 +144,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
   - version (string) — Skill version string from its frontmatter.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-get --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -158,7 +173,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to fetch. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -215,7 +230,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty safari skill-list --data '{"include_account":true,"limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -231,6 +246,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -252,7 +268,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -260,7 +276,7 @@ func genSkillsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
 	cmd := &cobra.Command{
-		Use:   "skill-delete",
+		Use:   "skill-delete <skill-id>",
 		Short: "Delete skill",
 		Long: `Delete skill.
 
@@ -271,13 +287,18 @@ API: POST /safari/skill/delete (skill-write-delete)
 Request fields:
   --skill-id string (required) — Identifier of the skill to delete.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-delete --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -295,7 +316,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -303,7 +324,7 @@ func genSkillsWriteDisableCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
 	cmd := &cobra.Command{
-		Use:   "skill-disable",
+		Use:   "skill-disable <skill-id>",
 		Short: "Disable skill",
 		Long: `Disable skill.
 
@@ -314,13 +335,18 @@ API: POST /safari/skill/disable (skill-write-disable)
 Request fields:
   --skill-id string (required) — Identifier of the target skill.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-disable --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -338,7 +364,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -348,7 +374,7 @@ func genSkillsWriteUpdateCmd() *cobra.Command {
 	var fSkillID string
 	var fTeamID int64
 	cmd := &cobra.Command{
-		Use:   "skill-update",
+		Use:   "skill-update <skill-id>",
 		Short: "Update skill",
 		Long: `Update skill.
 
@@ -386,10 +412,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
   - version (string) — Skill version string from its frontmatter.
 `,
+		Args:    requireExactArg("skill_id"),
 		Example: `  flashduty safari skill-update --data '{"description":"Diagnose unhealthy Kubernetes workloads.","skill_id":"skl-7f3a9c21b8e0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -399,6 +429,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -418,7 +449,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description for the skill. (≤1024 chars)")
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to update. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the skill to this team; omit to leave unchanged, 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -460,7 +491,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -474,7 +506,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

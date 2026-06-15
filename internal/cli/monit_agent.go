@@ -78,11 +78,12 @@ keys in --data.
 			// Assemble the body the standard way: --data (inline JSON or -
 			// stdin) overlaid with the typed --target-* flags, mirroring
 			// genAssembleBody's "typed flags override --data keys".
-			body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+			body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 				body["target_locator"] = targetLocator
 				if cmd.Flags().Changed("target-kind") {
 					body["target_kind"] = targetKind
 				}
+				return nil
 			})
 			if err != nil {
 				return err

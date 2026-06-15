@@ -12,7 +12,7 @@ func genRolesPermissionsReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <role-id>",
 		Short: "Get role detail",
 		Long: `Get role detail.
 
@@ -33,13 +33,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Role status. [enabled, disabled]
   - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
 `,
+		Args:    requireExactArg("role_id"),
 		Example: `  flashduty role info --data '{"role_id":2}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -57,7 +62,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -93,13 +98,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty role list --data '{"asc":false,"orderby":"created_at"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
 					}
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -118,7 +124,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -153,13 +159,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty role permission-list --data '{"role_ids":[150],"with_all":true}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("role-ids") {
 						body["role_ids"] = fRoleIDs
 					}
 					if cmd.Flags().Changed("with-all") {
 						body["with_all"] = fWithAll
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -178,7 +185,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Filter to permissions granted to these roles.")
 	cmd.Flags().BoolVar(&fWithAll, "with-all", false, "If true, return all permissions with is_granted set to indicate which are granted.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -204,10 +211,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty role permission-factor-list --data '{"factor_types":["api"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("factor-types") {
 						body["factor_types"] = fFactorTypes
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -225,7 +233,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().StringSliceVar(&fFactorTypes, "factor-types", nil, "Filter by factor type. [api, button, visit, menu, url]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -233,7 +241,7 @@ func genRolesPermissionsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <role-id>",
 		Short: "Delete a role",
 		Long: `Delete a role.
 
@@ -244,13 +252,18 @@ API: POST /role/delete (role-write-delete)
 Request fields:
   --role-id int (required) — Role ID.
 `,
+		Args:    requireExactArg("role_id"),
 		Example: `  flashduty role delete --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -272,7 +285,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -280,7 +293,7 @@ func genRolesPermissionsWriteDisableCmd() *cobra.Command {
 	var dataJSON string
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "disable",
+		Use:   "disable <role-id>",
 		Short: "Disable a role",
 		Long: `Disable a role.
 
@@ -291,13 +304,18 @@ API: POST /role/disable (role-write-disable)
 Request fields:
   --role-id int (required) — Role ID.
 `,
+		Args:    requireExactArg("role_id"),
 		Example: `  flashduty role disable --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -319,7 +337,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -327,7 +345,7 @@ func genRolesPermissionsWriteEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "enable",
+		Use:   "enable <role-id>",
 		Short: "Enable a role",
 		Long: `Enable a role.
 
@@ -338,13 +356,18 @@ API: POST /role/enable (role-write-enable)
 Request fields:
   --role-id int (required) — Role ID.
 `,
+		Args:    requireExactArg("role_id"),
 		Example: `  flashduty role enable --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -366,7 +389,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -375,7 +398,7 @@ func genRolesPermissionsWriteGrantRoleCmd() *cobra.Command {
 	var fMemberIDs []int
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "member-grant",
+		Use:   "member-grant <member-id> [<id2>...]",
 		Short: "Grant role to members",
 		Long: `Grant role to members.
 
@@ -387,16 +410,21 @@ Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
   --role-id int (required) — Role ID to grant or revoke.
 `,
+		Args:    requireArgs("member_ids"),
 		Example: `  flashduty role member-grant --data '{"member_ids":[80011,80012],"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "member_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("member-ids") {
 						body["member_ids"] = fMemberIDs
 					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -419,7 +447,7 @@ Request fields:
 	}
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -428,7 +456,7 @@ func genRolesPermissionsWriteRevokeRoleCmd() *cobra.Command {
 	var fMemberIDs []int
 	var fRoleID int64
 	cmd := &cobra.Command{
-		Use:   "member-revoke",
+		Use:   "member-revoke <member-id> [<id2>...]",
 		Short: "Revoke role from members",
 		Long: `Revoke role from members.
 
@@ -440,16 +468,21 @@ Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
   --role-id int (required) — Role ID to grant or revoke.
 `,
+		Args:    requireArgs("member_ids"),
 		Example: `  flashduty role member-revoke --data '{"member_ids":[80011],"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "member_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("member-ids") {
 						body["member_ids"] = fMemberIDs
 					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -472,7 +505,7 @@ Request fields:
 	}
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -504,7 +537,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty role upsert --data '{"description":"Manage on-call rotations and incidents.","permission_ids":[501,502],"role_name":"On-call Manager"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -517,6 +550,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("role-name") {
 						body["role_name"] = fRoleName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -537,7 +571,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().IntSliceVar(&fPermissionIDs, "permission-ids", nil, "Permission IDs to grant. Replaces the existing set.")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. Omit or set to 0 to create.")
 	cmd.Flags().StringVar(&fRoleName, "role-name", "", "Role display name. 1–39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

@@ -11,11 +11,11 @@ import (
 func genSchedulesCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
-	var fEnd int64
+	var fEnd string
 	var fName string
 	var fScheduleID int64
 	var fScheduleName string
-	var fStart int64
+	var fStart string
 	var fTeamID int64
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -28,11 +28,11 @@ API: POST /schedule/create (scheduleCreate)
 
 Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
-  --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
+  --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
-  --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
+  --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-id int — Owning team ID.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
@@ -97,12 +97,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty schedule create --data '{"description":"Primary on-call rotation for the production team","layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0},{"end":0,"group_name":"B","members":[{"person_ids":[2476123212131],"role_id":0}],"name":"B","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"notify":{"advance_in_time":300,"by":{"follow_preference":true,"personal_channels":null},"fixed_time":null,"webhooks":null},"schedule_name":"Production On-Call","team_id":4291079133131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+					if okEnd {
+						body["end"] = vEnd
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
@@ -113,12 +121,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("schedule-name") {
 						body["schedule_name"] = fScheduleName
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -136,13 +145,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
+	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -150,7 +159,7 @@ func genSchedulesDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fScheduleIDs []int
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <schedule-id> [<id2>...]",
 		Short: "Delete schedules",
 		Long: `Delete schedules.
 
@@ -161,13 +170,18 @@ API: POST /schedule/delete (scheduleDelete)
 Request fields:
   --schedule-ids []int (required) — Schedule IDs to operate on.
 `,
+		Args:    requireArgs("schedule_ids"),
 		Example: `  flashduty schedule delete --data '{"schedule_ids":[2001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schedule_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schedule-ids") {
 						body["schedule_ids"] = fScheduleIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -189,17 +203,17 @@ Request fields:
 		},
 	}
 	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule IDs to operate on. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genSchedulesInfoCmd() *cobra.Command {
 	var dataJSON string
-	var fEnd int64
+	var fEnd string
 	var fScheduleID int64
-	var fStart int64
+	var fStart string
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <schedule-id>",
 		Short: "Get schedule info",
 		Long: `Get schedule info.
 
@@ -208,9 +222,9 @@ Return details of an on-call schedule including the computed schedule layers for
 API: POST /schedule/info (scheduleInfo)
 
 Request fields:
-  --end int (required) — Preview end timestamp (Unix seconds, 10 digits).
+  --end string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --schedule-id int (required) — Schedule ID.
-  --start int (required) — Preview start timestamp (Unix seconds, 10 digits).
+  --start string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -357,19 +371,32 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - update_at (integer) (required) — Last update timestamp (Unix seconds).
   - update_by (integer) (required) — Last updater person ID.
 `,
+		Args:    requireExactArg("schedule_id"),
 		Example: `  flashduty schedule info --data '{"end":1712086400,"schedule_id":2001,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schedule_id", "int"); err != nil {
+						return err
+					}
+					if okEnd {
+						body["end"] = vEnd
 					}
 					if cmd.Flags().Changed("schedule-id") {
 						body["schedule_id"] = fScheduleID
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -386,10 +413,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview end timestamp (Unix seconds, 10 digits). (required)")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Preview end timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. (required)")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview start timestamp (Unix seconds, 10 digits). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&fStart, "start", "", "Preview start timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -397,7 +424,7 @@ func genSchedulesInfosCmd() *cobra.Command {
 	var dataJSON string
 	var fScheduleIDs []int
 	cmd := &cobra.Command{
-		Use:   "infos",
+		Use:   "infos <schedule-id> [<id2>...]",
 		Short: "Batch get schedules",
 		Long: `Batch get schedules.
 
@@ -527,13 +554,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
 `,
+		Args:    requireArgs("schedule_ids"),
 		Example: `  flashduty schedule infos --data '{"schedule_ids":[2001,2002,2003]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schedule_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schedule-ids") {
 						body["schedule_ids"] = fScheduleIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -551,7 +583,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule ID list. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -560,11 +592,11 @@ func genSchedulesListCmd() *cobra.Command {
 	var fP int64
 	var fLimit int64
 	var fSearchAfterCtx string
-	var fEnd int64
+	var fEnd string
 	var fIsMyManage bool
 	var fIsMyTeam bool
 	var fQuery string
-	var fStart int64
+	var fStart string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -579,11 +611,11 @@ Request fields:
   --page int — Page number (1-indexed).
   --limit int — Page size. Default 10, max 100. (max 100)
   --search-after-ctx string
-  --end int — Window end timestamp (Unix seconds).
+  --end string — Window end timestamp (Unix seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --is-my-manage bool — Only return schedules created by the current user within their teams.
   --is-my-team bool — Only return schedules whose owning team the current user belongs to.
   --query string — Search keyword matched against schedule names.
-  --start int — When set together with end, computed layer schedules are returned. Span must be less than 45 days.
+  --start string — When set together with end, computed layer schedules are returned. Span must be less than 45 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -709,7 +741,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty schedule list --data '{"is_my_team":true,"limit":20,"p":1,"query":"production"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -719,8 +759,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("search-after-ctx") {
 						body["search_after_ctx"] = fSearchAfterCtx
 					}
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+					if okEnd {
+						body["end"] = vEnd
 					}
 					if cmd.Flags().Changed("is-my-manage") {
 						body["is_my_manage"] = fIsMyManage
@@ -731,12 +771,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("query") {
 						body["query"] = fQuery
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -756,24 +797,24 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-indexed).")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 10, max 100. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Window end timestamp (Unix seconds).")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Window end timestamp (Unix seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIsMyManage, "is-my-manage", false, "Only return schedules created by the current user within their teams.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Only return schedules whose owning team the current user belongs to.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword matched against schedule names.")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "When set together with end, computed layer schedules are returned. Span must be less than 45 days.")
+	cmd.Flags().StringVar(&fStart, "start", "", "When set together with end, computed layer schedules are returned. Span must be less than 45 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genSchedulesPreviewCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
-	var fEnd int64
+	var fEnd string
 	var fName string
 	var fScheduleID int64
 	var fScheduleName string
-	var fStart int64
+	var fStart string
 	var fTeamID int64
 	cmd := &cobra.Command{
 		Use:   "preview",
@@ -786,11 +827,11 @@ API: POST /schedule/preview (schedulePreview)
 
 Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
-  --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
+  --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
-  --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
+  --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-id int — Owning team ID.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
@@ -997,12 +1038,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty schedule preview --data '{"end":1712086400,"layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"schedule_name":"Preview Schedule","start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+					if okEnd {
+						body["end"] = vEnd
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
@@ -1013,12 +1062,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("schedule-name") {
 						body["schedule_name"] = fScheduleName
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1036,20 +1086,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
+	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genSchedulesSelfCmd() *cobra.Command {
 	var dataJSON string
-	var fEnd int64
-	var fStart int64
+	var fEnd string
+	var fStart string
 	cmd := &cobra.Command{
 		Use:   "self",
 		Short: "List my schedules",
@@ -1060,8 +1110,8 @@ Return on-call schedules where the current user is assigned.
 API: POST /schedule/self (scheduleSelf)
 
 Request fields:
-  --end int — Window end (Unix seconds, 10 digits). Must be within 30 days of start.
-  --start int — Window start (Unix seconds, 10 digits).
+  --end string — Window end (Unix seconds, 10 digits). Must be within 30 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --start string — Window start (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
@@ -1185,13 +1235,22 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty schedule self --data '{"end":1712086400,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if okEnd {
+						body["end"] = vEnd
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1208,20 +1267,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Window end (Unix seconds, 10 digits). Must be within 30 days of start.")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "Window start (Unix seconds, 10 digits).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Window end (Unix seconds, 10 digits). Must be within 30 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStart, "start", "", "Window start (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genSchedulesUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
-	var fEnd int64
+	var fEnd string
 	var fName string
 	var fScheduleID int64
 	var fScheduleName string
-	var fStart int64
+	var fStart string
 	var fTeamID int64
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -1234,11 +1293,11 @@ API: POST /schedule/update (scheduleUpdate)
 
 Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
-  --end int — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.
+  --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
   --schedule-id int — Schedule ID. Required on update.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
-  --start int — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.
+  --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-id int — Owning team ID.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
@@ -1300,12 +1359,20 @@ Request fields:
 		Example: `  flashduty schedule update --data '{"description":"Updated primary on-call rotation","schedule_id":2001,"schedule_name":"Production On-Call (Updated)","team_id":4291079133131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vEnd, okEnd, err := genParseTimeFlag(cmd, "end", fEnd)
+				if err != nil {
+					return err
+				}
+				vStart, okStart, err := genParseTimeFlag(cmd, "start", fStart)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
-					if cmd.Flags().Changed("end") {
-						body["end"] = fEnd
+					if okEnd {
+						body["end"] = vEnd
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
@@ -1316,12 +1383,13 @@ Request fields:
 					if cmd.Flags().Changed("schedule-name") {
 						body["schedule_name"] = fScheduleName
 					}
-					if cmd.Flags().Changed("start") {
-						body["start"] = fStart
+					if okStart {
+						body["start"] = vStart
 					}
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1343,13 +1411,13 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
-	cmd.Flags().Int64Var(&fEnd, "end", 0, "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start.")
+	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
-	cmd.Flags().Int64Var(&fStart, "start", 0, "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview.")
+	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

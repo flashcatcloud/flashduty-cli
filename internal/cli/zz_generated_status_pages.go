@@ -59,7 +59,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -73,7 +74,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -82,7 +83,7 @@ func genStatusPagesChangeActiveListCmd() *cobra.Command {
 	var fPageID int64
 	var fType string
 	cmd := &cobra.Command{
-		Use:   "change-active-list",
+		Use:   "change-active-list <page-id>",
 		Short: "List active status page events",
 		Long: `List active status page events.
 
@@ -129,15 +130,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
+		Args: requireExactArg("page_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -156,26 +162,26 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. (required) [incident, maintenance]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genStatusPagesChangeCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fAutoUpdateBySchedule bool
-	var fCloseAtSeconds int64
+	var fCloseAtSeconds string
 	var fDescription string
 	var fIsRetrospective bool
 	var fLinkedChanges []string
 	var fNotifySubscribers bool
 	var fPageID int64
 	var fResponders []int
-	var fStartAtSeconds int64
+	var fStartAtSeconds string
 	var fStatus string
 	var fTitle string
 	var fType string
 	cmd := &cobra.Command{
-		Use:   "change-create",
+		Use:   "change-create <page-id>",
 		Short: "Create status page event",
 		Long: `Create status page event.
 
@@ -185,14 +191,14 @@ API: POST /status-page/change/create (statusPageChangeCreate)
 
 Request fields:
   --auto-update-by-schedule bool — Maintenance only: automatically advance the status based on the scheduled window.
-  --close-at-seconds int — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'.
+  --close-at-seconds string — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --description string — Event description (Markdown). Required by the validator.
   --is-retrospective bool — Mark this event as a retrospective (historical) one.
   --linked-changes []string — Linked change IDs (related incidents, deployments, etc.).
   --notify-subscribers bool — Notify subscribers about this event and all its updates.
   --page-id int (required) — Status page ID.
   --responders []int — Member IDs responsible for this event.
-  --start-at-seconds int — Event start time in unix seconds. Defaults to now when omitted.
+  --start-at-seconds string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --status string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   --title string (required) — Event title, up to 255 characters. (≤255 chars)
   --type string (required) — Event type. [incident, maintenance]
@@ -209,15 +215,27 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - change_id (integer) (required) — Newly created event ID.
   - change_name (string) (required) — Event title (echoed from the request).
 `,
+		Args:    requireExactArg("page_id"),
 		Example: `  flashduty status-page change-create --data '{"description":"We are investigating degraded performance affecting the web console.","notify_subscribers":true,"page_id":5750613685214,"start_at_seconds":1712000000,"status":"investigating","title":"Web Console Degraded Performance","type":"incident","updates":[{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}],"description":"We are currently investigating an issue affecting some users.","status":"investigating"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vCloseAtSeconds, okCloseAtSeconds, err := genParseTimeFlag(cmd, "close-at-seconds", fCloseAtSeconds)
+				if err != nil {
+					return err
+				}
+				vStartAtSeconds, okStartAtSeconds, err := genParseTimeFlag(cmd, "start-at-seconds", fStartAtSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("auto-update-by-schedule") {
 						body["auto_update_by_schedule"] = fAutoUpdateBySchedule
 					}
-					if cmd.Flags().Changed("close-at-seconds") {
-						body["close_at_seconds"] = fCloseAtSeconds
+					if okCloseAtSeconds {
+						body["close_at_seconds"] = vCloseAtSeconds
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
@@ -237,8 +255,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("responders") {
 						body["responders"] = fResponders
 					}
-					if cmd.Flags().Changed("start-at-seconds") {
-						body["start_at_seconds"] = fStartAtSeconds
+					if okStartAtSeconds {
+						body["start_at_seconds"] = vStartAtSeconds
 					}
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
@@ -249,6 +267,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -266,18 +285,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().BoolVar(&fAutoUpdateBySchedule, "auto-update-by-schedule", false, "Maintenance only: automatically advance the status based on the scheduled window.")
-	cmd.Flags().Int64Var(&fCloseAtSeconds, "close-at-seconds", 0, "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'.")
+	cmd.Flags().StringVar(&fCloseAtSeconds, "close-at-seconds", "", "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Event description (Markdown). Required by the validator.")
 	cmd.Flags().BoolVar(&fIsRetrospective, "is-retrospective", false, "Mark this event as a retrospective (historical) one.")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked change IDs (related incidents, deployments, etc.).")
 	cmd.Flags().BoolVar(&fNotifySubscribers, "notify-subscribers", false, "Notify subscribers about this event and all its updates.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event.")
-	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Event start time in unix seconds. Defaults to now when omitted.")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type. (required) [incident, maintenance]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -301,13 +320,14 @@ Request fields:
 		Example: `  flashduty status-page change-delete --data '{"change_id":5821693893131,"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
 					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -330,7 +350,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -387,13 +407,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -412,19 +433,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Event (change) ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genStatusPagesChangeListCmd() *cobra.Command {
 	var dataJSON string
 	var fPageID int64
-	var fStartAtSeconds int64
-	var fEndAtSeconds int64
+	var fStartAtSeconds string
+	var fEndAtSeconds string
 	var fType string
 	var fStatus string
 	cmd := &cobra.Command{
-		Use:   "change-list",
+		Use:   "change-list <page-id>",
 		Short: "List status page events",
 		Long: `List status page events.
 
@@ -434,8 +455,8 @@ API: GET /status-page/change/list (statusPageChangeList)
 
 Request fields:
   --page-id int (required) — Status page ID.
-  --start-at-seconds int — Filter events started at or after this unix timestamp (seconds).
-  --end-at-seconds int — Filter events started at or before this unix timestamp (seconds).
+  --start-at-seconds string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-at-seconds string — Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --type string (required) — Event type filter. Required. [incident, maintenance]
   --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
 
@@ -474,17 +495,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
+		Args: requireExactArg("page_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				vStartAtSeconds, okStartAtSeconds, err := genParseTimeFlag(cmd, "start-at-seconds", fStartAtSeconds)
+				if err != nil {
+					return err
+				}
+				vEndAtSeconds, okEndAtSeconds, err := genParseTimeFlag(cmd, "end-at-seconds", fEndAtSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
-					if cmd.Flags().Changed("start-at-seconds") {
-						body["start_at_seconds"] = fStartAtSeconds
+					if okStartAtSeconds {
+						body["start_at_seconds"] = vStartAtSeconds
 					}
-					if cmd.Flags().Changed("end-at-seconds") {
-						body["end_at_seconds"] = fEndAtSeconds
+					if okEndAtSeconds {
+						body["end_at_seconds"] = vEndAtSeconds
 					}
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
@@ -492,6 +525,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -509,17 +543,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().Int64Var(&fStartAtSeconds, "start-at-seconds", 0, "Filter events started at or after this unix timestamp (seconds).")
-	cmd.Flags().Int64Var(&fEndAtSeconds, "end-at-seconds", 0, "Filter events started at or before this unix timestamp (seconds).")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndAtSeconds, "end-at-seconds", "", "Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genStatusPagesChangeTimelineCreateCmd() *cobra.Command {
 	var dataJSON string
-	var fAtSeconds int64
+	var fAtSeconds string
 	var fChangeID int64
 	var fDescription string
 	var fPageID int64
@@ -534,7 +568,7 @@ Add a timeline update to a status page event.
 API: POST /status-page/change/timeline/create (statusPageChangeTimelineCreate)
 
 Request fields:
-  --at-seconds int — Update timestamp in unix seconds. Defaults to now when omitted.
+  --at-seconds string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --change-id int (required) — Target event ID.
   --description string — Update description (Markdown). Required.
   --page-id int (required) — Status page ID.
@@ -549,9 +583,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty status-page change-timeline-create --data '{"at_seconds":1712003600,"change_id":5821693893131,"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"partial_outage"}],"description":"We have identified the root cause and are working on a fix.","page_id":5750613685214,"status":"identified"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("at-seconds") {
-						body["at_seconds"] = fAtSeconds
+				vAtSeconds, okAtSeconds, err := genParseTimeFlag(cmd, "at-seconds", fAtSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if okAtSeconds {
+						body["at_seconds"] = vAtSeconds
 					}
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
@@ -565,6 +603,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -581,12 +620,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAtSeconds, "at-seconds", 0, "Update timestamp in unix seconds. Defaults to now when omitted.")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -612,7 +651,7 @@ Request fields:
 		Example: `  flashduty status-page change-timeline-delete --data '{"change_id":5821693893131,"page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
 					}
@@ -622,6 +661,7 @@ Request fields:
 					if cmd.Flags().Changed("update-id") {
 						body["update_id"] = fUpdateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -645,13 +685,13 @@ Request fields:
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genStatusPagesChangeTimelineUpdateCmd() *cobra.Command {
 	var dataJSON string
-	var fAtSeconds int64
+	var fAtSeconds string
 	var fChangeID int64
 	var fDescription string
 	var fPageID int64
@@ -666,7 +706,7 @@ Update a timeline entry for a status page event.
 API: POST /status-page/change/timeline/update (statusPageChangeTimelineUpdate)
 
 Request fields:
-  --at-seconds int — New update timestamp in unix seconds.
+  --at-seconds string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --change-id int (required) — Parent event ID.
   --description string — New update description (Markdown).
   --page-id int (required) — Status page ID.
@@ -675,9 +715,13 @@ Request fields:
 		Example: `  flashduty status-page change-timeline-update --data '{"at_seconds":1712003600,"change_id":5821693893131,"description":"Corrected description: root cause identified in database layer.","page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
-					if cmd.Flags().Changed("at-seconds") {
-						body["at_seconds"] = fAtSeconds
+				vAtSeconds, okAtSeconds, err := genParseTimeFlag(cmd, "at-seconds", fAtSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if okAtSeconds {
+						body["at_seconds"] = vAtSeconds
 					}
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
@@ -691,6 +735,7 @@ Request fields:
 					if cmd.Flags().Changed("update-id") {
 						body["update_id"] = fUpdateID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -711,12 +756,12 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAtSeconds, "at-seconds", 0, "New update timestamp in unix seconds.")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New update description (Markdown).")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -746,7 +791,7 @@ Request fields:
 		Example: `  flashduty status-page change-update --data '{"change_id":5821693893131,"page_id":5750613685214,"title":"Web Console Degraded Performance (Updated)"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("change-id") {
 						body["change_id"] = fChangeID
 					}
@@ -762,6 +807,7 @@ Request fields:
 					if cmd.Flags().Changed("title") {
 						body["title"] = fTitle
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -787,7 +833,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event. Pass the full replacement list.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -816,7 +862,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty status-page migrate-email-subscribers --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij","target_page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("api-key") {
 						body["api_key"] = fAPIKey
 					}
@@ -826,6 +872,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("target-page-id") {
 						body["target_page_id"] = fTargetPageID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -845,7 +892,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAPIKey, "api-key", "", "Atlassian Statuspage API key with access to the source page. (required)")
 	cmd.Flags().StringVar(&fSourcePageID, "source-page-id", "", "Atlassian Statuspage source page ID. (required)")
 	cmd.Flags().Int64Var(&fTargetPageID, "target-page-id", 0, "Flashduty target status page ID that will receive the imported subscribers. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -855,7 +902,7 @@ func genStatusPagesMigrateStructureCmd() *cobra.Command {
 	var fSourcePageID string
 	var fURLName string
 	cmd := &cobra.Command{
-		Use:   "migrate-structure",
+		Use:   "migrate-structure <source-page-id>",
 		Short: "Migrate status page structure",
 		Long: `Migrate status page structure.
 
@@ -871,10 +918,14 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
+		Args:    requireExactArg("source_page_id"),
 		Example: `  flashduty status-page migrate-structure --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "source_page_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("api-key") {
 						body["api_key"] = fAPIKey
 					}
@@ -884,6 +935,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("url-name") {
 						body["url_name"] = fURLName
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -903,7 +955,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAPIKey, "api-key", "", "Atlassian Statuspage API key with access to the source page. (required)")
 	cmd.Flags().StringVar(&fSourcePageID, "source-page-id", "", "Atlassian Statuspage source page ID. (required)")
 	cmd.Flags().StringVar(&fURLName, "url-name", "", "Target URL name for the migrated status page. When omitted, the source page's URL name is reused.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -911,7 +963,7 @@ func genStatusPagesMigrationCancelCmd() *cobra.Command {
 	var dataJSON string
 	var fJobID string
 	cmd := &cobra.Command{
-		Use:   "migration-cancel",
+		Use:   "migration-cancel <job-id>",
 		Short: "Cancel status page migration",
 		Long: `Cancel status page migration.
 
@@ -922,13 +974,18 @@ API: POST /status-page/migration/cancel (statusPageMigrationCancel)
 Request fields:
   --job-id string (required) — Migration job ID.
 `,
+		Args:    requireExactArg("job_id"),
 		Example: `  flashduty status-page migration-cancel --data '{"job_id":"01KP0311872NVYFRRQ82FW0001"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "job_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("job-id") {
 						body["job_id"] = fJobID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -950,7 +1007,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -958,7 +1015,7 @@ func genStatusPagesMigrationStatusCmd() *cobra.Command {
 	var dataJSON string
 	var fJobID string
 	cmd := &cobra.Command{
-		Use:   "migration-status",
+		Use:   "migration-status <job-id>",
 		Short: "Get migration status",
 		Long: `Get migration status.
 
@@ -991,12 +1048,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
   - updated_at (integer) (required) — Last status update time, unix seconds.
 `,
+		Args: requireExactArg("job_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "job_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("job-id") {
 						body["job_id"] = fJobID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1014,7 +1076,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1023,7 +1085,7 @@ func genStatusPagesSubscriberExportCmd() *cobra.Command {
 	var fComponentIDs []string
 	var fPageID int64
 	cmd := &cobra.Command{
-		Use:   "subscriber-export",
+		Use:   "subscriber-export <page-id>",
 		Short: "Export subscribers",
 		Long: `Export subscribers.
 
@@ -1035,16 +1097,21 @@ Request fields:
   --component-ids []string — Optional component IDs to filter subscribers by.
   --page-id int (required) — Status page ID.
 `,
+		Args:    requireExactArg("page_id"),
 		Example: `  flashduty status-page subscriber-export --data '{"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("component-ids") {
 						body["component_ids"] = fComponentIDs
 					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1063,7 +1130,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Optional component IDs to filter subscribers by.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1072,7 +1139,7 @@ func genStatusPagesSubscriberImportCmd() *cobra.Command {
 	var fMethod string
 	var fPageID int64
 	cmd := &cobra.Command{
-		Use:   "subscriber-import",
+		Use:   "subscriber-import <page-id>",
 		Short: "Import subscribers",
 		Long: `Import subscribers.
 
@@ -1090,16 +1157,21 @@ Request fields:
     - locale (string) — Preferred locale for notifications. Defaults to the request locale when omitted.
     - recipient (string) (required) — Email address (for public pages) or user ID (for internal pages). (≤255 chars)
 `,
+		Args:    requireExactArg("page_id"),
 		Example: `  flashduty status-page subscriber-import --data '{"method":"email","page_id":5750613685214,"subscribers":[{"all":true,"locale":"en-US","recipient":"alice@example.com"},{"all":false,"component_ids":["01KC3GAZ6ZJE40H55GM31RPWZE"],"locale":"zh-CN","recipient":"bob@example.com"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("method") {
 						body["method"] = fMethod
 					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1122,7 +1194,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1133,7 +1205,7 @@ func genStatusPagesSubscriberListCmd() *cobra.Command {
 	var fP int64
 	var fLimit int64
 	cmd := &cobra.Command{
-		Use:   "subscriber-list",
+		Use:   "subscriber-list <page-id>",
 		Short: "List status page subscribers",
 		Long: `List status page subscribers.
 
@@ -1165,9 +1237,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
   - total (integer) (required) — Total matching subscribers.
 `,
+		Args: requireExactArg("page_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
 					}
@@ -1180,6 +1256,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("limit") {
 						body["limit"] = fLimit
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1200,7 +1277,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fComponentIDs, "component-ids", "", "Comma-separated component IDs to filter subscribers by.")
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100). (1-100)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
