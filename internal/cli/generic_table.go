@@ -143,10 +143,15 @@ func columnsForType(rowType reflect.Type) []output.Column {
 	if specs, ok := displayColumns[rowType.Name()]; ok {
 		cols := make([]output.Column, 0, len(specs))
 		for _, s := range specs {
+			field, format := s.Field, s.Format
+			fieldFn := func(item any) string { return fieldString(item, field) }
+			if format != nil {
+				fieldFn = func(item any) string { return format(fieldValue(item, field)) }
+			}
 			cols = append(cols, output.Column{
 				Header:   s.Header,
 				MaxWidth: s.MaxWidth,
-				Field:    func(item any) string { return fieldString(item, s.Field) },
+				Field:    fieldFn,
 			})
 		}
 		return cols
@@ -205,22 +210,52 @@ func renderVertical(ctx *RunContext, v reflect.Value) error {
 	return ctx.Printer.Print(rows, cols)
 }
 
-// fieldString reads the named Go field from a row item (deref'ing a pointer row)
-// and formats it. An absent field yields "" rather than panicking, so a stale
-// displayColumns entry degrades a column instead of crashing the command.
-func fieldString(item any, goField string) string {
+// derefStruct dereferences pointer chains and returns the underlying struct
+// reflect.Value. The second return is false when item is nil, not a struct after
+// dereferencing, or any pointer in the chain is nil.
+func derefStruct(item any) (reflect.Value, bool) {
 	rv := reflect.ValueOf(item)
 	for rv.Kind() == reflect.Pointer {
 		if rv.IsNil() {
-			return ""
+			return reflect.Value{}, false
 		}
 		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	return rv, true
+}
+
+// fieldString reads the named Go field from a row item and formats it as a
+// string. An absent field yields "" rather than panicking, so a stale
+// displayColumns entry degrades a column instead of crashing the command.
+func fieldString(item any, goField string) string {
+	rv, ok := derefStruct(item)
+	if !ok {
+		return ""
 	}
 	fv := rv.FieldByName(goField)
 	if !fv.IsValid() {
 		return ""
 	}
 	return scalarString(fv)
+}
+
+// fieldValue reads the named Go field's raw value from a row item, returning
+// nil when absent. It feeds a colSpec.Format function so a column can apply
+// semantic formatting (percent, duration) that the default scalar rendering
+// doesn't know about.
+func fieldValue(item any, goField string) any {
+	rv, ok := derefStruct(item)
+	if !ok {
+		return nil
+	}
+	fv := rv.FieldByName(goField)
+	if !fv.IsValid() || !fv.CanInterface() {
+		return nil
+	}
+	return fv.Interface()
 }
 
 // scalarString formats a scalar (or timestamp) reflect value. Non-scalars yield

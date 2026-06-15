@@ -66,6 +66,29 @@ func TestRenderGenericTable_DisplayColumns(t *testing.T) {
 	}
 }
 
+func TestRenderGenericTable_FormattedColumns(t *testing.T) {
+	// insight rows carry ratio/seconds fields the curated tables rendered as
+	// percent/duration; the colSpec.Format path must apply that, not print the
+	// raw float.
+	var buf bytes.Buffer
+	rows := []flashduty.DimensionInsightItem{
+		{TeamName: "sre", TotalIncidentCnt: 4, AcknowledgementPct: 0.85, MeanSecondsToAck: 150},
+	}
+	if err := renderGenericTable(tableCtx(&buf), rows); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{"TEAM", "ACK%", "MTTA", "sre", "85%"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q\n---\n%s", want, got)
+		}
+	}
+	// The raw ratio must NOT leak — proves Format ran instead of scalarString.
+	if strings.Contains(got, "0.85") {
+		t.Errorf("raw ratio leaked; Format not applied\n%s", got)
+	}
+}
+
 func TestRenderGenericTable_Heuristic(t *testing.T) {
 	var buf bytes.Buffer
 	resp := &fakeListResp{Items: []heuristicRow{{Name: "alpha", Count: 7}}, Total: 1}
@@ -156,6 +179,8 @@ var displayColumnSamples = []any{
 	flashduty.FieldItem{},
 	flashduty.WarRoomItem{},
 	flashduty.WarRoomPersonItem{},
+	flashduty.DimensionInsightItem{},
+	flashduty.ResponderInsightItem{},
 }
 
 // TestDisplayColumns_FieldsResolve guards against typos: every displayColumns

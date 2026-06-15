@@ -4,6 +4,7 @@ package e2e_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -81,7 +82,19 @@ func TestChannelListNoTrunc(t *testing.T) {
 // Member filters
 // ---------------------------------------------------------------------------
 
-// Test 132: member list --name
+// memberByID reports whether any row has the given member_id.
+func memberByID(items []map[string]any, id string) bool {
+	for _, item := range items {
+		if fmt.Sprintf("%v", item["member_id"]) == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Test 132: member list --query by name. The generated --query matches name OR
+// email server-side, so we assert the seed member is found (not that every row
+// matches by name — a result may match via email).
 func TestMemberListNameFilter(t *testing.T) {
 	r := runCLI(t, "member", "list", "--json")
 	requireSuccess(t, r)
@@ -90,13 +103,16 @@ func TestMemberListNameFilter(t *testing.T) {
 		t.Skip("no members available")
 	}
 
+	seedID := fmt.Sprintf("%v", members[0]["member_id"])
 	filter := mustStringField(t, members[0], "member_name")
-	r = runCLI(t, "member", "list", "--name", filter, "--json")
+	r = runCLI(t, "member", "list", "--query", filter, "--json")
 	requireSuccess(t, r)
-	requireAllMatchSubstring(t, decodeObjectList(t, r.Stdout), "member_name", filter)
+	if !memberByID(decodeObjectList(t, r.Stdout), seedID) {
+		t.Fatalf("--query %q did not return seed member %s", filter, seedID)
+	}
 }
 
-// Test 133: member list --email
+// Test 133: member list --query by email.
 func TestMemberListEmailFilter(t *testing.T) {
 	r := runCLI(t, "member", "list", "--json")
 	requireSuccess(t, r)
@@ -105,37 +121,20 @@ func TestMemberListEmailFilter(t *testing.T) {
 		t.Skip("no members available")
 	}
 
+	seedID := fmt.Sprintf("%v", members[0]["member_id"])
 	filter := mustStringField(t, members[0], "email")
-	r = runCLI(t, "member", "list", "--email", filter, "--json")
+	r = runCLI(t, "member", "list", "--query", filter, "--json")
 	requireSuccess(t, r)
-	requireAllMatchSubstring(t, decodeObjectList(t, r.Stdout), "email", filter)
+	if !memberByID(decodeObjectList(t, r.Stdout), seedID) {
+		t.Fatalf("--query %q did not return seed member %s", filter, seedID)
+	}
 }
 
-// Test 134: member list --name + --email combined
-func TestMemberListNameAndEmailFilter(t *testing.T) {
-	r := runCLI(t, "member", "list", "--json")
+// Test 134: member list --query returns valid JSON for an arbitrary term.
+func TestMemberListQueryReturnsJSON(t *testing.T) {
+	r := runCLI(t, "member", "list", "--query", "a", "--json")
 	requireSuccess(t, r)
-	members := decodeObjectList(t, r.Stdout)
-	if len(members) == 0 {
-		t.Skip("no members available")
-	}
-
-	nameFilter := mustStringField(t, members[0], "member_name")
-	emailFilter := mustStringField(t, members[0], "email")
-	r = runCLI(t, "member", "list", "--name", nameFilter, "--email", emailFilter, "--json")
-	requireSuccess(t, r)
-	results := decodeObjectList(t, r.Stdout)
-	if len(results) == 0 {
-		t.Fatalf("expected at least one result for name=%q email=%q", nameFilter, emailFilter)
-	}
-	for _, item := range results {
-		if !strings.Contains(mustStringField(t, item, "member_name"), nameFilter) {
-			t.Fatalf("member_name did not match combined filter %q", nameFilter)
-		}
-		if !strings.Contains(mustStringField(t, item, "email"), emailFilter) {
-			t.Fatalf("email did not match combined filter %q", emailFilter)
-		}
-	}
+	requireValidJSON(t, r.Stdout)
 }
 
 // Test 135: member list --page 1

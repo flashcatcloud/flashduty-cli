@@ -50,9 +50,9 @@ func TestMemberListJSON(t *testing.T) {
 
 // Test 139: member list empty results
 func TestMemberListNoResults(t *testing.T) {
-	r := runCLI(t, "member", "list", "--name", "nonexistent_xyz_999", "--email", "nonexistent_xyz")
+	r := runCLI(t, "member", "list", "--query", "nonexistent_xyz_999")
 	requireSuccess(t, r)
-	requireContains(t, r.Stdout, "No members found.")
+	requireContains(t, r.Stdout, "No results.")
 }
 
 // ---------------------------------------------------------------------------
