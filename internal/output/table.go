@@ -104,6 +104,18 @@ func FormatTime(ts instant) string {
 	return ts.Time().Local().Format("2006-01-02 15:04")
 }
 
+// FormatTimeValue formats v with FormatTime when v is an instant (go-flashduty
+// Timestamp/TimestampMilli), returning ok=false for any other value. It lets the
+// generic table renderer format timestamp fields it reaches by reflection
+// without importing the unexported instant type or duplicating the layout.
+func FormatTimeValue(v any) (string, bool) {
+	ts, ok := v.(instant)
+	if !ok {
+		return "", false
+	}
+	return FormatTime(ts), true
+}
+
 // FormatDuration formats seconds into human-readable duration (e.g., "2m 30s", "1h 15m").
 func FormatDuration(seconds int) string {
 	if seconds <= 0 {

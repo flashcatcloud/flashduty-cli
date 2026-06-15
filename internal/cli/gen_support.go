@@ -164,20 +164,16 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 	}
 }
 
-// printGenericResult renders a generated command's typed response. Generated
-// commands have no curated column set, so in machine-readable mode (TOON/JSON)
-// it marshals the whole value — which is what the agent reads — and in human
-// table mode it falls back to pretty JSON rather than a blank table.
+// printGenericResult renders a generated command's typed response. In
+// machine-readable mode (TOON/JSON) it marshals the whole value — which is what
+// the agent reads. In human (table) mode it derives an aligned table by
+// reflection (renderGenericTable), since generated commands carry no hand-written
+// column set; anything that isn't a list or object falls back to indented JSON.
 func printGenericResult(ctx *RunContext, data any) error {
 	if ctx.Structured() {
 		return ctx.Printer.Print(data, nil)
 	}
-	out, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal output: %w", err)
-	}
-	_, err = fmt.Fprintln(ctx.Writer, string(out))
-	return err
+	return renderGenericTable(ctx, data)
 }
 
 // genParseTimeFlag parses a relative-or-absolute time flag into unix seconds,
