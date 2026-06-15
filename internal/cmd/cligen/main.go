@@ -677,6 +677,108 @@ func scalarKind(t reflect.Type) (string, bool) {
 	return "", false
 }
 
+// ---- positional argument selection -----------------------------------------
+
+// positionalOverride maps an operationId to the wire name that should become the
+// command's positional argument, consulted BEFORE the *_id/*_ids heuristic. It
+// exists for ops where the heuristic would pick the wrong field:
+//   - incidentMerge has both a required scalar target_incident_id and a required
+//     array source_incident_ids; array-wins would pick the sources, but the
+//     merge TARGET is the natural positional (sources stay a --source-incident-ids
+//     flag).
+//   - incidentWarRoomDetail / incident-write-add-war-room-member each have two
+//     required scalar *_id fields (chat_id + integration_id); the chat is the
+//     subject, so pin chat_id rather than leave it ambiguous (and skipped).
+//   - monit-rule-write-move: the body has a required `ids` field (not matching
+//     *_ids) for the rules to move, and a required `dest_folder_id` scalar for the
+//     destination. The heuristic sees only dest_folder_id (single required *_id)
+//     and picks it, making the command feel like `rule-move <dest>` while `--ids`
+//     carries the actual subjects. Suppress the positional entirely so both fields
+//     are explicit flags.
+//
+// An empty string in this map means "suppress positional" — no positional is
+// emitted for that operation, even when the heuristic would pick one.
+var positionalOverride = map[string]string{
+	"incidentMerge":                      "target_incident_id",
+	"incidentWarRoomDetail":              "chat_id",
+	"incident-write-add-war-room-member": "chat_id",
+	"monit-rule-write-move":              "", // suppress: `ids` bypasses *_ids heuristic; dest_folder_id is not the natural subject
+}
+
+// positional describes the positional argument a generated command exposes.
+type positional struct {
+	Wire  string // request-body wire key the positional folds into
+	Kind  string // "string" | "slice" | "int" — selects genFoldPositional behavior
+	Array bool   // true => variadic (>=1 arg); false => exactly one arg
+}
+
+// selectPositional decides which (if any) request field becomes the command's
+// positional argument. These ops carry the id in the BODY (no path params), so
+// the positional must map onto an already-emitted body-field flag (a scalar from
+// reqFields). Selection rule:
+//
+//  1. An operationId in positionalOverride wins outright.
+//  2. Otherwise the candidates are REQUIRED body fields whose wire is *_id
+//     (scalar) or *_ids (array). A single required *_ids array wins (array-wins:
+//     it also absorbs a co-present scalar id, e.g. incident_id + person_ids ->
+//     person_ids). With no array and a single required *_id scalar, that scalar
+//     wins.
+//  3. Anything ambiguous — multiple required arrays, or (no override) multiple
+//     required scalar ids such as channel_id + rule_id — emits NO positional, so
+//     a wrong guess can never shadow the right --flag. Such commands are still
+//     fully driveable by their typed flags.
+//
+// kind/array are read off the emitted flag type (reqFields' scalarKind), so the
+// runtime fold matches the flag the user could otherwise set.
+func selectPositional(o specOp, scalars []scalarField, byWire map[string]specField) (positional, bool) {
+	mk := func(wire string) (positional, bool) {
+		for _, sf := range scalars {
+			if sf.Wire != wire {
+				continue
+			}
+			switch sf.Kind {
+			case "[]string":
+				return positional{Wire: wire, Kind: "slice", Array: true}, true
+			case "[]int":
+				return positional{Wire: wire, Kind: "intslice", Array: true}, true
+			case "int", "float":
+				return positional{Wire: wire, Kind: "int"}, true
+			default: // string, bool — treat as string scalar at the CLI surface
+				return positional{Wire: wire, Kind: "string"}, true
+			}
+		}
+		return positional{}, false // chosen field is not a flag-able scalar; skip
+	}
+
+	if wire, ok := positionalOverride[o.OpID]; ok {
+		if wire == "" {
+			return positional{}, false // explicit suppress: empty string means no positional
+		}
+		return mk(wire)
+	}
+
+	var reqScalars, reqArrays []string
+	for _, sf := range scalars {
+		if !byWire[sf.Wire].Required {
+			continue
+		}
+		switch {
+		case strings.HasSuffix(sf.Wire, "_ids") && (sf.Kind == "[]string" || sf.Kind == "[]int"):
+			reqArrays = append(reqArrays, sf.Wire)
+		case strings.HasSuffix(sf.Wire, "_id"):
+			reqScalars = append(reqScalars, sf.Wire)
+		}
+	}
+	switch {
+	case len(reqArrays) == 1:
+		return mk(reqArrays[0]) // array-wins (absorbs any co-present scalar id)
+	case len(reqArrays) == 0 && len(reqScalars) == 1:
+		return mk(reqScalars[0])
+	default:
+		return positional{}, false // none or ambiguous → no positional
+	}
+}
+
 // ---- emission --------------------------------------------------------------
 
 func emitService(s service, sdk map[string]map[string]methodInfo, groupShorts map[string]string) (string, int, []string) {
@@ -766,10 +868,48 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	// Command literal. The leaf verb must match the name registered in
 	// emitService (cliVerb), so they share the same derivation.
 	verb := cliVerb(o.Path)
+
+	// Positional argument: these body-id ops carry the id in the request body
+	// (no path params), so the positional folds into an already-emitted body-field
+	// flag. The placeholder is appended to Use, an arity validator is added, and
+	// RunE folds the arg(s) into the body before the flags are stamped.
+	//
+	// Create commands never get a positional: their required *_id is a parent/owner
+	// reference (e.g. team_id on channel create), which is awkward as a positional
+	// and better supplied as an explicit flag.
+	pos, hasPos := selectPositional(o, scalars, specByWire)
+	if verb == "create" {
+		hasPos = false
+	}
+
+	use := verb
+	if hasPos {
+		// Scalar: <incident-id>. Array: the first placeholder is the SINGULAR id
+		// (<incident-id>, the *_ids wire minus its trailing "s") followed by
+		// [<id2>...] for the additional variadic ids, which reads as a list of one
+		// id-kind rather than "<incident-ids> id2 id3".
+		name := kebab(pos.Wire)
+		if pos.Array {
+			use = verb + " <" + strings.TrimSuffix(name, "s") + "> [<id2>...]"
+		} else {
+			use = verb + " <" + name + ">"
+		}
+	}
 	fmt.Fprintf(&b, "\tcmd := &cobra.Command{\n")
-	fmt.Fprintf(&b, "\t\tUse:   %q,\n", verb)
+	fmt.Fprintf(&b, "\t\tUse:   %q,\n", use)
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
+	if hasPos {
+		// Scalar positionals use requireExactArg so extra arguments (e.g.
+		// `incident info id1 id2`) are rejected with a clear error instead of
+		// silently dropping id2. Array positionals use requireArgs (>=1) because
+		// they are variadic by design.
+		if pos.Array {
+			fmt.Fprintf(&b, "\t\tArgs:  requireArgs(%q),\n", pos.Wire)
+		} else {
+			fmt.Fprintf(&b, "\t\tArgs:  requireExactArg(%q),\n", pos.Wire)
+		}
+	}
 	if ex := exampleHelp(o); ex != "" {
 		fmt.Fprintf(&b, "\t\tExample: %s,\n", quoteMultiline(ex))
 	}
@@ -785,8 +925,14 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 	}
-	// body assembly
-	b.WriteString("\t\t\t\tbody, err := genAssembleBody(dataJSON, func(body map[string]any) {\n")
+	// body assembly. The positional argument folds in first (after --data, before
+	// the typed flags) so an explicitly-set flag for the same field overrides it,
+	// matching genAssembleBody's --data-then-flags overlay order. genFoldPositional
+	// can fail (int parse); the error propagates directly via the callback's return.
+	b.WriteString("\t\t\t\tbody, err := genAssembleBody(dataJSON, func(body map[string]any) error {\n")
+	if hasPos {
+		fmt.Fprintf(&b, "\t\t\t\t\tif err := genFoldPositional(args, body, %q, %q); err != nil {\n\t\t\t\t\t\treturn err\n\t\t\t\t\t}\n", pos.Wire, pos.Kind)
+	}
 	for _, sf := range scalars {
 		if isTime[sf.Wire] {
 			fmt.Fprintf(&b, "\t\t\t\t\tif %s {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
@@ -796,6 +942,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		fmt.Fprintf(&b, "\t\t\t\t\tif cmd.Flags().Changed(%q) {\n\t\t\t\t\t\tbody[%q] = %s\n\t\t\t\t\t}\n",
 			flagName(sf.Wire), sf.Wire, flagVar(sf.Wire))
 	}
+	b.WriteString("\t\t\t\t\treturn nil\n")
 	b.WriteString("\t\t\t\t})\n")
 	b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 
@@ -838,7 +985,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		fmt.Fprintf(&b, "\tcmd.Flags().%s(&%s, %q, %s, %q)\n",
 			flagSetter(sf.Kind), flagVar(sf.Wire), flagName(sf.Wire), flagZero(sf.Kind), usage)
 	}
-	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
+	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
 	b.WriteString("\treturn cmd\n}\n\n")
 	return b.String()
 }

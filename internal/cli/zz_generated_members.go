@@ -38,7 +38,7 @@ Request fields:
 		Example: `  flashduty member delete --data '{"member_id":5068740052131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("country-code") {
 						body["country_code"] = fCountryCode
 					}
@@ -60,6 +60,7 @@ Request fields:
 					if cmd.Flags().Changed("ref-id") {
 						body["ref_id"] = fRefID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -87,7 +88,7 @@ Request fields:
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -96,7 +97,7 @@ func genMembersMemberGrantRoleCmd() *cobra.Command {
 	var fMemberID int64
 	var fRoleIDs []int
 	cmd := &cobra.Command{
-		Use:   "role-grant",
+		Use:   "role-grant <role-id> [<id2>...]",
 		Short: "Grant role to member",
 		Long: `Grant role to member.
 
@@ -108,16 +109,21 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — Role IDs to grant; appended to the member's current roles (duplicates are deduplicated).
 `,
+		Args:    requireArgs("role_ids"),
 		Example: `  flashduty member role-grant --data '{"member_id":5068740052131,"role_ids":[6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("member-id") {
 						body["member_id"] = fMemberID
 					}
 					if cmd.Flags().Changed("role-ids") {
 						body["role_ids"] = fRoleIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -140,7 +146,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to grant; appended to the member's current roles (duplicates are deduplicated). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -180,7 +186,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty member info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -194,7 +201,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -230,10 +237,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"time_zone":"Asia/Shanghai"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("from") {
 						body["from"] = fFrom
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -251,7 +259,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringVar(&fFrom, "from", "", "Invite source context")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -308,7 +316,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty member list --data '{"limit":5,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -330,6 +338,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -353,7 +362,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -368,7 +377,7 @@ func genMembersMemberResetInfoCmd() *cobra.Command {
 	var fPhone string
 	var fTimeZone string
 	cmd := &cobra.Command{
-		Use:   "info-reset",
+		Use:   "info-reset <member-id>",
 		Short: "Reset member info",
 		Long: `Reset member info.
 
@@ -386,10 +395,14 @@ Request fields:
   --phone string — Phone number
   --time-zone string — Time zone
 `,
+		Args:    requireExactArg("member_id"),
 		Example: `  flashduty member info-reset --data '{"locale":"zh-CN","member_id":2476444212131,"member_name":"Alice","time_zone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "member_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("avatar") {
 						body["avatar"] = fAvatar
 					}
@@ -414,6 +427,7 @@ Request fields:
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -442,7 +456,7 @@ Request fields:
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Display name (2-39 chars)")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Time zone")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -451,7 +465,7 @@ func genMembersMemberRevokeRoleCmd() *cobra.Command {
 	var fMemberID int64
 	var fRoleIDs []int
 	cmd := &cobra.Command{
-		Use:   "role-revoke",
+		Use:   "role-revoke <role-id> [<id2>...]",
 		Short: "Revoke role from member",
 		Long: `Revoke role from member.
 
@@ -463,16 +477,21 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — Role IDs to remove from the member.
 `,
+		Args:    requireArgs("role_ids"),
 		Example: `  flashduty member role-revoke --data '{"member_id":5068740052131,"role_ids":[6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("member-id") {
 						body["member_id"] = fMemberID
 					}
 					if cmd.Flags().Changed("role-ids") {
 						body["role_ids"] = fRoleIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -495,7 +514,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to remove from the member. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -504,7 +523,7 @@ func genMembersMemberUpdateRoleCmd() *cobra.Command {
 	var fMemberID int64
 	var fRoleIDs []int
 	cmd := &cobra.Command{
-		Use:   "role-update",
+		Use:   "role-update <role-id> [<id2>...]",
 		Short: "Update member roles",
 		Long: `Update member roles.
 
@@ -516,16 +535,21 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — New set of role IDs
 `,
+		Args:    requireArgs("role_ids"),
 		Example: `  flashduty member role-update --data '{"member_id":5068740052131,"role_ids":[2,6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "role_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("member-id") {
 						body["member_id"] = fMemberID
 					}
 					if cmd.Flags().Changed("role-ids") {
 						body["role_ids"] = fRoleIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -548,7 +572,7 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New set of role IDs (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -556,7 +580,7 @@ func genMembersPersonInfosCmd() *cobra.Command {
 	var dataJSON string
 	var fPersonIDs []int
 	cmd := &cobra.Command{
-		Use:   "infos",
+		Use:   "infos <person-id> [<id2>...]",
 		Short: "Batch get persons",
 		Long: `Batch get persons.
 
@@ -582,13 +606,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. [enabled, pending, deleted]
     - time_zone (string) — Time zone
 `,
+		Args:    requireArgs("person_ids"),
 		Example: `  flashduty person infos --data '{"person_ids":[2476444212131,3790925372131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "person_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("person-ids") {
 						body["person_ids"] = fPersonIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -606,7 +635,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "List of person IDs (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

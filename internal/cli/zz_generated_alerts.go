@@ -82,7 +82,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -116,6 +116,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if okStartTime {
 						body["start_time"] = vStartTime
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -143,7 +144,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field (ES field name). [event_time]")
 	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -151,7 +152,7 @@ func genAlertsReadEventListCmd() *cobra.Command {
 	var dataJSON string
 	var fAlertID string
 	cmd := &cobra.Command{
-		Use:   "event-list",
+		Use:   "event-list <alert-id>",
 		Short: "List events for an alert",
 		Long: `List events for an alert.
 
@@ -187,13 +188,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (integer) — Record update time, Unix epoch seconds.
 `,
+		Args:    requireExactArg("alert_id"),
 		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "alert_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("alert-id") {
 						body["alert_id"] = fAlertID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -211,7 +217,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (ObjectID hex string). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -224,7 +230,7 @@ func genAlertsReadFeedCmd() *cobra.Command {
 	var fAsc bool
 	var fTypes []string
 	cmd := &cobra.Command{
-		Use:   "feed",
+		Use:   "feed <alert-id>",
 		Short: "List alert activity feed",
 		Long: `List alert activity feed.
 
@@ -251,10 +257,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
     - updated_at (integer) (required) — Last update timestamp in Unix epoch milliseconds.
 `,
+		Args:    requireExactArg("alert_id"),
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "alert_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -273,6 +283,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("types") {
 						body["types"] = fTypes
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -295,7 +306,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending.")
 	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Filter by feed types.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -303,7 +314,7 @@ func genAlertsReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fAlertID string
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <alert-id>",
 		Short: "Get alert detail",
 		Long: `Get alert detail.
 
@@ -376,13 +387,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
 `,
+		Args:    requireExactArg("alert_id"),
 		Example: `  flashduty alert info --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "alert_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("alert-id") {
 						body["alert_id"] = fAlertID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -400,7 +416,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (ObjectID hex string). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -524,7 +540,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -570,6 +586,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if okStartTime {
 						body["start_time"] = vStartTime
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -601,7 +618,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by active ('true') or resolved ('false') status.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -609,7 +626,7 @@ func genAlertsReadListByIDsCmd() *cobra.Command {
 	var dataJSON string
 	var fAlertIDs []string
 	cmd := &cobra.Command{
-		Use:   "list-by-ids",
+		Use:   "list-by-ids <alert-id> [<id2>...]",
 		Short: "List alerts by IDs",
 		Long: `List alerts by IDs.
 
@@ -686,13 +703,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor for the next page.
   - total (integer) — Total matching alerts.
 `,
+		Args:    requireArgs("alert_ids"),
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "alert_ids", "slice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("alert-ids") {
 						body["alert_ids"] = fAlertIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -710,7 +732,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "List of alert IDs (ObjectID hex strings). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -718,7 +740,7 @@ func genAlertsReadPipelineInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
-		Use:   "pipeline-info",
+		Use:   "pipeline-info <integration-id>",
 		Short: "Get alert pipeline",
 		Long: `Get alert pipeline.
 
@@ -741,13 +763,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Member ID who last updated the pipeline.
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty alert pipeline-info --data '{"integration_id":10001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -765,7 +792,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -773,7 +800,7 @@ func genAlertsReadPipelineListCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationIDs []int
 	cmd := &cobra.Command{
-		Use:   "pipeline-list",
+		Use:   "pipeline-list <integration-id> [<id2>...]",
 		Short: "List alert pipelines",
 		Long: `List alert pipelines.
 
@@ -797,13 +824,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Member ID who last updated the pipeline.
 `,
+		Args:    requireArgs("integration_ids"),
 		Example: `  flashduty alert pipeline-list --data '{"integration_ids":[10001,10002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-ids") {
 						body["integration_ids"] = fIntegrationIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -821,7 +853,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Integration IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -833,7 +865,7 @@ func genAlertsWriteMergeCmd() *cobra.Command {
 	var fOwnerID int64
 	var fTitle string
 	cmd := &cobra.Command{
-		Use:   "merge",
+		Use:   "merge <alert-id> [<id2>...]",
 		Short: "Merge alerts into an incident",
 		Long: `Merge alerts into an incident.
 
@@ -848,10 +880,14 @@ Request fields:
   --owner-id int — Optional new owner for the target incident.
   --title string — Optional new title for the target incident.
 `,
+		Args:    requireArgs("alert_ids"),
 		Example: `  flashduty alert merge --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"],"incident_id":"663a000000000000deadbeef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "alert_ids", "slice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("alert-ids") {
 						body["alert_ids"] = fAlertIDs
 					}
@@ -867,6 +903,7 @@ Request fields:
 					if cmd.Flags().Changed("title") {
 						body["title"] = fTitle
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -892,7 +929,7 @@ Request fields:
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Target incident ID. (required)")
 	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Optional new owner for the target incident.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -900,7 +937,7 @@ func genAlertsWritePipelineUpsertCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
-		Use:   "pipeline-upsert",
+		Use:   "pipeline-upsert <integration-id>",
 		Short: "Create or update alert pipeline",
 		Long: `Create or update alert pipeline.
 
@@ -915,13 +952,18 @@ Request fields:
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -943,7 +985,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to configure. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

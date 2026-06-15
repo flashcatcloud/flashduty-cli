@@ -15,7 +15,7 @@ func genSessionsInfoCmd() *cobra.Command {
 	var fSearchAfterCtx string
 	var fSessionID string
 	cmd := &cobra.Command{
-		Use:   "session-get",
+		Use:   "session-get <session-id>",
 		Short: "Get session detail",
 		Long: `Get session detail.
 
@@ -88,10 +88,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - reasoning_tokens (integer) — Total reasoning/thinking tokens.
     - updated_at (integer) — Unix timestamp in milliseconds of the last session update.
 `,
+		Args:    requireExactArg("session_id"),
 		Example: `  flashduty safari session-get --data '{"num_recent_events":50,"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "session_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("limit") {
 						body["limit"] = fLimit
 					}
@@ -104,6 +108,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("session-id") {
 						body["session_id"] = fSessionID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -124,7 +129,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Number of most-recent events to return; 0 uses the server default. (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response's search_after_ctx, to page backward through older events. (≤4096 chars)")
 	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Session identifier. (required) (≥1 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -211,7 +216,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty safari session-list --data '{"app_name":"ai-sre","limit":2,"orderby":"updated_at","scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -248,6 +253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -276,7 +282,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: all (own + member-of-team rows, the default), personal (own only), or team (member teams only). [all, personal, team]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default, not archived), archived, or all. [active, archived, all]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersected with the caller's visible set / scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

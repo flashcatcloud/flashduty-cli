@@ -12,7 +12,7 @@ func genApplicationsReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fApplicationID string
 	cmd := &cobra.Command{
-		Use:   "application-info",
+		Use:   "application-info <application-id>",
 		Short: "Get application detail",
 		Long: `Get application detail.
 
@@ -47,13 +47,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Last updater member ID.
 `,
+		Args:    requireExactArg("application_id"),
 		Example: `  flashduty rum application-info --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("application-id") {
 						body["application_id"] = fApplicationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -71,7 +76,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -79,7 +84,7 @@ func genApplicationsReadInfosCmd() *cobra.Command {
 	var dataJSON string
 	var fApplicationIDs []string
 	cmd := &cobra.Command{
-		Use:   "application-infos",
+		Use:   "application-infos <application-id> [<id2>...]",
 		Short: "Batch get applications",
 		Long: `Batch get applications.
 
@@ -115,13 +120,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Last updater member ID.
 `,
+		Args:    requireArgs("application_ids"),
 		Example: `  flashduty rum application-infos --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD","WoyQQ3BohkdtPivubEvE8o"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_ids", "slice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("application-ids") {
 						body["application_ids"] = fApplicationIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -139,7 +149,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -202,7 +212,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty rum application-list --data '{"is_my_team":false,"limit":20,"p":1,"query":""}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -227,6 +237,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -251,7 +262,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Search query to filter by application name.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -264,7 +275,7 @@ func genApplicationsWriteCreateCmd() *cobra.Command {
 	var fTeamID int64
 	var fType string
 	cmd := &cobra.Command{
-		Use:   "application-create",
+		Use:   "application-create <team-id>",
 		Short: "Create application",
 		Long: `Create application.
 
@@ -293,10 +304,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - application_name (string) — Application display name.
   - client_token (string) — Token for RUM SDK initialization.
 `,
+		Args:    requireExactArg("team_id"),
 		Example: `  flashduty rum application-create --data '{"application_name":"My Web App","is_private":false,"team_id":2477033058131,"type":"browser"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "team_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("application-name") {
 						body["application_name"] = fApplicationName
 					}
@@ -315,6 +330,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -337,7 +353,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Application type. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -345,7 +361,7 @@ func genApplicationsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fApplicationID string
 	cmd := &cobra.Command{
-		Use:   "application-delete",
+		Use:   "application-delete <application-id>",
 		Short: "Delete application",
 		Long: `Delete application.
 
@@ -356,13 +372,18 @@ API: POST /rum/application/delete (rum-application-write-delete)
 Request fields:
   --application-id string (required) — RUM application ID.
 `,
+		Args:    requireExactArg("application_id"),
 		Example: `  flashduty rum application-delete --data '{"application_id":"qLpu24Dz4CAzWsESPbJYWA"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("application-id") {
 						body["application_id"] = fApplicationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -384,7 +405,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -398,7 +419,7 @@ func genApplicationsWriteUpdateCmd() *cobra.Command {
 	var fTeamID int64
 	var fType string
 	cmd := &cobra.Command{
-		Use:   "application-update",
+		Use:   "application-update <application-id>",
 		Short: "Update application",
 		Long: `Update application.
 
@@ -423,10 +444,14 @@ Request fields:
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. [popup, tab]
 `,
+		Args:    requireExactArg("application_id"),
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("application-id") {
 						body["application_id"] = fApplicationID
 					}
@@ -448,6 +473,7 @@ Request fields:
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -475,7 +501,7 @@ Request fields:
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Request field no_ip")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Request field team_id")
 	cmd.Flags().StringVar(&fType, "type", "", "Request field type [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

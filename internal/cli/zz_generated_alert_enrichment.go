@@ -12,7 +12,7 @@ func genAlertEnrichmentEnrichmentReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <integration-id>",
 		Short: "Get enrichment rules",
 		Long: `Get enrichment rules.
 
@@ -38,13 +38,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update timestamp, Unix seconds.
   - updated_by (integer) (required) — Last updater member ID.
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty enrichment info --data '{"integration_id":5001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -62,7 +67,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to query enrichment rules for. Must be greater than 0. (required) (min 1)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -70,7 +75,7 @@ func genAlertEnrichmentEnrichmentReadListCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationIDs []int
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list <integration-id> [<id2>...]",
 		Short: "List enrichment rules",
 		Long: `List enrichment rules.
 
@@ -97,13 +102,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp, Unix seconds.
     - updated_by (integer) (required) — Last updater member ID.
 `,
+		Args:    requireArgs("integration_ids"),
 		Example: `  flashduty enrichment list --data '{"integration_ids":[5001,5002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_ids", "intslice"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-ids") {
 						body["integration_ids"] = fIntegrationIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -121,7 +131,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "List of integration IDs to query. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -129,7 +139,7 @@ func genAlertEnrichmentEnrichmentWriteUpsertCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
-		Use:   "upsert",
+		Use:   "upsert <integration-id>",
 		Short: "Upsert enrichment rules",
 		Long: `Upsert enrichment rules.
 
@@ -147,13 +157,18 @@ Request fields:
     - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
     - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
 `,
+		Args:    requireExactArg("integration_id"),
 		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.labels.region}}-{{.labels.environment}}"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -175,7 +190,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to configure enrichment rules for. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -183,7 +198,7 @@ func genAlertEnrichmentFieldReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fFieldID string
 	cmd := &cobra.Command{
-		Use:   "info",
+		Use:   "info <field-id>",
 		Short: "Get field detail",
 		Long: `Get field detail.
 
@@ -211,13 +226,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater member ID.
   - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
 `,
+		Args:    requireExactArg("field_id"),
 		Example: `  flashduty field info --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "field_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("field-id") {
 						body["field_id"] = fFieldID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -235,7 +255,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -281,7 +301,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty field list --data '{"asc":false,"orderby":"updated_at","query":"severity"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
 					}
@@ -294,6 +314,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("query") {
 						body["query"] = fQuery
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -314,7 +335,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID. Omit or send 'null' to skip.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -351,7 +372,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty field create --data '{"default_value":"Medium","description":"Business severity tier.","display_name":"Severity Class","field_name":"severity_class","field_type":"single_select","options":["Critical","High","Medium","Low"],"value_type":"string"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -370,6 +391,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("value-type") {
 						body["value_type"] = fValueType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -392,7 +414,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field input type. Immutable after creation. (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
 	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. (required) [string, bool, float]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -400,7 +422,7 @@ func genAlertEnrichmentFieldWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fFieldID string
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <field-id>",
 		Short: "Delete field",
 		Long: `Delete field.
 
@@ -411,13 +433,18 @@ API: POST /field/delete (field-write-delete)
 Request fields:
   --field-id string (required) — Field ID — 24-character hex ObjectID.
 `,
+		Args:    requireExactArg("field_id"),
 		Example: `  flashduty field delete --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "field_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("field-id") {
 						body["field_id"] = fFieldID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -439,7 +466,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -450,7 +477,7 @@ func genAlertEnrichmentFieldWriteUpdateCmd() *cobra.Command {
 	var fFieldID string
 	var fOptions []string
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update <field-id>",
 		Short: "Update field",
 		Long: `Update field.
 
@@ -465,10 +492,14 @@ Request fields:
   --options []string — Replacement options list. Must obey the same per-type rules as create.
   default_value (any, via --data) — Replacement default value. Type must match the field's existing 'field_type'.
 `,
+		Args:    requireExactArg("field_id"),
 		Example: `  flashduty field update --data '{"default_value":"Medium","description":"Business severity tier.","display_name":"Severity Class","field_id":"66e9d3a4f7c2b04a1c8a91b3","options":["Critical","High","Medium","Low"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "field_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -481,6 +512,7 @@ Request fields:
 					if cmd.Flags().Changed("options") {
 						body["options"] = fOptions
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -505,7 +537,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name. Must remain unique within the account. (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -513,7 +545,7 @@ func genAlertEnrichmentMappingAPIReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fAPIID string
 	cmd := &cobra.Command{
-		Use:   "mapping-api-info",
+		Use:   "mapping-api-info <api-id>",
 		Short: "Get mapping API detail",
 		Long: `Get mapping API detail.
 
@@ -540,13 +572,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater member ID.
   - url (string) (required) — Endpoint URL.
 `,
+		Args:    requireExactArg("api_id"),
 		Example: `  flashduty enrichment mapping-api-info --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "api_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("api-id") {
 						body["api_id"] = fAPIID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -564,7 +601,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAPIID, "api-id", "", "Mapping API ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -600,7 +637,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty enrichment mapping-api-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -614,7 +652,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -653,7 +691,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty enrichment mapping-api-create --data '{"api_name":"CMDB API","description":"Query CMDB for host metadata","headers":{"X-Token":"mytoken"},"insecure_skip_verify":false,"retry_count":1,"timeout":2,"url":"https://cmdb.example.com/api/lookup"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("api-name") {
 						body["api_name"] = fAPIName
 					}
@@ -675,6 +713,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("url") {
 						body["url"] = fURL
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -698,7 +737,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2.")
 	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required) (≤500 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -706,7 +745,7 @@ func genAlertEnrichmentMappingAPIWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fAPIID string
 	cmd := &cobra.Command{
-		Use:   "mapping-api-delete",
+		Use:   "mapping-api-delete <api-id>",
 		Short: "Delete mapping API",
 		Long: `Delete mapping API.
 
@@ -717,13 +756,18 @@ API: POST /enrichment/mapping/api/delete (mapping-api-write-delete)
 Request fields:
   --api-id string (required) — Mapping API ID (MongoDB ObjectID hex).
 `,
+		Args:    requireExactArg("api_id"),
 		Example: `  flashduty enrichment mapping-api-delete --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "api_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("api-id") {
 						body["api_id"] = fAPIID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -745,7 +789,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAPIID, "api-id", "", "Mapping API ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -760,7 +804,7 @@ func genAlertEnrichmentMappingAPIWriteUpdateCmd() *cobra.Command {
 	var fTimeout int64
 	var fURL string
 	cmd := &cobra.Command{
-		Use:   "mapping-api-update",
+		Use:   "mapping-api-update <api-id>",
 		Short: "Update mapping API",
 		Long: `Update mapping API.
 
@@ -779,10 +823,14 @@ Request fields:
   --url string — New endpoint URL (max 500 chars). (≤500 chars)
   headers (object, via --data) — New headers map (replaces existing).
 `,
+		Args:    requireExactArg("api_id"),
 		Example: `  flashduty enrichment mapping-api-update --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02","retry_count":1,"timeout":3}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "api_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("api-id") {
 						body["api_id"] = fAPIID
 					}
@@ -807,6 +855,7 @@ Request fields:
 					if cmd.Flags().Changed("url") {
 						body["url"] = fURL
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -835,7 +884,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds.")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars). (≤500 chars)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -843,7 +892,7 @@ func genAlertEnrichmentMappingDataReadDownloadCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-data-download",
+		Use:   "mapping-data-download <schema-id>",
 		Short: "Download mapping data as CSV",
 		Long: `Download mapping data as CSV.
 
@@ -854,13 +903,18 @@ API: POST /enrichment/mapping/data/download (mapping-data-read-download)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-data-download --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -878,7 +932,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -891,7 +945,7 @@ func genAlertEnrichmentMappingDataReadListCmd() *cobra.Command {
 	var fOrderby string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-data-list",
+		Use:   "mapping-data-list <schema-id>",
 		Short: "List mapping data",
 		Long: `List mapping data.
 
@@ -918,10 +972,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor token for the next page.
   - total (integer) (required) — Total matching rows.
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-data-list --data '{"asc":false,"limit":20,"orderby":"updated_at","p":1,"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -940,6 +998,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -962,7 +1021,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -971,7 +1030,7 @@ func genAlertEnrichmentMappingDataWriteDeleteCmd() *cobra.Command {
 	var fKeys []string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-data-delete",
+		Use:   "mapping-data-delete <schema-id>",
 		Short: "Delete mapping data rows",
 		Long: `Delete mapping data rows.
 
@@ -983,16 +1042,21 @@ Request fields:
   --keys []string (required) — Keys of rows to delete.
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-data-delete --data '{"keys":["server01","server02"],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("keys") {
 						body["keys"] = fKeys
 					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1015,7 +1079,7 @@ Request fields:
 	}
 	cmd.Flags().StringSliceVar(&fKeys, "keys", nil, "Keys of rows to delete. (required)")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1023,7 +1087,7 @@ func genAlertEnrichmentMappingDataWriteTruncateCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-data-truncate",
+		Use:   "mapping-data-truncate <schema-id>",
 		Short: "Truncate mapping data",
 		Long: `Truncate mapping data.
 
@@ -1034,13 +1098,18 @@ API: POST /enrichment/mapping/data/truncate (mapping-data-write-truncate)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-data-truncate --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1062,7 +1131,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1086,13 +1155,14 @@ Request fields:
 		Example: `  flashduty enrichment mapping-data-upload --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("file") {
 						body["file"] = fFile
 					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1115,7 +1185,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fFile, "file", "", "CSV file to upload.")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (query parameter).")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1123,7 +1193,7 @@ func genAlertEnrichmentMappingDataWriteUpsertCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-data-upsert",
+		Use:   "mapping-data-upsert <schema-id>",
 		Short: "Upsert mapping data rows",
 		Long: `Upsert mapping data rows.
 
@@ -1138,13 +1208,18 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - keys (array<string>) (required) — Composite keys of upserted rows.
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-data-upsert --data '{"docs":[{"host":"server01","owner":"alice","service":"api","team":"sre"},{"host":"server02","owner":"bob","service":"gateway","team":"platform"}],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1162,7 +1237,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1170,7 +1245,7 @@ func genAlertEnrichmentMappingSchemaReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-schema-info",
+		Use:   "mapping-schema-info <schema-id>",
 		Short: "Get mapping schema detail",
 		Long: `Get mapping schema detail.
 
@@ -1194,13 +1269,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix seconds.
   - updated_by (integer) (required) — Last updater member ID.
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-schema-info --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1218,7 +1298,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1251,7 +1331,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty enrichment mapping-schema-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1265,7 +1346,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1299,7 +1380,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty enrichment mapping-schema-create --data '{"description":"Enrich alerts with CMDB data","result_labels":["owner","team","service"],"schema_name":"CMDB Lookup","source_labels":["host"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -1315,6 +1396,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1336,7 +1418,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "Unique schema name (max 39 chars). (required) (≤39 chars)")
 	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Must not overlap with 'result_labels'. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. '0' means no team.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1344,7 +1426,7 @@ func genAlertEnrichmentMappingSchemaWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
 	cmd := &cobra.Command{
-		Use:   "mapping-schema-delete",
+		Use:   "mapping-schema-delete <schema-id>",
 		Short: "Delete mapping schema",
 		Long: `Delete mapping schema.
 
@@ -1355,13 +1437,18 @@ API: POST /enrichment/mapping/schema/delete (mapping-schema-write-delete)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-schema-delete --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("schema-id") {
 						body["schema_id"] = fSchemaID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1383,7 +1470,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1394,7 +1481,7 @@ func genAlertEnrichmentMappingSchemaWriteUpdateCmd() *cobra.Command {
 	var fSchemaName string
 	var fTeamID int64
 	cmd := &cobra.Command{
-		Use:   "mapping-schema-update",
+		Use:   "mapping-schema-update <schema-id>",
 		Short: "Update mapping schema",
 		Long: `Update mapping schema.
 
@@ -1408,10 +1495,14 @@ Request fields:
   --schema-name string — New schema name (max 39 chars). (≤39 chars)
   --team-id int — New owning team ID. '0' removes the team association.
 `,
+		Args:    requireExactArg("schema_id"),
 		Example: `  flashduty enrichment mapping-schema-update --data '{"description":"Updated description","schema_id":"665f1a2b3c4d5e6f7a8b9c01","schema_name":"CMDB Lookup v2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "schema_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
@@ -1424,6 +1515,7 @@ Request fields:
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1448,7 +1540,7 @@ Request fields:
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Schema ID (MongoDB ObjectID hex). (required)")
 	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "New schema name (max 39 chars). (≤39 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID. '0' removes the team association.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

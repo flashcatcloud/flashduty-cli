@@ -12,7 +12,7 @@ func genA2aAgentsReadGetCmd() *cobra.Command {
 	var dataJSON string
 	var fAgentID string
 	cmd := &cobra.Command{
-		Use:   "a2a-agent-get",
+		Use:   "a2a-agent-get <agent-id>",
 		Short: "Get A2A agent detail",
 		Long: `Get A2A agent detail.
 
@@ -46,13 +46,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Owning team; 0 means account scope.
   - updated_at (integer) (required) — Last-update time as a Unix timestamp in seconds.
 `,
+		Args:    requireExactArg("agent_id"),
 		Example: `  flashduty safari a2a-agent-get --data '{"agent_id":"a2a_9d4c1f60b3a2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "agent_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("agent-id") {
 						body["agent_id"] = fAgentID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -70,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -123,7 +128,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty safari a2a-agent-list --data '{"include_account":true,"limit":20,"offset":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("include-account") {
 						body["include_account"] = fIncludeAccount
 					}
@@ -136,6 +141,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -156,7 +162,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of rows to return; defaults to 20.")
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Number of rows to skip for pagination.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -198,7 +204,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"Network Diagnostics Agent","auth_config":{"token":"secret"},"auth_type":"bearer","card_url":"https://agents.example.com/network-diag/.well-known/agent.json","description":"Runs traceroute and BGP-path analysis for network incidents.","streaming":true,"team_id":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("agent-name") {
 						body["agent_name"] = fAgentName
 					}
@@ -226,6 +232,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -251,7 +258,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON schema of the per-user secret; required when auth_mode is per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the agent supports streaming responses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team for the new agent; 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -259,7 +266,7 @@ func genA2aAgentsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fAgentID string
 	cmd := &cobra.Command{
-		Use:   "a2a-agent-delete",
+		Use:   "a2a-agent-delete <agent-id>",
 		Short: "Delete A2A agent",
 		Long: `Delete A2A agent.
 
@@ -270,13 +277,18 @@ API: POST /safari/a2a-agent/delete (remote-agent-write-delete)
 Request fields:
   --agent-id string (required) — Identifier of the target agent.
 `,
+		Args:    requireExactArg("agent_id"),
 		Example: `  flashduty safari a2a-agent-delete --data '{"agent_id":"a2a_9d4c1f60b3a2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "agent_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("agent-id") {
 						body["agent_id"] = fAgentID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -294,7 +306,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -302,7 +314,7 @@ func genA2aAgentsWriteDisableCmd() *cobra.Command {
 	var dataJSON string
 	var fAgentID string
 	cmd := &cobra.Command{
-		Use:   "a2a-agent-disable",
+		Use:   "a2a-agent-disable <agent-id>",
 		Short: "Disable A2A agent",
 		Long: `Disable A2A agent.
 
@@ -313,13 +325,18 @@ API: POST /safari/a2a-agent/disable (remote-agent-write-disable)
 Request fields:
   --agent-id string (required) — Identifier of the target agent.
 `,
+		Args:    requireExactArg("agent_id"),
 		Example: `  flashduty safari a2a-agent-disable --data '{"agent_id":"a2a_9d4c1f60b3a2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "agent_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("agent-id") {
 						body["agent_id"] = fAgentID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -337,7 +354,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -345,7 +362,7 @@ func genA2aAgentsWriteEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fAgentID string
 	cmd := &cobra.Command{
-		Use:   "a2a-agent-enable",
+		Use:   "a2a-agent-enable <agent-id>",
 		Short: "Enable A2A agent",
 		Long: `Enable A2A agent.
 
@@ -356,13 +373,18 @@ API: POST /safari/a2a-agent/enable (remote-agent-write-enable)
 Request fields:
   --agent-id string (required) — Identifier of the target agent.
 `,
+		Args:    requireExactArg("agent_id"),
 		Example: `  flashduty safari a2a-agent-enable --data '{"agent_id":"a2a_9d4c1f60b3a2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "agent_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("agent-id") {
 						body["agent_id"] = fAgentID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -380,7 +402,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Identifier of the target agent. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -397,7 +419,7 @@ func genA2aAgentsWriteUpdateCmd() *cobra.Command {
 	var fStreaming bool
 	var fTeamID int64
 	cmd := &cobra.Command{
-		Use:   "a2a-agent-update",
+		Use:   "a2a-agent-update <agent-id>",
 		Short: "Update A2A agent",
 		Long: `Update A2A agent.
 
@@ -418,10 +440,14 @@ Request fields:
   --team-id int — Reassign the agent to this team; omit to leave unchanged, 0 for account scope.
   auth_config (object, via --data) — New authentication parameters.
 `,
+		Args:    requireExactArg("agent_id"),
 		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_9d4c1f60b3a2","description":"Runs traceroute, BGP, and DNS analysis for network incidents."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "agent_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("agent-id") {
 						body["agent_id"] = fAgentID
 					}
@@ -452,6 +478,7 @@ Request fields:
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -478,7 +505,7 @@ Request fields:
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New per-user secret JSON schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming-response support.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the agent to this team; omit to leave unchanged, 0 for account scope.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

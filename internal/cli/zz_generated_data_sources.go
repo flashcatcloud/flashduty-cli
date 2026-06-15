@@ -147,10 +147,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit datasource-info --data '{"id":10}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -168,7 +169,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -311,10 +312,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		Example: `  flashduty monit datasource-list --data '{"type":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -332,7 +334,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().StringVar(&fType, "type", "", "Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -360,7 +362,7 @@ Request fields:
 		Example: `  flashduty monit datasource-sls-logstores --data '{"id":10,"offset":0,"project":"project-a","size":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
@@ -373,6 +375,7 @@ Request fields:
 					if cmd.Flags().Changed("size") {
 						body["size"] = fSize
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -393,7 +396,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset.")
 	cmd.Flags().StringVar(&fProject, "project", "", "SLS project name.")
 	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -421,7 +424,7 @@ Request fields:
 		Example: `  flashduty monit datasource-sls-projects --data '{"id":10,"offset":0,"query":"","size":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
@@ -434,6 +437,7 @@ Request fields:
 					if cmd.Flags().Changed("size") {
 						body["size"] = fSize
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -454,7 +458,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Name prefix filter.")
 	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -717,7 +721,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit datasource-create --data '{"address":"http://prometheus.example.com:9090","edge_cluster_name":"default","name":"Prometheus Prod","note":"Production Prometheus","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("address") {
 						body["address"] = fAddress
 					}
@@ -736,6 +740,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -758,7 +763,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -780,10 +785,11 @@ Request fields:
 		Example: `  flashduty monit datasource-delete --data '{"id":10}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -805,7 +811,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1068,7 +1074,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		Example: `  flashduty monit datasource-update --data '{"address":"http://prometheus-v2.example.com:9090","edge_cluster_name":"default","id":10,"name":"Prometheus Prod v2","note":"Updated","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("address") {
 						body["address"] = fAddress
 					}
@@ -1087,6 +1093,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1109,7 +1116,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

@@ -90,7 +90,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -124,6 +124,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if okStartTime {
 						body["start_time"] = vStartTime
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -151,7 +152,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the result by. [start_time, last_time]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text or regular-expression search over change fields.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Unix timestamp in seconds for the start of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

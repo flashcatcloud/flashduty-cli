@@ -12,7 +12,7 @@ func genIssuesReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIssueID string
 	cmd := &cobra.Command{
-		Use:   "issue-info",
+		Use:   "issue-info <issue-id>",
 		Short: "Get issue detail",
 		Long: `Get issue detail.
 
@@ -59,13 +59,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer)
   - versions (array<string>)
 `,
+		Args:    requireExactArg("issue_id"),
 		Example: `  flashduty rum issue-info --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "issue_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("issue-id") {
 						body["issue_id"] = fIssueID
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -83,7 +88,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -172,7 +177,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty rum issue-list --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD"],"end_time":1775961914595,"limit":20,"orderby":"updated_at","p":1,"start_time":1772611200000,"statuses":["for_review"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -218,6 +223,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -249,7 +255,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by statuses. [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected causes.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -259,7 +265,7 @@ func genIssuesWriteUpdateCmd() *cobra.Command {
 	var fStatus string
 	var fSuspectedCause string
 	cmd := &cobra.Command{
-		Use:   "issue-update",
+		Use:   "issue-update <issue-id>",
 		Short: "Update issue",
 		Long: `Update issue.
 
@@ -272,10 +278,14 @@ Request fields:
   --status string — New status. [for_review, reviewed, ignored, resolved]
   --suspected-cause string — Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
 `,
+		Args:    requireExactArg("issue_id"),
 		Example: `  flashduty rum issue-update --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9","status":"resolved"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "issue_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("issue-id") {
 						body["issue_id"] = fIssueID
 					}
@@ -285,6 +295,7 @@ Request fields:
 					if cmd.Flags().Changed("suspected-cause") {
 						body["suspected_cause"] = fSuspectedCause
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -308,7 +319,7 @@ Request fields:
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. (required)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "New status. [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 

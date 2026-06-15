@@ -107,7 +107,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -168,6 +168,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -204,7 +205,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -307,7 +308,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -368,6 +369,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -404,7 +406,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -498,7 +500,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -559,6 +561,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -595,7 +598,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -698,7 +701,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -759,6 +762,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -795,7 +799,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -865,7 +869,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -926,6 +930,7 @@ Request fields:
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -966,7 +971,7 @@ Request fields:
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1024,7 +1029,7 @@ Request fields:
 		Example: `  flashduty insight incident-export --data '{"description_html_to_text":true,"end_time":1712604800,"export_fields":["incident_id","title","severity","created_at","seconds_to_close"],"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
 					}
@@ -1079,6 +1084,7 @@ Request fields:
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1117,7 +1123,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Request field ")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Request field ")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Request field ")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1231,7 +1237,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
 					}
@@ -1295,6 +1301,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1332,7 +1339,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1402,7 +1409,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -1463,6 +1470,7 @@ Request fields:
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1503,7 +1511,7 @@ Request fields:
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1573,7 +1581,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -1634,6 +1642,7 @@ Request fields:
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1674,7 +1683,7 @@ Request fields:
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
@@ -1755,7 +1764,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("aggregate-unit") {
 						body["aggregate_unit"] = fAggregateUnit
 					}
@@ -1822,6 +1831,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("time-zone") {
 						body["time_zone"] = fTimeZone
 					}
+					return nil
 				})
 				if err != nil {
 					return err
@@ -1860,7 +1870,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
