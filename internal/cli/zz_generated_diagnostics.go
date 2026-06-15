@@ -67,7 +67,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - end (integer)
     - start (integer)
 `,
-		Example: `  flashduty monit query-diagnose --data '{"account_id":10001,"ds_name":"vmlogs-read","ds_type":"victorialogs","input":{"query":"_stream:{status='500'}"},"methods":[{"name":"pattern_snapshot"},{"baseline":"same_window_yesterday","name":"pattern_compare"}],"operation":"log_patterns","options":{"examples_per_pattern":2,"max_logs_scanned":10000,"max_patterns":20,"timeout_seconds":25},"time_range":{"end":1776849344,"start":1776847544}}'`,
+		Example: `  flashduty monit query-diagnose --data '{"account_id":10001,"ds_name":"vmlogs-read","ds_type":"victorialogs","input":{"query":"_stream:{status='\''500'\''}"},"methods":[{"name":"pattern_snapshot"},{"baseline":"same_window_yesterday","name":"pattern_compare"}],"operation":"log_patterns","options":{"examples_per_pattern":2,"max_logs_scanned":10000,"max_patterns":20,"timeout_seconds":25},"time_range":{"end":1776849344,"start":1776847544}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) {

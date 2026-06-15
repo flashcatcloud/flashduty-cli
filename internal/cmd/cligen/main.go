@@ -1096,7 +1096,15 @@ func exampleHelp(o specOp) string {
 	if o.Example == "" {
 		return ""
 	}
-	return "  flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path) + " --data '" + o.Example + "'"
+	return "  flashduty " + cliGroup(o.Path) + " " + cliVerb(o.Path) + " --data " + shellSingleQuote(o.Example)
+}
+
+// shellSingleQuote wraps s in single quotes safe for a POSIX shell, escaping any
+// embedded single quote as the standard '\” sequence so a copy-pasted --data
+// example never breaks out of the quoting (a JSON string value such as an
+// apostrophe-bearing name would otherwise corrupt the example).
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func flagUsage(f specField) string {
