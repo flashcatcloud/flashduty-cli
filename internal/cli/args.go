@@ -41,6 +41,24 @@ func requireExactArg(name string) cobra.PositionalArgs {
 	}
 }
 
+// optionalArg returns a positional argument validator that accepts zero or one
+// argument named name. It backs generated commands whose positional folds into
+// an OPTIONAL body field because the operation also accepts an alternative
+// lookup key via a flag (e.g. `incident info` takes either the <incident-id>
+// positional or --num). Extra arguments are rejected rather than silently
+// dropped:
+//
+//   - zero or one arg: ok
+//   - >1 args:         "expects at most one <name>. Usage: ..."
+func optionalArg(name string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) > 1 {
+			return fmt.Errorf("expects at most one %s. Usage: %s", name, cmd.UseLine())
+		}
+		return nil
+	}
+}
+
 // requireExactlyOneFlag validates that exactly one of the named flags is set.
 func requireExactlyOneFlag(cmd *cobra.Command, flagNames ...string) error {
 	set := 0
