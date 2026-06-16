@@ -878,6 +878,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_name (string) — Channel name.
   - created_at (integer) — Creation timestamp (unix seconds).
   - creator_id (integer) — Member ID who created the channel.
+  - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
   - deleted_at (integer) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels.
   - description (string) — Free-form description.
   - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
@@ -909,6 +910,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - Triggered (integer) (required) — Count of triggered incidents in the last 30 days.
   - status (string) — Channel status. [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
+  - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
   - updated_at (integer) — Last update timestamp (unix seconds).
 `,
 		Args:    requireExactArg("channel_id"),
@@ -1446,6 +1448,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) — Channel name.
     - created_at (integer) — Creation timestamp (unix seconds).
     - creator_id (integer) — Member ID who created the channel.
+    - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
     - deleted_at (integer) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels.
     - description (string) — Free-form description.
     - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
@@ -1477,6 +1480,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - Triggered (integer) (required) — Count of triggered incidents in the last 30 days.
     - status (string) — Channel status. [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
+    - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
     - updated_at (integer) — Last update timestamp (unix seconds).
   - total (integer) (required) — Total matching channels.
 `,

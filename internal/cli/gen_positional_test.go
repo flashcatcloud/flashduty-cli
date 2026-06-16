@@ -11,9 +11,10 @@ import (
 // the variadic marker; an *_id scalar op renders the single id; the override and
 // int cases render their pinned field.
 func TestGenPositionalUseLine(t *testing.T) {
-	// (a) and (b) read the generated constructors directly (the curated commands
-	// own the live `incident ack`/`incident info` path-names, so the generated
-	// twins are dropped at registration but still constructible for assertion).
+	// (a) and (b) call the generated constructors directly so the Use-line
+	// assertions stay independent of registration order. `incident ack` now
+	// surfaces the generated twin (curated shadow dropped); `incident info` was
+	// always generated-only (the curated leaf is named `detail`).
 	ack := genIncidentsAckCmd()
 	if got := ack.Use; got != "ack <incident-id> [<id2>...]" {
 		t.Errorf("ack twin Use = %q, want %q", got, "ack <incident-id> [<id2>...]")
@@ -28,18 +29,25 @@ func TestGenPositionalUseLine(t *testing.T) {
 		t.Errorf("ack twin Args rejected one arg: %v", err)
 	}
 
+	// `incident info` pins incident_id as an OPTIONAL positional: the backend
+	// relaxed incident_id (a lookup may instead pass the 6-char num via --num), so
+	// the positional is 0-or-1. `info <id>` stays for back-compat; `info` alone
+	// (with --num) is valid; `info id1 id2` is still rejected.
 	info := genIncidentsInfoCmd()
-	if got := info.Use; got != "info <incident-id>" {
-		t.Errorf("info twin Use = %q, want %q", got, "info <incident-id>")
+	if got := info.Use; got != "info [<incident-id>]" {
+		t.Errorf("info twin Use = %q, want %q", got, "info [<incident-id>]")
 	}
 	if info.Args == nil {
 		t.Errorf("info twin has no Args validator")
 	}
-	if err := info.Args(info, nil); err == nil {
-		t.Errorf("info twin Args accepted zero args (want exactly one)")
+	if err := info.Args(info, nil); err != nil {
+		t.Errorf("info twin Args rejected zero args (want 0-or-1; --num path): %v", err)
 	}
 	if err := info.Args(info, []string{"id1"}); err != nil {
 		t.Errorf("info twin Args rejected one arg: %v", err)
+	}
+	if err := info.Args(info, []string{"id1", "id2"}); err == nil {
+		t.Errorf("info twin Args accepted two args (want at most one)")
 	}
 
 	// Override cases: merge pins target_incident_id (NOT source_incident_ids);

@@ -28,20 +28,18 @@ func newIncidentCmd() *cobra.Command {
 	cmd.AddCommand(newIncidentGetCmd())
 	cmd.AddCommand(newIncidentCreateCmd())
 	cmd.AddCommand(newIncidentUpdateCmd())
-	cmd.AddCommand(newIncidentAckCmd())
-	cmd.AddCommand(newIncidentUnackCmd())
+	// ack, unack, wake, reopen, and disable-merge are registered via the
+	// generated layer (positional ids fold to incident_ids; flags are a superset
+	// of the dropped curated shadows).
 	cmd.AddCommand(newIncidentCloseCmd())
-	cmd.AddCommand(newIncidentWakeCmd())
 	cmd.AddCommand(newIncidentTimelineCmd())
 	cmd.AddCommand(newIncidentAlertsCmd())
 	cmd.AddCommand(newIncidentSimilarCmd())
 	cmd.AddCommand(newIncidentMergeCmd())
 	cmd.AddCommand(newIncidentSnoozeCmd())
-	cmd.AddCommand(newIncidentReopenCmd())
 	cmd.AddCommand(newIncidentReassignCmd())
 	cmd.AddCommand(newIncidentAddResponderCmd())
 	cmd.AddCommand(newIncidentCommentCmd())
-	cmd.AddCommand(newIncidentDisableMergeCmd())
 	cmd.AddCommand(newIncidentRemoveCmd())
 	cmd.AddCommand(newIncidentWarRoomCmd())
 	cmd.AddCommand(newIncidentFeedCmd())
@@ -441,53 +439,6 @@ func newIncidentUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-func newIncidentAckCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "ack <id> [<id2> ...]",
-		Short: "Acknowledge incidents",
-		Args:  requireArgs("incident_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Ack(cmdContext(ctx.Cmd), &flashduty.AckIncidentRequest{
-					IncidentIDs: ctx.Args,
-				}); err != nil {
-					return err
-				}
-				ctx.WriteResult(fmt.Sprintf("Acknowledged %d incident(s).", len(ctx.Args)))
-				return nil
-			})
-		},
-	}
-}
-
-func newIncidentUnackCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "unack <id> [<id2> ...]",
-		Short: "Cancel incident acknowledgement",
-		Long: `Cancel acknowledgement for one or more incidents.
-
-Use this when an incident was acknowledged by mistake and should return to the
-unacknowledged state. The command accepts up to 100 incident IDs.`,
-		Example: `  flashduty incident unack inc_123
-  flashduty incident unack inc_123 inc_456`,
-		Args: requireArgs("incident_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateIncidentIDBatch(args); err != nil {
-				return err
-			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Unack(cmdContext(ctx.Cmd), &flashduty.UnackIncidentRequest{
-					IncidentIDs: ctx.Args,
-				}); err != nil {
-					return err
-				}
-				ctx.WriteResult(fmt.Sprintf("Unacknowledged %d incident(s).", len(ctx.Args)))
-				return nil
-			})
-		},
-	}
-}
-
 func newIncidentCloseCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "close <id> [<id2> ...]",
@@ -501,34 +452,6 @@ func newIncidentCloseCmd() *cobra.Command {
 					return err
 				}
 				ctx.WriteResult(fmt.Sprintf("Closed %d incident(s).", len(ctx.Args)))
-				return nil
-			})
-		},
-	}
-}
-
-func newIncidentWakeCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "wake <id> [<id2> ...]",
-		Short: "Restore notifications for snoozed incidents",
-		Long: `Wake one or more snoozed incidents.
-
-This cancels snooze and restores normal incident notifications. The command
-accepts up to 100 incident IDs.`,
-		Example: `  flashduty incident wake inc_123
-  flashduty incident wake inc_123 inc_456`,
-		Args: requireArgs("incident_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateIncidentIDBatch(args); err != nil {
-				return err
-			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Wake(cmdContext(ctx.Cmd), &flashduty.WakeIncidentRequest{
-					IncidentIDs: ctx.Args,
-				}); err != nil {
-					return err
-				}
-				ctx.WriteResult(fmt.Sprintf("Restored notifications for %d incident(s).", len(ctx.Args)))
 				return nil
 			})
 		},
@@ -784,25 +707,6 @@ func newIncidentSnoozeCmd() *cobra.Command {
 	return cmd
 }
 
-func newIncidentReopenCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "reopen <id> [<id2> ...]",
-		Short: "Reopen closed incidents",
-		Args:  requireArgs("incident_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Reopen(cmdContext(ctx.Cmd), &flashduty.ReopenIncidentRequest{
-					IncidentIDs: ctx.Args,
-				}); err != nil {
-					return err
-				}
-				ctx.WriteResult(fmt.Sprintf("Reopened %d incident(s).", len(ctx.Args)))
-				return nil
-			})
-		},
-	}
-}
-
 func newIncidentReassignCmd() *cobra.Command {
 	var person string
 
@@ -950,31 +854,6 @@ webhook reply behavior.`,
 	_ = cmd.MarkFlagRequired("comment")
 
 	return cmd
-}
-
-func newIncidentDisableMergeCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "disable-merge <id> [<id2> ...]",
-		Short: "Disable automatic merging for incidents",
-		Long: `Disable automatic alert merging for one or more incidents.
-
-Use this when an incident should stay isolated and must not absorb additional
-matching alerts automatically. The command accepts up to 100 incident IDs.`,
-		Example: `  flashduty incident disable-merge inc_123
-  flashduty incident disable-merge inc_123 inc_456`,
-		Args: requireArgs("incident_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.DisableMerge(cmdContext(ctx.Cmd), &flashduty.DisableIncidentMergeRequest{
-					IncidentIDs: ctx.Args,
-				}); err != nil {
-					return err
-				}
-				ctx.WriteResult(fmt.Sprintf("Disabled auto-merge for %d incident(s).", len(ctx.Args)))
-				return nil
-			})
-		},
-	}
 }
 
 func newIncidentRemoveCmd() *cobra.Command {
