@@ -29,18 +29,25 @@ func TestGenPositionalUseLine(t *testing.T) {
 		t.Errorf("ack twin Args rejected one arg: %v", err)
 	}
 
+	// `incident info` pins incident_id as an OPTIONAL positional: the backend
+	// relaxed incident_id (a lookup may instead pass the 6-char num via --num), so
+	// the positional is 0-or-1. `info <id>` stays for back-compat; `info` alone
+	// (with --num) is valid; `info id1 id2` is still rejected.
 	info := genIncidentsInfoCmd()
-	if got := info.Use; got != "info <incident-id>" {
-		t.Errorf("info twin Use = %q, want %q", got, "info <incident-id>")
+	if got := info.Use; got != "info [<incident-id>]" {
+		t.Errorf("info twin Use = %q, want %q", got, "info [<incident-id>]")
 	}
 	if info.Args == nil {
 		t.Errorf("info twin has no Args validator")
 	}
-	if err := info.Args(info, nil); err == nil {
-		t.Errorf("info twin Args accepted zero args (want exactly one)")
+	if err := info.Args(info, nil); err != nil {
+		t.Errorf("info twin Args rejected zero args (want 0-or-1; --num path): %v", err)
 	}
 	if err := info.Args(info, []string{"id1"}); err != nil {
 		t.Errorf("info twin Args rejected one arg: %v", err)
+	}
+	if err := info.Args(info, []string{"id1", "id2"}); err == nil {
+		t.Errorf("info twin Args accepted two args (want at most one)")
 	}
 
 	// Override cases: merge pins target_incident_id (NOT source_incident_ids);

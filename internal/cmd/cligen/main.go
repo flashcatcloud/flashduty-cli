@@ -695,6 +695,12 @@ func scalarKind(t reflect.Type) (string, bool) {
 //     and picks it, making the command feel like `rule-move <dest>` while `--ids`
 //     carries the actual subjects. Suppress the positional entirely so both fields
 //     are explicit flags.
+//   - incidentInfo: incident_id is no longer required (the backend relaxed it so a
+//     lookup can supply the 6-char `num` short id via --num instead). The id-or-num
+//     pair means the *_id heuristic (required-only) would drop the positional, but
+//     <incident-id> is the natural subject and must stay for back-compat. Pin it and
+//     mark it OPTIONAL (see optionalPositional) so `incident info <id>` keeps working
+//     while `incident info --num CBE249` also resolves.
 //
 // An empty string in this map means "suppress positional" — no positional is
 // emitted for that operation, even when the heuristic would pick one.
@@ -702,14 +708,24 @@ var positionalOverride = map[string]string{
 	"incidentMerge":                      "target_incident_id",
 	"incidentWarRoomDetail":              "chat_id",
 	"incident-write-add-war-room-member": "chat_id",
-	"monit-rule-write-move":              "", // suppress: `ids` bypasses *_ids heuristic; dest_folder_id is not the natural subject
+	"incidentInfo":                       "incident_id", // optional (see optionalPositional): <incident-id> OR --num
+	"monit-rule-write-move":              "",            // suppress: `ids` bypasses *_ids heuristic; dest_folder_id is not the natural subject
+}
+
+// optionalPositional marks override ops whose pinned positional is 0-or-1 rather
+// than exactly-one. The field is optional because the operation accepts an
+// alternative lookup key via a flag, so a bare-positional-less invocation is
+// valid. Today only incidentInfo (incident_id OR --num) qualifies.
+var optionalPositional = map[string]bool{
+	"incidentInfo": true,
 }
 
 // positional describes the positional argument a generated command exposes.
 type positional struct {
-	Wire  string // request-body wire key the positional folds into
-	Kind  string // "string" | "slice" | "int" — selects genFoldPositional behavior
-	Array bool   // true => variadic (>=1 arg); false => exactly one arg
+	Wire     string // request-body wire key the positional folds into
+	Kind     string // "string" | "slice" | "int" — selects genFoldPositional behavior
+	Array    bool   // true => variadic (>=1 arg); false => exactly one arg
+	Optional bool   // true => 0-or-1 arg (field is optional; an alternative lookup key exists). Scalar only.
 }
 
 // selectPositional decides which (if any) request field becomes the command's
@@ -754,7 +770,9 @@ func selectPositional(o specOp, scalars []scalarField, byWire map[string]specFie
 		if wire == "" {
 			return positional{}, false // explicit suppress: empty string means no positional
 		}
-		return mk(wire)
+		p, found := mk(wire)
+		p.Optional = optionalPositional[o.OpID] // 0-or-1 when the op also accepts an alternative lookup key
+		return p, found
 	}
 
 	var reqScalars, reqArrays []string
@@ -889,9 +907,12 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		// [<id2>...] for the additional variadic ids, which reads as a list of one
 		// id-kind rather than "<incident-ids> id2 id3".
 		name := kebab(pos.Wire)
-		if pos.Array {
+		switch {
+		case pos.Array:
 			use = verb + " <" + strings.TrimSuffix(name, "s") + "> [<id2>...]"
-		} else {
+		case pos.Optional:
+			use = verb + " [<" + name + ">]"
+		default:
 			use = verb + " <" + name + ">"
 		}
 	}
@@ -903,10 +924,14 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		// Scalar positionals use requireExactArg so extra arguments (e.g.
 		// `incident info id1 id2`) are rejected with a clear error instead of
 		// silently dropping id2. Array positionals use requireArgs (>=1) because
-		// they are variadic by design.
-		if pos.Array {
+		// they are variadic by design. Optional scalar positionals use optionalArg
+		// (0-or-1) because the op also accepts an alternative lookup flag.
+		switch {
+		case pos.Array:
 			fmt.Fprintf(&b, "\t\tArgs:  requireArgs(%q),\n", pos.Wire)
-		} else {
+		case pos.Optional:
+			fmt.Fprintf(&b, "\t\tArgs:  optionalArg(%q),\n", pos.Wire)
+		default:
 			fmt.Fprintf(&b, "\t\tArgs:  requireExactArg(%q),\n", pos.Wire)
 		}
 	}
