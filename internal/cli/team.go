@@ -105,7 +105,7 @@ Examples:
   flashduty team get --name "SRE Team"
   flashduty team get --ref-id "hr-dept-42"
   flashduty team get --id 123 --json`, "Teams", "ReadInfo"),
-		Args: cobra.MaximumNArgs(1),
+		Args: optionalArg("id"),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
 				return nil
