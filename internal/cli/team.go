@@ -108,6 +108,11 @@ Examples:
 		Args: optionalArg("id"),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
+				for _, f := range []string{"id", "name", "ref-id"} {
+					if cmd.Flags().Changed(f) {
+						return fmt.Errorf("positional <id> cannot be combined with --%s", f)
+					}
+				}
 				return nil
 			}
 			return requireExactlyOneFlag(cmd, "id", "name", "ref-id")
@@ -134,6 +139,8 @@ Examples:
 					return ctx.Printer.Print(team, nil)
 				}
 
+				// TeamItem carries only member person IDs; resolve names/emails
+				// in one batch to replicate the legacy member display.
 				members := resolveTeamMemberInfos(ctx, team.PersonIDs)
 				printTeamDetail(ctx.Writer, team, members)
 				return nil

@@ -27,3 +27,12 @@ func TestTeamGetPositionalArgBypassesPreRunE(t *testing.T) {
 		t.Fatalf("PreRunE should succeed with positional arg, got: %v", err)
 	}
 }
+
+func TestTeamGetPositionalAndFlagConflictFails(t *testing.T) {
+	cmd := newTeamGetCmd()
+	_ = cmd.Flags().Set("id", "456")
+	err := cmd.PreRunE(cmd, []string{"123"})
+	if err == nil {
+		t.Fatal("expected error when positional arg and --id flag are both provided")
+	}
+}

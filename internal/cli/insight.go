@@ -13,7 +13,7 @@ import (
 func newInsightCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "insight",
-		Short: "Query aggregated incident metrics by team/responder/channel (preferred over incident list for analytics)",
+		Short: "Query aggregated incident metrics by team, responder, or channel",
 	}
 	// insight team/channel/responder are now served by the generated commands
 	// (richer flag set: severities, *_ids, fields, aggregate-unit, …; relative

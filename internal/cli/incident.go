@@ -80,7 +80,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100.\n\nSee also: fduty insight team|responder|channel for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
