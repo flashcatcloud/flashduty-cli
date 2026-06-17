@@ -22,7 +22,8 @@ func newAlertCmd() *cobra.Command {
 	cmd.AddCommand(newAlertGetCmd())
 	cmd.AddCommand(newAlertEventsCmd())
 	cmd.AddCommand(newAlertTimelineCmd())
-	cmd.AddCommand(newAlertMergeCmd())
+	// merge is registered via the generated layer (positional alert-ids fold to
+	// alert_ids). Flag-name change: --incident (curated) → --incident-id (generated).
 	return cmd
 }
 
@@ -302,34 +303,4 @@ func resolveAlertFeedOperators(rc *RunContext, items []flashduty.FeedItem) map[i
 		out[int64(p.PersonID)] = p.PersonName
 	}
 	return out
-}
-
-func newAlertMergeCmd() *cobra.Command {
-	var incidentID, comment string
-
-	cmd := &cobra.Command{
-		Use:   "merge <alert_id> [<alert_id2> ...]",
-		Short: "Merge alerts into an incident",
-		Args:  requireArgs("alert_id"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Alerts.WriteMerge(cmdContext(ctx.Cmd), &flashduty.AlertMergeRequest{
-					AlertIDs:   ctx.Args,
-					IncidentID: incidentID,
-					Comment:    comment,
-				}); err != nil {
-					return err
-				}
-
-				ctx.WriteResult(fmt.Sprintf("Merged %d alert(s) into incident %s.", len(ctx.Args), incidentID))
-				return nil
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&incidentID, "incident", "", "Target incident ID")
-	cmd.Flags().StringVar(&comment, "comment", "", "Merge comment")
-	_ = cmd.MarkFlagRequired("incident")
-
-	return cmd
 }

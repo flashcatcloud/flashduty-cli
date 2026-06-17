@@ -192,9 +192,10 @@ func TestIncidentAckSingleID(t *testing.T) {
 	id := extractIncidentID(t, r.Stdout)
 	t.Cleanup(func() { runCLI(t, "incident", "close", id) })
 
+	// Served by the generated twin (positional id → incident_ids).
 	r = runCLI(t, "incident", "ack", id)
 	requireSuccess(t, r)
-	requireContains(t, r.Stdout, "Acknowledged 1 incident(s).")
+	requireContains(t, r.Stdout, "OK: POST /incident/ack")
 }
 
 // Test 204: close single ID

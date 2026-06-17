@@ -92,23 +92,40 @@ func newTeamGetCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "get",
+		Use:   "get [<id>]",
 		Short: "Get team detail",
 		Long: curatedLong(`Get detailed information about a specific team.
 
-Specify the team by exactly one of: --id, --name, or --ref-id.
+Specify the team by positional ID, or by exactly one of: --id, --name, or --ref-id.
 The output includes team metadata, member list, and audit information.
 
 Examples:
+  flashduty team get 123
   flashduty team get --id 123
   flashduty team get --name "SRE Team"
   flashduty team get --ref-id "hr-dept-42"
   flashduty team get --id 123 --json`, "Teams", "ReadInfo"),
+		Args: optionalArg("id"),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				for _, f := range []string{"id", "name", "ref-id"} {
+					if cmd.Flags().Changed(f) {
+						return fmt.Errorf("positional <id> cannot be combined with --%s", f)
+					}
+				}
+				return nil
+			}
 			return requireExactlyOneFlag(cmd, "id", "name", "ref-id")
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if len(ctx.Args) == 1 {
+					id, err := strconv.ParseInt(ctx.Args[0], 10, 64)
+					if err != nil {
+						return fmt.Errorf("invalid team id %q: must be a number", ctx.Args[0])
+					}
+					teamID = id
+				}
 				team, _, err := ctx.Client.Teams.ReadInfo(cmdContext(ctx.Cmd), &flashduty.TeamInfoRequest{
 					TeamID:   uint64(teamID),
 					TeamName: teamName,

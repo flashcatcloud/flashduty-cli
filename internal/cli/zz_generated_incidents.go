@@ -784,8 +784,9 @@ Request fields:
 func genIncidentsInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIncidentID string
+	var fNum string
 	cmd := &cobra.Command{
-		Use:   "info <incident-id>",
+		Use:   "info [<incident-id>]",
 		Short: "Get incident detail",
 		Long: `Get incident detail.
 
@@ -794,7 +795,8 @@ Retrieve detailed information for a single incident including timeline, alerts, 
 API: POST /incident/info (incidentInfo)
 
 Request fields:
-  --incident-id string (required) — Incident ID (MongoDB ObjectID).
+  --incident-id string — Incident ID (MongoDB ObjectID).
+  --num string — Short incident ID (the 6-character uppercased id shown in the UI). Not unique — resolves to the most recent match. Supply either incident_id or num.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID that owns the incident.
@@ -952,7 +954,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - title (string) (required) — Incident title.
   - updated_at (integer) (required) — Last update timestamp (seconds).
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    optionalArg("incident_id"),
 		Example: `  flashduty incident info --data '{"incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -962,6 +964,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID
+					}
+					if cmd.Flags().Changed("num") {
+						body["num"] = fNum
 					}
 					return nil
 				})
@@ -980,7 +985,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID).")
+	cmd.Flags().StringVar(&fNum, "num", "", "Short incident ID (the 6-character uppercased id shown in the UI). Not unique — resolves to the most recent match. Supply either incident_id or num.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
