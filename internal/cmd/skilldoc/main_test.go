@@ -87,6 +87,28 @@ func TestRunCheck_CleanDirIsZero(t *testing.T) {
 	}
 }
 
+// A card checked out with Windows CRLF line endings must still validate clean:
+// the fence comparison and harvester normalize EOL, so freshness does not depend
+// on how git materialized the file (regression test for the Windows CI failure).
+func TestRunCheck_CRLFCardIsClean(t *testing.T) {
+	dir := t.TempDir()
+	d := fixtureDump()
+	body := "# status-page\n\n" +
+		"```bash\nfduty status-page change-create --type incident\n```\n\n" +
+		skilldoc.GenerateFence(d, "status-page") + "\n"
+	crlf := strings.ReplaceAll(body, "\n", "\r\n")
+	writeFile(t, filepath.Join(dir, "reference", "status-page.md"), crlf)
+
+	var out bytes.Buffer
+	n, err := runCheck(d, dir, &out)
+	if err != nil {
+		t.Fatalf("runCheck: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("CRLF card should validate clean, got %d issue(s):\n%s", n, out.String())
+	}
+}
+
 func TestRunCheck_MissingDirIsZero(t *testing.T) {
 	d := fixtureDump()
 	var out bytes.Buffer

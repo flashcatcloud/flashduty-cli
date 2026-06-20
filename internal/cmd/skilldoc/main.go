@@ -72,8 +72,8 @@ func checkCmd() *cobra.Command {
 			if n > 0 {
 				return fmt.Errorf("%d card issue(s) found", n)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "skilldoc: cards OK")
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "skilldoc: cards OK")
+			return err
 		},
 	}
 }
@@ -90,7 +90,7 @@ func runGen(d skilldoc.Dump, base, group string) error {
 	if err != nil {
 		return fmt.Errorf("read card: %w", err)
 	}
-	body := string(raw)
+	body := normalizeEOL(string(raw))
 
 	start, end := skilldoc.FenceStart(group), skilldoc.FenceEnd(group)
 	si := strings.Index(body, start)
@@ -156,7 +156,9 @@ func runCheck(d skilldoc.Dump, base string, w io.Writer) (int, error) {
 		return issues[i].Kind < issues[j].Kind
 	})
 	for _, is := range issues {
-		fmt.Fprintf(w, "%s:%d  %s  %s\n", is.Doc, is.Line, is.Kind, is.Detail)
+		if _, err := fmt.Fprintf(w, "%s:%d  %s  %s\n", is.Doc, is.Line, is.Kind, is.Detail); err != nil {
+			return 0, err
+		}
 	}
 	return len(issues), nil
 }
@@ -191,7 +193,7 @@ func loadDocs(base string) ([]skilldoc.Doc, error) {
 		if err != nil {
 			rel = path
 		}
-		docs = append(docs, skilldoc.Doc{Path: rel, Body: string(raw)})
+		docs = append(docs, skilldoc.Doc{Path: rel, Body: normalizeEOL(string(raw))})
 		return nil
 	})
 	if err != nil {
@@ -199,6 +201,12 @@ func loadDocs(base string) ([]skilldoc.Doc, error) {
 	}
 	return docs, nil
 }
+
+// normalizeEOL collapses Windows CRLF to LF so the byte-exact fence comparison
+// and the line-based harvester are insensitive to how git checked the cards out
+// (Windows autocrlf would otherwise make every fence look stale). The generated
+// fence is always LF, so LF is the canonical form to compare against.
+func normalizeEOL(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
 
 // cardBase resolves <repoRoot>/skills/flashduty by walking up from the cwd to
 // the directory containing go.mod.
