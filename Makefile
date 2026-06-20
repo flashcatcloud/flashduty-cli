@@ -75,8 +75,8 @@ test-cover: ## Run unit tests with coverage
 # ============================================================================
 
 .PHONY: gen-cards
-gen-cards: ## Rewrite the status-page card's generated fence from the CLI tree
-	$(GOCMD) run ./internal/cmd/skilldoc gen status-page
+gen-cards: ## Rewrite every card's generated fence from the CLI tree
+	$(GOCMD) run ./internal/cmd/skilldoc gen
 
 .PHONY: check-cards
 check-cards: ## Validate skills/flashduty cards against the command oracle

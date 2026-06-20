@@ -36,7 +36,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
 | permanently delete (IRREVERSIBLE) | `remove <id> [<id2>...]` |
 | post-mortem reports | `post-mortem-list` / `post-mortem-info <post-mortem-id>` / `post-mortem-delete <post-mortem-id>` |
-| war room (IM chat) | `war-room list <incident_id>` → `war-room create <incident_id>` |
+| war room (IM chat) | `war-room-list <incident-id>` → `war-room-create <incident-id>` |
 
 ## Hot flow — triage an active incident
 

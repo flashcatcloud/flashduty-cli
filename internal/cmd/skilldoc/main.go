@@ -38,15 +38,19 @@ func main() {
 
 func genCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "gen <group>",
-		Short: "Rewrite the generated fence in skills/flashduty/reference/<group>.md",
-		Args:  cobra.ExactArgs(1),
+		Use:   "gen [group]",
+		Short: "Rewrite the generated fence in skills/flashduty/reference/<group>.md (every card if no group given)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			base, err := cardBase()
 			if err != nil {
 				return err
 			}
-			return runGen(dump(), base, args[0])
+			d := dump()
+			if len(args) == 1 {
+				return runGen(d, base, args[0])
+			}
+			return runGenAll(d, base)
 		},
 	}
 }
@@ -102,6 +106,31 @@ func runGen(d skilldoc.Dump, base, group string) error {
 	}
 	if err := os.WriteFile(card, []byte(updated), 0o644); err != nil {
 		return fmt.Errorf("write card: %w", err)
+	}
+	return nil
+}
+
+// runGenAll regenerates the fence of every dump group that has a card file under
+// <base>/reference. The group set is derived from the dump (intersected with the
+// cards that actually exist), so it stays correct as domains are added or
+// renamed — no hardcoded list. Groups without a card (e.g. webhook) are skipped.
+func runGenAll(d skilldoc.Dump, base string) error {
+	seen := map[string]bool{}
+	var groups []string
+	for _, c := range d.Commands {
+		if c.Group != "" && !seen[c.Group] {
+			seen[c.Group] = true
+			groups = append(groups, c.Group)
+		}
+	}
+	sort.Strings(groups)
+	for _, g := range groups {
+		if _, err := os.Stat(filepath.Join(base, "reference", g+".md")); err != nil {
+			continue // no card for this group
+		}
+		if err := runGen(d, base, g); err != nil {
+			return fmt.Errorf("gen %s: %w", g, err)
+		}
 	}
 	return nil
 }

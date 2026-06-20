@@ -99,6 +99,43 @@ func TestRunCheck_MissingDirIsZero(t *testing.T) {
 	}
 }
 
+// TestRunGenAll covers `skilldoc gen` with no group: it must regenerate every
+// card that exists, derive the group set from the dump, and silently skip a dump
+// group that has no card file (e.g. webhook) rather than erroring.
+func TestRunGenAll_FillsEveryCardAndSkipsCardless(t *testing.T) {
+	dir := t.TempDir()
+	d := skilldoc.Dump{Commands: []skilldoc.Command{
+		{Path: "status-page change-create", Group: "status-page", Short: "Create", Flags: []skilldoc.Flag{{Name: "type", Type: "string"}}},
+		{Path: "incident list", Group: "incident", Short: "List incidents", Flags: []skilldoc.Flag{{Name: "limit", Type: "int"}}},
+		{Path: "webhook list", Group: "webhook", Short: "List webhooks"}, // group with NO card file
+	}}
+	for _, g := range []string{"status-page", "incident"} {
+		writeFile(t, filepath.Join(dir, "reference", g+".md"),
+			"# "+g+"\n\nintro\n\n"+skilldoc.FenceStart(g)+"\n"+skilldoc.FenceEnd(g)+"\n")
+	}
+
+	if err := runGenAll(d, dir); err != nil {
+		t.Fatalf("runGenAll must not error on the cardless webhook group: %v", err)
+	}
+
+	for g, verb := range map[string]string{"status-page": "### change-create", "incident": "### list"} {
+		raw, err := os.ReadFile(filepath.Join(dir, "reference", g+".md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), verb) {
+			t.Errorf("%s card fence not filled (want %q):\n%s", g, verb, raw)
+		}
+		if !strings.Contains(string(raw), "intro") {
+			t.Errorf("%s: gen-all clobbered hand-written content", g)
+		}
+	}
+	var out bytes.Buffer
+	if n, _ := runCheck(d, dir, &out); n != 0 {
+		t.Errorf("after gen-all, check should be clean; got %d:\n%s", n, out.String())
+	}
+}
+
 func TestRunGen_FillsFence(t *testing.T) {
 	dir := t.TempDir()
 	d := fixtureDump()

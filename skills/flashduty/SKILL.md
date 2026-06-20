@@ -12,7 +12,8 @@ allowed-tools: bash, read, task
 ## Auth & availability
 
 - **Auth is automatic.** Safari injects the credential into each `fduty` subprocess. You never handle it and *cannot* read it — commands that reference `FLASHDUTY_APP_KEY` / `$FLASHDUTY_*` by name or dump the environment are rejected. Just call the verb.
-- **No curl.** The CLI is the only supported path.
+- **No curl for the API.** The CLI is the only supported path to Flashduty — never hand-roll an HTTP call.
+- **If `fduty: command not found`** (rare — it is normally on PATH at startup): install from the Flashduty CDN into a user-writable dir (no sudo, no hang), then tell the user — don't work around it: `curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | FLASHDUTY_INSTALL_DIR="$HOME/.local/bin" INSTALLED_NAME=fduty sh && export PATH="$HOME/.local/bin:$PATH"`.
 
 ## Data model — 3 layers
 
