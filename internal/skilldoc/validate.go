@@ -16,7 +16,7 @@ type Doc struct {
 type Issue struct {
 	Doc    string
 	Line   int
-	Kind   string // "unknown-command" | "unknown-flag" | "stale-fence"
+	Kind   string // "unknown-command" | "unknown-flag" | "positional-as-flag" | "stale-fence"
 	Detail string
 }
 
@@ -104,21 +104,27 @@ func lineOf(body string, off int) int {
 	return strings.Count(body[:off], "\n") + 1
 }
 
-// commandIndex maps a command path to its set of declared flag names, and
-// carries the sorted list of paths for longest-prefix resolution.
+// commandIndex maps a command path to its set of declared flag names and to the
+// set of flags cligen folded into required positionals, and carries the sorted
+// list of paths for longest-prefix resolution.
 type commandIndex struct {
-	flags map[string]map[string]bool
-	paths []string
+	flags  map[string]map[string]bool
+	folded map[string]map[string]bool
+	paths  []string
 }
 
 func indexDump(d Dump) commandIndex {
-	idx := commandIndex{flags: make(map[string]map[string]bool)}
+	idx := commandIndex{
+		flags:  make(map[string]map[string]bool),
+		folded: make(map[string]map[string]bool),
+	}
 	for _, c := range d.Commands {
 		set := make(map[string]bool, len(c.Flags))
 		for _, f := range c.Flags {
 			set[f.Name] = true
 		}
 		idx.flags[c.Path] = set
+		idx.folded[c.Path] = foldedFlagNames(positionalsOf(c.Use))
 		idx.paths = append(idx.paths, c.Path)
 	}
 	// Longest paths first so resolveCommand prefers the most specific match.
@@ -146,14 +152,28 @@ func validateExample(idx commandIndex, docPath string, ex Example) []Issue {
 			Doc:    docPath,
 			Line:   ex.Line,
 			Kind:   "unknown-command",
-			Detail: commandWords(ex.Tokens),
+			Detail: strings.Join(words, " "),
 		}}
 	}
 
+	folded := idx.folded[path]
 	var issues []Issue
 	for _, tok := range ex.Tokens {
 		name, isFlag := flagName(tok)
 		if !isFlag || HasPlaceholder(name) {
+			continue
+		}
+		// cligen folded this field into a required positional: the flag is still
+		// registered (so it is in flagSet) but passing it as a flag fails the
+		// binary's Args check. Catch it before the flagSet pass would wave it
+		// through — this is the exact misuse only a live run surfaced before.
+		if folded[name] {
+			issues = append(issues, Issue{
+				Doc:    docPath,
+				Line:   ex.Line,
+				Kind:   "positional-as-flag",
+				Detail: "--" + name + " is folded into a required positional of `" + path + "` — pass it as a bare argument, not a flag",
+			})
 			continue
 		}
 		if globalFlags[name] || flagSet[name] {
@@ -194,11 +214,6 @@ func leadingWords(tokens []string) []string {
 		words = append(words, t)
 	}
 	return words
-}
-
-// commandWords joins the leading command words for issue detail text.
-func commandWords(tokens []string) string {
-	return strings.Join(leadingWords(tokens), " ")
 }
 
 // anyPlaceholder reports whether any of the command-path words is a

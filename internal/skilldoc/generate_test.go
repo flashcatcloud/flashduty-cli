@@ -55,6 +55,31 @@ Request fields:
 	}}
 }
 
+// foldedFlagNames must fold the EXACT flag a positional shadows. A scalar
+// "<type>" folds only "type" — an unrelated plural flag "--types" must survive.
+// An array positional "<incident-id> [<id2>...]" folds the plural "*-ids" wire
+// ("incident-ids"), since cligen singularizes the placeholder. Matching on a
+// trailing-"s"-stripped key would wrongly collapse "types" onto "<type>".
+func TestFoldedFlagNames_ExactScalarAndArrayPlural(t *testing.T) {
+	scalar := foldedFlagNames([]string{"<type>"})
+	if !scalar["type"] {
+		t.Errorf("scalar <type> should fold flag `type`: %v", scalar)
+	}
+	if scalar["types"] {
+		t.Errorf("scalar <type> must NOT fold unrelated plural `types`: %v", scalar)
+	}
+	array := foldedFlagNames([]string{"<incident-id>", "[<id2>...]"})
+	if !array["incident-ids"] {
+		t.Errorf("array <incident-id> [<id2>...] should fold plural wire `incident-ids`: %v", array)
+	}
+	if array["incident-id"] {
+		t.Errorf("array positional should fold the plural wire only, not singular: %v", array)
+	}
+	if n := len(foldedFlagNames([]string{"[<incident-id>]"})); n != 0 {
+		t.Errorf("optional [<incident-id>] must fold nothing, got %v", n)
+	}
+}
+
 func TestGenerateFence_StatusPage(t *testing.T) {
 	d := generatorDump()
 	out := GenerateFence(d, "status-page")

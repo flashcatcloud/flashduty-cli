@@ -45,6 +45,47 @@ func TestValidate_UnknownCommandAndFlag(t *testing.T) {
 	}
 }
 
+// A field cligen folded into a required positional is still a registered flag,
+// but passing it as `--flag` fails the binary's Args check. The validator must
+// catch this misuse (kind "positional-as-flag") — the exact error that only a
+// live run surfaced before Use was threaded into the oracle. Passing the field
+// positionally must stay clean, and the same flag name on a command where it is
+// NOT folded (two required ids) must remain valid.
+func TestValidate_FoldedPositionalAsFlag(t *testing.T) {
+	d := Dump{Commands: []Command{
+		{ // single required id → cligen folds page-id into a positional
+			Path:  "status-page change-active-list",
+			Group: "status-page",
+			Use:   "change-active-list <page-id>",
+			Flags: []Flag{{Name: "page-id"}, {Name: "type"}, {Name: "data"}},
+		},
+		{ // two required ids → no fold; page-id stays a real flag
+			Path:  "status-page change-timeline-create",
+			Group: "status-page",
+			Use:   "change-timeline-create",
+			Flags: []Flag{{Name: "page-id"}, {Name: "change-id"}, {Name: "data"}},
+		},
+	}}
+	docs := []Doc{
+		{Path: "bad", Body: "```bash\nfduty status-page change-active-list --page-id 5\n```\n"},
+		{Path: "good", Body: "```bash\nfduty status-page change-active-list 5 --type incident\n```\n"},
+		{Path: "twoid", Body: "```bash\nfduty status-page change-timeline-create --page-id 5 --change-id 9\n```\n"},
+	}
+	byDoc := map[string][]Issue{}
+	for _, is := range Validate(d, docs) {
+		byDoc[is.Doc] = append(byDoc[is.Doc], is)
+	}
+	if n := len(byDoc["bad"]); n != 1 || byDoc["bad"][0].Kind != "positional-as-flag" {
+		t.Errorf("bad: want 1 positional-as-flag, got %+v", byDoc["bad"])
+	}
+	if n := len(byDoc["good"]); n != 0 {
+		t.Errorf("good: positional usage want 0 issues, got %+v", byDoc["good"])
+	}
+	if n := len(byDoc["twoid"]); n != 0 {
+		t.Errorf("twoid: --page-id on non-folding command want 0 issues, got %+v", byDoc["twoid"])
+	}
+}
+
 func TestValidate_GlobalFlagsAllowed(t *testing.T) {
 	d := validatorDump()
 	docs := []Doc{

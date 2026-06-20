@@ -75,7 +75,7 @@ func writeCommand(b *strings.Builder, c Command) {
 	fields := parseRequestFields(c.Long)
 	folded := foldedFlagNames(positionals)
 	for _, r := range flagRows(c, fields.flags) {
-		if folded[normalizeID(r.name)] {
+		if folded[r.name] {
 			fmt.Fprintf(b, "- `<%s>` (positional, required) %s%s\n", r.name, r.typ, notesSuffix(r.notes))
 			continue
 		}
@@ -98,36 +98,44 @@ func positionalsOf(use string) []string {
 	return f[1:]
 }
 
-// foldedFlagNames returns the set of normalized flag names that are supplied as
-// a REQUIRED positional (a "<name>" placeholder, not the optional "[<name>]"
-// form). The binary still registers a same-named flag, but it is folded — these
-// names are suppressed from the flag list and rendered as positionals instead.
-// Normalization drops a trailing "s" so an array wire (incident-ids) matches its
-// singular placeholder (<incident-id>).
+// foldedFlagNames returns the EXACT flag names that cligen has folded into a
+// REQUIRED positional argument (a "<name>" placeholder). The binary still
+// registers a same-named flag, but supplying it as a flag fails the positional
+// Args check, so these names render as positionals (in writeCommand) and are
+// rejected as flags (in the validator).
+//
+// A scalar positional "<page-id>" folds the exact flag "page-id". An array
+// positional appears as "<incident-id> [<id2>...]" — cligen singularizes the
+// "*-ids" wire name for the placeholder — so its folded flag is the plural wire,
+// recovered as inner+"s": "<incident-id>" folds "incident-ids". Matching the
+// exact name (not a trailing-"s"-stripped key) keeps an unrelated plural flag
+// like "--types" from colliding with a scalar "<type>" positional.
 func foldedFlagNames(positionals []string) map[string]bool {
 	out := map[string]bool{}
-	for _, p := range positionals {
+	for i, p := range positionals {
 		if !strings.HasPrefix(p, "<") {
 			continue // optional [<...>] or variadic [<id2>...] — flag (if any) stays
 		}
-		out[normalizeID(placeholderInner(p))] = true
+		inner := placeholderInner(p)
+		if i+1 < len(positionals) && strings.HasPrefix(positionals[i+1], "[") {
+			out[inner+"s"] = true // array positional: the plural "*-ids" wire flag
+		} else {
+			out[inner] = true // scalar positional: the exact flag name
+		}
 	}
 	return out
 }
 
-// placeholderInner strips the surrounding <>, [], and trailing "..." from a Use
-// placeholder token, e.g. "<page-id>" -> "page-id".
+// placeholderInner strips the surrounding <> (and a trailing "...") from a
+// REQUIRED Use placeholder, e.g. "<page-id>" -> "page-id". Only "<...>" tokens
+// reach this helper (foldedFlagNames guards on the "<" prefix), so optional
+// "[<...>]" brackets never appear here.
 func placeholderInner(p string) string {
-	p = strings.TrimSuffix(strings.TrimPrefix(p, "["), "]")
-	p = strings.TrimSuffix(p, "...")
 	p = strings.TrimPrefix(p, "<")
+	p = strings.TrimSuffix(p, "...")
 	p = strings.TrimSuffix(p, ">")
 	return p
 }
-
-// normalizeID lowercases nothing but drops a single trailing "s" so a plural
-// array wire matches its singular positional placeholder.
-func normalizeID(s string) string { return strings.TrimSuffix(s, "s") }
 
 // verbOf returns the last space-separated segment of a command path (the leaf
 // verb), e.g. "status-page change-create" -> "change-create".
