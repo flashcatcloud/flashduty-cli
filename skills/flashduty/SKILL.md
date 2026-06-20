@@ -30,6 +30,10 @@ The hot path: **read the domain card** (index below) for the exact verb + flags.
 
 **Positional arguments.** A card heading like `### change-create <page-id>` means that id is **positional** — pass it as the first bare argument (`change-create 5759… --type incident`), not as `--page-id`. A heading with no `<…>` takes all inputs as flags. Cards mark each positional with a `(positional, required)` row; trust the heading over your instinct to use a flag.
 
+## fduty answers directly — don't dispatch or grep
+
+Configuration, permission-model, enrichment, monitor, and on-call questions are answered by `fduty` itself (the cards + the live commands). Do **not** grep documentation, browse the web, or dispatch a subagent / product-guide agent for something the CLI covers — that wastes a turn and usually returns staler information than the live API. Read the card, run the verb.
+
 ## Safety — confirm before mutating
 
 Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state — recommend the action and get explicit per-target confirmation first. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.
@@ -40,7 +44,9 @@ Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verb
 |---|---|
 | 事件 / 故障 / incident / 分诊 / 认领 / 合并 / 升级 / 事后复盘 / 告警关联 | **`reference/incident.md`** |
 | 告警 / alert / 去重 / 告警字段 / 告警管道 / 告警关联事件 | **`reference/alert.md`** |
-| 监控 / monitor / 告警规则 / 数据源 / 指标查询 / 监控诊断 / 巡检 | **`reference/monit.md`** |
+| 监控 / monitor / 告警规则 / 数据源 / 监控诊断 / 巡检 / 规则配置 | **`reference/monit.md`** |
+| 指标查询 / 日志查询 / PromQL / LogsQL / SQL 验证 / 趋势 / 日志聚类 / 数据源 RCA | **`reference/monit-query.md`** |
+| 主机诊断 / on-box / 进程 / 负载 / 锁 / 慢查询 / mysql 诊断 / 可达性 | **`reference/monit-agent.md`** |
 | 协作空间 / channel / 集成 / 分派规则 / 升级规则 / 降噪 | **`reference/channel.md`** |
 | 数据加工 / 富化 / enrichment / 集成 schema / 字段映射 / 提取 | **`reference/enrichment.md`** |
 | 洞察 / 统计 / 趋势 / MTTA / MTTR / Top 告警 / 故障导出 | **`reference/insight.md`** |
