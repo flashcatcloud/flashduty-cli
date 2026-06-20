@@ -46,6 +46,7 @@ func command(c *cobra.Command, path []string) Command {
 	cmd := Command{
 		Path:    strings.Join(path, " "),
 		Short:   c.Short,
+		Use:     c.Use,
 		Long:    c.Long,
 		Example: c.Example,
 	}

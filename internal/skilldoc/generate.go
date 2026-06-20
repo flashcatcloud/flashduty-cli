@@ -54,21 +54,80 @@ func groupCommands(d Dump, group string) []Command {
 
 func writeCommand(b *strings.Builder, c Command) {
 	verb := verbOf(c.Path)
-	fmt.Fprintf(b, "### %s\n", verb)
+	positionals := positionalsOf(c.Use)
+
+	// Heading carries the positional signature verbatim from Use (authoritative),
+	// e.g. "change-active-list <page-id>", so the reader sees the exact argument
+	// order the binary requires.
+	if len(positionals) > 0 {
+		fmt.Fprintf(b, "### %s %s\n", verb, strings.Join(positionals, " "))
+	} else {
+		fmt.Fprintf(b, "### %s\n", verb)
+	}
 	if c.Short != "" {
 		fmt.Fprintf(b, "%s\n", c.Short)
 	}
 
 	// Flag rows as bullets (not a table) so enum pipes render literally without
-	// markdown-cell escaping.
+	// markdown-cell escaping. A field cligen folded into a required positional is
+	// rendered as a positional row, NOT a --flag — passing it as a flag without
+	// the positional fails the binary's Args check.
 	fields := parseRequestFields(c.Long)
+	folded := foldedFlagNames(positionals)
 	for _, r := range flagRows(c, fields.flags) {
+		if folded[normalizeID(r.name)] {
+			fmt.Fprintf(b, "- `<%s>` (positional, required) %s%s\n", r.name, r.typ, notesSuffix(r.notes))
+			continue
+		}
 		fmt.Fprintf(b, "- `--%s` %s%s%s\n", r.name, r.typ, reqSuffix(r.required), notesSuffix(r.notes))
 	}
 	if len(fields.bodyOnly) > 0 {
 		fmt.Fprintf(b, "- body-only (`--data`): %s\n", strings.Join(fields.bodyOnly, "; "))
 	}
 }
+
+// positionalsOf returns the placeholder tokens after the leaf verb in a Use
+// string, e.g. "change-active-list <page-id>" -> ["<page-id>"] and
+// "merge <incident-id> [<id2>...]" -> ["<incident-id>", "[<id2>...]"]. A Use with
+// no positional ("list") returns nil.
+func positionalsOf(use string) []string {
+	f := strings.Fields(use)
+	if len(f) <= 1 {
+		return nil
+	}
+	return f[1:]
+}
+
+// foldedFlagNames returns the set of normalized flag names that are supplied as
+// a REQUIRED positional (a "<name>" placeholder, not the optional "[<name>]"
+// form). The binary still registers a same-named flag, but it is folded — these
+// names are suppressed from the flag list and rendered as positionals instead.
+// Normalization drops a trailing "s" so an array wire (incident-ids) matches its
+// singular placeholder (<incident-id>).
+func foldedFlagNames(positionals []string) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range positionals {
+		if !strings.HasPrefix(p, "<") {
+			continue // optional [<...>] or variadic [<id2>...] — flag (if any) stays
+		}
+		out[normalizeID(placeholderInner(p))] = true
+	}
+	return out
+}
+
+// placeholderInner strips the surrounding <>, [], and trailing "..." from a Use
+// placeholder token, e.g. "<page-id>" -> "page-id".
+func placeholderInner(p string) string {
+	p = strings.TrimSuffix(strings.TrimPrefix(p, "["), "]")
+	p = strings.TrimSuffix(p, "...")
+	p = strings.TrimPrefix(p, "<")
+	p = strings.TrimSuffix(p, ">")
+	return p
+}
+
+// normalizeID lowercases nothing but drops a single trailing "s" so a plural
+// array wire matches its singular positional placeholder.
+func normalizeID(s string) string { return strings.TrimSuffix(s, "s") }
 
 // verbOf returns the last space-separated segment of a command path (the leaf
 // verb), e.g. "status-page change-create" -> "change-create".

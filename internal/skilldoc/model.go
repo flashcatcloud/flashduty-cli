@@ -16,9 +16,16 @@ type Dump struct {
 
 // Command is one runnable leaf of the CLI tree.
 type Command struct {
-	Path    string `json:"path"`  // space-joined name chain below root, e.g. "status-page change-create"
-	Group   string `json:"group"` // first path segment, e.g. "status-page"
-	Short   string `json:"short"`
+	Path  string `json:"path"`  // space-joined name chain below root, e.g. "status-page change-create"
+	Group string `json:"group"` // first path segment, e.g. "status-page"
+	Short string `json:"short"`
+	// Use is cobra's raw Use string, e.g. "change-create <page-id>". cligen folds
+	// a required *_id field into a positional argument and records it here as a
+	// <placeholder>; that field is then supplied positionally, NOT via its
+	// same-named --flag (passing the flag alone fails the Args check). Capturing
+	// Use is what lets the generator render the correct positional invocation —
+	// the bare Path alone (which strips the placeholder) cannot.
+	Use     string `json:"use"`
 	Long    string `json:"long"` // cligen's Request/Response field text (authoritative for enums + nested --data)
 	Example string `json:"example"`
 	Flags   []Flag `json:"flags"`

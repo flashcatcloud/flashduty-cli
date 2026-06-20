@@ -13,6 +13,7 @@ func generatorDump() Dump {
 			Path:  "status-page change-create",
 			Group: "status-page",
 			Short: "Create status page event",
+			Use:   "change-create <page-id>",
 			Long: `Create status page event.
 
 Create a new incident or maintenance event on a status page.
@@ -40,6 +41,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			Path:  "status-page change-active-list",
 			Group: "status-page",
 			Short: "List active status page events",
+			Use:   "change-active-list <page-id>",
 			Long: `List active status page events.
 
 Request fields:
@@ -101,6 +103,33 @@ func TestGenerateFence_RequiredMarker(t *testing.T) {
 	}
 	if markedRequired(sec, "--description") {
 		t.Errorf("--description should NOT be marked required:\n%s", sec)
+	}
+}
+
+// TestGenerateFence_PositionalArg asserts that a field cligen folded into a
+// positional argument (recorded in Use as "<page-id>") is rendered as a
+// positional — shown in the verb heading and as a `(positional, required)` row —
+// and is NOT presented as a `--page-id` flag (passing the flag alone fails the
+// binary's Args check). The non-folded --type flag must still render normally.
+func TestGenerateFence_PositionalArg(t *testing.T) {
+	sec := sectionFor(GenerateFence(generatorDump(), "status-page"), "change-active-list")
+	if sec == "" {
+		t.Fatal("no change-active-list section")
+	}
+	// Heading carries the positional signature.
+	if !strings.Contains(sec, "### change-active-list <page-id>") {
+		t.Errorf("heading should show positional `<page-id>`:\n%s", sec)
+	}
+	// page-id is documented as a positional, not as a --flag.
+	if !strings.Contains(sec, "`<page-id>` (positional, required)") {
+		t.Errorf("page-id should render as a positional row:\n%s", sec)
+	}
+	if strings.Contains(sec, "--page-id") {
+		t.Errorf("folded positional must NOT appear as a --page-id flag row:\n%s", sec)
+	}
+	// A non-folded flag still renders as a flag.
+	if !strings.Contains(sec, "--type") {
+		t.Errorf("non-folded --type flag should remain:\n%s", sec)
 	}
 }
 

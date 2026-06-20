@@ -34,6 +34,11 @@ func TestBuild_CapturesLeafWithFlagsAndRequired(t *testing.T) {
 	if got.Group != "status-page" {
 		t.Errorf("group = %q", got.Group)
 	}
+	// Use must be captured verbatim — it carries the positional placeholder that
+	// Path strips, and is the only runtime signal of cligen's positional fold.
+	if got.Use != "change-create <page-id>" {
+		t.Errorf("Use = %q, want %q", got.Use, "change-create <page-id>")
+	}
 	var typeFlag *Flag
 	for i := range got.Flags {
 		if got.Flags[i].Name == "type" {
