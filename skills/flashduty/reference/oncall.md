@@ -30,11 +30,16 @@ fduty oncall who --query "Platform" --output-format toon
 fduty oncall schedule list --output-format toon   # find schedule_id
 fduty oncall schedule get <schedule_id> --since now --until +7d --output-format toon
 
-# 4. Extract current person_ids for programmatic use (--json → top-level array)
-fduty oncall who --json | jq '[.[] | {schedule: .schedule_name, persons: [.cur_oncall.group.members[].person_ids[]]}]'
-
-# 5. Resolve names: join against member list client-side
-fduty member list --json | jq --argjson ids '[12345,67890]' '[.[] | select([.person_id] | inside($ids))]'
+# 4. Resolve names in ONE pass: capture member list, join person_ids → member_name.
+#    who emits person_ids (numbers) under cur_oncall.group.members[].person_ids[];
+#    member list rows live under .items[] keyed by member_id (+ member_name).
+members=$(fduty member list --json)
+fduty oncall who --json | jq --argjson m "$members" '
+  map({schedule: .schedule_name,
+       on_call: [ .cur_oncall.group.members[]?.person_ids[]? as $id
+                  | $m.items[]? | select(.member_id == $id) | .member_name ]})'
+# If the join is fiddly, just report schedule_name + person_ids — do NOT loop refining jq;
+# the answer to "who is on call" is already in `who`.
 ```
 
 <!-- GENERATED:oncall START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->

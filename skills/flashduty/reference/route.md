@@ -5,8 +5,8 @@ Prereq: `SKILL.md` read. `upsert` is a **full replacement** of the rule — it o
 ## Route here when
 
 "路由规则 / 告警路由 / 集成路由 / 分派到频道 / route rule / alert routing / integration routing / which channel gets alerts" → **route**. Key IDs needed:
-- **`integration-id`** (int) — the integration the rule belongs to; get it from `fduty channel list` (channel detail carries its integrations) or from the Flashduty console.
-- **`channel-id`** (int) — the target channel to route matched alerts to; same source.
+- **`integration-id`** (int) — the integration the rule belongs to. Get a real one from **`fduty alert list`** (every alert carries `integration_id` + `integration_name`). It is **NOT** a `channel_id`; `channel list` does not surface integration IDs. If none is in scope, ask which integration rather than probing IDs.
+- **`channel-id`** (int) — the target channel matched alerts route to; from `fduty channel list`.
 
 Do NOT use `route` for scheduling (→ `schedule`), templates (→ `template`), or channel management (→ `channel`).
 

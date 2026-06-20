@@ -5,8 +5,10 @@ Prereq: `SKILL.md` read. Read verbs are free. **`upsert` fully replaces all rule
 ## Route here when
 
 "告警丰富 / 字段提取 / 标签映射 / 标签组合 / 标签删除 / 映射表 / 映射 API / enrichment rules / label extraction / label composition / mapping schema / lookup table / alert enrichment" → **enrichment**, NOT `route` (routing = which channel an alert goes to) or `template` (notification rendering). You need two kinds of IDs:
-- **`integration-id`** (int64) — from `fduty channel list` or the Flashduty console integration page.
+- **`integration-id`** (int64) — the integration that produces alerts. Get a real one from **`fduty alert list`** (every alert carries `integration_id` + `integration_name`). It is **NOT** a `channel_id` — `channel list` does not surface integration IDs, so never feed channel IDs here.
 - **`schema-id`** / **`api-id`** (MongoDB ObjectID hex string) — from `mapping-schema-list` / `mapping-api-list`.
+
+If no specific integration is in scope, ask which one — do **not** enumerate every channel/integration ID and probe each (most 400 `Integration ... not found`; that is not a discovery strategy).
 
 ## Intent → verb
 
@@ -54,8 +56,8 @@ fduty enrichment mapping-data-list <schema-id> --output-format toon
 ## Hot flow — attach enrichment rules to an integration
 
 ```bash
-# 1. Find the integration ID from the channel list (or console)
-fduty channel list --output-format toon
+# 1. Find a real integration ID — alerts carry integration_id + integration_name
+fduty alert list --limit 20 --output-format toon
 
 # 2. Check existing rules before replacing
 fduty enrichment info <integration-id> --output-format toon
