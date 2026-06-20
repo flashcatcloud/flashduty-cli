@@ -38,6 +38,20 @@ Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verb
 
 | 意图 / intent | card |
 |---|---|
+| 事件 / 故障 / incident / 分诊 / 认领 / 合并 / 升级 / 事后复盘 / 告警关联 | **`reference/incident.md`** |
+| 告警 / alert / 去重 / 告警字段 / 告警管道 / 告警关联事件 | **`reference/alert.md`** |
+| 监控 / monitor / 告警规则 / 数据源 / 指标查询 / 监控诊断 / 巡检 | **`reference/monit.md`** |
+| 协作空间 / channel / 集成 / 分派规则 / 升级规则 / 降噪 | **`reference/channel.md`** |
+| 数据加工 / 富化 / enrichment / 集成 schema / 字段映射 / 提取 | **`reference/enrichment.md`** |
+| 洞察 / 统计 / 趋势 / MTTA / MTTR / Top 告警 / 故障导出 | **`reference/insight.md`** |
+| 谁在值班 / 当前值班 / on-call / 值班人查询 | **`reference/oncall.md`** |
+| 排班 / 轮值 / schedule / 值班层级 / 排班预览 | **`reference/schedule.md`** |
+| 日历 / calendar / 值班日历 / 日历事件 / 休假日历 | **`reference/calendar.md`** |
+| 通知模板 / 消息模板 / template / 卡片模板 | **`reference/template.md`** |
+| 角色 / 权限 / role / RBAC / 权限因子 | **`reference/role.md`** |
+| 团队 / team / 团队成员归属 / HR 同步 | **`reference/team.md`** |
+| 成员 / 人员 / member / 邀请 / 角色授予 | **`reference/member.md`** |
+| 自定义字段 / custom field / 字段选项 | **`reference/field.md`** |
+| 分派路由 / route / 集成路由 / 路由用例 | **`reference/route.md`** |
+| 真实用户监控 / RUM / 前端 / 应用 / issue | **`reference/rum.md`** |
 | 公开事件 / 状态页 / 公开时间线 / 维护窗口 / 订阅者 / 状态页迁移 | **`reference/status-page.md`** |
-
-<!-- ROLLOUT: incident / alert / change / oncall / monit / rum / insight / channel / member / team / role / enrichment / route / template / schedule / … cards added after the status-page PoC proves the metrics. -->
