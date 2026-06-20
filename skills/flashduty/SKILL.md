@@ -28,6 +28,8 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 The hot path: **read the domain card** (index below) for the exact verb + flags. Command groups are hyphenated (`status-page`, `alert-event`), not concatenated (`statuspage`) — guessing the wrong form costs a failed call. For a command outside the cards, derive it from its API path: **group = first path segment, verb = the rest joined by `-`** (`POST /status-page/change/create` → `fduty status-page change-create`), then confirm with `fduty <group> <verb> --help`. Pass nested-object / array fields as JSON via `--data '{...}'`; typed scalar flags override matching `--data` keys.
 
+**Positional arguments.** A card heading like `### change-create <page-id>` means that id is **positional** — pass it as the first bare argument (`change-create 5759… --type incident`), not as `--page-id`. A heading with no `<…>` takes all inputs as flags. Cards mark each positional with a `(positional, required)` row; trust the heading over your instinct to use a flag.
+
 ## Safety — confirm before mutating
 
 Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state — recommend the action and get explicit per-target confirmation first. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.

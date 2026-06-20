@@ -25,15 +25,16 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on status page
 ## Hot flow — publish & resolve an incident
 
 ```bash
+# page-id is POSITIONAL here (see fence headings: `### change-active-list <page-id>`); change-id stays a flag.
 # 1. find the page + impacted component IDs
 fduty status-page list --output-format toon
 # 2. confirm nothing already open (empty = nothing open; if one exists, reuse its change_id)
-fduty status-page change-active-list --page-id <page_id> --type incident
-# 3. open it (scalars as flags, the required `updates` array via --data); save change_id
-fduty status-page change-create --page-id <page_id> --type incident \
+fduty status-page change-active-list <page_id> --type incident
+# 3. open it (page-id positional; scalars as flags; the required `updates` array via --data); save change_id
+fduty status-page change-create <page_id> --type incident \
   --title "API latency elevated" --status investigating --description "Investigating elevated latency." \
   --data '{"updates":[{"status":"investigating","description":"Team is investigating.","component_changes":[{"component_id":"<component_id>","status":"degraded"}]}]}'
-# 4. post progress: investigating → identified → monitoring
+# 4. post progress: investigating → identified → monitoring (change-timeline-create takes BOTH ids as flags)
 fduty status-page change-timeline-create --page-id <page_id> --change-id <change_id> \
   --status identified --description "Root cause identified."
 # 5. resolve — every referenced component MUST go back to operational
@@ -41,17 +42,17 @@ fduty status-page change-timeline-create --page-id <page_id> --change-id <change
   --status resolved --description "Recovered." \
   --data '{"component_changes":[{"component_id":"<component_id>","status":"operational"}]}'
 # 6. confirm closed
-fduty status-page change-active-list --page-id <page_id> --type incident
+fduty status-page change-active-list <page_id> --type incident
 ```
 
 <!-- GENERATED:status-page START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
-### change-active-list
+### change-active-list <page-id>
 List active status page events
-- `--page-id` int64 (required) — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. · enum: incident | maintenance
 
-### change-create
+### change-create <page-id>
 Create status page event
 - `--auto-update-by-schedule` bool — Maintenance only: automatically advance the status based on the scheduled window.
 - `--close-at-seconds` string — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
@@ -59,7 +60,7 @@ Create status page event
 - `--is-retrospective` bool — Mark this event as a retrospective (historical) one.
 - `--linked-changes` stringSlice — Linked change IDs (related incidents, deployments, etc.).
 - `--notify-subscribers` bool — Notify subscribers about this event and all its updates.
-- `--page-id` int64 (required) — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID.
 - `--responders` intSlice — Member IDs responsible for this event.
 - `--start-at-seconds` string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
@@ -77,10 +78,10 @@ Get status page event detail
 - `--change-id` int64 (required) — Event (change) ID.
 - `--page-id` int64 (required) — Status page ID.
 
-### change-list
+### change-list <page-id>
 List status page events
 - `--end-at-seconds` string — Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--page-id` int64 (required) — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID.
 - `--start-at-seconds` string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
@@ -125,37 +126,37 @@ Migrate email subscribers
 - `--source-page-id` string (required) — Atlassian Statuspage source page ID.
 - `--target-page-id` int64 (required) — Flashduty target status page ID that will receive the imported subscribers.
 
-### migrate-structure
+### migrate-structure <source-page-id>
 Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
-- `--source-page-id` string (required) — Atlassian Statuspage source page ID.
+- `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
 - `--url-name` string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
 
-### migration-cancel
+### migration-cancel <job-id>
 Cancel status page migration
-- `--job-id` string (required) — Migration job ID.
+- `<job-id>` (positional, required) string — Migration job ID.
 
-### migration-status
+### migration-status <job-id>
 Get migration status
-- `--job-id` string (required) — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
+- `<job-id>` (positional, required) string — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
 
-### subscriber-export
+### subscriber-export <page-id>
 Export subscribers
 - `--component-ids` stringSlice — Optional component IDs to filter subscribers by.
-- `--page-id` int64 (required) — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID.
 
-### subscriber-import
+### subscriber-import <page-id>
 Import subscribers
 - `--method` string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. · enum: email | im
-- `--page-id` int64 (required) — Target status page ID.
+- `<page-id>` (positional, required) int64 — Target status page ID.
 - body-only (`--data`): subscribers (array<object>)
 
-### subscriber-list
+### subscriber-list <page-id>
 List status page subscribers
 - `--component-ids` string — Comma-separated component IDs to filter subscribers by.
 - `--limit` int64 — Page size (1-100). (1-100)
 - `--page` int64 — Page number (1-based). (min 1)
-- `--page-id` int64 (required) — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID.
 
 <!-- GENERATED:status-page END -->
 
@@ -171,8 +172,9 @@ List status page subscribers
 
 ## Gotchas
 
+- **`page_id` is POSITIONAL on some verbs, a `--page-id` flag on others — follow the fence heading.** Where the heading reads `### <verb> <page-id>` (change-create, change-active-list, change-list, subscriber-export/import/list, migrate-structure), pass the id as the first bare argument: `change-create <page_id> …`. Passing `--page-id` there fails with `missing page_id`. Verbs that need *both* `page-id` and `change-id` (change-info, change-delete, change-timeline-*, change-update) take both as flags. The fence heading is authoritative.
 - **`page_id` (int) ≠ `change_id` (int)** — page is the status page; change is one incident/maintenance within it. Don't cross them.
-- **`updates` is required on `change-create`** and goes via `--data` (it nests `component_changes[]`, which can't be flat flags). `--description` is also required by the server even though it's not flagged required. Typed scalar flags (`--page-id`, `--title`, `--status`…) override matching `--data` keys.
+- **`updates` is required on `change-create`** and goes via `--data` (it nests `component_changes[]`, which can't be flat flags). `--description` is also required by the server even though it's not flagged required. Typed scalar flags (`--title`, `--status`…) override matching `--data` keys.
 - **`--notify-subscribers` emails + pushes every subscriber immediately** — set it only once scope is confirmed.
 - **Migration is async and TWO separate jobs.** `migrate-structure` (structure + history, no emails) is deliberately separate from `migrate-email-subscribers` — verify the imported content before any subscriber verification emails go out. Poll `migration-status` until `completed` / `failed` / `cancelled`.
 - Empty `change-active-list` is the authoritative "nothing open" — don't widen the query.
@@ -180,7 +182,7 @@ List status page subscribers
 ## Worked example — open an incident
 
 ```bash
-fduty status-page change-create --page-id <page_id> --type incident \
+fduty status-page change-create <page_id> --type incident \
   --title "Web Console Degraded" --status investigating \
   --description "Investigating degraded performance on the web console." \
   --data '{"updates":[{"status":"investigating","description":"Team is investigating.","component_changes":[{"component_id":"<component_id>","status":"degraded"}]}]}'
