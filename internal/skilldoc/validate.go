@@ -131,6 +131,17 @@ func indexDump(d Dump) commandIndex {
 func validateExample(idx commandIndex, docPath string, ex Example) []Issue {
 	path, flagSet, ok := resolveCommand(idx, ex.Tokens)
 	if !ok {
+		// An unresolved command that is empty (a bare `fduty` prose mention) or
+		// templated (a placeholder in the command-path position, e.g.
+		// `fduty <group> <verb>`) is a documentation reference, not a runnable
+		// example — skip it, mirroring the placeholder tolerance applied to flag
+		// values below. A non-empty, non-placeholder path that still doesn't
+		// resolve is a genuine wrong command name (e.g. `statuspage`) and is
+		// reported.
+		words := leadingWords(ex.Tokens)
+		if len(words) == 0 || anyPlaceholder(words) {
+			return nil
+		}
 		return []Issue{{
 			Doc:    docPath,
 			Line:   ex.Line,
@@ -188,6 +199,18 @@ func leadingWords(tokens []string) []string {
 // commandWords joins the leading command words for issue detail text.
 func commandWords(tokens []string) string {
 	return strings.Join(leadingWords(tokens), " ")
+}
+
+// anyPlaceholder reports whether any of the command-path words is a
+// documentation placeholder (e.g. <group>), meaning the example is a template
+// rather than a concrete invocation.
+func anyPlaceholder(words []string) bool {
+	for _, w := range words {
+		if HasPlaceholder(w) {
+			return true
+		}
+	}
+	return false
 }
 
 // flagName extracts the bare flag name from a token like "--type" or

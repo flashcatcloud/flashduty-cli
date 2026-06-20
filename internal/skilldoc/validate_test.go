@@ -54,3 +54,29 @@ func TestValidate_GlobalFlagsAllowed(t *testing.T) {
 		t.Errorf("global flag --output-format should be allowed: %+v", issues)
 	}
 }
+
+// Prose mentions of the binary — a bare `fduty` word or a templated
+// `fduty <group> <verb>` — are documentation references, not runnable examples,
+// and must not be flagged. A genuine wrong command name (no placeholder) must
+// STILL be caught, since catching command-name drift is the validator's job.
+func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
+	d := validatorDump()
+	docs := []Doc{
+		{Path: "bare", Body: "The `fduty` CLI is the interface. Each `fduty` subprocess gets auth.\n"},
+		{Path: "tmpl", Body: "Derive it then run `fduty <group> <verb> --help`.\n"},
+		{Path: "drift", Body: "```bash\nfduty statuspage list\n```\n"},
+	}
+	byDoc := map[string][]Issue{}
+	for _, is := range Validate(d, docs) {
+		byDoc[is.Doc] = append(byDoc[is.Doc], is)
+	}
+	if n := len(byDoc["bare"]); n != 0 {
+		t.Errorf("bare `fduty` prose mention: want 0 issues, got %+v", byDoc["bare"])
+	}
+	if n := len(byDoc["tmpl"]); n != 0 {
+		t.Errorf("templated `fduty <group> <verb>`: want 0 issues, got %+v", byDoc["tmpl"])
+	}
+	if n := len(byDoc["drift"]); n != 1 || byDoc["drift"][0].Kind != "unknown-command" {
+		t.Errorf("drift `statuspage`: want 1 unknown-command, got %+v", byDoc["drift"])
+	}
+}
