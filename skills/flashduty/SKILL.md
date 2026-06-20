@@ -3,6 +3,7 @@ name: flashduty
 version: "3.0"
 description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, RUM, members. `fduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running fduty. Don't guess or --help-dance."
 allowed-tools: bash, read
+hidden: true  # internal-only: withheld from skills.sh public discovery (Safari embeds this skill directly).
 ---
 
 # Flashduty CLI
