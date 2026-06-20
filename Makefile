@@ -71,6 +71,18 @@ test-cover: ## Run unit tests with coverage
 	$(GOTEST) -race -cover ./...
 
 # ============================================================================
+# Skill command-cards (internal/skilldoc)
+# ============================================================================
+
+.PHONY: gen-cards
+gen-cards: ## Rewrite the status-page card's generated fence from the CLI tree
+	$(GOCMD) run ./internal/cmd/skilldoc gen status-page
+
+.PHONY: check-cards
+check-cards: ## Validate skills/flashduty cards against the command oracle
+	$(GOCMD) run ./internal/cmd/skilldoc check
+
+# ============================================================================
 # Pre-push check (recommended before pushing)
 # ============================================================================
 
