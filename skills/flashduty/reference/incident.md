@@ -63,6 +63,30 @@ fduty incident comment <incident-id> --comment "Root cause identified: DB failov
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
+## Hot flow — full fault analysis (read-only summary)
+
+When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all six aspects:
+
+```bash
+bash <skill-dir>/scripts/incident-summary.sh <incident-id>
+```
+
+`<skill-dir>` is this skill's base directory — you were given it when the skill loaded (it is also the folder you read this card from). The script runs every command below and prints the results in one block, so each section of your summary is backed by real output and there is nothing to guess. (To tie post-mortems to *this* incident, re-run `incident post-mortem-list --channel-ids <channel-id>` with the `channel_id` from `detail`.)
+
+If you fetch the pieces by hand instead, run **all six** — they are cheap reads:
+
+```bash
+ID=<incident-id>                                          # 24-char id from `incident list`
+fduty incident detail   "$ID" --output-format toon        # ① 详情 + AI summary + alert counts + channel_id
+fduty incident alerts   "$ID" --output-format toon        # ② contributing alerts (detail's embedded alerts are empty here)
+fduty incident timeline "$ID" --output-format toon        # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas)
+fduty incident post-mortem-list --channel-ids <channel-id> --output-format toon   # ⑥ post-mortems for this incident's channel
+fduty change list --since 24h --output-format toon        # ③ correlated changes — by shared labels + time; see reference/change.md
+```
+
+> **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
+
 ## Hot flow — resolve, document, and merge duplicates
 
 ```bash

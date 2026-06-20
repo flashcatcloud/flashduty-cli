@@ -4,14 +4,16 @@ Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — con
 
 ## Route here when
 
-"排班 / 轮班 / 值班表 / on-call schedule / rotation / 谁值班 / 班表 / 排班配置 / view shifts / edit schedule" → **schedule**. For *who is on duty right now* without editing, `schedule info` (with `--start`/`--end`) or `schedule list` with a window both compute live shifts. The key ID you need is **`schedule_id` (int)** — get it from `schedule list`.
+"值班 / 排班 / 轮班 / 轮值 / 值班表 / 班表 / 谁在值班 / 当前值班 / 下一班 / 排班配置 / on-call / who is on call / schedule / rotation / shift / next on call / view or edit shifts" → **schedule**. This is the single home for everything 值班/on-call. The key ID you need is **`schedule_id` (int)** — get it from `schedule list`.
 
-Sibling domains: `oncall` (a separate skill for who-is-on-call queries via `oncall who`). `schedule` is for listing, inspecting, creating, and updating schedule definitions.
+**Who is on call right now** is computed from a schedule, not stored: `schedule info <id> --start now --end +1h` returns the current shift (and its `person_ids`). The legacy **`oncall who`** aggregates the live on-call across *all* schedules in one call, but the **`oncall` command group is being deprecated and folded into `schedule`** — use `oncall who` only as a convenience for the global snapshot; prefer `schedule info` for the durable path, and do not build new flows on `oncall *`.
 
 ## Intent → verb
 
 | want | verb |
 |---|---|
+| who is on call right now (one schedule) | `info <schedule-id> --start now --end +1h` |
+| who is on call right now (all schedules, legacy) | `oncall who` — *deprecated group; prefer per-schedule `info`* |
 | list all schedules (with name search / team filter) | `list` |
 | schedules I am assigned to | `self` |
 | detail + computed shifts for a schedule | `info <schedule-id>` |
@@ -21,14 +23,34 @@ Sibling domains: `oncall` (a separate skill for who-is-on-call queries via `onca
 | update an existing schedule | `update` |
 | delete one or more schedules | `delete <schedule-id> [<id2>…]` |
 
-## Hot flow — look up who is on call this week
+## Hot flow — who is on call right now
 
 ```bash
 # 1. Find the schedule ID
 fduty schedule list --query "SRE" --output-format toon
 
-# 2. Inspect it — computed shifts for the next 7 days (positional id; --start/--end required)
-fduty schedule info <schedule-id> --start now --end +7d --output-format toon
+# 2a. Current on-call for THIS schedule — a tiny now-window yields the live shift
+fduty schedule info <schedule-id> --start now --end +1h --output-format toon
+
+# 2b. Or the live on-call across ALL schedules in one call (legacy oncall group,
+#     being deprecated into schedule — fine for a quick global snapshot)
+fduty oncall who --output-format toon
+```
+
+Both return `person_ids` (integers), not names. Resolve names by joining `member list` client-side — its rows live under `.items[]` keyed by `member_id` (+ `member_name`):
+
+```bash
+members=$(fduty member list --json)
+fduty schedule info <schedule-id> --start now --end +1h --json | jq --argjson m "$members" '
+  [.. | .person_ids? // empty | .[]] | unique | map(. as $id | ($m.items[]? | select(.member_id==$id) | .member_name))'
+# If the join is fiddly, just report person_ids — do NOT loop refining jq.
+```
+
+## Hot flow — inspect a schedule's upcoming shifts
+
+```bash
+fduty schedule list --query "SRE" --output-format toon          # find the schedule_id
+fduty schedule info <schedule-id> --start now --end +7d --output-format toon   # next 7 days
 ```
 
 ## Hot flow — create a schedule via --data
@@ -159,6 +181,7 @@ Update schedule
 - **`list` without `--start`/`--end` omits computed shifts** — only schedule metadata is returned. Pass both flags (≤45 day span) to get rotation slots in the list response.
 - **`delete` is irreversible** — takes one or more `<schedule-id>` positionals; double-check IDs before executing.
 - **`list` default page size is 10** — pass `--limit 100` when scanning all schedules.
+- **Legacy `oncall who`:** `--team` does **not** filter server-side (any value returns the full list — scope by `--query <schedule_name>` instead), and an empty result is authoritative ("no one on call in that window") — report it, don't widen or fabricate a responder. The `oncall` group will be removed; don't depend on it.
 
 ## Worked example
 
