@@ -131,13 +131,33 @@ func inlineSpans(line string) []string {
 }
 
 // parseInvocation tokenizes a command string and, if it starts with a binary
-// word, returns the post-binary tokens as an Example.
+// word, returns the post-binary tokens as an Example. A shell pipe or control
+// operator ends the fduty invocation — tokens after it belong to another
+// command (e.g. `| jq --argjson …`) and must not be validated as fduty flags.
 func parseInvocation(cmd string, line int) (Example, bool) {
 	toks := strings.Fields(stripQuotes(cmd))
 	if len(toks) == 0 || !binaryWords[toks[0]] {
 		return Example{}, false
 	}
-	return Example{Line: line, Tokens: toks[1:]}, true
+	rest := toks[1:]
+	for i, t := range rest {
+		if isShellOperator(t) {
+			rest = rest[:i]
+			break
+		}
+	}
+	return Example{Line: line, Tokens: rest}, true
+}
+
+// isShellOperator reports whether a standalone token is a shell pipe, sequence,
+// or redirection operator that terminates the current command.
+func isShellOperator(t string) bool {
+	switch t {
+	case "|", "||", "&&", "&", ";", ">", ">>", "|&", "2>", "2>>":
+		return true
+	default:
+		return false
+	}
 }
 
 // firstWordIsBinary reports whether the first whitespace word of s is a binary.
