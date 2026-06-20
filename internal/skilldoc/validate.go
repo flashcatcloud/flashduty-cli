@@ -47,6 +47,63 @@ func Validate(d Dump, docs []Doc) []Issue {
 	return issues
 }
 
+// CheckFences asserts every GENERATED:<group> fence embedded in docs matches a
+// fresh render from the dump. A fence whose inner content has drifted, or a
+// start marker with no matching end marker, yields a stale-fence issue. Docs
+// with no generated fence for a group are silently fine.
+func CheckFences(d Dump, docs []Doc) []Issue {
+	var issues []Issue
+	for _, group := range groups(d) {
+		fresh := GenerateFence(d, group)
+		start, end := FenceStart(group), FenceEnd(group)
+		for _, doc := range docs {
+			si := strings.Index(doc.Body, start)
+			if si < 0 {
+				continue // no fence for this group in this doc
+			}
+			ei := strings.Index(doc.Body[si:], end)
+			if ei < 0 {
+				issues = append(issues, Issue{
+					Doc:    doc.Path,
+					Line:   lineOf(doc.Body, si),
+					Kind:   "stale-fence",
+					Detail: "unterminated GENERATED:" + group + " fence",
+				})
+				continue
+			}
+			block := doc.Body[si : si+ei+len(end)]
+			if block != fresh {
+				issues = append(issues, Issue{
+					Doc:    doc.Path,
+					Line:   lineOf(doc.Body, si),
+					Kind:   "stale-fence",
+					Detail: "GENERATED:" + group + " fence is out of date — run `make gen-cards`",
+				})
+			}
+		}
+	}
+	return issues
+}
+
+// groups returns the sorted, de-duplicated set of command groups in the dump.
+func groups(d Dump) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, c := range d.Commands {
+		if c.Group != "" && !seen[c.Group] {
+			seen[c.Group] = true
+			out = append(out, c.Group)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// lineOf returns the 1-based line number of byte offset off within body.
+func lineOf(body string, off int) int {
+	return strings.Count(body[:off], "\n") + 1
+}
+
 // commandIndex maps a command path to its set of declared flag names, and
 // carries the sorted list of paths for longest-prefix resolution.
 type commandIndex struct {
