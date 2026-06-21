@@ -135,6 +135,9 @@ func init() {
 	rootCmd.AddCommand(newMonitQueryCmd())
 	rootCmd.AddCommand(newMonitAgentCmd())
 
+	// Hidden command-tree oracle for the skill-card tooling (internal/skilldoc).
+	rootCmd.AddCommand(newDumpCommandsCmd())
+
 	// Generated commands (full OpenAPI coverage). Registered AFTER curated
 	// commands so curated leaves win on any name conflict (see genAddLeaf).
 	registerGenerated(rootCmd)

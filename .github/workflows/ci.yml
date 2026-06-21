@@ -31,3 +31,9 @@ jobs:
 
       - name: Build
         run: go build -v ./cmd/flashduty
+
+      # Skill command-cards must stay in sync with the CLI tree (equivalent to
+      # `make check-cards`; invoked directly so it runs on the Windows runner,
+      # which has no make).
+      - name: Check skill command-cards
+        run: go run ./internal/cmd/skilldoc check

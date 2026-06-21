@@ -36,33 +36,6 @@ Download the latest release for your platform from [GitHub Releases](https://git
 | `MIRROR_URL` | Override installer release asset mirror | `https://static.flashcat.cloud/flashduty-cli` |
 | `FLASHDUTY_UPDATE_BASE_URL` | Override `flashduty update` and auto update-check base URL | `https://static.flashcat.cloud/flashduty-cli` |
 
-## Agent Skills
-
-Flashduty CLI ships with 10 agent skills that teach AI coding agents how to operate Flashduty from your terminal. Compatible with 41+ agents including Claude Code, Cursor, GitHub Copilot, Codex, Gemini CLI, Windsurf, and more.
-
-```bash
-npx skills add flashcatcloud/flashduty-cli -y -g
-```
-
-The installer auto-detects which agents you have and installs skills to all of them.
-
-### Available Skills
-
-| Skill | Scope |
-|-------|-------|
-| `flashduty-shared` | Foundation: authentication, 3-layer model, global flags, safety rules |
-| `flashduty-incident` | Incident lifecycle: triage, investigate, resolve, merge, snooze, reassign |
-| `flashduty-alert` | Alert and alert event investigation: drill down, trace, merge |
-| `flashduty-change` | Change event tracking and deployment frequency trends |
-| `flashduty-oncall` | On-call schedule queries: who is on call, shift details |
-| `flashduty-channel` | Channel and escalation rule lookups |
-| `flashduty-statuspage` | Status page management and Atlassian → Flashduty migration |
-| `flashduty-insight` | Analytics: MTTA/MTTR, noise reduction, notification trends |
-| `flashduty-admin` | Team/member lookups and audit log search |
-| `flashduty-template` | Notification template validation and preview |
-
----
-
 ## Quick Start
 
 ### 1. Authenticate

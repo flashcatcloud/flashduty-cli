@@ -1,0 +1,5 @@
+# Skill command-cards are compared byte-for-byte against a generated (LF) fence,
+# so they must stay LF on every platform regardless of git's autocrlf setting.
+# (The skilldoc tool also normalizes EOL on read; this keeps the committed files
+# canonical so Windows checkouts don't materialize them as CRLF.)
+skills/flashduty/**/*.md text eol=lf

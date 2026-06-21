@@ -36,33 +36,6 @@ irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 | `MIRROR_URL` | 覆盖安装脚本使用的 release 资源镜像 | `https://static.flashcat.cloud/flashduty-cli` |
 | `FLASHDUTY_UPDATE_BASE_URL` | 覆盖 `flashduty update` 和自动更新检查的 base URL | `https://static.flashcat.cloud/flashduty-cli` |
 
-## Agent Skills（AI 代理技能）
-
-Flashduty CLI 内置 10 个代理技能，让 AI 编程代理能够通过 CLI 操作 Flashduty 平台。兼容 41+ 编程代理，包括 Claude Code、Cursor、GitHub Copilot、Codex、Gemini CLI、Windsurf 等。
-
-```bash
-npx skills add flashcatcloud/flashduty-cli -y -g
-```
-
-安装器会自动检测已安装的代理并为其安装技能。
-
-### 可用技能
-
-| 技能 | 范围 |
-|------|------|
-| `flashduty-shared` | 基础：认证、三层降噪模型、全局参数、安全规则 |
-| `flashduty-incident` | 故障生命周期：分诊、调查、解决、合并、暂停、转派 |
-| `flashduty-alert` | 告警与告警事件调查：下钻、追踪、合并 |
-| `flashduty-change` | 变更事件追踪与部署频率趋势 |
-| `flashduty-oncall` | 值班查询：当前值班人、排班详情 |
-| `flashduty-channel` | 协作空间与升级规则查询 |
-| `flashduty-statuspage` | 状态页管理以及从 Atlassian 迁移到 Flashduty |
-| `flashduty-insight` | 分析：MTTA/MTTR、降噪率、通知趋势 |
-| `flashduty-admin` | 团队/成员查询与审计日志搜索 |
-| `flashduty-template` | 通知模板验证与预览 |
-
----
-
 ## 快速开始
 
 ### 1. 认证
