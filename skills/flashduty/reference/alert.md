@@ -74,6 +74,7 @@ Get alert detail
 List alerts
 - `--active` bool
 - `--channel` string
+- `--fields` string
 - `--limit` int
 - `--muted` bool
 - `--page` int
