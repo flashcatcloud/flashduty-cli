@@ -73,14 +73,14 @@ func pastIncidentColumns() []output.Column {
 }
 
 func newIncidentListCmd() *cobra.Command {
-	var progress, severity, query, since, until, nums string
+	var progress, severity, query, since, until, nums, fields string
 	var channelID int64
 	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields incident_id,title,incident_severity,progress,start_time) so you get a compact record without piping to jq.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -113,6 +113,14 @@ func newIncidentListCmd() *cobra.Command {
 					return err
 				}
 
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
+					if err != nil {
+						return err
+					}
+					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
+				}
+
 				return ctx.PrintList(result.Items, incidentColumns(), len(result.Items), page, int(result.Total))
 			})
 		},
@@ -131,6 +139,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Use to avoid dumping the full nested record.")
 
 	return cmd
 }

@@ -185,6 +185,7 @@ Get incident detail
 ### list
 List incidents
 - `--channel-id` int64
+- `--fields` string
 - `--limit` int
 - `--nums` string
 - `--page` int
