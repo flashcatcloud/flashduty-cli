@@ -28,14 +28,14 @@ func newAlertCmd() *cobra.Command {
 }
 
 func newAlertListCmd() *cobra.Command {
-	var severity, channel, since, until string
+	var severity, channel, since, until, fields string
 	var active, recovered, muted bool
 	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts",
-		Long:  curatedLong("List alerts within a time window, optionally filtered by severity, channel, active/recovered/muted state. No server-side title/text filter — to search by title, pipe --json to jq: 'select(.title|test(\"pat\";\"i\"))'. --limit max 100; --since/--until window must be < 31 days.", "Alerts", "ReadList"),
+		Long:  curatedLong("List alerts within a time window, optionally filtered by severity, channel, active/recovered/muted state. No server-side title/text filter — to search by title, pipe --json to jq: 'select(.title|test(\"pat\";\"i\"))'. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields alert_id,title,alert_severity,created_at) so you get a compact record without piping to jq. --limit max 100; --since/--until window must be < 31 days.", "Alerts", "ReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if active && recovered {
@@ -84,6 +84,14 @@ func newAlertListCmd() *cobra.Command {
 					return err
 				}
 
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
+					if err != nil {
+						return err
+					}
+					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
+				}
+
 				cols := []output.Column{
 					{Header: "ID", Field: func(v any) string { return v.(flashduty.AlertItem).AlertID }},
 					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertItem).Title }},
@@ -109,6 +117,7 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. alert_id,title,alert_severity,created_at); ignored in table mode. Use to avoid dumping the full nested record.")
 
 	return cmd
 }
