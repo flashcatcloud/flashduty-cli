@@ -8,54 +8,6 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
-func genSkillsReadDownloadCmd() *cobra.Command {
-	var dataJSON string
-	var fSkillID string
-	cmd := &cobra.Command{
-		Use:   "skill-download <skill-id>",
-		Short: "Download skill",
-		Long: `Download skill.
-
-Download the original zip package of a skill as a binary attachment.
-
-API: POST /safari/skill/download (skill-read-download)
-
-Request fields:
-  --skill-id string (required) — Identifier of the skill to download.
-`,
-		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-download --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
-						return err
-					}
-					if cmd.Flags().Changed("skill-id") {
-						body["skill_id"] = fSkillID
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.SkillDownloadRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.Skills.ReadDownload(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to download. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genSkillsReadEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
@@ -64,15 +16,15 @@ func genSkillsReadEnableCmd() *cobra.Command {
 		Short: "Enable skill",
 		Long: `Enable skill.
 
-Activate a disabled skill so agents can load it at session start.
+Enable a disabled skill so the agent can load it.
 
 API: POST /safari/skill/enable (skill-read-enable)
 
 Request fields:
-  --skill-id string (required) — Identifier of the target skill.
+  --skill-id string (required) — Target skill ID.
 `,
 		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-enable --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
+		Example: `  flashduty safari skill-enable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -99,7 +51,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -112,40 +64,40 @@ func genSkillsReadGetCmd() *cobra.Command {
 		Short: "Get skill detail",
 		Long: `Get skill detail.
 
-Return the full configuration and SKILL.md body of a single skill by ID.
+Get one skill including its full SKILL.md content.
 
 API: POST /safari/skill/get (skill-read-get)
 
 Request fields:
-  --skill-id string (required) — Identifier of the skill to fetch.
+  --skill-id string (required) — Target skill ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - author (string) — Author declared in the skill frontmatter.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - checksum (string) — SHA-256 checksum of the skill's zip package.
-  - content (string) — Full SKILL.md body; omitted in list responses.
-  - created (boolean) — Install response only: true for a fresh install, false for an in-place upsert.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What the skill does and when the agent should use it.
-  - is_modified (boolean) (required) — A marketplace-sourced skill has been edited locally; auto-update skips it.
-  - license (string) — License declared in the skill frontmatter.
-  - s3_key (string) — Object-storage key of the skill's zip package.
-  - skill_id (string) (required) — Unique identifier of the skill.
-  - skill_name (string) (required) — Name of the skill, parsed from its SKILL.md frontmatter.
-  - source_template_name (string) — Marketplace template this skill was installed from, if any.
-  - source_template_version (string) — Marketplace template version captured at install time.
-  - status (string) (required) — Whether the skill is active and loadable by agents. [enabled, disabled]
-  - tags (array<string>) — Tags declared in the skill frontmatter.
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tools (array<string>) — Tools the skill requires, declared in its frontmatter.
-  - update_available (boolean) (required) — A newer marketplace template version exists for this skill.
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - version (string) — Skill version string from its frontmatter.
+  - account_id (integer) (required) — Owning account ID.
+  - author (string) — Skill author.
+  - can_edit (boolean) (required) — Whether the caller may edit this skill.
+  - checksum (string) — SHA-256 checksum of the skill zip.
+  - content (string) — Full SKILL.md content. Omitted in list responses.
+  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the skill.
+  - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+  - license (string) — Skill license.
+  - s3_key (string) — Object-storage key of the skill zip.
+  - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
+  - skill_name (string) (required) — Skill name, unique within the account.
+  - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
+  - source_template_version (string) — Template version at install time.
+  - status (string) (required) — Skill status. [enabled, disabled]
+  - tags (array<string>) — Tags parsed from the frontmatter.
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
+  - update_available (boolean) (required) — True when the marketplace has a newer template version.
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-get --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
+		Example: `  flashduty safari skill-get --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -172,7 +124,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to fetch. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -194,38 +146,38 @@ List AI SRE skills visible to the caller across account and team scopes, with pa
 API: POST /safari/skill/list (skill-read-list)
 
 Request fields:
-  --page int — Page number, starting at 1.
-  --limit int — Page size; defaults to 20.
+  --page int — Page number, 1-based.
+  --limit int — Page size.
   --search-after-ctx string
-  --include-account bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
-  --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+  --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
+  --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - skills (array<object>) (required) — Skills on the current page.
-    - account_id (integer) (required) — Owning account.
-    - author (string) — Author declared in the skill frontmatter.
-    - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-    - checksum (string) — SHA-256 checksum of the skill's zip package.
-    - content (string) — Full SKILL.md body; omitted in list responses.
-    - created (boolean) — Install response only: true for a fresh install, false for an in-place upsert.
-    - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-    - created_by (integer) (required) — Member who created this resource.
-    - description (string) (required) — What the skill does and when the agent should use it.
-    - is_modified (boolean) (required) — A marketplace-sourced skill has been edited locally; auto-update skips it.
-    - license (string) — License declared in the skill frontmatter.
-    - s3_key (string) — Object-storage key of the skill's zip package.
-    - skill_id (string) (required) — Unique identifier of the skill.
-    - skill_name (string) (required) — Name of the skill, parsed from its SKILL.md frontmatter.
-    - source_template_name (string) — Marketplace template this skill was installed from, if any.
-    - source_template_version (string) — Marketplace template version captured at install time.
-    - status (string) (required) — Whether the skill is active and loadable by agents. [enabled, disabled]
-    - tags (array<string>) — Tags declared in the skill frontmatter.
-    - team_id (integer) (required) — Owning team; 0 means account scope.
-    - tools (array<string>) — Tools the skill requires, declared in its frontmatter.
-    - update_available (boolean) (required) — A newer marketplace template version exists for this skill.
-    - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-    - version (string) — Skill version string from its frontmatter.
-  - total (integer) (required) — Total number of skills matching the filters.
+  - skills (array<object>) (required) — Skills on this page.
+    - account_id (integer) (required) — Owning account ID.
+    - author (string) — Skill author.
+    - can_edit (boolean) (required) — Whether the caller may edit this skill.
+    - checksum (string) — SHA-256 checksum of the skill zip.
+    - content (string) — Full SKILL.md content. Omitted in list responses.
+    - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+    - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+    - created_by (integer) (required) — Member ID that created the skill.
+    - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+    - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+    - license (string) — Skill license.
+    - s3_key (string) — Object-storage key of the skill zip.
+    - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
+    - skill_name (string) (required) — Skill name, unique within the account.
+    - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
+    - source_template_version (string) — Template version at install time.
+    - status (string) (required) — Skill status. [enabled, disabled]
+    - tags (array<string>) — Tags parsed from the frontmatter.
+    - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+    - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
+    - update_available (boolean) (required) — True when the marketplace has a newer template version.
+    - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+    - version (string) — Skill version from the frontmatter.
+  - total (integer) (required) — Total number of matching skills.
 `,
 		Example: `  flashduty safari skill-list --data '{"include_account":true,"limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -263,11 +215,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size; defaults to 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
+	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -280,15 +232,15 @@ func genSkillsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete skill",
 		Long: `Delete skill.
 
-Permanently remove a skill so agents can no longer load it.
+Delete a skill by ID.
 
 API: POST /safari/skill/delete (skill-write-delete)
 
 Request fields:
-  --skill-id string (required) — Identifier of the skill to delete.
+  --skill-id string (required) — Target skill ID.
 `,
 		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-delete --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
+		Example: `  flashduty safari skill-delete --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -315,7 +267,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to delete. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -328,15 +280,15 @@ func genSkillsWriteDisableCmd() *cobra.Command {
 		Short: "Disable skill",
 		Long: `Disable skill.
 
-Deactivate an enabled skill so agents no longer load it.
+Disable an enabled skill so the agent stops loading it.
 
 API: POST /safari/skill/disable (skill-write-disable)
 
 Request fields:
-  --skill-id string (required) — Identifier of the target skill.
+  --skill-id string (required) — Target skill ID.
 `,
 		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-disable --data '{"skill_id":"skl-7f3a9c21b8e0"}'`,
+		Example: `  flashduty safari skill-disable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -363,7 +315,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the target skill. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -378,42 +330,42 @@ func genSkillsWriteUpdateCmd() *cobra.Command {
 		Short: "Update skill",
 		Long: `Update skill.
 
-Edit a skill's description or reassign its owning team.
+Update a skill's description or reassign its team scope.
 
 API: POST /safari/skill/update (skill-write-update)
 
 Request fields:
-  --description string — New description for the skill. (≤1024 chars)
-  --skill-id string (required) — Identifier of the skill to update.
-  --team-id int — Reassign the skill to this team; omit to leave unchanged, 0 for account scope.
+  --description string — New description. (≤1024 chars)
+  --skill-id string (required) — Target skill ID.
+  --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - author (string) — Author declared in the skill frontmatter.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - checksum (string) — SHA-256 checksum of the skill's zip package.
-  - content (string) — Full SKILL.md body; omitted in list responses.
-  - created (boolean) — Install response only: true for a fresh install, false for an in-place upsert.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What the skill does and when the agent should use it.
-  - is_modified (boolean) (required) — A marketplace-sourced skill has been edited locally; auto-update skips it.
-  - license (string) — License declared in the skill frontmatter.
-  - s3_key (string) — Object-storage key of the skill's zip package.
-  - skill_id (string) (required) — Unique identifier of the skill.
-  - skill_name (string) (required) — Name of the skill, parsed from its SKILL.md frontmatter.
-  - source_template_name (string) — Marketplace template this skill was installed from, if any.
-  - source_template_version (string) — Marketplace template version captured at install time.
-  - status (string) (required) — Whether the skill is active and loadable by agents. [enabled, disabled]
-  - tags (array<string>) — Tags declared in the skill frontmatter.
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tools (array<string>) — Tools the skill requires, declared in its frontmatter.
-  - update_available (boolean) (required) — A newer marketplace template version exists for this skill.
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - version (string) — Skill version string from its frontmatter.
+  - account_id (integer) (required) — Owning account ID.
+  - author (string) — Skill author.
+  - can_edit (boolean) (required) — Whether the caller may edit this skill.
+  - checksum (string) — SHA-256 checksum of the skill zip.
+  - content (string) — Full SKILL.md content. Omitted in list responses.
+  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the skill.
+  - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+  - license (string) — Skill license.
+  - s3_key (string) — Object-storage key of the skill zip.
+  - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
+  - skill_name (string) (required) — Skill name, unique within the account.
+  - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
+  - source_template_version (string) — Template version at install time.
+  - status (string) (required) — Skill status. [enabled, disabled]
+  - tags (array<string>) — Tags parsed from the frontmatter.
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
+  - update_available (boolean) (required) — True when the marketplace has a newer template version.
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireExactArg("skill_id"),
-		Example: `  flashduty safari skill-update --data '{"description":"Diagnose unhealthy Kubernetes workloads.","skill_id":"skl-7f3a9c21b8e0"}'`,
+		Example: `  flashduty safari skill-update --data '{"description":"Updated triage runbook.","skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -446,9 +398,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description for the skill. (≤1024 chars)")
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Identifier of the skill to update. (required)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the skill to this team; omit to leave unchanged, 0 for account scope.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤1024 chars)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -460,34 +412,34 @@ func genSkillsWriteUploadCmd() *cobra.Command {
 		Short: "Upload skill",
 		Long: `Upload skill.
 
-Upload a skill zip package and register it as a new account or team skill.
+Upload a skill archive (.skill/.zip/.tar.gz/.tgz) to create or replace a skill.
 
 API: POST /safari/skill/upload (skill-write-upload)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - author (string) — Author declared in the skill frontmatter.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - checksum (string) — SHA-256 checksum of the skill's zip package.
-  - content (string) — Full SKILL.md body; omitted in list responses.
-  - created (boolean) — Install response only: true for a fresh install, false for an in-place upsert.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What the skill does and when the agent should use it.
-  - is_modified (boolean) (required) — A marketplace-sourced skill has been edited locally; auto-update skips it.
-  - license (string) — License declared in the skill frontmatter.
-  - s3_key (string) — Object-storage key of the skill's zip package.
-  - skill_id (string) (required) — Unique identifier of the skill.
-  - skill_name (string) (required) — Name of the skill, parsed from its SKILL.md frontmatter.
-  - source_template_name (string) — Marketplace template this skill was installed from, if any.
-  - source_template_version (string) — Marketplace template version captured at install time.
-  - status (string) (required) — Whether the skill is active and loadable by agents. [enabled, disabled]
-  - tags (array<string>) — Tags declared in the skill frontmatter.
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tools (array<string>) — Tools the skill requires, declared in its frontmatter.
-  - update_available (boolean) (required) — A newer marketplace template version exists for this skill.
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - version (string) — Skill version string from its frontmatter.
+  - account_id (integer) (required) — Owning account ID.
+  - author (string) — Skill author.
+  - can_edit (boolean) (required) — Whether the caller may edit this skill.
+  - checksum (string) — SHA-256 checksum of the skill zip.
+  - content (string) — Full SKILL.md content. Omitted in list responses.
+  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the skill.
+  - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+  - license (string) — Skill license.
+  - s3_key (string) — Object-storage key of the skill zip.
+  - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
+  - skill_name (string) (required) — Skill name, unique within the account.
+  - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
+  - source_template_version (string) — Template version at install time.
+  - status (string) (required) — Skill status. [enabled, disabled]
+  - tags (array<string>) — Tags parsed from the frontmatter.
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
+  - update_available (boolean) (required) — True when the marketplace has a newer template version.
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - version (string) — Skill version from the frontmatter.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -512,7 +464,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func registerGeneratedSkills(root *cobra.Command) {
 	gSafari := genGroup(root, "safari", "AI SRE API")
-	genAddLeaf(gSafari, genSkillsReadDownloadCmd())
 	genAddLeaf(gSafari, genSkillsReadEnableCmd())
 	genAddLeaf(gSafari, genSkillsReadGetCmd())
 	genAddLeaf(gSafari, genSkillsReadListCmd())

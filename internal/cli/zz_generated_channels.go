@@ -854,6 +854,66 @@ Request fields:
 	return cmd
 }
 
+func genChannelsChannelEscalateWebhookRobotListCmd() *cobra.Command {
+	var dataJSON string
+	var fQuery string
+	var fType string
+	cmd := &cobra.Command{
+		Use:   "escalate-webhook-robot-list",
+		Short: "List webhook robots in escalation rules",
+		Long: `List webhook robots in escalation rules.
+
+List all IM webhook robots configured in escalation rules across the account. Returns a deduplicated list of robots with references to which channels and escalation rules use them.
+
+API: POST /channel/escalate/webhook/robot/list (channelEscalateWebhookRobotList)
+
+Request fields:
+  --query string — Search keyword. Fuzzy matches against robot alias or token, case-insensitive.
+  --type string — Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - list (array<object>) — Deduplicated list of webhook robots.
+    - referenced_by (array<object>) — List of channels and escalation rules referencing this robot.
+      - channel_id (integer) — Channel ID.
+      - channel_name (string) — Channel name.
+      - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID).
+      - escalate_rule_name (string) — Escalation rule name.
+    - settings (object) — Robot configuration, including 'token' (webhook URL or secret) and 'alias' (robot display name) among other fields.
+    - type (string) — Robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams', etc.
+`,
+		Example: `  flashduty channel escalate-webhook-robot-list --data '{"query":"ops","type":"feishu"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("query") {
+						body["query"] = fQuery
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ChannelsChannelEscalateWebhookRobotListRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Channels.ChannelEscalateWebhookRobotList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword. Fuzzy matches against robot alias or token, case-insensitive.")
+	cmd.Flags().StringVar(&fType, "type", "", "Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genChannelsChannelInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
@@ -2717,6 +2777,7 @@ func registerGeneratedChannels(root *cobra.Command) {
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleListCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleUpdateCmd())
+	genAddLeaf(gChannel, genChannelsChannelEscalateWebhookRobotListCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfosCmd())
 	genAddLeaf(gChannel, genChannelsChannelInhibitRuleCreateCmd())
