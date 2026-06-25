@@ -197,7 +197,7 @@ func fetchSessionsPaged(
 		req.Page = page
 		req.Limit = pageLimit
 
-		resp, _, err := client.Sessions.List(ctx, &req)
+		resp, _, err := client.Sessions.ReadList(ctx, &req)
 		if err != nil {
 			return nil, 0, err
 		}
