@@ -71,3 +71,4 @@ Some asks span several commands. For those the skill ships a script that fetches
 | route / 分派路由 / alert routing 告警路由 / integration routing 集成路由 / routing case 路由用例 | **`reference/route.md`** |
 | RUM / real user monitoring / 真实用户监控 / frontend 前端 / application 应用 / issue | **`reference/rum.md`** |
 | status page / 状态页 / public incident 公开事件 / public timeline 公开时间线 / maintenance window 维护窗口 / subscriber 订阅者 | **`reference/status-page.md`** |
+| AI-SRE platform / customize / 安装配置 MCP server (connector) 连接器 / install mcp / skill upload 上传技能 / A2A agent / session export 会话导出 | **`reference/safari.md`** |
