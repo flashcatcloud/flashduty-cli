@@ -19,10 +19,10 @@ Prereq: `SKILL.md` read. This is the **AI-SRE platform self-management** group: 
 | inspect one MCP server (+ live tool probe) | `mcp-server-get` |
 | remove an MCP server | `mcp-server-delete` |
 | list / upload / update a skill | `skill-list` / `skill-upload` / `skill-update` |
-| download / enable / disable / delete a skill | `skill-download` / `skill-enable` / `skill-disable` / `skill-delete` |
+| enable / disable / delete a skill | `skill-enable` / `skill-disable` / `skill-delete` |
 | list / create / update an A2A agent | `a2a-agent-list` / `a2a-agent-create` / `a2a-agent-update` |
 | enable / disable / delete an A2A agent | `a2a-agent-enable` / `a2a-agent-disable` / `a2a-agent-delete` |
-| list / get / export a session transcript | `session-list` / `session-get` / `session-export` |
+| list / get / export / delete a session | `session-list` / `session-get` / `session-export` / `session-delete` |
 
 ## Hot flow — install an MCP server
 
@@ -44,111 +44,116 @@ fduty safari mcp-server-get --data '{"server_id":"mcp_xxx"}'
 
 ### a2a-agent-create
 Create A2A agent
-- `--agent-name` string (required) — Display name of the agent. (≤128 chars)
-- `--auth-mode` string — Credential model; defaults to shared.
-- `--auth-type` string — Authentication scheme used when calling the agent.
-- `--card-url` string (required) — URL of the agent's published A2A agent card.
-- `--description` string — What this agent does and when to delegate to it.
-- `--oauth-metadata` string — OAuth metadata JSON; reserved for OAuth-based auth.
-- `--secret-schema` string — JSON schema of the per-user secret; required when auth_mode is per_user_secret.
-- `--streaming` bool — Whether the agent supports streaming responses.
-- `--team-id` int64 — Owning team for the new agent; 0 for account scope.
+- `--agent-name` string (required) — Agent display name. (≤128 chars)
+- `--auth-mode` string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
+- `--auth-type` string — Authentication type for the remote agent.
+- `--card-url` string (required) — URL of the remote agent card.
+- `--description` string — Agent description.
+- `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
+- `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
+- `--streaming` bool — Whether the remote agent supports streaming.
+- `--team-id` int64 — Team scope: 0 = account-wide; >0 = team.
 - body-only (`--data`): auth_config (object)
 
 ### a2a-agent-delete <agent-id>
 Delete A2A agent
-- `<agent-id>` (positional, required) string — Identifier of the target agent.
+- `<agent-id>` (positional, required) string — Target agent ID.
 
 ### a2a-agent-disable <agent-id>
 Disable A2A agent
-- `<agent-id>` (positional, required) string — Identifier of the target agent.
+- `<agent-id>` (positional, required) string — Target agent ID.
 
 ### a2a-agent-enable <agent-id>
 Enable A2A agent
-- `<agent-id>` (positional, required) string — Identifier of the target agent.
+- `<agent-id>` (positional, required) string — Target agent ID.
 
 ### a2a-agent-get <agent-id>
 Get A2A agent detail
-- `<agent-id>` (positional, required) string — Identifier of the target agent.
+- `<agent-id>` (positional, required) string — Target agent ID.
 
 ### a2a-agent-list
 List A2A agents
-- `--include-account` bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
-- `--limit` int64 — Maximum number of rows to return; defaults to 20.
-- `--offset` int64 — Number of rows to skip for pagination.
-- `--team-ids` intSlice — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+- `--include-account` bool — Include account-scoped (team_id=0) rows. Defaults to true.
+- `--limit` int64 — Page size.
+- `--offset` int64 — Row offset for pagination.
+- `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
 
 ### a2a-agent-update <agent-id>
 Update A2A agent
-- `<agent-id>` (positional, required) string — Identifier of the agent to update.
-- `--agent-name` string — New display name. (≤128 chars)
-- `--auth-mode` string — New credential model.
-- `--auth-type` string — New authentication scheme.
-- `--card-url` string — New agent card URL.
-- `--description` string — New description.
-- `--oauth-metadata` string — New OAuth metadata JSON.
-- `--secret-schema` string — New per-user secret JSON schema.
-- `--streaming` bool — Toggle streaming-response support.
-- `--team-id` int64 — Reassign the agent to this team; omit to leave unchanged, 0 for account scope.
+- `<agent-id>` (positional, required) string — Target agent ID.
+- `--agent-name` string — New display name. Omit to leave unchanged. (≤128 chars)
+- `--auth-mode` string — New auth mode: shared, per_user_secret, or per_user_oauth.
+- `--auth-type` string — New auth type. Omit to leave unchanged.
+- `--card-url` string — New card URL. Omit to leave unchanged.
+- `--description` string — New description. Omit to leave unchanged.
+- `--oauth-metadata` string — New JSON OAuth metadata.
+- `--secret-schema` string — New JSON secret schema.
+- `--streaming` bool — Toggle streaming support. Omit to leave unchanged.
+- `--team-id` int64 — Reassign team scope. Omit to leave unchanged.
 - body-only (`--data`): auth_config (object)
 
 ### mcp-server-create
 Create MCP server
-- `--args` stringSlice — Command-line arguments for the stdio executable.
-- `--auth-mode` string — Credential model; defaults to shared.
-- `--call-timeout` int64 — Per-call timeout in seconds.
-- `--command` string — Executable to launch for stdio transport.
-- `--connect-timeout` int64 — Connection timeout in seconds.
-- `--description` string (required) — What this MCP server provides. (1-1024 chars)
-- `--oauth-metadata` string — OAuth metadata JSON; reserved for OAuth-based auth.
-- `--secret-schema` string — JSON schema of the per-user secret; required when auth_mode is per_user_secret.
-- `--server-name` string (required) — Display name of the server. (1-255 chars)
-- `--status` string — Initial lifecycle state of the server. · enum: enabled | disabled
-- `--team-id` int64 — Owning team for the new server; 0 for account scope.
-- `--transport` string (required) — Transport used to reach the server. · enum: stdio | sse | streamable-http
-- `--url` string — Endpoint URL for sse or streamable-http transport.
+- `--args` stringSlice — Command arguments (stdio transport).
+- `--auth-mode` string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
+- `--call-timeout` int64 — Tool-call timeout in seconds. 0 = default (60s).
+- `--command` string — Executable command (stdio transport).
+- `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
+- `--description` string (required) — Server description. (1-1024 chars)
+- `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
+- `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
+- `--server-name` string (required) — MCP server name, unique within the account. (1-255 chars)
+- `--source-template-name` string — Marketplace template name when created from a connector template.
+- `--status` string — Initial status. · enum: enabled | disabled
+- `--team-id` int64 — Team scope: 0 = account-wide; >0 = team.
+- `--transport` string (required) — Transport protocol. · enum: stdio | sse | streamable-http
+- `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
 
 ### mcp-server-delete <server-id>
 Delete MCP server
-- `<server-id>` (positional, required) string — Identifier of the server to delete.
+- `<server-id>` (positional, required) string — Target MCP server ID.
 
 ### mcp-server-disable <server-id>
 Disable MCP server
-- `<server-id>` (positional, required) string — Identifier of the target server.
+- `<server-id>` (positional, required) string — Target MCP server ID.
 
 ### mcp-server-enable <server-id>
 Enable MCP server
-- `<server-id>` (positional, required) string — Identifier of the target server.
+- `<server-id>` (positional, required) string — Target MCP server ID.
 
 ### mcp-server-get <server-id>
 Get MCP server detail
-- `<server-id>` (positional, required) string — Identifier of the server to fetch.
+- `<server-id>` (positional, required) string — Target MCP server ID.
 
 ### mcp-server-list
 List MCP servers
-- `--include-account` bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
-- `--limit` int64 — Page size; defaults to 20.
-- `--page` int64 — Page number, starting at 1.
+- `--include-account` bool — Include account-scoped (team_id=0) rows. Defaults to true.
+- `--limit` int64 — Page size.
+- `--page` int64 — Page number, 1-based.
 - `--search-after-ctx` string
-- `--team-ids` intSlice — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+- `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
 
 ### mcp-server-update <server-id>
 Update MCP server
-- `--args` stringSlice — New stdio arguments.
-- `--auth-mode` string — New credential model.
-- `--call-timeout` int64 — New per-call timeout in seconds.
-- `--command` string — New stdio executable.
-- `--connect-timeout` int64 — New connection timeout in seconds.
+- `--args` stringSlice — Command arguments (stdio transport).
+- `--auth-mode` string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
+- `--call-timeout` int64 — Tool-call timeout in seconds. 0 = default (60s).
+- `--command` string — Executable command (stdio transport).
+- `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
 - `--description` string — New description. (1-1024 chars)
-- `--oauth-metadata` string — New OAuth metadata JSON.
-- `--secret-schema` string — New per-user secret JSON schema.
-- `<server-id>` (positional, required) string — Identifier of the server to update.
-- `--server-name` string — New display name. (1-255 chars)
-- `--team-id` int64 — Reassign the server to this team; omit to leave unchanged, 0 for account scope.
-- `--transport` string — New transport for the server. · enum: stdio | sse | streamable-http
-- `--url` string — New endpoint URL for remote transports.
+- `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
+- `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
+- `<server-id>` (positional, required) string — Target MCP server ID.
+- `--server-name` string — New name. (1-255 chars)
+- `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
+- `--transport` string — Transport protocol. · enum: stdio | sse | streamable-http
+- `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
+
+### session-delete <session-id>
+Delete session
+- `<session-id>` (positional, required) string — Target session ID. (≥1 chars)
 
 ### session-export <session_id>
 Stream a session's full event transcript as NDJSON
@@ -156,59 +161,55 @@ Stream a session's full event transcript as NDJSON
 
 ### session-get <session-id>
 Get session detail
-- `--limit` int64 — Alias for num_recent_events; takes precedence when both are set. (0-1000)
-- `--num-recent-events` int64 — Number of most-recent events to return; 0 uses the server default. (0-1000)
-- `--search-after-ctx` string — Opaque keyset cursor from a previous response's search_after_ctx, to page backward through older events. (≤4096 chars)
-- `<session-id>` (positional, required) string — Session identifier. (≥1 chars)
+- `--limit` int64 — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
+- `--num-recent-events` int64 — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
+- `--search-after-ctx` string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
+- `<session-id>` (positional, required) string — Target session ID. (≥1 chars)
 
 ### session-list
 List sessions
-- `--app-name` string (required) — Agent app whose sessions to list. · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant
-- `--asc` bool — Ascending sort when true; defaults to false (descending). Only honored when orderby is set.
-- `--entry-kinds` stringSlice — Restrict to sessions produced by these entry surfaces. Empty returns every kind. · enum: web | im | api | scheduled
-- `--include-subagent-sessions` bool — Include subagent (child) sessions in the result; defaults to false.
-- `--keyword` string — Case-insensitive substring match against session name. (≤64 chars)
-- `--limit` int64 — Page size, 1..100; defaults to 20. (1-100)
-- `--orderby` string — Sort column. · enum: created_at | updated_at
-- `--page` int64 — 1-based page number; defaults to 1.
-- `--scope` string — Visibility scope: all (own + member-of-team rows, the default), personal (own only), or team (member teams only). · enum: all | personal | team
+- `--app-name` string (required) — Agent app whose sessions to list. · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant | swe
+- `--asc` bool — Ascending order when true; applies only when 'orderby' is set.
+- `--entry-kinds` stringSlice — Restrict to sessions produced by these surfaces; empty returns every kind. · enum: web | im | api | automation
+- `--include-subagent-sessions` bool — Include subagent-dispatched sessions in the list.
+- `--keyword` string — Filter by session-name keyword. (≤64 chars)
+- `--limit` int64 — Page size, 1–100. (1-100)
+- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--page` int64 — Page number, 1-based. (min 1)
+- `--scope` string — Visibility scope: all (own + member-of-team rows, default), personal, or team. · enum: all | personal | team
 - `--search-after-ctx` string
-- `--status` string — Archive bucket: active (default, not archived), archived, or all. · enum: active | archived | all
-- `--team-ids` intSlice — Optional explicit team filter; intersected with the caller's visible set / scope.
+- `--status` string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. · enum: active | archived | all
+- `--team-ids` intSlice — Optional explicit team filter; intersects with 'scope'.
 
 ### skill-delete <skill-id>
 Delete skill
-- `<skill-id>` (positional, required) string — Identifier of the skill to delete.
+- `<skill-id>` (positional, required) string — Target skill ID.
 
 ### skill-disable <skill-id>
 Disable skill
-- `<skill-id>` (positional, required) string — Identifier of the target skill.
-
-### skill-download <skill-id>
-Download skill
-- `<skill-id>` (positional, required) string — Identifier of the skill to download.
+- `<skill-id>` (positional, required) string — Target skill ID.
 
 ### skill-enable <skill-id>
 Enable skill
-- `<skill-id>` (positional, required) string — Identifier of the target skill.
+- `<skill-id>` (positional, required) string — Target skill ID.
 
 ### skill-get <skill-id>
 Get skill detail
-- `<skill-id>` (positional, required) string — Identifier of the skill to fetch.
+- `<skill-id>` (positional, required) string — Target skill ID.
 
 ### skill-list
 List skills
-- `--include-account` bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
-- `--limit` int64 — Page size; defaults to 20.
-- `--page` int64 — Page number, starting at 1.
+- `--include-account` bool — Include account-scoped (team_id=0) rows. Defaults to true.
+- `--limit` int64 — Page size.
+- `--page` int64 — Page number, 1-based.
 - `--search-after-ctx` string
-- `--team-ids` intSlice — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+- `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
 
 ### skill-update <skill-id>
 Update skill
-- `--description` string — New description for the skill. (≤1024 chars)
-- `<skill-id>` (positional, required) string — Identifier of the skill to update.
-- `--team-id` int64 — Reassign the skill to this team; omit to leave unchanged, 0 for account scope.
+- `--description` string — New description. (≤1024 chars)
+- `<skill-id>` (positional, required) string — Target skill ID.
+- `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 
 ### skill-upload
 Upload skill
