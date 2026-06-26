@@ -109,9 +109,14 @@ func commonPrefixLen(opTokens [][]string) int {
 	}
 }
 
+var methodPrefixByTag = map[string][]string{
+	"On-call/Incidents":    {"incident"},
+	"On-call/Integrations": {"webhook", "history"},
+}
+
 // methodNames computes a unique Go method name for each operationId within a
-// service by stripping the shared leading resource tokens, then deduping.
-func methodNames(opIDs []string) map[string]string {
+// service by stripping stable service-specific leading tokens, then deduping.
+func methodNames(tag string, opIDs []string) map[string]string {
 	opTokens := make([][]string, len(opIDs))
 	for i, id := range opIDs {
 		opTokens[i] = tokens(id)
@@ -122,6 +127,9 @@ func methodNames(opIDs []string) map[string]string {
 	used := make(map[string]int)
 	for i, id := range opIDs {
 		toks := opTokens[i][n:]
+		if prefix, ok := methodPrefixByTag[tag]; ok && hasTokenPrefix(opTokens[i], prefix) {
+			toks = opTokens[i][len(prefix):]
+		}
 		if len(toks) == 0 {
 			toks = opTokens[i]
 		}
@@ -141,6 +149,18 @@ func methodNames(opIDs []string) map[string]string {
 		result[id] = name
 	}
 	return result
+}
+
+func hasTokenPrefix(toks, prefix []string) bool {
+	if len(toks) <= len(prefix) {
+		return false
+	}
+	for i, p := range prefix {
+		if strings.ToLower(toks[i]) != p {
+			return false
+		}
+	}
+	return true
 }
 
 func itoa(n int) string {

@@ -2810,6 +2810,634 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genIncidentsPostmortemReadListTemplatesCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fAsc bool
+	var fOrderBy string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-list",
+		Short: "List post-mortem templates",
+		Long: `List post-mortem templates.
+
+Return built-in and custom post-mortem templates for the account.
+
+API: POST /incident/post-mortem/template/list (postmortem-read-list-templates)
+
+Request fields:
+  --page int — Page number starting at 1. (min 0)
+  --limit int — Page size, at most 100. (0-100)
+  --search-after-ctx string — Cursor from a previous response for forward pagination.
+  --asc bool — Ascending order when true.
+  --order-by string — Field used to order results. [created_at_seconds]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean) (required) — True when another page is available.
+  - items (array<object>) (required) — Templates in the current page.
+    - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+    - content (string) (required) — BlockNote JSON content used to initialize the report body.
+    - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+    - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+    - description (string) (required) — Template description.
+    - name (string) (required) — Template name shown in the console.
+    - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+    - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+    - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+  - search_after_ctx (string) — Cursor for forward pagination.
+  - total (integer) (required) — Total matching templates.
+`,
+		Example: `  flashduty incident post-mortem-template-list --data '{"asc":false,"limit":20,"order_by":"created_at_seconds","p":1}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("order-by") {
+						body["order_by"] = fOrderBy
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListPostMortemTemplatesRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemReadListTemplates(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
+	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemReadTemplateInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-info <template-id>",
+		Short: "Get post-mortem template detail",
+		Long: `Get post-mortem template detail.
+
+Return one post-mortem template by ID.
+
+API: GET /incident/post-mortem/template/info (postmortem-read-template-info)
+
+Request fields:
+  --template-id string (required) — Template ID.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - description (string) (required) — Template description.
+  - name (string) (required) — Template name shown in the console.
+  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+`,
+		Args: requireExactArg("template_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IncidentsPostmortemReadTemplateInfoRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemReadTemplateInfo(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteDeleteTemplateCmd() *cobra.Command {
+	var dataJSON string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-delete <template-id>",
+		Short: "Delete post-mortem template",
+		Long: `Delete post-mortem template.
+
+Delete a custom post-mortem template.
+
+API: POST /incident/post-mortem/template/delete (postmortem-write-delete-template)
+
+Request fields:
+  --template-id string (required) — Template ID.
+`,
+		Args:    requireExactArg("template_id"),
+		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"post_mortem_custom_tmpl_01"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeletePostMortemTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteDeleteTemplate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/template/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteInitCmd() *cobra.Command {
+	var dataJSON string
+	var fIncidentIDs []string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-init <incident-id> [<id2>...]",
+		Short: "Initialize post-mortem",
+		Long: `Initialize post-mortem.
+
+Create a post-mortem draft from one or more incidents and a template.
+
+API: POST /incident/post-mortem/init (postmortem-write-init)
+
+Request fields:
+  --incident-ids []string (required) — Incident IDs to link to the report. 1-10 incidents.
+  --template-id string (required) — Template ID used to initialize the report.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - basics (object) (required)
+    - incidents_earliest_start_seconds (integer) (required) — Earliest start time among linked incidents (seconds).
+    - incidents_highest_severity (string) (required) — Highest severity among linked incidents.
+    - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
+    - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
+    - responders (array<object>) (required) — Responders involved in the incident(s).
+      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - as (string) — Role label of this responder.
+      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - email (string) — Member email, filled by the server.
+      - person_id (integer) (required) — Responder member ID.
+      - person_name (string) — Member display name, filled by the server.
+  - content (object) (required)
+    - content (string) (required) — Report body content (BlockNote JSON).
+  - follow_ups (string) (required) — Follow-up action items rendered as a single string.
+  - meta (object) (required) — Post-mortem metadata (lightweight shape used in lists).
+    - account_id (integer) (required) — Account ID.
+    - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
+    - channel_id (integer) (required) — Owning channel ID. 0 if none.
+    - channel_name (string) (required) — Channel name, filled by the server.
+    - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - incident_ids (array<string>) (required) — Linked incident IDs.
+    - is_private (boolean) (required) — When true, only team members and admins can view.
+    - media_count (integer) (required) — Number of uploaded media files.
+    - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - status (string) (required) — Report status. [drafting, published]
+    - team_id (integer) (required) — Owning team ID. 0 if none.
+    - template_id (string) (required) — Template used to initialize the report.
+    - title (string) (required) — Report title.
+    - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
+`,
+		Args:    requireArgs("incident_ids"),
+		Example: `  flashduty incident post-mortem-init --data '{"incident_ids":["69bb9233331067560c718ecd"],"template_id":"post_mortem_default_tmpl_en-us"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "incident_ids", "slice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("incident-ids") {
+						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.InitPostMortemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemWriteInit(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to link to the report. 1-10 incidents. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID used to initialize the report. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetBasicsCmd() *cobra.Command {
+	var dataJSON string
+	var fIncidentsEarliestStartSeconds string
+	var fIncidentsHighestSeverity string
+	var fIncidentsLatestCloseSeconds string
+	var fIncidentsTotalDurationSeconds int64
+	var fPostMortemID string
+	var fResponderIDs []int
+	cmd := &cobra.Command{
+		Use:   "post-mortem-basics-reset <post-mortem-id>",
+		Short: "Update post-mortem basics",
+		Long: `Update post-mortem basics.
+
+Replace the incident facts stored in a post-mortem report.
+
+API: POST /incident/post-mortem/basics/reset (postmortem-write-reset-basics)
+
+Request fields:
+  --incidents-earliest-start-seconds string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incidents-highest-severity string (required) — Highest severity among linked incidents.
+  --incidents-latest-close-seconds string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incidents-total-duration-seconds int — Total incident duration in seconds. (min 0)
+  --post-mortem-id string (required) — Post-mortem ID.
+  --responder-ids []int — Responder member IDs to store on the report.
+`,
+		Args:    requireExactArg("post_mortem_id"),
+		Example: `  flashduty incident post-mortem-basics-reset --data '{"incidents_earliest_start_seconds":1761133512,"incidents_highest_severity":"Warning","incidents_latest_close_seconds":1761133632,"incidents_total_duration_seconds":120,"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","responder_ids":[3790925372131]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vIncidentsEarliestStartSeconds, okIncidentsEarliestStartSeconds, err := genParseTimeFlag(cmd, "incidents-earliest-start-seconds", fIncidentsEarliestStartSeconds)
+				if err != nil {
+					return err
+				}
+				vIncidentsLatestCloseSeconds, okIncidentsLatestCloseSeconds, err := genParseTimeFlag(cmd, "incidents-latest-close-seconds", fIncidentsLatestCloseSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if okIncidentsEarliestStartSeconds {
+						body["incidents_earliest_start_seconds"] = vIncidentsEarliestStartSeconds
+					}
+					if cmd.Flags().Changed("incidents-highest-severity") {
+						body["incidents_highest_severity"] = fIncidentsHighestSeverity
+					}
+					if okIncidentsLatestCloseSeconds {
+						body["incidents_latest_close_seconds"] = vIncidentsLatestCloseSeconds
+					}
+					if cmd.Flags().Changed("incidents-total-duration-seconds") {
+						body["incidents_total_duration_seconds"] = fIncidentsTotalDurationSeconds
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("responder-ids") {
+						body["responder_ids"] = fResponderIDs
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemBasicsRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetBasics(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/basics/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fIncidentsEarliestStartSeconds, "incidents-earliest-start-seconds", "", "Unix timestamp in seconds for the earliest linked incident start time. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fIncidentsHighestSeverity, "incidents-highest-severity", "", "Highest severity among linked incidents. (required)")
+	cmd.Flags().StringVar(&fIncidentsLatestCloseSeconds, "incidents-latest-close-seconds", "", "Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fIncidentsTotalDurationSeconds, "incidents-total-duration-seconds", 0, "Total incident duration in seconds. (min 0)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs to store on the report.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetFollowUpsCmd() *cobra.Command {
+	var dataJSON string
+	var fFollowUps string
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-follow-ups-reset <post-mortem-id>",
+		Short: "Update post-mortem follow-ups",
+		Long: `Update post-mortem follow-ups.
+
+Replace the follow-up action items on a post-mortem report.
+
+API: POST /incident/post-mortem/follow-ups/reset (postmortem-write-reset-follow-ups)
+
+Request fields:
+  --follow-ups string — Follow-up action items as free text.
+  --post-mortem-id string (required) — Post-mortem ID.
+`,
+		Args:    requireExactArg("post_mortem_id"),
+		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("follow-ups") {
+						body["follow_ups"] = fFollowUps
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemFollowUpsRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetFollowUps(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/follow-ups/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fFollowUps, "follow-ups", "", "Follow-up action items as free text.")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetStatusCmd() *cobra.Command {
+	var dataJSON string
+	var fPostMortemID string
+	var fStatus string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-status-reset <post-mortem-id>",
+		Short: "Update post-mortem status",
+		Long: `Update post-mortem status.
+
+Set a post-mortem report to drafting or published.
+
+API: POST /incident/post-mortem/status/reset (postmortem-write-reset-status)
+
+Request fields:
+  --post-mortem-id string (required) — Post-mortem ID.
+  --status string (required) — Target report status. [drafting, published]
+`,
+		Args:    requireExactArg("post_mortem_id"),
+		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","status":"published"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemStatusRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetStatus(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/status/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status. (required) [drafting, published]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetTitleCmd() *cobra.Command {
+	var dataJSON string
+	var fPostMortemID string
+	var fTitle string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-title-reset <post-mortem-id>",
+		Short: "Update post-mortem title",
+		Long: `Update post-mortem title.
+
+Replace the title of a post-mortem report.
+
+API: POST /incident/post-mortem/title/reset (postmortem-write-reset-title)
+
+Request fields:
+  --post-mortem-id string (required) — Post-mortem ID.
+  --title string (required) — New report title.
+`,
+		Args:    requireExactArg("post_mortem_id"),
+		Example: `  flashduty incident post-mortem-title-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","title":"Production API latency incident"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemTitleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetTitle(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/title/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New report title. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteUpsertTemplateCmd() *cobra.Command {
+	var dataJSON string
+	var fContent string
+	var fContentMarkdown string
+	var fDescription string
+	var fName string
+	var fTeamID int64
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-upsert",
+		Short: "Create or update post-mortem template",
+		Long: `Create or update post-mortem template.
+
+Create a custom post-mortem template or update an existing one.
+
+API: POST /incident/post-mortem/template/upsert (postmortem-write-upsert-template)
+
+Request fields:
+  --content string (required) — BlockNote JSON template content.
+  --content-markdown string — Markdown version of the template content.
+  --description string — Template description.
+  --name string (required) — Template name.
+  --team-id int — Managing team ID. Required when creating a custom template.
+  --template-id string — Template ID. Omit to create a new template; provide it to update an existing template.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - description (string) (required) — Template description.
+  - name (string) (required) — Template name shown in the console.
+  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+`,
+		Example: `  flashduty incident post-mortem-template-upsert --data '{"content":"[{\"type\":\"heading\",\"content\":\"Summary\"}]","content_markdown":"## Summary\nDescribe what happened.","description":"Template for production incident reviews.","name":"Production incident template","team_id":2477033058131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("content") {
+						body["content"] = fContent
+					}
+					if cmd.Flags().Changed("content-markdown") {
+						body["content_markdown"] = fContentMarkdown
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpsertPostMortemTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemWriteUpsertTemplate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fContent, "content", "", "BlockNote JSON template content. (required)")
+	cmd.Flags().StringVar(&fContentMarkdown, "content-markdown", "", "Markdown version of the template content.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Template description.")
+	cmd.Flags().StringVar(&fName, "name", "", "Template name. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Managing team ID. Required when creating a custom template.")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. Omit to create a new template; provide it to update an existing template.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedIncidents(root *cobra.Command) {
 	gIncident := genGroup(root, "incident", "On-call/Incidents API")
 	genAddLeaf(gIncident, genIncidentsReadGetWarRoomDefaultObserversCmd())
@@ -2843,4 +3471,13 @@ func registerGeneratedIncidents(root *cobra.Command) {
 	genAddLeaf(gIncident, genIncidentsWarRoomDeleteCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomDetailCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomListCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemReadListTemplatesCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemReadTemplateInfoCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteDeleteTemplateCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteInitCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetBasicsCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetFollowUpsCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetStatusCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetTitleCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteUpsertTemplateCmd())
 }

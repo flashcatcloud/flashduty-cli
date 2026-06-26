@@ -223,7 +223,7 @@ func collectServices(paths, schemas map[string]any) []service {
 		for _, e := range entries {
 			opIDs = append(opIDs, str(e.op, "operationId"))
 		}
-		names := methodNames(opIDs)
+		names := methodNames(tag, opIDs)
 		svc := service{Name: serviceName(tag), Tag: tag}
 		for _, e := range entries {
 			opID := str(e.op, "operationId")

@@ -1,7 +1,7 @@
 # Build configuration
 BINARY_NAME ?= flashduty
 BUILD_DIR := bin
-GOLANGCI_LINT_VERSION := v2.2.1
+GOLANGCI_LINT_VERSION := v2.11.4
 GOLANGCI_LINT := $(BUILD_DIR)/golangci-lint
 GCI_VERSION := v0.13.5
 GCI := $(BUILD_DIR)/gci
@@ -52,11 +52,11 @@ gci: $(GCI) ## Sort imports using gci
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT) ## Run golangci-lint
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --allow-serial-runners
 
 .PHONY: lint-fix
 lint-fix: $(GOLANGCI_LINT) ## Run golangci-lint with auto-fix
-	$(GOLANGCI_LINT) run --fix
+	$(GOLANGCI_LINT) run --fix --allow-serial-runners
 
 .PHONY: test
 test: ## Run unit tests

@@ -116,6 +116,14 @@ Update datasource
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
 - body-only (`--data`): payload (object) (required)
 
+### preview-sync
+Preview datasource query
+- `--delay-seconds` int64 — Shift the query window backward by this many seconds to compensate for data ingestion latency.
+- `--ds-name` string (required) — Datasource display name as configured in the account.
+- `--ds-type` string (required) — Datasource type, e.g. 'prometheus', 'loki', 'elasticsearch'.
+- `--expr` string (required) — Query expression. Format depends on 'ds_type' (PromQL for Prometheus, LogQL for Loki, etc.).
+- body-only (`--data`): args (object)
+
 ### query-diagnose
 Diagnose data source
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.

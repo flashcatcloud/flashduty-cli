@@ -208,13 +208,32 @@ List past incidents
 - `<incident-id>` (positional, required) string — Reference incident ID (MongoDB ObjectID).
 - `--limit` int64 — Maximum number of similar incidents to return. (0-100)
 
+### post-mortem-basics-reset <post-mortem-id>
+Update post-mortem basics
+- `--incidents-earliest-start-seconds` string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incidents-highest-severity` string (required) — Highest severity among linked incidents.
+- `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--responder-ids` intSlice — Responder member IDs to store on the report.
+
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+
+### post-mortem-follow-ups-reset <post-mortem-id>
+Update post-mortem follow-ups
+- `--follow-ups` string — Follow-up action items as free text.
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
 
 ### post-mortem-info <post-mortem-id>
 Get post-mortem
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
+
+### post-mortem-init <incident-id> [<id2>...]
+Initialize post-mortem
+- `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
+- `--template-id` string (required) — Template ID used to initialize the report.
 
 ### post-mortem-list
 List post-mortems
@@ -228,6 +247,41 @@ List post-mortems
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
+
+### post-mortem-status-reset <post-mortem-id>
+Update post-mortem status
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--status` string (required) — Target report status. · enum: drafting | published
+
+### post-mortem-template-delete <template-id>
+Delete post-mortem template
+- `<template-id>` (positional, required) string — Template ID.
+
+### post-mortem-template-info <template-id>
+Get post-mortem template detail
+- `<template-id>` (positional, required) string — Template ID.
+
+### post-mortem-template-list
+List post-mortem templates
+- `--asc` bool — Ascending order when true.
+- `--limit` int64 — Page size, at most 100. (0-100)
+- `--order-by` string — Field used to order results. · enum: created_at_seconds
+- `--page` int64 — Page number starting at 1. (min 0)
+- `--search-after-ctx` string — Cursor from a previous response for forward pagination.
+
+### post-mortem-template-upsert
+Create or update post-mortem template
+- `--content` string (required) — BlockNote JSON template content.
+- `--content-markdown` string — Markdown version of the template content.
+- `--description` string — Template description.
+- `--name` string (required) — Template name.
+- `--team-id` int64 — Managing team ID. Required when creating a custom template.
+- `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
+
+### post-mortem-title-reset <post-mortem-id>
+Update post-mortem title
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--title` string (required) — New report title.
 
 ### reassign <id>
 Reassign an incident to new responders

@@ -98,6 +98,11 @@ Update application
 - `--type` string — enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
 - body-only (`--data`): alerting (object); tracing (object)
 
+### application-webhook-test <application-id>
+Test application webhook
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--webhook-url` string (required) — Webhook URL to receive the sample alert event.
+
 ### issue-info <issue-id>
 Get issue detail
 - `<issue-id>` (positional, required) string — Issue ID.
