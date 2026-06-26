@@ -837,6 +837,248 @@ Request fields:
 	return cmd
 }
 
+func genStatusPagesComponentDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fComponentIDs []string
+	var fPageID int64
+	cmd := &cobra.Command{
+		Use:   "component-delete <component-id> [<id2>...]",
+		Short: "Delete status page component",
+		Long: `Delete status page component.
+
+Delete a service component from a status page.
+
+API: POST /status-page/component/delete (statusPageComponentDelete)
+
+Request fields:
+  --component-ids []string (required) — IDs of components to delete.
+  --page-id int (required) — Status page ID.
+`,
+		Args:    requireArgs("component_ids"),
+		Example: `  flashduty status-page component-delete --data '{"component_ids":["01KP032KMN9YFBMPWANJMFZFG1"],"page_id":5750613685214}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "component_ids", "slice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("component-ids") {
+						body["component_ids"] = fComponentIDs
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeleteStatusPageComponentRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.ComponentDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/component/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "IDs of components to delete. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesComponentUpsertCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	cmd := &cobra.Command{
+		Use:   "component-upsert <page-id>",
+		Short: "Upsert status page component",
+		Long: `Upsert status page component.
+
+Create or update a service component on a status page.
+
+API: POST /status-page/component/upsert (statusPageComponentUpsert)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  components (array<object>, via --data) (required) — Components to create or update.
+    - component_id (string) — Component ID. Omit to create a new component; supply to update an existing one.
+    - description (string) — Component description.
+    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+    - name (string) (required) — Component display name.
+    - order_id (integer) — Display order within its section.
+    - section_id (string) — Parent section ID. Omit to place the component at the top level.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - component_ids (array<string>) (required) — IDs of the created or updated components, in the same order as the request.
+`,
+		Args:    requireExactArg("page_id"),
+		Example: `  flashduty status-page component-upsert --data '{"components":[{"description":"Main web interface","name":"Web Console","order_id":1,"section_id":"01KC3FKKX5TSVG6Z3X1QNGF6V2"}],"page_id":5750613685214}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpsertStatusPageComponentRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.ComponentUpsert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesCreateCmd() *cobra.Command {
+	var dataJSON string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create status page",
+		Long: `Create status page.
+
+Create a new status page.
+
+API: POST /status-page/create (statusPageCreate)
+`,
+		Example: `  flashduty status-page create --data '{"contact_info":"mailto:support@example.com","name":"My Status Page","page_header":"Welcome to our status page","type":"public","url_name":"my-status-page"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				_ = body
+				resp, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd))
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/create")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesDeleteCmd() *cobra.Command {
+	var dataJSON string
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete status page",
+		Long: `Delete status page.
+
+Delete a status page.
+
+API: POST /status-page/delete (statusPageDelete)
+`,
+		Example: `  flashduty status-page delete --data '{"page_id":5750613685214}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				_ = body
+				resp, err := ctx.Client.StatusPages.Delete(cmdContext(ctx.Cmd))
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID string
+	cmd := &cobra.Command{
+		Use:   "info <page-id>",
+		Short: "Get status page detail",
+		Long: `Get status page detail.
+
+Retrieve detailed configuration for a specific status page.
+
+API: GET /status-page/info (statusPageInfo)
+
+Request fields:
+  --page-id string (required) — Status page ID
+`,
+		Args: requireExactArg("page_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.StatusPagesInfoRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.Info(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: GET /status-page/info")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fPageID, "page-id", "", "Status page ID (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genStatusPagesMigrateEmailSubscribersCmd() *cobra.Command {
 	var dataJSON string
 	var fAPIKey string
@@ -1080,6 +1322,122 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genStatusPagesSectionDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	var fSectionIDs []string
+	cmd := &cobra.Command{
+		Use:   "section-delete <section-id> [<id2>...]",
+		Short: "Delete status page section",
+		Long: `Delete status page section.
+
+Delete a section from a status page.
+
+API: POST /status-page/section/delete (statusPageSectionDelete)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --section-ids []string (required) — IDs of sections to delete.
+`,
+		Args:    requireArgs("section_ids"),
+		Example: `  flashduty status-page section-delete --data '{"page_id":5750613685214,"section_ids":["01KP032J1FV2H8DDGN0QSJ1CAR"]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "section_ids", "slice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("section-ids") {
+						body["section_ids"] = fSectionIDs
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeleteStatusPageSectionRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.SectionDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/section/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringSliceVar(&fSectionIDs, "section-ids", nil, "IDs of sections to delete. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesSectionUpsertCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	cmd := &cobra.Command{
+		Use:   "section-upsert <page-id>",
+		Short: "Upsert status page section",
+		Long: `Upsert status page section.
+
+Create or update a section on a status page.
+
+API: POST /status-page/section/upsert (statusPageSectionUpsert)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  sections (array<object>, via --data) (required) — Sections to create or update.
+    - description (string) — Section description.
+    - hide_all (boolean) — When true, the entire section is hidden from summary endpoints.
+    - hide_uptime (boolean) — When true, uptime data for all components in this section is hidden.
+    - name (string) (required) — Section display name.
+    - order_id (integer) — Display order.
+    - section_id (string) — Section ID. Omit to create a new section; supply to update an existing one.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - section_ids (array<string>) (required) — IDs of the created or updated sections, in the same order as the request.
+`,
+		Args:    requireExactArg("page_id"),
+		Example: `  flashduty status-page section-upsert --data '{"page_id":5750613685214,"sections":[{"description":"Our core services","name":"Core Services","order_id":1}]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpsertStatusPageSectionRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.SectionUpsert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genStatusPagesSubscriberExportCmd() *cobra.Command {
 	var dataJSON string
 	var fComponentIDs []string
@@ -1281,6 +1639,223 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genStatusPagesTemplateDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	var fTemplateID string
+	var fType string
+	cmd := &cobra.Command{
+		Use:   "template-delete",
+		Short: "Delete status page template",
+		Long: `Delete status page template.
+
+Delete an event template from a status page.
+
+API: POST /status-page/template/delete (statusPageTemplateDelete)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --template-id string (required) — Template ID to delete.
+  --type string (required) — Template category. [pre_defined, message]
+`,
+		Example: `  flashduty status-page template-delete --data '{"page_id":5720156736380,"template_id":"01KP0339G5XDEPM4R86T2B23EP","type":"pre_defined"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeleteStatusPageTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.TemplateDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/template/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID to delete. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Template category. (required) [pre_defined, message]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesTemplateListCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	var fType string
+	cmd := &cobra.Command{
+		Use:   "template-list <page-id>",
+		Short: "List status page templates",
+		Long: `List status page templates.
+
+List all event templates for a status page.
+
+API: GET /status-page/template/list (statusPageTemplateList)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --type string (required) — Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. [pre_defined, message]
+`,
+		Args: requireExactArg("page_id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.StatusPagesTemplateListRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.TemplateList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: GET /status-page/template/list")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. (required) [pre_defined, message]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesTemplateUpsertCmd() *cobra.Command {
+	var dataJSON string
+	var fPageID int64
+	var fType string
+	cmd := &cobra.Command{
+		Use:   "template-upsert <page-id>",
+		Short: "Upsert status page template",
+		Long: `Upsert status page template.
+
+Create or update an event template for a status page.
+
+API: POST /status-page/template/upsert (statusPageTemplateUpsert)
+
+Request fields:
+  --page-id int (required) — Status page ID.
+  --type string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. [pre_defined, message]
+  template (object, via --data) (required) — Template content.
+    - description (string) — Template body text (Markdown).
+    - event_type (string) (required) — Event type this template applies to. [incident, maintenance]
+    - status (string) (required) — Event status this template represents. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - template_id (string) — Template ID. Omit to create; supply to update.
+    - title (string) (required) — Template title.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - template_id (string) (required) — ID of the created or updated template.
+`,
+		Args:    requireExactArg("page_id"),
+		Example: `  flashduty status-page template-upsert --data '{"page_id":5720156736380,"template":{"description":"We are investigating a service disruption affecting some users.","event_type":"incident","status":"investigating","title":"Service Disruption"},"type":"pre_defined"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpsertStatusPageTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.TemplateUpsert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. (required) [pre_defined, message]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genStatusPagesUpdateCmd() *cobra.Command {
+	var dataJSON string
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update status page",
+		Long: `Update status page.
+
+Update an existing status page configuration.
+
+API: POST /status-page/update (statusPageUpdate)
+`,
+		Example: `  flashduty status-page update --data '{"contact_info":"mailto:support@example.com","name":"Flashduty Status Page (Updated)","page_header":"Updated status page header","page_id":5750613685214}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				_ = body
+				resp, err := ctx.Client.StatusPages.Update(cmdContext(ctx.Cmd))
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/update")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedStatusPages(root *cobra.Command) {
 	gStatusPage := genGroup(root, "status-page", "On-call/Status pages API")
 	genAddLeaf(gStatusPage, genStatusPagesReadPageListCmd())
@@ -1293,11 +1868,22 @@ func registerGeneratedStatusPages(root *cobra.Command) {
 	genAddLeaf(gStatusPage, genStatusPagesChangeTimelineDeleteCmd())
 	genAddLeaf(gStatusPage, genStatusPagesChangeTimelineUpdateCmd())
 	genAddLeaf(gStatusPage, genStatusPagesChangeUpdateCmd())
+	genAddLeaf(gStatusPage, genStatusPagesComponentDeleteCmd())
+	genAddLeaf(gStatusPage, genStatusPagesComponentUpsertCmd())
+	genAddLeaf(gStatusPage, genStatusPagesCreateCmd())
+	genAddLeaf(gStatusPage, genStatusPagesDeleteCmd())
+	genAddLeaf(gStatusPage, genStatusPagesInfoCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateEmailSubscribersCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateStructureCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrationCancelCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrationStatusCmd())
+	genAddLeaf(gStatusPage, genStatusPagesSectionDeleteCmd())
+	genAddLeaf(gStatusPage, genStatusPagesSectionUpsertCmd())
 	genAddLeaf(gStatusPage, genStatusPagesSubscriberExportCmd())
 	genAddLeaf(gStatusPage, genStatusPagesSubscriberImportCmd())
 	genAddLeaf(gStatusPage, genStatusPagesSubscriberListCmd())
+	genAddLeaf(gStatusPage, genStatusPagesTemplateDeleteCmd())
+	genAddLeaf(gStatusPage, genStatusPagesTemplateListCmd())
+	genAddLeaf(gStatusPage, genStatusPagesTemplateUpsertCmd())
+	genAddLeaf(gStatusPage, genStatusPagesUpdateCmd())
 }

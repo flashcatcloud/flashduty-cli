@@ -16,46 +16,47 @@ func genMcpServersReadServerGetCmd() *cobra.Command {
 		Short: "Get MCP server detail",
 		Long: `Get MCP server detail.
 
-Return the full configuration of a single MCP server, with a live tool catalogue.
+Get one MCP server and run a live probe of its tool list.
 
 API: POST /safari/mcp/server/get (mcp-read-server-get)
 
 Request fields:
-  --server-id string (required) — Identifier of the server to fetch.
+  --server-id string (required) — Target MCP server ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - ai_description (string) — LLM-generated description, preferred over description when present.
-  - args (array<string>) — Command-line arguments for the stdio executable.
-  - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
-  - call_timeout (integer) (required) — Per-call timeout in seconds.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - command (string) — Executable launched for stdio transport.
-  - connect_timeout (integer) (required) — Connection timeout in seconds.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What this MCP server provides.
-  - env (object) — Environment variables passed to the stdio process.
-  - headers (object) — HTTP headers sent to the remote endpoint; secret values are masked.
-  - list_error (string) — Tool-probe failure message; present when the live probe failed.
-  - oauth_metadata (string) — OAuth metadata JSON.
+  - account_id (integer) (required) — Owning account ID.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - args (array<string>) — Command arguments (stdio transport).
+  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
+  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - command (string) — Executable command (stdio transport only).
+  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the server.
+  - description (string) (required) — Server description.
+  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - list_error (string) — Error message when the live tool list failed.
+  - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
-  - secret_schema (string) — JSON schema of the per-user secret.
-  - server_id (string) (required) — Unique identifier of the MCP server.
-  - server_name (string) (required) — Display name of the MCP server.
-  - status (string) (required) — Whether the server is active and usable by agents. [enabled, disabled]
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tool_count (integer) — Number of tools discovered on the server.
-  - tools (array<object>) — Live tool catalogue; populated only by get and test.
-    - description (string) (required) — What the tool does.
-    - input_schema (any) — JSON schema of the tool's input arguments.
-    - name (string) (required) — Tool name as advertised by the server.
-  - transport (string) (required) — Transport used to reach the server. [stdio, sse, streamable-http]
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - url (string) — Endpoint URL for sse or streamable-http transport.
+  - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
+  - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
+  - server_name (string) (required) — MCP server name, unique within the account.
+  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
+  - status (string) (required) — Server status. [enabled, disabled]
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tool_count (integer) — Number of tools in the live list.
+  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
+    - description (string) (required) — Tool description.
+    - input_schema (object) — JSON Schema describing the tool's input parameters.
+    - name (string) (required) — Tool name.
+  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - url (string) — Server URL (sse / streamable-http transport).
 `,
 		Args:    requireExactArg("server_id"),
-		Example: `  flashduty safari mcp-server-get --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
+		Example: `  flashduty safari mcp-server-get --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -82,7 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to fetch. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -99,49 +100,50 @@ func genMcpServersReadServerListCmd() *cobra.Command {
 		Short: "List MCP servers",
 		Long: `List MCP servers.
 
-List configured MCP servers visible to the caller across account and team scopes, with pagination.
+List MCP servers visible to the caller across account and team scopes, with pagination.
 
 API: POST /safari/mcp/server/list (mcp-read-server-list)
 
 Request fields:
-  --page int — Page number, starting at 1.
-  --limit int — Page size; defaults to 20.
+  --page int — Page number, 1-based.
+  --limit int — Page size.
   --search-after-ctx string
-  --include-account bool — Include account-scoped rows alongside team-scoped ones; defaults to true.
-  --team-ids []int — Restrict results to resources owned by these teams; intersected with the caller's visible set.
+  --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
+  --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - servers (array<object>) (required) — MCP servers on the current page.
-    - account_id (integer) (required) — Owning account.
-    - ai_description (string) — LLM-generated description, preferred over description when present.
-    - args (array<string>) — Command-line arguments for the stdio executable.
-    - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
-    - call_timeout (integer) (required) — Per-call timeout in seconds.
-    - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-    - command (string) — Executable launched for stdio transport.
-    - connect_timeout (integer) (required) — Connection timeout in seconds.
-    - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-    - created_by (integer) (required) — Member who created this resource.
-    - description (string) (required) — What this MCP server provides.
-    - env (object) — Environment variables passed to the stdio process.
-    - headers (object) — HTTP headers sent to the remote endpoint; secret values are masked.
-    - list_error (string) — Tool-probe failure message; present when the live probe failed.
-    - oauth_metadata (string) — OAuth metadata JSON.
+  - servers (array<object>) (required) — MCP servers on this page.
+    - account_id (integer) (required) — Owning account ID.
+    - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+    - args (array<string>) — Command arguments (stdio transport).
+    - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+    - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
+    - can_edit (boolean) (required) — Whether the caller may edit this server.
+    - command (string) — Executable command (stdio transport only).
+    - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+    - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+    - created_by (integer) (required) — Member ID that created the server.
+    - description (string) (required) — Server description.
+    - env (object) — Environment variables (stdio transport). Secret values are masked.
+    - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+    - list_error (string) — Error message when the live tool list failed.
+    - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
     - proxy_url (string) — Outbound proxy URL used to reach the server.
-    - secret_schema (string) — JSON schema of the per-user secret.
-    - server_id (string) (required) — Unique identifier of the MCP server.
-    - server_name (string) (required) — Display name of the MCP server.
-    - status (string) (required) — Whether the server is active and usable by agents. [enabled, disabled]
-    - team_id (integer) (required) — Owning team; 0 means account scope.
-    - tool_count (integer) — Number of tools discovered on the server.
-    - tools (array<object>) — Live tool catalogue; populated only by get and test.
-      - description (string) (required) — What the tool does.
-      - input_schema (any) — JSON schema of the tool's input arguments.
-      - name (string) (required) — Tool name as advertised by the server.
-    - transport (string) (required) — Transport used to reach the server. [stdio, sse, streamable-http]
-    - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-    - url (string) — Endpoint URL for sse or streamable-http transport.
-  - total (integer) (required) — Total number of servers matching the filters.
+    - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
+    - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
+    - server_name (string) (required) — MCP server name, unique within the account.
+    - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
+    - status (string) (required) — Server status. [enabled, disabled]
+    - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+    - tool_count (integer) — Number of tools in the live list.
+    - tools (array<object>) — Live tool list; populated by the get/test endpoints.
+      - description (string) (required) — Tool description.
+      - input_schema (object) — JSON Schema describing the tool's input parameters.
+      - name (string) (required) — Tool name.
+    - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+    - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+    - url (string) — Server URL (sse / streamable-http transport).
+  - total (integer) (required) — Total number of matching servers.
 `,
 		Example: `  flashduty safari mcp-server-list --data '{"include_account":true,"limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -179,11 +181,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size; defaults to 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped rows alongside team-scoped ones; defaults to true.")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict results to resources owned by these teams; intersected with the caller's visible set.")
+	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -199,6 +201,7 @@ func genMcpServersWriteServerCreateCmd() *cobra.Command {
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fServerName string
+	var fSourceTemplateName string
 	var fStatus string
 	var fTeamID int64
 	var fTransport string
@@ -208,59 +211,61 @@ func genMcpServersWriteServerCreateCmd() *cobra.Command {
 		Short: "Create MCP server",
 		Long: `Create MCP server.
 
-Register a new MCP server the agent can call tools through.
+Register a new MCP server (connector) on the account.
 
 API: POST /safari/mcp/server/create (mcp-write-server-create)
 
 Request fields:
-  --args []string — Command-line arguments for the stdio executable.
-  --auth-mode string — Credential model; defaults to shared.
-  --call-timeout int — Per-call timeout in seconds.
-  --command string — Executable to launch for stdio transport.
-  --connect-timeout int — Connection timeout in seconds.
-  --description string (required) — What this MCP server provides. (1-1024 chars)
-  --oauth-metadata string — OAuth metadata JSON; reserved for OAuth-based auth.
-  --secret-schema string — JSON schema of the per-user secret; required when auth_mode is per_user_secret.
-  --server-name string (required) — Display name of the server. (1-255 chars)
-  --status string — Initial lifecycle state of the server. [enabled, disabled]
-  --team-id int — Owning team for the new server; 0 for account scope.
-  --transport string (required) — Transport used to reach the server. [stdio, sse, streamable-http]
-  --url string — Endpoint URL for sse or streamable-http transport.
-  env (object, via --data) — Environment variables for the stdio process.
-  headers (object, via --data) — HTTP headers sent to the remote endpoint.
+  --args []string — Command arguments (stdio transport).
+  --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
+  --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
+  --command string — Executable command (stdio transport).
+  --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
+  --description string (required) — Server description. (1-1024 chars)
+  --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
+  --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
+  --server-name string (required) — MCP server name, unique within the account. (1-255 chars)
+  --source-template-name string — Marketplace template name when created from a connector template.
+  --status string — Initial status. [enabled, disabled]
+  --team-id int — Team scope: 0 = account-wide; >0 = team.
+  --transport string (required) — Transport protocol. [stdio, sse, streamable-http]
+  --url string — Server URL (sse / streamable-http transport).
+  env (object, via --data) — Environment variables (stdio transport).
+  headers (object, via --data) — HTTP headers (sse / streamable-http).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - ai_description (string) — LLM-generated description, preferred over description when present.
-  - args (array<string>) — Command-line arguments for the stdio executable.
-  - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
-  - call_timeout (integer) (required) — Per-call timeout in seconds.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - command (string) — Executable launched for stdio transport.
-  - connect_timeout (integer) (required) — Connection timeout in seconds.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What this MCP server provides.
-  - env (object) — Environment variables passed to the stdio process.
-  - headers (object) — HTTP headers sent to the remote endpoint; secret values are masked.
-  - list_error (string) — Tool-probe failure message; present when the live probe failed.
-  - oauth_metadata (string) — OAuth metadata JSON.
+  - account_id (integer) (required) — Owning account ID.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - args (array<string>) — Command arguments (stdio transport).
+  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
+  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - command (string) — Executable command (stdio transport only).
+  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the server.
+  - description (string) (required) — Server description.
+  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - list_error (string) — Error message when the live tool list failed.
+  - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
-  - secret_schema (string) — JSON schema of the per-user secret.
-  - server_id (string) (required) — Unique identifier of the MCP server.
-  - server_name (string) (required) — Display name of the MCP server.
-  - status (string) (required) — Whether the server is active and usable by agents. [enabled, disabled]
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tool_count (integer) — Number of tools discovered on the server.
-  - tools (array<object>) — Live tool catalogue; populated only by get and test.
-    - description (string) (required) — What the tool does.
-    - input_schema (any) — JSON schema of the tool's input arguments.
-    - name (string) (required) — Tool name as advertised by the server.
-  - transport (string) (required) — Transport used to reach the server. [stdio, sse, streamable-http]
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - url (string) — Endpoint URL for sse or streamable-http transport.
+  - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
+  - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
+  - server_name (string) (required) — MCP server name, unique within the account.
+  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
+  - status (string) (required) — Server status. [enabled, disabled]
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tool_count (integer) — Number of tools in the live list.
+  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
+    - description (string) (required) — Tool description.
+    - input_schema (object) — JSON Schema describing the tool's input parameters.
+    - name (string) (required) — Tool name.
+  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - url (string) — Server URL (sse / streamable-http transport).
 `,
-		Example: `  flashduty safari mcp-server-create --data '{"args":["-y","@modelcontextprotocol/server-github"],"command":"npx","description":"Read issues and pull requests from GitHub.","env":{"GITHUB_TOKEN":"ghp_xxx"},"server_name":"GitHub Tools","status":"enabled","team_id":0,"transport":"stdio"}'`,
+		Example: `  flashduty safari mcp-server-create --data '{"description":"Query Prometheus metrics and alerts.","server_name":"prometheus","status":"enabled","transport":"streamable-http","url":"https://mcp.example.com/prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -291,6 +296,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("server-name") {
 						body["server_name"] = fServerName
 					}
+					if cmd.Flags().Changed("source-template-name") {
+						body["source_template_name"] = fSourceTemplateName
+					}
 					if cmd.Flags().Changed("status") {
 						body["status"] = fStatus
 					}
@@ -320,19 +328,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command-line arguments for the stdio executable.")
-	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Credential model; defaults to shared.")
-	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Per-call timeout in seconds.")
-	cmd.Flags().StringVar(&fCommand, "command", "", "Executable to launch for stdio transport.")
-	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "What this MCP server provides. (required) (1-1024 chars)")
-	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "OAuth metadata JSON; reserved for OAuth-based auth.")
-	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON schema of the per-user secret; required when auth_mode is per_user_secret.")
-	cmd.Flags().StringVar(&fServerName, "server-name", "", "Display name of the server. (required) (1-255 chars)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Initial lifecycle state of the server. [enabled, disabled]")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team for the new server; 0 for account scope.")
-	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport used to reach the server. (required) [stdio, sse, streamable-http]")
-	cmd.Flags().StringVar(&fURL, "url", "", "Endpoint URL for sse or streamable-http transport.")
+	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
+	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
+	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
+	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
+	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Server description. (required) (1-1024 chars)")
+	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
+	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
+	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name, unique within the account. (required) (1-255 chars)")
+	cmd.Flags().StringVar(&fSourceTemplateName, "source-template-name", "", "Marketplace template name when created from a connector template.")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status. [enabled, disabled]")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope: 0 = account-wide; >0 = team.")
+	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol. (required) [stdio, sse, streamable-http]")
+	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -345,15 +354,15 @@ func genMcpServersWriteServerDeleteCmd() *cobra.Command {
 		Short: "Delete MCP server",
 		Long: `Delete MCP server.
 
-Permanently remove an MCP server so agents can no longer use its tools.
+Delete an MCP server by ID.
 
 API: POST /safari/mcp/server/delete (mcp-write-server-delete)
 
 Request fields:
-  --server-id string (required) — Identifier of the server to delete.
+  --server-id string (required) — Target MCP server ID.
 `,
 		Args:    requireExactArg("server_id"),
-		Example: `  flashduty safari mcp-server-delete --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
+		Example: `  flashduty safari mcp-server-delete --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -380,7 +389,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to delete. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -393,15 +402,15 @@ func genMcpServersWriteServerDisableCmd() *cobra.Command {
 		Short: "Disable MCP server",
 		Long: `Disable MCP server.
 
-Deactivate an MCP server so agents stop calling its tools.
+Disable an enabled MCP server.
 
 API: POST /safari/mcp/server/disable (mcp-write-server-disable)
 
 Request fields:
-  --server-id string (required) — Identifier of the target server.
+  --server-id string (required) — Target MCP server ID.
 `,
 		Args:    requireExactArg("server_id"),
-		Example: `  flashduty safari mcp-server-disable --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
+		Example: `  flashduty safari mcp-server-disable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -428,7 +437,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -441,15 +450,15 @@ func genMcpServersWriteServerEnableCmd() *cobra.Command {
 		Short: "Enable MCP server",
 		Long: `Enable MCP server.
 
-Activate a disabled MCP server so agents can call its tools.
+Enable a disabled MCP server.
 
 API: POST /safari/mcp/server/enable (mcp-write-server-enable)
 
 Request fields:
-  --server-id string (required) — Identifier of the target server.
+  --server-id string (required) — Target MCP server ID.
 `,
 		Args:    requireExactArg("server_id"),
-		Example: `  flashduty safari mcp-server-enable --data '{"server_id":"mcp-2b5e8d14a7c9"}'`,
+		Example: `  flashduty safari mcp-server-enable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -476,7 +485,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the target server. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -501,60 +510,61 @@ func genMcpServersWriteServerUpdateCmd() *cobra.Command {
 		Short: "Update MCP server",
 		Long: `Update MCP server.
 
-Edit an MCP server's connection settings or reassign its owning team.
+Update an MCP server's configuration. Omit a field to leave it unchanged.
 
 API: POST /safari/mcp/server/update (mcp-write-server-update)
 
 Request fields:
-  --args []string — New stdio arguments.
-  --auth-mode string — New credential model.
-  --call-timeout int — New per-call timeout in seconds.
-  --command string — New stdio executable.
-  --connect-timeout int — New connection timeout in seconds.
+  --args []string — Command arguments (stdio transport).
+  --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
+  --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
+  --command string — Executable command (stdio transport).
+  --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string — New description. (1-1024 chars)
-  --oauth-metadata string — New OAuth metadata JSON.
-  --secret-schema string — New per-user secret JSON schema.
-  --server-id string (required) — Identifier of the server to update.
-  --server-name string — New display name. (1-255 chars)
-  --team-id int — Reassign the server to this team; omit to leave unchanged, 0 for account scope.
-  --transport string — New transport for the server. [stdio, sse, streamable-http]
-  --url string — New endpoint URL for remote transports.
-  env (object, via --data) — New stdio environment variables.
-  headers (object, via --data) — New HTTP headers for the remote endpoint.
+  --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
+  --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
+  --server-id string (required) — Target MCP server ID.
+  --server-name string — New name. (1-255 chars)
+  --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
+  --transport string — Transport protocol. [stdio, sse, streamable-http]
+  --url string — Server URL (sse / streamable-http transport).
+  env (object, via --data) — Environment variables (stdio transport).
+  headers (object, via --data) — HTTP headers (sse / streamable-http).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account.
-  - ai_description (string) — LLM-generated description, preferred over description when present.
-  - args (array<string>) — Command-line arguments for the stdio executable.
-  - auth_mode (string) — Credential model: shared, per_user_secret, or per_user_oauth.
-  - call_timeout (integer) (required) — Per-call timeout in seconds.
-  - can_edit (boolean) (required) — Whether the calling member may edit or delete this resource.
-  - command (string) — Executable launched for stdio transport.
-  - connect_timeout (integer) (required) — Connection timeout in seconds.
-  - created_at (integer) (required) — Creation time as a Unix timestamp in milliseconds.
-  - created_by (integer) (required) — Member who created this resource.
-  - description (string) (required) — What this MCP server provides.
-  - env (object) — Environment variables passed to the stdio process.
-  - headers (object) — HTTP headers sent to the remote endpoint; secret values are masked.
-  - list_error (string) — Tool-probe failure message; present when the live probe failed.
-  - oauth_metadata (string) — OAuth metadata JSON.
+  - account_id (integer) (required) — Owning account ID.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - args (array<string>) — Command arguments (stdio transport).
+  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
+  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - command (string) — Executable command (stdio transport only).
+  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
+  - created_by (integer) (required) — Member ID that created the server.
+  - description (string) (required) — Server description.
+  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - list_error (string) — Error message when the live tool list failed.
+  - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
-  - secret_schema (string) — JSON schema of the per-user secret.
-  - server_id (string) (required) — Unique identifier of the MCP server.
-  - server_name (string) (required) — Display name of the MCP server.
-  - status (string) (required) — Whether the server is active and usable by agents. [enabled, disabled]
-  - team_id (integer) (required) — Owning team; 0 means account scope.
-  - tool_count (integer) — Number of tools discovered on the server.
-  - tools (array<object>) — Live tool catalogue; populated only by get and test.
-    - description (string) (required) — What the tool does.
-    - input_schema (any) — JSON schema of the tool's input arguments.
-    - name (string) (required) — Tool name as advertised by the server.
-  - transport (string) (required) — Transport used to reach the server. [stdio, sse, streamable-http]
-  - updated_at (integer) (required) — Last-update time as a Unix timestamp in milliseconds.
-  - url (string) — Endpoint URL for sse or streamable-http transport.
+  - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
+  - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
+  - server_name (string) (required) — MCP server name, unique within the account.
+  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
+  - status (string) (required) — Server status. [enabled, disabled]
+  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - tool_count (integer) — Number of tools in the live list.
+  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
+    - description (string) (required) — Tool description.
+    - input_schema (object) — JSON Schema describing the tool's input parameters.
+    - name (string) (required) — Tool name.
+  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
+  - url (string) — Server URL (sse / streamable-http transport).
 `,
 		Args:    requireExactArg("server_id"),
-		Example: `  flashduty safari mcp-server-update --data '{"description":"Read issues, PRs, and commits from GitHub.","server_id":"mcp-2b5e8d14a7c9"}'`,
+		Example: `  flashduty safari mcp-server-update --data '{"description":"Query Prometheus metrics, alerts, and rules.","server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -617,19 +627,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "New stdio arguments.")
-	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New credential model.")
-	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "New per-call timeout in seconds.")
-	cmd.Flags().StringVar(&fCommand, "command", "", "New stdio executable.")
-	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "New connection timeout in seconds.")
+	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
+	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
+	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
+	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
+	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (1-1024 chars)")
-	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New OAuth metadata JSON.")
-	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New per-user secret JSON schema.")
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Identifier of the server to update. (required)")
-	cmd.Flags().StringVar(&fServerName, "server-name", "", "New display name. (1-255 chars)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the server to this team; omit to leave unchanged, 0 for account scope.")
-	cmd.Flags().StringVar(&fTransport, "transport", "", "New transport for the server. [stdio, sse, streamable-http]")
-	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL for remote transports.")
+	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
+	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
+	cmd.Flags().StringVar(&fServerName, "server-name", "", "New name. (1-255 chars)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol. [stdio, sse, streamable-http]")
+	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

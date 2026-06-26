@@ -8,6 +8,57 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genIntegrationsDatasourceImPersonTryLinkCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "im-person-try-link <integration-id>",
+		Short: "Attempt IM person linking",
+		Long: `Attempt IM person linking.
+
+Try to automatically link unbound members to their IM accounts for one integration.
+
+API: POST /datasource/im/person/try-link (datasourceImPersonTryLink)
+
+Request fields:
+  --integration-id int (required) — IM integration ID.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - new_linked_person_ids (array<integer>) (required) — Person IDs newly linked during this call.
+`,
+		Args:    requireExactArg("integration_id"),
+		Example: `  flashduty datasource im-person-try-link --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.TryLinkPersonRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.DatasourceImPersonTryLink(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIntegrationsDetailCmd() *cobra.Command {
 	var dataJSON string
 	var fEventID string
@@ -200,6 +251,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 }
 
 func registerGeneratedIntegrations(root *cobra.Command) {
+	gDatasource := genGroup(root, "datasource", "On-call API")
+	genAddLeaf(gDatasource, genIntegrationsDatasourceImPersonTryLinkCmd())
 	gWebhook := genGroup(root, "webhook", "On-call/Integrations API")
 	genAddLeaf(gWebhook, genIntegrationsDetailCmd())
 	genAddLeaf(gWebhook, genIntegrationsListCmd())

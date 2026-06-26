@@ -129,6 +129,11 @@ Update escalation rule
 - `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
 - body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
 
+### escalate-webhook-robot-list
+List webhook robots in escalation rules
+- `--query` string — Search keyword. Fuzzy matches against robot alias or token, case-insensitive.
+- `--type` string — Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.
+
 ### info <channel-id>
 Get channel detail
 - `<channel-id>` (positional, required) int64 — Channel ID to fetch.

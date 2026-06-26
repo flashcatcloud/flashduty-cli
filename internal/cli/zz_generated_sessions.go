@@ -8,7 +8,7 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
-func genSessionsInfoCmd() *cobra.Command {
+func genSessionsReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fLimit int64
 	var fNumRecentEvents int64
@@ -19,15 +19,15 @@ func genSessionsInfoCmd() *cobra.Command {
 		Short: "Get session detail",
 		Long: `Get session detail.
 
-Fetch one session plus a backward-paged window of its most recent events. Use search_after_ctx to page through older history.
+Fetch one session plus a backward-paged window of its most recent events.
 
 API: POST /safari/session/get (session-read-info)
 
 Request fields:
-  --limit int — Alias for num_recent_events; takes precedence when both are set. (0-1000)
-  --num-recent-events int — Number of most-recent events to return; 0 uses the server default. (0-1000)
-  --search-after-ctx string — Opaque keyset cursor from a previous response's search_after_ctx, to page backward through older events. (≤4096 chars)
-  --session-id string (required) — Session identifier. (≥1 chars)
+  --limit int — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
+  --num-recent-events int — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
+  --search-after-ctx string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
+  --session-id string (required) — Target session ID. (≥1 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - events (array<object>) — Recent events, ascending by (created_at, event_id).
@@ -117,7 +117,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				out, _, err := ctx.Client.Sessions.Info(cmdContext(ctx.Cmd), req)
+				out, _, err := ctx.Client.Sessions.ReadInfo(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -125,15 +125,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Alias for num_recent_events; takes precedence when both are set. (0-1000)")
-	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Number of most-recent events to return; 0 uses the server default. (0-1000)")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response's search_after_ctx, to page backward through older events. (≤4096 chars)")
-	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Session identifier. (required) (≥1 chars)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)")
+	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)")
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
-func genSessionsListCmd() *cobra.Command {
+func genSessionsReadListCmd() *cobra.Command {
 	var dataJSON string
 	var fP int64
 	var fLimit int64
@@ -152,23 +152,23 @@ func genSessionsListCmd() *cobra.Command {
 		Short: "List sessions",
 		Long: `List sessions.
 
-List agent sessions visible to the caller within the resolved account, filtered by app, entry surface, archive status, and team scope, with pagination. Reads are scoped to the person the app_key resolves to.
+List agent sessions visible to the caller, filtered by app, surface, archive status, and team.
 
 API: POST /safari/session/list (session-read-list)
 
 Request fields:
-  --page int — 1-based page number; defaults to 1.
-  --limit int — Page size, 1..100; defaults to 20. (1-100)
+  --page int — Page number, 1-based. (min 1)
+  --limit int — Page size, 1–100. (1-100)
   --search-after-ctx string
-  --app-name string (required) — Agent app whose sessions to list. [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant]
-  --asc bool — Ascending sort when true; defaults to false (descending). Only honored when orderby is set.
-  --entry-kinds []string — Restrict to sessions produced by these entry surfaces. Empty returns every kind. [web, im, api, scheduled]
-  --include-subagent-sessions bool — Include subagent (child) sessions in the result; defaults to false.
-  --keyword string — Case-insensitive substring match against session name. (≤64 chars)
-  --orderby string — Sort column. [created_at, updated_at]
-  --scope string — Visibility scope: all (own + member-of-team rows, the default), personal (own only), or team (member teams only). [all, personal, team]
-  --status string — Archive bucket: active (default, not archived), archived, or all. [active, archived, all]
-  --team-ids []int — Optional explicit team filter; intersected with the caller's visible set / scope.
+  --app-name string (required) — Agent app whose sessions to list. [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
+  --asc bool — Ascending order when true; applies only when 'orderby' is set.
+  --entry-kinds []string — Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]
+  --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
+  --keyword string — Filter by session-name keyword. (≤64 chars)
+  --orderby string — Sort field. [created_at, updated_at]
+  --scope string — Visibility scope: all (own + member-of-team rows, default), personal, or team. [all, personal, team]
+  --status string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]
+  --team-ids []int — Optional explicit team filter; intersects with 'scope'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - sessions (array<object>) — The page of sessions.
@@ -262,7 +262,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				out, _, err := ctx.Client.Sessions.List(cmdContext(ctx.Cmd), req)
+				out, _, err := ctx.Client.Sessions.ReadList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -270,24 +270,73 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "1-based page number; defaults to 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1..100; defaults to 20. (1-100)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort when true; defaults to false (descending). Only honored when orderby is set.")
-	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these entry surfaces. Empty returns every kind. [web, im, api, scheduled]")
-	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent (child) sessions in the result; defaults to false.")
-	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Case-insensitive substring match against session name. (≤64 chars)")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort column. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: all (own + member-of-team rows, the default), personal (own only), or team (member teams only). [all, personal, team]")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default, not archived), archived, or all. [active, archived, all]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersected with the caller's visible set / scope.")
+	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true; applies only when 'orderby' is set.")
+	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]")
+	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
+	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: all (own + member-of-team rows, default), personal, or team. [all, personal, team]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope'.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genSessionsWriteDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fSessionID string
+	cmd := &cobra.Command{
+		Use:   "session-delete <session-id>",
+		Short: "Delete session",
+		Long: `Delete session.
+
+Delete a session by ID.
+
+API: POST /safari/session/delete (session-write-delete)
+
+Request fields:
+  --session-id string (required) — Target session ID. (≥1 chars)
+`,
+		Args:    requireExactArg("session_id"),
+		Example: `  flashduty safari session-delete --data '{"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "session_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("session-id") {
+						body["session_id"] = fSessionID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.SessionDeleteRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Sessions.WriteDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func registerGeneratedSessions(root *cobra.Command) {
 	gSafari := genGroup(root, "safari", "AI SRE API")
-	genAddLeaf(gSafari, genSessionsInfoCmd())
-	genAddLeaf(gSafari, genSessionsListCmd())
+	genAddLeaf(gSafari, genSessionsReadInfoCmd())
+	genAddLeaf(gSafari, genSessionsReadListCmd())
+	genAddLeaf(gSafari, genSessionsWriteDeleteCmd())
 }
