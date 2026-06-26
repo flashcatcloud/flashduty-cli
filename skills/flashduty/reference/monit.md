@@ -68,6 +68,20 @@ fduty monit tools-invoke --target-locator <hostname-or-ip> --output-format toon 
 EOF
 ```
 
+## Hot flow — enumerate ALL configured rules (coverage / completeness)
+
+```bash
+# rule-list-basic with folder 0 returns EVERY configured rule — no folder id needed.
+fduty monit rule-list-basic --folder-id 0 --output-format json \
+  | jq '[.[] | {id, name, ds_type, enabled, triggered, folder_id}]'
+
+# Is a specific rule configured? Filter the full list by name / datasource:
+fduty monit rule-list-basic --folder-id 0 --output-format json \
+  | jq '[.[] | select(.name | test("emqx"; "i"))]'
+```
+
+**CONFIGURED ≠ FIRED.** The authoritative list of what rules *exist* is `rule-list-basic --folder-id 0`. Never infer rule coverage from *fired* alerts (`insight top-alerts`, alert feeds): "not fired in 90d" does **not** mean "not configured", and reporting a rule as missing on that basis is confidently wrong. Fired-alert queries answer "what is noisy", not "what is monitored".
+
 <!-- GENERATED:monit START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### datasource-create
@@ -338,6 +352,7 @@ Invoke target tools
 - **`tools-catalog` / `tools-invoke` `--target-locator` is required and not guessable.** If the user has not provided a host or IP, ask — do not invent one. Tool names in `invoke` must come from the `tools-catalog` response — never hallucinate them.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
+- **To list every configured rule, use `rule-list-basic --folder-id 0`** — no folder id needed. `rule-counter-status` 400s "too many rules" on large accounts, and a guessed `--folder-id N` 400s "Folder not found"; neither is a dead end — fall through to `--folder-id 0`. Do **not** substitute fired-alert queries (`insight top-alerts`) to infer which rules exist (see the enumerate-all hot flow).
 
 ## Worked example — inspect a firing rule then batch-disable it
 
