@@ -62,6 +62,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 }
 
 func registerGeneratedImIntegrations(root *cobra.Command) {
-	gDatasource := genGroup(root, "datasource", "On-call/IM integrations API")
+	gDatasource := genGroup(root, "datasource", "On-call API")
 	genAddLeaf(gDatasource, genImIntegrationsListCmd())
 }

@@ -117,6 +117,26 @@ Update status page event
 - `--responders` intSlice — Member IDs responsible for this event. Pass the full replacement list.
 - `--title` string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 
+### component-delete <component-id> [<id2>...]
+Delete status page component
+- `<component-ids>` (positional, required) stringSlice — IDs of components to delete.
+- `--page-id` int64 (required) — Status page ID.
+
+### component-upsert <page-id>
+Upsert status page component
+- `<page-id>` (positional, required) int64 — Status page ID.
+- body-only (`--data`): components (array<object>) (required)
+
+### create
+Create status page
+
+### delete
+Delete status page
+
+### info <page-id>
+Get status page detail
+- `<page-id>` (positional, required) string — Status page ID
+
 ### list
 List status pages
 
@@ -140,6 +160,16 @@ Cancel status page migration
 Get migration status
 - `<job-id>` (positional, required) string — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
 
+### section-delete <section-id> [<id2>...]
+Delete status page section
+- `--page-id` int64 (required) — Status page ID.
+- `<section-ids>` (positional, required) stringSlice — IDs of sections to delete.
+
+### section-upsert <page-id>
+Upsert status page section
+- `<page-id>` (positional, required) int64 — Status page ID.
+- body-only (`--data`): sections (array<object>) (required)
+
 ### subscriber-export <page-id>
 Export subscribers
 - `--component-ids` stringSlice — Optional component IDs to filter subscribers by.
@@ -157,6 +187,26 @@ List status page subscribers
 - `--limit` int64 — Page size (1-100). (1-100)
 - `--page` int64 — Page number (1-based). (min 1)
 - `<page-id>` (positional, required) int64 — Status page ID.
+
+### template-delete
+Delete status page template
+- `--page-id` int64 (required) — Status page ID.
+- `--template-id` string (required) — Template ID to delete.
+- `--type` string (required) — Template category. · enum: pre_defined | message
+
+### template-list <page-id>
+List status page templates
+- `<page-id>` (positional, required) int64 — Status page ID.
+- `--type` string (required) — Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. · enum: pre_defined | message
+
+### template-upsert <page-id>
+Upsert status page template
+- `<page-id>` (positional, required) int64 — Status page ID.
+- `--type` string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. · enum: pre_defined | message
+- body-only (`--data`): template (object) (required)
+
+### update
+Update status page
 
 <!-- GENERATED:status-page END -->
 

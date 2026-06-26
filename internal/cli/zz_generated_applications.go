@@ -266,6 +266,65 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genApplicationsWebhookTestCmd() *cobra.Command {
+	var dataJSON string
+	var fApplicationID string
+	var fWebhookURL string
+	cmd := &cobra.Command{
+		Use:   "application-webhook-test <application-id>",
+		Short: "Test application webhook",
+		Long: `Test application webhook.
+
+Send a sample RUM alert event to verify an application's webhook URL.
+
+API: POST /rum/application/webhook/test (rum-application-webhook-test)
+
+Request fields:
+  --application-id string (required) — RUM application ID.
+  --webhook-url string (required) — Webhook URL to receive the sample alert event.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - message (string) (required) — 'ok' on success, otherwise the delivery error message.
+  - ok (boolean) (required) — Whether the webhook endpoint accepted the sample event.
+  - status_code (integer) (required) — HTTP status code returned by the webhook endpoint. 0 when the request did not receive a response.
+`,
+		Args:    requireExactArg("application_id"),
+		Example: `  flashduty rum application-webhook-test --data '{"application_id":"rum-app-prod","webhook_url":"https://hooks.example.com/rum-alerts"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					if cmd.Flags().Changed("webhook-url") {
+						body["webhook_url"] = fWebhookURL
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.RUMWebhookTestRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.WebhookTest(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fWebhookURL, "webhook-url", "", "Webhook URL to receive the sample alert event. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genApplicationsWriteCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fApplicationName string
@@ -510,6 +569,7 @@ func registerGeneratedApplications(root *cobra.Command) {
 	genAddLeaf(gRUM, genApplicationsReadInfoCmd())
 	genAddLeaf(gRUM, genApplicationsReadInfosCmd())
 	genAddLeaf(gRUM, genApplicationsReadListCmd())
+	genAddLeaf(gRUM, genApplicationsWebhookTestCmd())
 	genAddLeaf(gRUM, genApplicationsWriteCreateCmd())
 	genAddLeaf(gRUM, genApplicationsWriteDeleteCmd())
 	genAddLeaf(gRUM, genApplicationsWriteUpdateCmd())
