@@ -191,7 +191,7 @@ Request fields:
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --auth-type string — Authentication type for the remote agent.
   --card-url string (required) — URL of the remote agent card.
-  --instructions string — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank.
+  --instructions string (required) — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --streaming bool — Whether the remote agent supports streaming.
@@ -253,7 +253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for the remote agent.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the remote agent card. (required)")
-	cmd.Flags().StringVar(&fInstructions, "instructions", "", "Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank.")
+	cmd.Flags().StringVar(&fInstructions, "instructions", "", "Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank. (required)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the remote agent supports streaming.")
