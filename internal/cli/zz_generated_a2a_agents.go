@@ -37,7 +37,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - card_url (string) (required) — URL of the remote agent card.
   - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
   - created_by (integer) (required) — Member ID that created the agent.
-  - description (string) (required) — Agent description.
+  - instructions (string) (required) — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - status (string) (required) — Agent status. [enabled, disabled]
@@ -115,7 +115,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - card_url (string) (required) — URL of the remote agent card.
     - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
     - created_by (integer) (required) — Member ID that created the agent.
-    - description (string) (required) — Agent description.
+    - instructions (string) (required) — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent.
     - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
     - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
     - status (string) (required) — Agent status. [enabled, disabled]
@@ -172,7 +172,7 @@ func genA2aAgentsWriteCreateCmd() *cobra.Command {
 	var fAuthMode string
 	var fAuthType string
 	var fCardURL string
-	var fDescription string
+	var fInstructions string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fStreaming bool
@@ -191,7 +191,7 @@ Request fields:
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --auth-type string — Authentication type for the remote agent.
   --card-url string (required) — URL of the remote agent card.
-  --description string — Agent description.
+  --instructions string (required) — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --streaming bool — Whether the remote agent supports streaming.
@@ -201,7 +201,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - agent_id (string) (required) — ID of the newly created agent.
 `,
-		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"deploy-bot","auth_type":"bearer","card_url":"https://agents.example.com/deploy-bot/card","streaming":true,"team_id":0}'`,
+		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"deploy-bot","auth_type":"bearer","card_url":"https://agents.example.com/deploy-bot/card","instructions":"Use when deployment pipelines need inspection or rollback advice.","streaming":true,"team_id":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -217,8 +217,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("card-url") {
 						body["card_url"] = fCardURL
 					}
-					if cmd.Flags().Changed("description") {
-						body["description"] = fDescription
+					if cmd.Flags().Changed("instructions") {
+						body["instructions"] = fInstructions
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -253,7 +253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for the remote agent.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the remote agent card. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Agent description.")
+	cmd.Flags().StringVar(&fInstructions, "instructions", "", "Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank. (required)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the remote agent supports streaming.")
@@ -413,7 +413,7 @@ func genA2aAgentsWriteUpdateCmd() *cobra.Command {
 	var fAuthMode string
 	var fAuthType string
 	var fCardURL string
-	var fDescription string
+	var fInstructions string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fStreaming bool
@@ -433,7 +433,7 @@ Request fields:
   --auth-mode string — New auth mode: shared, per_user_secret, or per_user_oauth.
   --auth-type string — New auth type. Omit to leave unchanged.
   --card-url string — New card URL. Omit to leave unchanged.
-  --description string — New description. Omit to leave unchanged.
+  --instructions string — New invocation instructions. Omit to leave unchanged; when supplied, must be nonblank.
   --oauth-metadata string — New JSON OAuth metadata.
   --secret-schema string — New JSON secret schema.
   --streaming bool — Toggle streaming support. Omit to leave unchanged.
@@ -441,7 +441,7 @@ Request fields:
   auth_config (object, via --data) — Replace the auth config. Omit to leave unchanged.
 `,
 		Args:    requireExactArg("agent_id"),
-		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D","description":"Inspects deployment pipelines and proposes rollbacks."}'`,
+		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D","instructions":"Inspect deployment pipelines and propose rollback steps."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -463,8 +463,8 @@ Request fields:
 					if cmd.Flags().Changed("card-url") {
 						body["card_url"] = fCardURL
 					}
-					if cmd.Flags().Changed("description") {
-						body["description"] = fDescription
+					if cmd.Flags().Changed("instructions") {
+						body["instructions"] = fInstructions
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -500,7 +500,7 @@ Request fields:
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New auth mode: shared, per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New auth type. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "New card URL. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fInstructions, "instructions", "", "New invocation instructions. Omit to leave unchanged; when supplied, must be nonblank.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New JSON OAuth metadata.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New JSON secret schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming support. Omit to leave unchanged.")

@@ -48,7 +48,7 @@ Create A2A agent
 - `--auth-mode` string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
 - `--auth-type` string — Authentication type for the remote agent.
 - `--card-url` string (required) — URL of the remote agent card.
-- `--description` string — Agent description.
+- `--instructions` string (required) — Invocation instructions included in AI SRE's system prompt to decide when to call this A2A agent. Must be nonblank.
 - `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
 - `--streaming` bool — Whether the remote agent supports streaming.
@@ -85,7 +85,7 @@ Update A2A agent
 - `--auth-mode` string — New auth mode: shared, per_user_secret, or per_user_oauth.
 - `--auth-type` string — New auth type. Omit to leave unchanged.
 - `--card-url` string — New card URL. Omit to leave unchanged.
-- `--description` string — New description. Omit to leave unchanged.
+- `--instructions` string — New invocation instructions. Omit to leave unchanged; when supplied, must be nonblank.
 - `--oauth-metadata` string — New JSON OAuth metadata.
 - `--secret-schema` string — New JSON secret schema.
 - `--streaming` bool — Toggle streaming support. Omit to leave unchanged.
