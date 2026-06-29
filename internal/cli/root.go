@@ -130,6 +130,7 @@ func init() {
 
 	// AI agent sessions (list + transcript export).
 	rootCmd.AddCommand(newSessionCmd())
+	rootCmd.AddCommand(newAutomationCmd())
 
 	// Diagnostics entry points (value-add over the raw API).
 	rootCmd.AddCommand(newMonitQueryCmd())
@@ -146,6 +147,7 @@ func init() {
 	// its path-is-king leaf to the (now-existing) generated `safari` group so the
 	// operation stays reachable at safari session-export.
 	attachSafariSessionExport(rootCmd)
+	attachSafariAutomationTriggerFire(rootCmd)
 }
 
 // Execute runs the root command.

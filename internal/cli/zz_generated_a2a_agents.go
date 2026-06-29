@@ -191,7 +191,7 @@ Request fields:
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --auth-type string — Authentication type for the remote agent.
   --card-url string (required) — URL of the remote agent card.
-  --description string — Agent description.
+  --description string — Agent description. (≤2000 chars)
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --streaming bool — Whether the remote agent supports streaming.
@@ -253,7 +253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for the remote agent.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the remote agent card. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Agent description.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Agent description. (≤2000 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the remote agent supports streaming.")
@@ -433,7 +433,7 @@ Request fields:
   --auth-mode string — New auth mode: shared, per_user_secret, or per_user_oauth.
   --auth-type string — New auth type. Omit to leave unchanged.
   --card-url string — New card URL. Omit to leave unchanged.
-  --description string — New description. Omit to leave unchanged.
+  --description string — New description. Omit to leave unchanged. (≤2000 chars)
   --oauth-metadata string — New JSON OAuth metadata.
   --secret-schema string — New JSON secret schema.
   --streaming bool — Toggle streaming support. Omit to leave unchanged.
@@ -500,7 +500,7 @@ Request fields:
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New auth mode: shared, per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New auth type. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "New card URL. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Omit to leave unchanged. (≤2000 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New JSON OAuth metadata.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New JSON secret schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming support. Omit to leave unchanged.")
