@@ -199,6 +199,12 @@ func collectServices(paths, schemas map[string]any) []service {
 			if isStreamingOp(o) {
 				continue
 			}
+			// The generated command runtime is an app_key client and does not
+			// template path parameters. Endpoints with operation-level non-AppKey
+			// auth or path params need curated commands.
+			if needsCuratedOperation(o) {
+				continue
+			}
 			tag, _ := tags[0].(string)
 			byTag[tag] = append(byTag[tag], struct {
 				path, http string
@@ -262,6 +268,24 @@ func isStreamingOp(o map[string]any) bool {
 	}
 	_, hasJSON := content["application/json"]
 	return !hasJSON
+}
+
+func needsCuratedOperation(o map[string]any) bool {
+	for _, raw := range asSlice(o["parameters"]) {
+		if str(asMap(raw), "in") == "path" {
+			return true
+		}
+	}
+	rawSecurity, ok := o["security"]
+	if !ok {
+		return false
+	}
+	for _, raw := range asSlice(rawSecurity) {
+		if _, ok := asMap(raw)["AppKeyAuth"]; ok {
+			return false
+		}
+	}
+	return true
 }
 
 type specWalker struct{ schemas map[string]any }

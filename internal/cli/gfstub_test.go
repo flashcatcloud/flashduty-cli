@@ -23,6 +23,8 @@ type gfStub struct {
 	lastPath string
 	// lastBody is the decoded JSON body of the most recent request.
 	lastBody map[string]any
+	// lastAuthorization is the Authorization header of the most recent request.
+	lastAuthorization string
 	// bodies records the decoded body of every request, in order.
 	bodies []map[string]any
 	// requests counts how many requests reached the stub.
@@ -54,6 +56,7 @@ func newGFStub(t *testing.T) *gfStub {
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.requests++
 		s.lastPath = r.URL.Path
+		s.lastAuthorization = r.Header.Get("Authorization")
 		s.lastBody = nil
 		if body, err := io.ReadAll(r.Body); err == nil && len(body) > 0 {
 			_ = json.Unmarshal(body, &s.lastBody)
