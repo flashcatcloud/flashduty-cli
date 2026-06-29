@@ -130,6 +130,8 @@ View alert timeline
 - **All alert verbs are positional except `list` and the two-ID `merge` flag.** Every verb with `<alert-id>` in its `use` form takes that ID as the first bare argument — do NOT pass `--alert-id`. The single exception: `merge` takes the first alert ID positionally AND requires `--incident-id` as a flag (two different IDs, different roles).
 - **`alert get` vs `alert info`, `alert events` vs `alert-event list`:** both pairs exist; prefer `get`/`events` (shorter, no extra flag); `info`/`event-list` accept `--alert-id` as a flag override for scripting.
 - **No server-side title filter on `list`.** To search by title, use `--json` and pipe to `jq`: `fduty alert list --json | jq '.[] | select(.title | test("disk";"i"))'`
+- **If `list` returns a `total`, use it.** Do not paginate page 1/2/3... just to count alerts. Ask the narrowest question (`--active`, `--recovered`, `--severity`, `--channel`, `--since`) and read the server-reported total for that bucket.
+- **Use `--fields` when hunting IDs, not full rows.** If the task is "find alert IDs / titles / channels / severities", project only those fields first, then drill into one alert with `get` / `events`. Dumping every field for 100 alerts wastes tokens and hides the one row you need.
 - **`list` time window cap is 31 days**; `--limit` max is 100. For broader queries use `insight` domain.
 - **`pipeline-upsert` fully replaces** the existing pipeline — always fetch current config with `pipeline-info` first and include unchanged rules in the new body.
 - **Empty `list` result is authoritative** — report "no alerts match" and stop; do not widen filters or retry with alternate keywords.

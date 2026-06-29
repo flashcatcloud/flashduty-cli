@@ -68,6 +68,19 @@ fduty monit tools-invoke --target-locator <hostname-or-ip> --output-format toon 
 EOF
 ```
 
+## Hot flow — inventory all monitor alert rules without guessing folders
+
+```bash
+# 1. get the distribution first; this is the cheap way to answer "how many rules are where / in what status"
+fduty monit rule-counter-status --output-format toon
+
+# 2. list rules only for the concrete folder you care about
+fduty monit rule-list-basic --folder-id <folder-id> --output-format toon
+
+# 3. export the exact rules you selected
+fduty monit rule-export --ids <id1>,<id2>,<id3> --output-format toon
+```
+
 <!-- GENERATED:monit START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### datasource-create
@@ -327,6 +340,9 @@ Invoke target tools
 - **`query-rows` has no time flags.** There is no `--time-start` / `--time-end` / `--operation`. Embed all time range and bucketing inside `--expr`. Passing those flags is a silent no-op or error.
 - **`query-diagnose` time window via `--data`**, not flags. Pass `{"time_range":{"start":<unix>,"end":<unix>},...}`. Window wider than 6 hours is rejected server-side. Omitting `time_range` defaults to the last 15 minutes.
 - **`rule_configs` and nested arrays require `--data`.** The queries, thresholds, enabled_times, and labels objects cannot be expressed as flat flags — pass them as inline JSON via `--data '{"rule_configs":{...}}'`. Typed scalar flags (`--name`, `--enabled`, `--cron-pattern`, `--ds-type`) override matching `--data` keys.
+- **`folder-id 0` is not a universal "all rules" sentinel.** If the API says "Folder not found", believe it. For global inventory use `rule-counter-status` / `rule-counter-node` first, then run `rule-list-basic` against real folder IDs only.
+- **"全量规则 / full rules" means exported monitor alert-rule definitions.** The concrete verb is `rule-export --ids ...`, usually after `rule-list-basic` selected the IDs. It does not mean dumping incidents or alerts.
+- **For rule counts, prefer the counter verbs over list pagination.** `rule-counter-status`, `rule-counter-node`, and `rule-counter-total` are the authoritative aggregation surfaces; do not infer counts by walking `rule-list-basic` pages.
 - **`tools-catalog` / `tools-invoke` `--target-locator` is required and not guessable.** If the user has not provided a host or IP, ask — do not invent one. Tool names in `invoke` must come from the `tools-catalog` response — never hallucinate them.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
@@ -334,9 +350,10 @@ Invoke target tools
 ## Worked example — inspect a firing rule then batch-disable it
 
 ```bash
-# 1. find triggered rules in folder 0 (all accessible)
-fduty monit rule-list-basic --folder-id 0 --output-format toon
-# look at triggered=true rows; note their ids
+# 1. inspect top-level distribution, then choose a real folder id
+fduty monit rule-counter-status --output-format toon
+fduty monit rule-list-basic --folder-id <folder-id> --output-format toon
+# look at the rows you actually care about; note their ids
 
 # 2. get full config of one rule
 fduty monit rule-info --id <rule-id> --output-format toon
