@@ -15,6 +15,7 @@ hidden: true  # internal-only: withheld from skills.sh public discovery (Safari 
 - **Auth.** Set your Flashduty app key once — `export FLASHDUTY_APP_KEY=<key>` — or pass `--app-key <key>` per call. Then just call the verb.
 - **No curl for the API.** The CLI is the only supported path to Flashduty — never hand-roll an HTTP call.
 - **If `fduty: command not found`** (rare — it is normally on PATH at startup): install from the Flashduty CDN into a user-writable dir (no sudo, no hang), then tell the user — don't work around it: `curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | FLASHDUTY_INSTALL_DIR="$HOME/.local/bin" INSTALLED_NAME=fduty sh && export PATH="$HOME/.local/bin:$PATH"`.
+- **If `jq` is missing** and you genuinely need JSON filtering, it is fine to install it into a user-writable dir the same way (`$HOME/.local/bin`) and continue. But first ask whether you can avoid `jq` entirely by using `--output-format toon`, `--fields`, a returned `total`, or a server-side aggregation verb (`insight`, `rule-counter-*`, etc.).
 
 ## Data model — 3 layers
 
@@ -23,6 +24,10 @@ hidden: true  # internal-only: withheld from skills.sh public discovery (Safari 
 ## Output — prefer `toon`
 
 Append `--output-format toon` to read commands: it drops the per-row repeated keys that JSON emits, so lists cost far fewer tokens. Use `--json` only to pipe into `jq`. Bare output is a human table — don't parse it.
+
+**Count the cheap way.** If a list response already returns `total`, trust that authoritative server count — do not page N times just to count rows. When the question is "how many by status/progress/severity", issue the narrowest server-side filter per bucket and read each response's `total`; for account-wide trends switch to aggregation verbs such as `insight *`, `rule-counter-status`, `rule-counter-node`, or `rule-counter-total`.
+
+**Shape the payload before you fetch it.** For ID scans, counts, or "find the matching row" tasks, prefer `--fields` projections and compact list verbs over full detail dumps. Huge raw JSON dumps are a last resort, not a default.
 
 **Empty result = authoritative not-found.** A filter returning `[]` means no such entity in scope — report it (optionally the 1–2 closest names) and stop. Do **not** brute-force (no shifted-keyword re-queries, no widening past caps, no full-dump grep). Never infer "feature not enabled" from an empty list, and never fabricate data absent from tool output.
 
