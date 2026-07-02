@@ -11,6 +11,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | want | verb |
 |---|---|
 | list / search active incidents | `list` |
+| CSV export of incidents | `fduty insight incident-export` |
 | look up by 6-char UI num | `info --num <num>` |
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
@@ -41,7 +42,9 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 ## Hot flow — triage an active incident
 
 ```bash
-# 1. Find unacknowledged critical incidents (last 4h)
+# 1. Find unacknowledged critical incidents (last 4h).
+#    toon/json list output is compact by default:
+#    incident_id,title,incident_severity,progress,start_time,channel_id
 fduty incident list --severity Critical --progress Triggered --since 4h --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
@@ -62,6 +65,8 @@ fduty incident comment <incident-id> --comment "Root cause identified: DB failov
 # 7. Resolve with root-cause note
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
+
+> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
 
 ## Hot flow — full fault analysis (read-only summary)
 

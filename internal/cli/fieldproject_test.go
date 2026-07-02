@@ -17,6 +17,7 @@ func incidentRow() map[string]any {
 		"incident_severity": "Critical",
 		"progress":          "Triggered",
 		"start_time":        1712000000,
+		"channel_id":        12345,
 		"description":       "root volume at 98%",
 		"labels":            map[string]any{"service": "db", "env": "prod"},
 		"responders": []map[string]any{
@@ -41,10 +42,77 @@ func alertRow() map[string]any {
 	}
 }
 
-// TestFieldsProjectionDefaultUnchanged is the conductor constraint: with NO
-// --fields, the structured (toon and json) output must still be the full nested
-// record — the nested blobs the proposal deliberately preserves as the default.
-func TestFieldsProjectionDefaultUnchanged(t *testing.T) {
+// TestIncidentListStructuredDefaultUsesCompactProjection is the default agent
+// path: incident list in json/toon mode must not dump the full nested SDK row
+// when --fields is omitted, while an explicit --fields still wins.
+func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
+	t.Run("json default", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
+
+		out, err := execCommand("incident", "list", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommand: %v", err)
+		}
+
+		assertProjectedJSONFields(t, out, []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"})
+	})
+
+	t.Run("toon default", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
+
+		out, err := execCommand("incident", "list", "--output-format", "toon")
+		if err != nil {
+			t.Fatalf("execCommand: %v", err)
+		}
+
+		for _, key := range []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"} {
+			if !strings.Contains(out, key) {
+				t.Errorf("default toon output missing compact key %q, got:\n%s", key, out)
+			}
+		}
+		for _, key := range []string{"responders", "labels", "description"} {
+			if strings.Contains(out, key) {
+				t.Errorf("default toon output should not contain full-record key %q, got:\n%s", key, out)
+			}
+		}
+	})
+
+	t.Run("explicit fields win", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
+
+		out, err := execCommand("incident", "list", "--fields", "incident_id,title", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommand: %v", err)
+		}
+
+		assertProjectedJSONFields(t, out, []string{"incident_id", "title"})
+	})
+
+	t.Run("explicit empty fields errors", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
+
+		_, err := execCommand("incident", "list", "--fields", "", "--output-format", "json")
+		if err == nil {
+			t.Fatal("expected an error for empty --fields, got nil")
+		}
+		if !strings.Contains(err.Error(), "--fields") {
+			t.Errorf("error should name --fields, got: %v", err)
+		}
+	})
+}
+
+// TestAlertFieldsProjectionDefaultUnchanged is the conductor constraint for the
+// sibling command: with NO --fields, alert list structured output still emits
+// the full nested record. The compact default is incident-list-only.
+func TestAlertFieldsProjectionDefaultUnchanged(t *testing.T) {
 	cases := []struct {
 		name     string
 		cmd      []string
@@ -52,8 +120,6 @@ func TestFieldsProjectionDefaultUnchanged(t *testing.T) {
 		format   string
 		mustHave []string // nested keys that must survive in the full dump
 	}{
-		{"incident toon", []string{"incident", "list"}, incidentRow(), "toon", []string{"responders", "labels", "description"}},
-		{"incident json", []string{"incident", "list"}, incidentRow(), "json", []string{"responders", "labels", "description"}},
 		{"alert toon", []string{"alert", "list"}, alertRow(), "toon", []string{"events", "incident", "labels", "description"}},
 		{"alert json", []string{"alert", "list"}, alertRow(), "json", []string{"events", "incident", "labels", "description"}},
 	}
@@ -74,6 +140,27 @@ func TestFieldsProjectionDefaultUnchanged(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func assertProjectedJSONFields(t *testing.T, out string, fields []string) {
+	t.Helper()
+
+	var rows []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
+		t.Fatalf("failed to parse projected json: %v\nraw:\n%s", err, out)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 projected row, got %d:\n%s", len(rows), out)
+	}
+	row := rows[0]
+	if len(row) != len(fields) {
+		t.Fatalf("expected exactly %d keys, got %d (%v)", len(fields), len(row), row)
+	}
+	for _, f := range fields {
+		if _, ok := row[f]; !ok {
+			t.Errorf("projected row missing key %q, got keys %v", f, row)
+		}
 	}
 }
 
@@ -154,22 +241,7 @@ func TestFieldsProjectionJSON(t *testing.T) {
 				t.Fatalf("execCommand: %v", err)
 			}
 
-			var rows []map[string]json.RawMessage
-			if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
-				t.Fatalf("failed to parse projected json: %v\nraw:\n%s", err, out)
-			}
-			if len(rows) != 1 {
-				t.Fatalf("expected 1 projected row, got %d:\n%s", len(rows), out)
-			}
-			row := rows[0]
-			if len(row) != len(tc.fields) {
-				t.Fatalf("expected exactly %d keys, got %d (%v)", len(tc.fields), len(row), row)
-			}
-			for _, f := range tc.fields {
-				if _, ok := row[f]; !ok {
-					t.Errorf("projected row missing key %q, got keys %v", f, row)
-				}
-			}
+			assertProjectedJSONFields(t, out, tc.fields)
 		})
 	}
 }
