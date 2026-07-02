@@ -31,7 +31,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | resolve with optional note | `resolve <incident-id> [<id2>...]` |
 | snooze / un-snooze | `snooze <id> [<id2>...]` / `wake <incident-id> [<id2>...]` |
 | add comment | `comment <id> [<id2>...]` |
-| add responder by person ID | `add-responder <id>` |
+| add responder by member ID | `add-responder <id>` |
 | replace responder list | `reassign <id>` |
 | merge duplicates (IRREVERSIBLE) | `merge <target_id>` |
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
@@ -317,10 +317,10 @@ Resolve incident
 - `--resolution` string — Optional resolution note applied to every resolved incident. (≤1024 chars)
 - `--root-cause` string — Optional root cause note applied to every resolved incident. (≤1024 chars)
 
-### responder-add <person-id> [<id2>...]
+### responder-add <member-id> [<id2>...]
 Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders.
+- `<member-ids>` (positional, required) intSlice — Member IDs from `member list` to add as responders. The API field is named `person_ids`.
 - body-only (`--data`): notify (object)
 
 ### similar <id>
@@ -380,7 +380,7 @@ List incident war rooms
 Add war-room member
 - `<chat-id>` (positional, required) string — Chat ID of the war room within the IM platform.
 - `--integration-id` int64 (required) — IM integration that hosts the war room.
-- `--member-ids` intSlice (required) — Person IDs to add to the war room.
+- `--member-ids` intSlice (required) — Member IDs to add to the war room.
 
 ### war-room-create
 Create war room
@@ -424,7 +424,7 @@ List war rooms
 - **`--list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
-- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass via `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct-person assignment.
+- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
 
 ## Worked example
 

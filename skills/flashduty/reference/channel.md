@@ -38,6 +38,7 @@ fduty channel create --channel-name "production-api" --team-id <team-id> \
 # → returns channel_id; use it below
 
 # 3. add an escalation rule (all flags; layers is required via --data)
+# API field `person_ids` expects member IDs from `fduty member list`.
 fduty channel escalate-rule-create \
   --channel-id <channel-id> --rule-name "P1 on-call" --template-id <template-id> \
   --data '{"layers":[{"target":{"person_ids":[<member-id>],"by":{"critical":["voice","sms"],"warning":["feishu"]}},"notify_step":5,"max_times":3,"escalate_window":30}]}'
