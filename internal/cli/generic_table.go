@@ -20,6 +20,8 @@ const maxHeuristicColumns = 8
 // can't blow out the table width.
 const genericStringMaxWidth = 40
 
+const mcpPerUserOAuthNotice = "Note: registered but not usable until OAuth is completed in Flashduty Customize -> Connectors; tools will not appear until authorized."
+
 // instantLike mirrors go-flashduty's Timestamp/TimestampMilli (and the output
 // package's unexported instant) so the renderer can recognise timestamp fields
 // by reflection.
@@ -62,15 +64,18 @@ func renderGenericTable(ctx *RunContext, data any) error {
 		if rows, total, ok := listEnvelope(v); ok {
 			return renderRowTable(ctx, rows, total)
 		}
-		return renderVertical(ctx, v)
+		if err := renderVertical(ctx, v); err != nil {
+			return err
+		}
+		return renderMcpPerUserOAuthNotice(ctx, v)
 	default:
 		return jsonFallback(ctx, data)
 	}
 }
 
 // listEnvelope reports whether struct v is a paginated list envelope: exactly
-// one exported field that is a slice of structs (the rows), with the remaining
-// fields being pagination metadata. It returns the rows value and the total
+// one exported field that is a slice of structs (the rows), with any remaining
+// fields limited to pagination metadata. It returns the rows value and the total
 // (the int field named "Total" when present, else the row count).
 func listEnvelope(v reflect.Value) (rows reflect.Value, total int, ok bool) {
 	t := v.Type()
@@ -92,6 +97,9 @@ func listEnvelope(v reflect.Value) (rows reflect.Value, total int, ok bool) {
 		if total < 0 && f.Name == "Total" && fv.CanInt() {
 			total = int(fv.Int())
 		}
+		if !isListMetadataField(f, fv) {
+			return reflect.Value{}, 0, false
+		}
 	}
 	if !found {
 		return reflect.Value{}, 0, false
@@ -100,6 +108,22 @@ func listEnvelope(v reflect.Value) (rows reflect.Value, total int, ok bool) {
 		total = rows.Len()
 	}
 	return rows, total, true
+}
+
+func isListMetadataField(f reflect.StructField, fv reflect.Value) bool {
+	if f.Anonymous && f.Name == "ListOptions" {
+		return true
+	}
+	switch f.Name {
+	case "Total":
+		return fv.CanInt()
+	case "HasNextPage":
+		return fv.Kind() == reflect.Bool
+	case "SearchAfterCtx", "NextCursor":
+		return fv.Kind() == reflect.String
+	default:
+		return false
+	}
 }
 
 // isRowSlice reports whether t is a slice whose element (after pointer deref) is
@@ -208,6 +232,22 @@ func renderVertical(ctx *RunContext, v reflect.Value) error {
 		{Header: "VALUE", MaxWidth: 80, Field: func(item any) string { return item.(genKV).Value }},
 	}
 	return ctx.Printer.Print(rows, cols)
+}
+
+func renderMcpPerUserOAuthNotice(ctx *RunContext, v reflect.Value) error {
+	if !isMcpPerUserOAuth(v) {
+		return nil
+	}
+	_, err := fmt.Fprintln(ctx.Writer, mcpPerUserOAuthNotice)
+	return err
+}
+
+func isMcpPerUserOAuth(v reflect.Value) bool {
+	if v.Type().Name() != "McpServerItem" {
+		return false
+	}
+	auth := v.FieldByName("AuthMode")
+	return auth.IsValid() && auth.Kind() == reflect.String && auth.String() == "per_user_oauth"
 }
 
 // derefStruct dereferences pointer chains and returns the underlying struct

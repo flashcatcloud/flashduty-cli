@@ -144,6 +144,57 @@ func TestRenderGenericTable_DetailVertical(t *testing.T) {
 	}
 }
 
+func TestRenderGenericTable_McpServerItemWithEmptyToolsRendersDetail(t *testing.T) {
+	var buf bytes.Buffer
+	item := &flashduty.McpServerItem{
+		ServerID:    "mcp_test",
+		ServerName:  "github",
+		Description: "GitHub connector",
+		AuthMode:    "shared",
+		Status:      "enabled",
+		Transport:   "streamable-http",
+		URL:         "https://mcp.example.com/github",
+		Tools:       []flashduty.McpToolInfo{},
+	}
+	if err := renderGenericTable(tableCtx(&buf), item); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got := buf.String()
+	if strings.Contains(got, "No results.") {
+		t.Fatalf("single MCP server item with empty tools was rendered as an empty list:\n%s", got)
+	}
+	for _, want := range []string{"FIELD", "VALUE", "SERVER_ID", "mcp_test", "SERVER_NAME", "github"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("MCP server detail output missing %q\n---\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderGenericTable_McpServerPerUserOAuthNotice(t *testing.T) {
+	var buf bytes.Buffer
+	item := &flashduty.McpServerItem{
+		ServerID:    "mcp_oauth",
+		ServerName:  "github",
+		Description: "GitHub connector",
+		AuthMode:    "per_user_oauth",
+		Status:      "enabled",
+		Transport:   "streamable-http",
+		URL:         "https://mcp.example.com/github",
+	}
+	if err := renderGenericTable(tableCtx(&buf), item); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{
+		"registered but not usable until OAuth is completed in Flashduty Customize -> Connectors",
+		"tools will not appear until authorized",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("per-user OAuth notice missing %q\n---\n%s", want, got)
+		}
+	}
+}
+
 func TestPrintGenericResult_StructuredUnchanged(t *testing.T) {
 	resp := &fakeListResp{Items: []heuristicRow{{Name: "alpha", Count: 7}}, Total: 1}
 
