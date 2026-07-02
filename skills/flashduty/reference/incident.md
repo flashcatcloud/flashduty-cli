@@ -82,12 +82,12 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --output-format toon        # ① 详情 + AI summary + alert counts + channel_id
-fduty incident alerts   "$ID" --output-format toon        # ② contributing alerts (detail's embedded alerts are empty here)
-fduty incident timeline "$ID" --output-format toon        # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas)
-fduty incident post-mortem-list --channel-ids <channel-id> --output-format toon   # ⑥ post-mortems for this incident's channel
-fduty change list --since 24h --output-format toon        # ③ correlated changes — by shared labels + time; see reference/change.md
+fduty incident detail   "$ID"                             # ① 详情 + AI summary + alert counts + channel_id
+fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+fduty incident similar  "$ID" --limit 5                   # ⑤ similar past incidents (channel-backed; see Gotchas)
+fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
+fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.

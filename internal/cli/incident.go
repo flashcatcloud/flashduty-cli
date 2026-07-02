@@ -361,7 +361,7 @@ func newIncidentCreateCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Channel ID")
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
-	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Person IDs to assign (use 'flashduty member list' to look up IDs)")
+	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Member IDs to assign directly (use 'flashduty member list' to look up member IDs)")
 
 	return cmd
 }
