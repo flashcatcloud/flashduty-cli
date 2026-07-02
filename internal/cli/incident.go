@@ -76,11 +76,12 @@ func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields string
 	var channelID int64
 	var limit, page int
+	defaultStructuredFields := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"}
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields incident_id,title,incident_severity,progress,start_time) so you get a compact record without piping to jq.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,title,incident_severity,progress,start_time,channel_id; pass --fields to choose a different projection.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), fduty insight incident-list for metric-rich filtered incident rows, and fduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -113,8 +114,15 @@ func newIncidentListCmd() *cobra.Command {
 					return err
 				}
 
-				if fields != "" && ctx.Structured() {
-					proj, err := projectFields(result.Items, parseStringSlice(fields))
+				if ctx.Structured() {
+					selectedFields := defaultStructuredFields
+					if cmd.Flags().Changed("fields") {
+						selectedFields = parseStringSlice(fields)
+						if len(selectedFields) == 0 {
+							return fmt.Errorf("--fields must name at least one field")
+						}
+					}
+					proj, err := projectFields(result.Items, selectedFields)
 					if err != nil {
 						return err
 					}
