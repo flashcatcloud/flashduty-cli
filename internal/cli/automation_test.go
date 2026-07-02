@@ -34,6 +34,28 @@ func TestAutomationCreateDailyDefaultsEnabled(t *testing.T) {
 	assertBody(t, stub.lastBody, "prompt", "Summarize yesterday's incidents")
 }
 
+func TestAutomationScheduleHelpDocumentsUTC(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	for _, args := range [][]string{
+		{"automation", "create", "--help"},
+		{"automation", "update", "auto_123", "--help"},
+	} {
+		out, err := execCommand(args...)
+		if err != nil {
+			t.Fatalf("%v unexpected error: %v", args, err)
+		}
+		for _, want := range []string{
+			"UTC",
+			"Convert local wall-clock requests to UTC before passing --at or --cron-expr.",
+		} {
+			if !strings.Contains(out, want) {
+				t.Fatalf("%v help missing %q\n%s", args, want, out)
+			}
+		}
+	}
+}
+
 func TestAutomationCreateHTTPPostOnly(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
