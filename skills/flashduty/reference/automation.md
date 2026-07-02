@@ -29,12 +29,14 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ## Scheduling
 
 - Default create behavior: enabled immediately. Use `--disabled` only if the user asks for a disabled Automation.
-- No timezone flag is exposed by the current API. Build the requested wall-clock schedule in the account/customer timezone context.
+- No timezone flag is exposed by the current API. Automation schedules are stored and sent as UTC cron.
+- If the user asks for a local wall-clock schedule, first identify the intended timezone from the session context, runner `date`, or the user's wording. Convert that local time to UTC before calling the CLI. If the timezone is unclear, ask before creating or updating the schedule.
 - Helper schedules:
-  - `--schedule hourly --at 00:15` -> minute 15 of every hour.
-  - `--schedule daily --at 09:30` -> every day at 09:30.
-  - `--schedule weekly --weekday mon --at 10:00` -> every Monday at 10:00.
-- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'`.
+  - `--schedule hourly --at 00:15` -> minute 15 of every UTC hour.
+  - `--schedule daily --at 01:30` -> every day at 01:30 UTC.
+  - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00 UTC.
+- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in UTC.
+- Example: Asia/Shanghai 11:00 is UTC 03:00, so use `--schedule daily --at 03:00` or `--cron-expr "0 3 * * *"`.
 - HTTP POST-only rule: pass `--http-post-trigger` without schedule flags. The CLI sends a placeholder cron and disables the schedule trigger.
 
 ## Hot flow - create from chat
@@ -44,7 +46,7 @@ fduty automation create \
   --name "Daily SRE brief" \
   --team-id <team-id> \
   --schedule daily \
-  --at 09:30 \
+  --at 01:30 \
   --prompt "Summarize yesterday's incidents, noisy alerts, and follow-up risks." \
   --output-format toon
 ```
@@ -72,7 +74,7 @@ fduty automation update <rule-id> --rotate-http-post-token --output-format toon
 ```bash
 fduty automation create \
   --name "Weekday 08:05 review" \
-  --cron-expr "5 8 * * 1-5" \
+  --cron-expr "5 0 * * 1-5" \
   --prompt "Review open incidents and alert noise before the workday." \
   --output-format toon
 ```
@@ -85,7 +87,7 @@ fduty automation get <rule-id> --output-format toon
 fduty automation runs <rule-id> --since 7d --output-format toon
 
 fduty automation update <rule-id> --disable --output-format toon
-fduty automation update <rule-id> --enable --cron-expr "30 9 * * *" --output-format toon
+fduty automation update <rule-id> --enable --cron-expr "30 1 * * *" --output-format toon
 fduty automation delete <rule-id> --force
 ```
 

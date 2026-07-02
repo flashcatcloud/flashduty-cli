@@ -14,6 +14,7 @@ import (
 )
 
 const automationHTTPPostOnlyCron = "0 0 * * *"
+const automationUTCNote = "Convert local wall-clock requests to UTC before passing --at or --cron-expr."
 
 func newAutomationCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -63,11 +64,14 @@ By default the rule is enabled. Use --disabled only when the user explicitly
 asks to create it disabled. team_id=0 means personal scope; --team-id >0 creates
 the rule under that team. The scope is immutable after creation.
 
-Schedule helpers build a 5-field cron expression. Use --cron-expr for exact
-minute-level control. For HTTP POST-only rules, pass --http-post-trigger without
-a schedule; the CLI sends a valid placeholder cron and disables the schedule trigger.`, "Automations", "RuleWriteCreate"),
-		Example: `  flashduty automation create --name "Daily SRE brief" --schedule daily --at 09:30 --prompt "Summarize yesterday's incidents"
-  flashduty automation create --name "Weekly noise review" --team-id 123 --schedule weekly --weekday mon --at 10:00 --prompt-file ./prompt.md
+	Schedule helpers build a 5-field UTC cron expression. --at and --cron-expr are
+	interpreted in UTC, not the caller's local timezone. Convert local wall-clock
+	requests to UTC before passing --at or --cron-expr.
+
+	For HTTP POST-only rules, pass --http-post-trigger without a schedule; the CLI
+	sends a valid placeholder cron and disables the schedule trigger.`, "Automations", "RuleWriteCreate"),
+		Example: `  flashduty automation create --name "Daily SRE brief" --schedule daily --at 01:30 --prompt "Summarize yesterday's incidents"
+  flashduty automation create --name "Weekly noise review" --team-id 123 --schedule weekly --weekday mon --at 02:00 --prompt-file ./prompt.md
   flashduty automation create --name "Webhook triage" --http-post-trigger --prompt "Handle the posted payload"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -111,10 +115,10 @@ a schedule; the CLI sends a valid placeholder cron and disables the schedule tri
 
 	cmd.Flags().StringVar(&name, "name", "", "Automation name")
 	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Scope team ID; 0 means personal scope")
-	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
-	cmd.Flags().StringVar(&at, "at", "", "Wall-clock time in HH:MM; for hourly schedules, only the minute is used")
+	cmd.Flags().StringVar(&schedule, "schedule", "", "UTC schedule helper: hourly, daily, weekly, or cron")
+	cmd.Flags().StringVar(&at, "at", "", "UTC time in HH:MM; for hourly schedules, only the minute is used. "+automationUTCNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression; overrides --schedule helpers")
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field UTC cron expression; overrides --schedule helpers. "+automationUTCNote)
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "Create the Automation disabled")
 	cmd.Flags().BoolVar(&scheduleEnabled, "schedule-enabled", true, "Whether the schedule trigger is enabled")
 	cmd.Flags().BoolVar(&httpPostTrigger, "http-post-trigger", false, "Create and enable an HTTP POST trigger")
@@ -218,9 +222,13 @@ func newAutomationUpdateCmd() *cobra.Command {
 		Short: "Update an Automation",
 		Long: curatedLong(`Update mutable fields on an Automation rule.
 
-The personal/team scope is intentionally not exposed here. Scope is immutable
-after creation; create a new Automation if the target person/team scope needs to change.`, "Automations", "RuleWriteUpdate"),
-		Example: `  flashduty automation update auto_123 --name "Daily brief v2" --cron-expr "15 9 * * *"
+	The personal/team scope is intentionally not exposed here. Scope is immutable
+	after creation; create a new Automation if the target person/team scope needs to change.
+
+	Schedule helpers build a 5-field UTC cron expression. --at and --cron-expr are
+	interpreted in UTC, not the caller's local timezone. Convert local wall-clock
+	requests to UTC before passing --at or --cron-expr.`, "Automations", "RuleWriteUpdate"),
+		Example: `  flashduty automation update auto_123 --name "Daily brief v2" --cron-expr "15 1 * * *"
   flashduty automation update auto_123 --disable
   flashduty automation update auto_123 --enable-http-post-trigger --rotate-http-post-token`,
 		Args: requireExactArg("rule_id"),
@@ -311,10 +319,10 @@ after creation; create a new Automation if the target person/team scope needs to
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "New Automation name")
-	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
-	cmd.Flags().StringVar(&at, "at", "", "Wall-clock time in HH:MM; for hourly schedules, only the minute is used")
+	cmd.Flags().StringVar(&schedule, "schedule", "", "UTC schedule helper: hourly, daily, weekly, or cron")
+	cmd.Flags().StringVar(&at, "at", "", "UTC time in HH:MM; for hourly schedules, only the minute is used. "+automationUTCNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression; overrides --schedule helpers")
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field UTC cron expression; overrides --schedule helpers. "+automationUTCNote)
 	cmd.Flags().BoolVar(&enableRule, "enable", false, "Enable the Automation")
 	cmd.Flags().BoolVar(&disableRule, "disable", false, "Disable the Automation")
 	cmd.Flags().BoolVar(&enableSchedule, "enable-schedule", false, "Enable the schedule trigger")
