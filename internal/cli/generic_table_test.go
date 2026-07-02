@@ -186,7 +186,7 @@ func TestRenderGenericTable_McpServerPerUserOAuthNotice(t *testing.T) {
 	}
 	got := buf.String()
 	for _, want := range []string{
-		"registered but not usable until OAuth is completed in Flashduty Customize -> Connectors",
+		"registered but not usable until OAuth is completed in Flashduty Plugins -> MCP",
 		"tools will not appear until authorized",
 	} {
 		if !strings.Contains(got, want) {

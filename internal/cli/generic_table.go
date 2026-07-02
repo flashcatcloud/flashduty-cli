@@ -20,7 +20,7 @@ const maxHeuristicColumns = 8
 // can't blow out the table width.
 const genericStringMaxWidth = 40
 
-const mcpPerUserOAuthNotice = "Note: registered but not usable until OAuth is completed in Flashduty Customize -> Connectors; tools will not appear until authorized."
+const mcpPerUserOAuthNotice = "Note: registered but not usable until OAuth is completed in Flashduty Plugins -> MCP; tools will not appear until authorized."
 
 // instantLike mirrors go-flashduty's Timestamp/TimestampMilli (and the output
 // package's unexported instant) so the renderer can recognise timestamp fields
