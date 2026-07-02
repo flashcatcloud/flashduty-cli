@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 
 
 ## Route here when
 
-"成员 / 邀请 / 用户 / 角色 / member / invite / user profile / role assignment / org roster" → **member**. Sibling domains: `team` (team membership lists, not org-level members); `role` (role definitions — get role IDs here first). Key IDs: **`member_id` (int)** from `member list`; **`role_id` (int)** from `fduty role list`.
+"成员 / 邀请 / 用户 / 角色 / member / invite / user profile / role assignment / org roster" → **member**. Sibling domains: `team` (team membership lists, not org-level members); `role` (role definitions — get role IDs here first); `person` (resolve a `person_id` → name with `fduty person infos <person_id> …`, e.g. ids returned by `schedule`/`oncall`/`incident`/`alert` output). Key IDs: **`member_id` (int)** from `member list`; **`role_id` (int)** from `fduty role list`.
 
 ## Intent → verb
 
@@ -119,6 +119,7 @@ Update member roles
 
 ## Gotchas
 
+- **Resolving a `person_id` → name: use `fduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `fduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
 - **`invite` members array is body-only — use `--data`.** Individual members cannot be passed as flat flags; the `members` array (with nested `role_ids`, `email`, `phone`, etc.) lives only in the JSON body. Up to 20 members per call.
 - **`info-reset <member-id>` is POSITIONAL.** Pass the member ID as the first bare argument, not `--member-id`: `fduty member info-reset <member_id> --member-name "New Name"`. The `--member-id` flag exists but the positional form is required per the `use` field.
 - **`role-grant / role-revoke / role-update` — role IDs are POSITIONAL.** All three verbs take role IDs as positional args: `fduty member role-grant <role_id> [<role_id2>...] --member-id <member_id>`. The `--role-ids` flag also exists but the positional form is authoritative.

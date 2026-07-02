@@ -11,6 +11,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | want | verb |
 |---|---|
 | list / search active incidents | `list` |
+| CSV export of incidents | `fduty insight incident-export` |
 | look up by 6-char UI num | `info --num <num>` |
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
@@ -30,7 +31,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | resolve with optional note | `resolve <incident-id> [<id2>...]` |
 | snooze / un-snooze | `snooze <id> [<id2>...]` / `wake <incident-id> [<id2>...]` |
 | add comment | `comment <id> [<id2>...]` |
-| add responder by person ID | `add-responder <id>` |
+| add responder by member ID | `add-responder <id>` |
 | replace responder list | `reassign <id>` |
 | merge duplicates (IRREVERSIBLE) | `merge <target_id>` |
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
@@ -41,7 +42,9 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 ## Hot flow — triage an active incident
 
 ```bash
-# 1. Find unacknowledged critical incidents (last 4h)
+# 1. Find unacknowledged critical incidents (last 4h).
+#    toon/json list output is compact by default:
+#    incident_id,title,incident_severity,progress,start_time,channel_id
 fduty incident list --severity Critical --progress Triggered --since 4h --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
@@ -63,6 +66,8 @@ fduty incident comment <incident-id> --comment "Root cause identified: DB failov
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
+> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
+
 ## Hot flow — full fault analysis (read-only summary)
 
 When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all six aspects:
@@ -77,12 +82,12 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --output-format toon        # ① 详情 + AI summary + alert counts + channel_id
-fduty incident alerts   "$ID" --output-format toon        # ② contributing alerts (detail's embedded alerts are empty here)
-fduty incident timeline "$ID" --output-format toon        # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas)
-fduty incident post-mortem-list --channel-ids <channel-id> --output-format toon   # ⑥ post-mortems for this incident's channel
-fduty change list --since 24h --output-format toon        # ③ correlated changes — by shared labels + time; see reference/change.md
+fduty incident detail   "$ID"                             # ① 详情 + AI summary + alert counts + channel_id
+fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+fduty incident similar  "$ID" --limit 5                   # ⑤ similar past incidents (channel-backed; see Gotchas)
+fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
+fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
@@ -312,10 +317,10 @@ Resolve incident
 - `--resolution` string — Optional resolution note applied to every resolved incident. (≤1024 chars)
 - `--root-cause` string — Optional root cause note applied to every resolved incident. (≤1024 chars)
 
-### responder-add <person-id> [<id2>...]
+### responder-add <member-id> [<id2>...]
 Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders.
+- `--person-ids` intSlice (required) — Member IDs from 'flashduty member list' to add as responders.
 - body-only (`--data`): notify (object)
 
 ### similar <id>
@@ -375,7 +380,7 @@ List incident war rooms
 Add war-room member
 - `<chat-id>` (positional, required) string — Chat ID of the war room within the IM platform.
 - `--integration-id` int64 (required) — IM integration that hosts the war room.
-- `--member-ids` intSlice (required) — Person IDs to add to the war room.
+- `--member-ids` intSlice (required) — Member IDs to add to the war room.
 
 ### war-room-create
 Create war room
@@ -419,7 +424,7 @@ List war rooms
 - **`--list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
-- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass via `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct-person assignment.
+- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
 
 ## Worked example
 

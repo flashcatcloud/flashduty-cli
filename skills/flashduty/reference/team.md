@@ -6,7 +6,7 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on teams — n
 
 "团队 / 成员管理 / 创建团队 / 查找团队 / HR同步 / team ID / person ID归属" → **team**. Key IDs:
 - **`team_id` (int64)** — from `fduty team list` or `team get --name`.
-- **`person_id` (int64)** — look up via `fduty member list --query <name-or-email>` (member card, not here).
+- **`--person-ids` inputs are member IDs** — look up via `fduty member list --query <name-or-email>` (member card, not here). The API field is named `person_ids`, but team membership expects member IDs.
 
 NOT this card: on-call schedules (oncall), incidents (incident), channels (channel).
 
@@ -28,7 +28,7 @@ NOT this card: on-call schedules (oncall), incidents (incident), channels (chann
 ```bash
 # 1. Check name doesn't already exist
 fduty team list --name "SRE Platform" --output-format toon
-# 2. Create with initial members (person IDs from member list)
+# 2. Create with initial members (member IDs from member list)
 fduty team create --name "SRE Platform" --description "Site Reliability" \
   --person-ids 1001,1002,1003
 # 3. Verify — note the returned team_id

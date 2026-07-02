@@ -39,7 +39,7 @@ func newOncallWhoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "who",
 		Short: "Show who is currently on call",
-		Long:  curatedLong("Show who is currently on call across schedules within a time window, optionally filtered by team or schedule name. Returns person_ids (numeric) only; resolve names/phones by dumping 'fduty member list' and joining client-side (member list has no by-id lookup).", "Schedules", "List"),
+		Long:  curatedLong("Show who is currently on call across schedules within a time window, optionally filtered by team or schedule name. The table output already resolves person_ids to display names; when you have raw person_ids elsewhere, batch-resolve them with 'fduty person infos <person_id> ...' (NOT by paginating 'fduty member list' — person_id and member_id are different id namespaces).", "Schedules", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)

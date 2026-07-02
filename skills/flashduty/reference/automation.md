@@ -101,7 +101,7 @@ fduty automation fire <trigger-id> \
   --output-format toon
 ```
 
-`--dedup-key` makes retries idempotent for the same trigger. Do not invent a token; if it is missing, ask the user for the token or rotate the trigger token through `update`.
+`--dedup-key` makes retries idempotent for the same trigger. Do not invent a token. If it is missing, rotate the trigger token through `update` or ask the user to provide it through their secure shell/environment, not in chat.
 
 <!-- GENERATED:automation START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 

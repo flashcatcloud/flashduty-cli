@@ -86,7 +86,7 @@ API: POST /incident/war-room/add-member (incident-write-add-war-room-member)
 Request fields:
   --chat-id string (required) — Chat ID of the war room within the IM platform.
   --integration-id int (required) — IM integration that hosts the war room.
-  --member-ids []int (required) — Person IDs to add to the war room.
+  --member-ids []int (required) — Member IDs to add to the war room.
 `,
 		Args:    requireExactArg("chat_id"),
 		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":362,"member_ids":[20001,20002]}'`,
@@ -124,7 +124,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room within the IM platform. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration that hosts the war room. (required)")
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs to add to the war room. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to add to the war room. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2346,7 +2346,7 @@ func genIncidentsResponderAddCmd() *cobra.Command {
 	var fIncidentID string
 	var fPersonIDs []int
 	cmd := &cobra.Command{
-		Use:   "responder-add <person-id> [<id2>...]",
+		Use:   "responder-add <member-id> [<id2>...]",
 		Short: "Add incident responder",
 		Long: `Add incident responder.
 
@@ -2356,7 +2356,7 @@ API: POST /incident/responder/add (incidentResponderAdd)
 
 Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --person-ids []int (required) — Member IDs to add as responders.
+  --person-ids []int (required) — Member IDs from 'flashduty member list' to add as responders.
   notify (object, via --data) — Optional notification override. Defaults to following each person's personal preference.
     - follow_preference (boolean) — When true, fall back to each responder's personal preference.
     - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
