@@ -320,7 +320,7 @@ Resolve incident
 ### responder-add <member-id> [<id2>...]
 Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `<member-ids>` (positional, required) intSlice — Member IDs from `member list` to add as responders. The API field is named `person_ids`.
+- `--person-ids` intSlice (required) — Member IDs from 'flashduty member list' to add as responders.
 - body-only (`--data`): notify (object)
 
 ### similar <id>
