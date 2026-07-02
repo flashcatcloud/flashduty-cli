@@ -35,6 +35,8 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedRolesPermissions(root)
 	registerGeneratedTeams(root)
 	registerGeneratedApplications(root)
+	registerGeneratedDataQuery(root)
+	registerGeneratedFacets(root)
 	registerGeneratedIssues(root)
 	registerGeneratedSourcemaps(root)
 }

@@ -124,7 +124,7 @@ Add responders to an incident
 ### alert-list <incident-id>
 List alerts of incident
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
-- `--include-events` bool — When true, include raw alert events in each alert item.
+- `--include-events` bool — When true, include at most the 20 newest raw events in each alert item as a preview.
 - `--is-active` bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 - `--limit` int64 — Page size, at most 1000. (0-1000)
 - `--page` int64 — Page number starting at 1. (min 0)
@@ -317,10 +317,10 @@ Resolve incident
 - `--resolution` string — Optional resolution note applied to every resolved incident. (≤1024 chars)
 - `--root-cause` string — Optional root cause note applied to every resolved incident. (≤1024 chars)
 
-### responder-add <member-id> [<id2>...]
+### responder-add <person-id> [<id2>...]
 Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `--person-ids` intSlice (required) — Member IDs from 'flashduty member list' to add as responders.
+- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders.
 - body-only (`--data`): notify (object)
 
 ### similar <id>
@@ -380,7 +380,7 @@ List incident war rooms
 Add war-room member
 - `<chat-id>` (positional, required) string — Chat ID of the war room within the IM platform.
 - `--integration-id` int64 (required) — IM integration that hosts the war room.
-- `--member-ids` intSlice (required) — Member IDs to add to the war room.
+- `--member-ids` intSlice (required) — Person IDs to add to the war room.
 
 ### war-room-create
 Create war room

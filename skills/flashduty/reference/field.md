@@ -4,8 +4,8 @@ Prereq: `SKILL.md` read. Read verbs (`list`, `info`) are free. `delete` is **irr
 
 ## Route here when
 
-"自定义字段 / 事件字段 / 字段选项 / incident field / custom field / field schema" → **field**.  
-NOT `enrichment` (enrichment = rules that auto-populate field values; field = the schema that defines those fields).  
+"自定义字段 / 事件字段 / 字段选项 / incident field / custom field / field schema" → **field**.
+NOT `enrichment` (enrichment = rules that auto-populate field values; field = the schema that defines those fields).
 You need a **`field_id`** (24-char hex ObjectID) — get it from `field list`.
 
 ## Intent → verb

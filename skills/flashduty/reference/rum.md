@@ -62,7 +62,7 @@ Create application
 - `--no-ip` bool — Do not collect IP addresses.
 - `<team-id>` (positional, required) int64 — Owning team ID.
 - `--type` string (required) — Application type. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
-- body-only (`--data`): alerting (object); tracing (object)
+- body-only (`--data`): alerting (object); links (object); tracing (object)
 
 ### application-delete <application-id>
 Delete application
@@ -96,12 +96,39 @@ Update application
 - `--no-ip` bool
 - `--team-id` int64
 - `--type` string — enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
-- body-only (`--data`): alerting (object); tracing (object)
+- body-only (`--data`): alerting (object); links (object); tracing (object)
 
 ### application-webhook-test <application-id>
 Test application webhook
 - `<application-id>` (positional, required) string — RUM application ID.
 - `--webhook-url` string (required) — Webhook URL to receive the sample alert event.
+
+### data-query
+Query RUM data
+- `--end-time` int64 (required) — End of the query window, Unix epoch milliseconds. Maximum 31-day span.
+- `--start-time` int64 (required) — Start of the query window, Unix epoch milliseconds.
+- body-only (`--data`): queries (array<object>) (required)
+
+### facet-count
+Count facet value distribution
+- `--dql` string — RUM DQL filter expression applied before counting.
+- `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
+- `--facet-key` string (required) — The field key to count value distribution for.
+- `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
+- `--scope` string (required) — RUM data scope to query. · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
+- `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
+- `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- body-only (`--data`): facet_value (any)
+
+### facet-list
+List RUM facet fields
+- `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
+- `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
+
+### field-list
+List RUM fields
+- `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
+- `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
 
 ### issue-info <issue-id>
 Get issue detail
@@ -156,7 +183,7 @@ Regression: a `resolved` issue that recurs gets a `regression{}` object on its r
 - **`alerting` and `tracing` are nested objects** — configure them via `--data '{"alerting":{...},"tracing":{...}}'`; there are no flat flags for their sub-fields. Scalar flags (`--application-name`, `--type`, …) override matching `--data` keys.
 - **Application records hold CONFIG only** — no traffic volume, error-rate, or session-count fields. For trend data, query `monit` RUM series.
 - **Empty `issue-list` is authoritative** — a filter returning no items means no matching issues, not a missing feature. Do not widen the query or guess.
-- **No `rum sourcemap` subcommand** — don't attempt it; it does not exist.
+- **No `rum sourcemap` subcommand** — sourcemap lookup and stack enrichment are top-level: read `reference/sourcemap.md` and use `fduty sourcemap ...`.
 
 ## Worked example
 
