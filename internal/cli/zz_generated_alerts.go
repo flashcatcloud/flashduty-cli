@@ -150,21 +150,30 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genAlertsReadEventListCmd() *cobra.Command {
 	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
 	var fAlertID string
+	var fAsc bool
 	cmd := &cobra.Command{
 		Use:   "event-list <alert-id>",
 		Short: "List events for an alert",
 		Long: `List events for an alert.
 
-Return all raw events that have been ingested into a specific alert, in chronological order.
+Return raw events for an alert with cursor or page-number pagination.
 
 API: POST /alert/event/list (alert-read-event-list)
 
 Request fields:
-  --alert-id string (required) — Alert ID (ObjectID hex string).
+  --page int — Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)
+  --limit int — Page size. Defaults to 20 and cannot exceed 100. (0-100)
+  --search-after-ctx string — Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.
+  --alert-id string (required) — Alert ID (MongoDB ObjectID).
+  --asc bool — When true, return events oldest-first. Defaults to newest-first.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
+  - has_next_page (boolean) (required) — Whether another page is available.
+  - items (array<object>) (required) — Raw alert events in the requested order.
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -187,17 +196,31 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (integer) — Record update time, Unix epoch seconds.
+  - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page.
+  - total (integer) (required) — Total matching event count.
 `,
 		Args:    requireExactArg("alert_id"),
-		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
+		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if err := genFoldPositional(args, body, "alert_id", "string"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
 					if cmd.Flags().Changed("alert-id") {
 						body["alert_id"] = fAlertID
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
 					}
 					return nil
 				})
@@ -216,7 +239,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (ObjectID hex string). (required)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20 and cannot exceed 100. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.")
+	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (MongoDB ObjectID). (required)")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "When true, return events oldest-first. Defaults to newest-first.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

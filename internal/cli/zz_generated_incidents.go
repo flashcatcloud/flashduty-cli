@@ -86,7 +86,7 @@ API: POST /incident/war-room/add-member (incident-write-add-war-room-member)
 Request fields:
   --chat-id string (required) — Chat ID of the war room within the IM platform.
   --integration-id int (required) — IM integration that hosts the war room.
-  --member-ids []int (required) — Member IDs to add to the war room.
+  --member-ids []int (required) — Person IDs to add to the war room.
 `,
 		Args:    requireExactArg("chat_id"),
 		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":362,"member_ids":[20001,20002]}'`,
@@ -124,7 +124,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room within the IM platform. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration that hosts the war room. (required)")
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to add to the war room. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs to add to the war room. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -203,7 +203,7 @@ Request fields:
   --limit int — Page size, at most 1000. (0-1000)
   --search-after-ctx string
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --include-events bool — When true, include raw alert events in each alert item.
+  --include-events bool — When true, include at most the 20 newest raw events in each alert item as a preview.
   --is-active bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -225,7 +225,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - description (string) (required) — Alert description.
     - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-    - events (array<object>) — Raw alert events, populated when the caller opts in.
+    - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -272,7 +272,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - total (integer) (required) — Total matching alerts.
 `,
 		Args:    requireExactArg("incident_id"),
-		Example: `  flashduty incident alert-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","is_active":true,"limit":100,"p":1}'`,
+		Example: `  flashduty incident alert-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","include_events":true,"is_active":true,"limit":100,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -318,7 +318,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 1000. (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "When true, include raw alert events in each alert item.")
+	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "When true, include at most the 20 newest raw events in each alert item as a preview.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -826,7 +826,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) (required) — Alert description.
     - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-    - events (array<object>) — Raw alert events, populated when the caller opts in.
+    - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1078,7 +1078,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1371,7 +1371,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1659,7 +1659,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -2346,7 +2346,7 @@ func genIncidentsResponderAddCmd() *cobra.Command {
 	var fIncidentID string
 	var fPersonIDs []int
 	cmd := &cobra.Command{
-		Use:   "responder-add <member-id> [<id2>...]",
+		Use:   "responder-add <person-id> [<id2>...]",
 		Short: "Add incident responder",
 		Long: `Add incident responder.
 
@@ -2356,7 +2356,7 @@ API: POST /incident/responder/add (incidentResponderAdd)
 
 Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --person-ids []int (required) — Member IDs from 'flashduty member list' to add as responders.
+  --person-ids []int (required) — Member IDs to add as responders.
   notify (object, via --data) — Optional notification override. Defaults to following each person's personal preference.
     - follow_preference (boolean) — When true, fall back to each responder's personal preference.
     - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').

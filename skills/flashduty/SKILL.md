@@ -1,7 +1,7 @@
 ---
 name: flashduty
 version: "3.0"
-description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, automations, RUM, members. `fduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running fduty. Don't guess or --help-dance."
+description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, automations, RUM, sourcemaps, members. `fduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running fduty. Don't guess or --help-dance."
 allowed-tools: bash, read
 hidden: true  # internal-only: withheld from skills.sh public discovery (Safari embeds this skill directly).
 ---
@@ -71,4 +71,5 @@ Some asks span several commands. For those the skill ships a script that fetches
 | custom field / 自定义字段 / field option 字段选项 | **`reference/field.md`** |
 | route / 分派路由 / alert routing 告警路由 / integration routing 集成路由 / routing case 路由用例 | **`reference/route.md`** |
 | RUM / real user monitoring / 真实用户监控 / frontend 前端 / application 应用 / issue | **`reference/rum.md`** |
+| sourcemap / source map / source mapping / symbolication / deobfuscate / stack enrich / dSYM / miniprogram source map | **`reference/sourcemap.md`** |
 | status page / 状态页 / public incident 公开事件 / public timeline 公开时间线 / maintenance window 维护窗口 / subscriber 订阅者 | **`reference/status-page.md`** |
