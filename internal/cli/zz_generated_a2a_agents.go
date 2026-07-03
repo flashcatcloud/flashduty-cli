@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-get --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -277,7 +277,7 @@ API: POST /safari/a2a-agent/delete (remote-agent-write-delete)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-delete --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -325,7 +325,7 @@ API: POST /safari/a2a-agent/disable (remote-agent-write-disable)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-disable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -373,7 +373,7 @@ API: POST /safari/a2a-agent/enable (remote-agent-write-enable)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-enable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -440,7 +440,7 @@ Request fields:
   --team-id int — Reassign team scope. Omit to leave unchanged.
   auth_config (object, via --data) — Replace the auth config. Omit to leave unchanged.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D","description":"Inspects deployment pipelines and proposes rollbacks."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

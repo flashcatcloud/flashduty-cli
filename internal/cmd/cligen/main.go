@@ -945,18 +945,18 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
 	if hasPos {
-		// Scalar positionals use requireExactArg so extra arguments (e.g.
-		// `incident info id1 id2`) are rejected with a clear error instead of
-		// silently dropping id2. Array positionals use requireArgs (>=1) because
-		// they are variadic by design. Optional scalar positionals use optionalArg
-		// (0-or-1) because the op also accepts an alternative lookup flag.
+		// Required positionals use body-aware validators: the body field can come
+		// from a positional, its typed flag, or --data. Scalar positionals still
+		// reject extras rather than silently dropping id2. Optional scalar
+		// positionals use optionalArg because the op accepts an alternative lookup
+		// flag.
 		switch {
 		case pos.Array:
-			fmt.Fprintf(&b, "\t\tArgs:  requireArgs(%q),\n", pos.Wire)
+			fmt.Fprintf(&b, "\t\tArgs:  requireBodyFieldOrArgs(%q, %q),\n", pos.Wire, flagName(pos.Wire))
 		case pos.Optional:
 			fmt.Fprintf(&b, "\t\tArgs:  optionalArg(%q),\n", pos.Wire)
 		default:
-			fmt.Fprintf(&b, "\t\tArgs:  requireExactArg(%q),\n", pos.Wire)
+			fmt.Fprintf(&b, "\t\tArgs:  requireBodyFieldOrExactArg(%q, %q),\n", pos.Wire, flagName(pos.Wire))
 		}
 	}
 	if ex := exampleHelp(o); ex != "" {

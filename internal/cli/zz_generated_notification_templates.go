@@ -50,7 +50,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - wecom_app (string) (required) — WeCom app message template source.
   - zoom (string) (required) — Zoom bot message template source.
 `,
-		Args:    requireExactArg("template_id"),
+		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template info --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -425,7 +425,7 @@ API: POST /template/delete (template-write-delete)
 Request fields:
   --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
 `,
-		Args:    requireExactArg("template_id"),
+		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template delete --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -511,7 +511,7 @@ Request fields:
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
 `,
-		Args:    requireExactArg("template_id"),
+		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

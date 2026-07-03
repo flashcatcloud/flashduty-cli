@@ -36,16 +36,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
+  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - schedule_next_fire_at_ms (integer) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
-		Args:    requireExactArg("rule_id"),
+		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-get --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -121,10 +126,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - http_post_trigger_id (string) — HTTP POST trigger ID.
     - http_post_trigger_url (string) — HTTP POST trigger path.
     - name (string) (required) — Rule name.
+    - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
+    - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
+    - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+    - oncall_incident_trigger_id (string) — On-call incident trigger ID.
     - owner_id (integer) (required) — Creator person ID.
     - prompt (string) (required) — Task prompt.
     - rule_id (string) (required) — Rule ID.
     - run_scope (string) (required) — Hidden session run scope. [person, team]
+    - schedule_next_fire_at_ms (integer) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available.
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
     - schedule_trigger_id (string) — Schedule trigger ID.
     - team_id (integer) (required) — Scope team ID; 0 means personal rule.
@@ -196,6 +206,9 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 	var fEnvironmentKind string
 	var fHTTPPostTriggerEnabled bool
 	var fName string
+	var fOncallIncidentChannelIDs []int
+	var fOncallIncidentSeverities []string
+	var fOncallIncidentTriggerEnabled bool
 	var fPrompt string
 	var fScheduleTriggerEnabled bool
 	var fTeamID int64
@@ -215,6 +228,9 @@ Request fields:
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
   --http-post-trigger-enabled bool — Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.
   --name string (required) — Rule name. (1-255 chars)
+  --oncall-incident-channel-ids []int — On-call channel IDs whose new incidents can trigger this rule.
+  --oncall-incident-severities []string — Incident severities that can trigger this rule. [Critical, Warning, Info]
+  --oncall-incident-trigger-enabled bool — Whether to create and enable an on-call incident trigger for this rule.
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
   --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
@@ -232,16 +248,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
+  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - schedule_next_fire_at_ms (integer) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
-		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123}'`,
+		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[2468013579],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -262,6 +283,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
+					}
+					if cmd.Flags().Changed("oncall-incident-channel-ids") {
+						body["oncall_incident_channel_ids"] = fOncallIncidentChannelIDs
+					}
+					if cmd.Flags().Changed("oncall-incident-severities") {
+						body["oncall_incident_severities"] = fOncallIncidentSeverities
+					}
+					if cmd.Flags().Changed("oncall-incident-trigger-enabled") {
+						body["oncall_incident_trigger_enabled"] = fOncallIncidentTriggerEnabled
 					}
 					if cmd.Flags().Changed("prompt") {
 						body["prompt"] = fPrompt
@@ -295,6 +325,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
 	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.")
 	cmd.Flags().StringVar(&fName, "name", "", "Rule name. (required) (1-255 chars)")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call channel IDs whose new incidents can trigger this rule.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities that can trigger this rule. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether to create and enable an on-call incident trigger for this rule.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)")
@@ -317,7 +350,7 @@ API: POST /safari/automation/rule/delete (automation-rule-write-delete)
 Request fields:
   --rule-id string (required) — Rule ID.
 `,
-		Args:    requireExactArg("rule_id"),
+		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-delete --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -350,6 +383,69 @@ Request fields:
 	return cmd
 }
 
+func genAutomationsRuleWriteRunCmd() *cobra.Command {
+	var dataJSON string
+	var fRuleID string
+	cmd := &cobra.Command{
+		Use:   "automation-rule-run <rule-id>",
+		Short: "Run Automation rule now",
+		Long: `Run Automation rule now.
+
+Start a manual run for an Automation rule.
+
+API: POST /safari/automation/rule/run (automation-rule-write-run)
+
+Request fields:
+  --rule-id string (required) — Rule ID.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - preflight (object) (required)
+    - app_name (string) (required) — AI SRE app used to execute the rule.
+    - checks (array<string>) (required) — Preflight checks that were evaluated.
+    - ok (boolean) (required) — Whether the rule can start a run.
+    - owner_id (integer) (required) — Owner person ID used for the run context.
+    - scope (string) (required) — Hidden session scope used for the run. [person, team]
+    - team_id (integer) (required) — Team ID used for team-scoped runs; 0 for personal runs.
+    - warnings (array<string>) — Non-blocking preflight warnings.
+  - rule_id (string) (required) — Rule ID.
+  - run (object)
+    - run_id (string) (required) — Created automation run ID.
+    - session_id (string) — Hidden AI SRE session ID started for this run.
+  - trigger_kind (string) (required) — Trigger kind for this run. [manual]
+`,
+		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
+		Example: `  flashduty safari automation-rule-run --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "rule_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("rule-id") {
+						body["rule_id"] = fRuleID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.AutomationRuleIDRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Automations.RuleWriteRun(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fRuleID string
@@ -363,6 +459,9 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 	var fEnvironmentID string
 	var fHTTPPostTriggerEnabled bool
 	var fRotateHTTPPostTriggerToken bool
+	var fOncallIncidentTriggerEnabled bool
+	var fOncallIncidentChannelIDs []int
+	var fOncallIncidentSeverities []string
 	cmd := &cobra.Command{
 		Use:   "automation-rule-update <rule-id>",
 		Short: "Update Automation rule",
@@ -384,6 +483,9 @@ Request fields:
   --environment-id string — BYOC Runner ID.
   --http-post-trigger-enabled bool — Whether the HTTP POST trigger is enabled. Sending true creates one when missing.
   --rotate-http-post-trigger-token bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
+  --oncall-incident-trigger-enabled bool — Whether the on-call incident trigger is enabled. Sending true creates it when missing and channel/severity filters are provided.
+  --oncall-incident-channel-ids []int — On-call channel IDs whose new incidents can trigger this rule.
+  --oncall-incident-severities []string — Incident severities that can trigger this rule. [Critical, Warning, Info]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -398,17 +500,22 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
+  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - schedule_next_fire_at_ms (integer) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
-		Args:    requireExactArg("rule_id"),
-		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
+		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_severities":["Critical"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -448,6 +555,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("rotate-http-post-trigger-token") {
 						body["rotate_http_post_trigger_token"] = fRotateHTTPPostTriggerToken
 					}
+					if cmd.Flags().Changed("oncall-incident-trigger-enabled") {
+						body["oncall_incident_trigger_enabled"] = fOncallIncidentTriggerEnabled
+					}
+					if cmd.Flags().Changed("oncall-incident-channel-ids") {
+						body["oncall_incident_channel_ids"] = fOncallIncidentChannelIDs
+					}
+					if cmd.Flags().Changed("oncall-incident-severities") {
+						body["oncall_incident_severities"] = fOncallIncidentSeverities
+					}
 					return nil
 				})
 				if err != nil {
@@ -476,6 +592,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID.")
 	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether the HTTP POST trigger is enabled. Sending true creates one when missing.")
 	cmd.Flags().BoolVar(&fRotateHTTPPostTriggerToken, "rotate-http-post-trigger-token", false, "Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the on-call incident trigger is enabled. Sending true creates it when missing and channel/severity filters are provided.")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call channel IDs whose new incidents can trigger this rule.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities that can trigger this rule. [Critical, Warning, Info]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -507,7 +626,7 @@ Request fields:
   --started-after-ms int — Start-time lower bound, Unix milliseconds.
   --started-before-ms int — Start-time upper bound, Unix milliseconds.
   --status string — Run status filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
-  --trigger-kind string — Trigger kind filter. [schedule, debug, http_post]
+  --trigger-kind string — Trigger kind filter. [schedule, debug, manual, http_post, oncall_incident]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - runs (array<object>) (required)
@@ -526,11 +645,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - started_at (integer) (required) — Start time, Unix milliseconds.
     - stats_json (any) — Run stats JSON.
     - status (string) (required) — Run status. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
-    - trigger_kind (string) (required) — Trigger kind. [schedule, debug, http_post]
+    - trigger_kind (string) (required) — Trigger kind. [schedule, debug, manual, http_post, oncall_incident]
     - updated_at (integer) (required) — Last update time, Unix milliseconds.
   - total (integer) (required) — Total count.
 `,
-		Args:    requireExactArg("rule_id"),
+		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-run-list --data '{"limit":20,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b","trigger_kind":"schedule"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -586,7 +705,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fStartedAfterMs, "started-after-ms", 0, "Start-time lower bound, Unix milliseconds.")
 	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]")
-	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger kind filter. [schedule, debug, http_post]")
+	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger kind filter. [schedule, debug, manual, http_post, oncall_incident]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -649,6 +768,7 @@ func registerGeneratedAutomations(root *cobra.Command) {
 	genAddLeaf(gSafari, genAutomationsRuleReadListCmd())
 	genAddLeaf(gSafari, genAutomationsRuleWriteCreateCmd())
 	genAddLeaf(gSafari, genAutomationsRuleWriteDeleteCmd())
+	genAddLeaf(gSafari, genAutomationsRuleWriteRunCmd())
 	genAddLeaf(gSafari, genAutomationsRuleWriteUpdateCmd())
 	genAddLeaf(gSafari, genAutomationsRunReadListCmd())
 	genAddLeaf(gSafari, genAutomationsTemplateReadListCmd())
