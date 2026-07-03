@@ -36,7 +36,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - status (string) — Current status of the person.
     - time_zone (string) — Time zone of the person.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident war-room-default-observers --data '{"incident_id":"664a1b2c3d4e5f6a7b8c9d0e"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -69,6 +69,165 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genIncidentsTriggerSubscriptionWriteDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fConsumer string
+	var fConsumerRef string
+	var fSource string
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete incident trigger subscription",
+		Long: `Delete incident trigger subscription.
+
+Delete an incident trigger subscription for AI SRE automation.
+
+API: POST /incident-trigger-subscription/delete (incident-trigger-subscription-write-delete)
+
+Request fields:
+  --consumer string (required) — Consumer system.
+  --consumer-ref string (required) — Consumer-owned reference, such as an Automation rule ID.
+  --source string (required) — Subscription source.
+`,
+		Example: `  flashduty incident-trigger-subscription delete --data '{"consumer":"fc_safari","consumer_ref":"auto_7NnLzY2Qp8xS4kUaV3mR6b","source":"ai_sre_automation"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("consumer") {
+						body["consumer"] = fConsumer
+					}
+					if cmd.Flags().Changed("consumer-ref") {
+						body["consumer_ref"] = fConsumerRef
+					}
+					if cmd.Flags().Changed("source") {
+						body["source"] = fSource
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IncidentTriggerSubscriptionDeleteRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.TriggerSubscriptionWriteDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident-trigger-subscription/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fConsumer, "consumer", "", "Consumer system. (required)")
+	cmd.Flags().StringVar(&fConsumerRef, "consumer-ref", "", "Consumer-owned reference, such as an Automation rule ID. (required)")
+	cmd.Flags().StringVar(&fSource, "source", "", "Subscription source. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsTriggerSubscriptionWriteUpsertCmd() *cobra.Command {
+	var dataJSON string
+	var fChannelIDs []int
+	var fConsumer string
+	var fConsumerRef string
+	var fEnabled bool
+	var fSeverities []string
+	var fSource string
+	var fSubscriptionID string
+	cmd := &cobra.Command{
+		Use:   "upsert <channel-id> [<id2>...]",
+		Short: "Create or update incident trigger subscription",
+		Long: `Create or update incident trigger subscription.
+
+Create or update an incident trigger subscription for AI SRE automation.
+
+API: POST /incident-trigger-subscription/upsert (incident-trigger-subscription-write-upsert)
+
+Request fields:
+  --channel-ids []int (required) — On-call channel IDs whose new incidents should trigger the consumer.
+  --consumer string (required) — Consumer system. Use 'fc_safari' for AI SRE automation rules.
+  --consumer-ref string (required) — Consumer-owned reference, such as an Automation rule ID.
+  --enabled bool — Whether the subscription is enabled. Defaults to true when omitted.
+  --severities []string (required) — Incident severities to subscribe to. 'Ok' is not valid. [Critical, Warning, Info]
+  --source string (required) — Subscription source. Use 'ai_sre_automation' for AI SRE automation rules.
+  --subscription-id string — Existing subscription ID. Omit to create or upsert by source, consumer, and consumer_ref.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID.
+  - channel_ids (array<integer>) (required) — Subscribed channel IDs.
+  - consumer (string) (required) — Consumer system.
+  - consumer_ref (string) (required) — Consumer-owned reference.
+  - created_at (integer) (required) — Unix timestamp in seconds when the subscription was created.
+  - created_by (integer) (required) — Member ID that created the subscription.
+  - deleted_at (integer) (required) — Unix timestamp in seconds when the subscription was deleted; 0 means active.
+  - enabled (boolean) (required) — Whether the subscription is enabled.
+  - severities (array<string>) (required) — Subscribed incident severities. [Critical, Warning, Info]
+  - source (string) (required) — Subscription source.
+  - subscription_id (string) (required) — Subscription ID.
+  - updated_at (integer) (required) — Unix timestamp in seconds when the subscription was last updated.
+  - updated_by (integer) (required) — Member ID that last updated the subscription.
+`,
+		Args:    requireBodyFieldOrArgs("channel_ids", "channel-ids"),
+		Example: `  flashduty incident-trigger-subscription upsert --data '{"channel_ids":[2468013579],"consumer":"fc_safari","consumer_ref":"auto_7NnLzY2Qp8xS4kUaV3mR6b","enabled":true,"severities":["Critical","Warning"],"source":"ai_sre_automation"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "channel_ids", "intslice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("channel-ids") {
+						body["channel_ids"] = fChannelIDs
+					}
+					if cmd.Flags().Changed("consumer") {
+						body["consumer"] = fConsumer
+					}
+					if cmd.Flags().Changed("consumer-ref") {
+						body["consumer_ref"] = fConsumerRef
+					}
+					if cmd.Flags().Changed("enabled") {
+						body["enabled"] = fEnabled
+					}
+					if cmd.Flags().Changed("severities") {
+						body["severities"] = fSeverities
+					}
+					if cmd.Flags().Changed("source") {
+						body["source"] = fSource
+					}
+					if cmd.Flags().Changed("subscription-id") {
+						body["subscription_id"] = fSubscriptionID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IncidentTriggerSubscriptionUpsertRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.TriggerSubscriptionWriteUpsert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "On-call channel IDs whose new incidents should trigger the consumer. (required)")
+	cmd.Flags().StringVar(&fConsumer, "consumer", "", "Consumer system. Use 'fc_safari' for AI SRE automation rules. (required)")
+	cmd.Flags().StringVar(&fConsumerRef, "consumer-ref", "", "Consumer-owned reference, such as an Automation rule ID. (required)")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the subscription is enabled. Defaults to true when omitted.")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Incident severities to subscribe to. 'Ok' is not valid. (required) [Critical, Warning, Info]")
+	cmd.Flags().StringVar(&fSource, "source", "", "Subscription source. Use 'ai_sre_automation' for AI SRE automation rules. (required)")
+	cmd.Flags().StringVar(&fSubscriptionID, "subscription-id", "", "Existing subscription ID. Omit to create or upsert by source, consumer, and consumer_ref.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIncidentsWriteAddWarRoomMemberCmd() *cobra.Command {
 	var dataJSON string
 	var fChatID string
@@ -88,7 +247,7 @@ Request fields:
   --integration-id int (required) — IM integration that hosts the war room.
   --member-ids []int (required) — Person IDs to add to the war room.
 `,
-		Args:    requireExactArg("chat_id"),
+		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
 		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":362,"member_ids":[20001,20002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -144,7 +303,7 @@ API: POST /incident/ack (incidentAck)
 Request fields:
   --incident-ids []string (required) — Incident IDs to acknowledge. At most 100 per call.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident ack --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -271,7 +430,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (seconds).
   - total (integer) (required) — Total matching alerts.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident alert-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","include_events":true,"is_active":true,"limit":100,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -406,7 +565,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to comment on. At most 100 per call.
   --mute-reply bool — When true, do not trigger webhook reply actions for this comment.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident comment --data '{"comment":"Identified the root cause. Rolling back the deployment now.","incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -595,7 +754,7 @@ API: POST /incident/disable-merge (incidentDisableMerge)
 Request fields:
   --incident-ids []string (required) — Incident IDs whose automatic merge should be disabled.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident disable-merge --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -669,7 +828,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
     - updated_at (integer) (required) — Last update timestamp in milliseconds.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident feed --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -740,7 +899,7 @@ Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   field_value (any, via --data) — New field value. Type must match the field definition.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident field-reset --data '{"field_name":"affected_service","field_value":"payment-service","incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1498,7 +1657,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
   - total (integer) (required) — Total number of matching incidents.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident list-by-ids --data '{"incident_ids":["69da451ef77b1b51f40e83ee","69da451ef77b1b51f40e83ef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1556,7 +1715,7 @@ Request fields:
   --target-incident-id string (required) — Target incident ID that source incidents will be merged into.
   --title string — Optional new title for the target incident. (≤512 chars)
 `,
-		Args:    requireExactArg("target_incident_id"),
+		Args:    requireBodyFieldOrExactArg("target_incident_id", "target-incident-id"),
 		Example: `  flashduty incident merge --data '{"comment":"Merging related database connectivity incidents into one.","source_incident_ids":["69da451ef77b1b51f40e83ef","69da451ef77b1b51f40e83f0"],"target_incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1785,7 +1944,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) (required) — Incident title.
     - updated_at (integer) (required) — Last update timestamp (seconds).
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident past-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":5}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1837,7 +1996,7 @@ API: POST /incident/post-mortem/delete (incidentPostMortemDelete)
 Request fields:
   --post-mortem-id string (required) — Post-mortem ID.
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-delete --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1921,7 +2080,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - title (string) (required) — Report title.
     - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
 `,
-		Args: requireExactArg("post_mortem_id"),
+		Args: requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -2094,7 +2253,7 @@ API: POST /incident/remove (incidentRemove)
 Request fields:
   --incident-ids []string (required) — Incident IDs to remove. At most 100 per call. The caller must have access to every channel the incidents belong to.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident remove --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2148,7 +2307,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to reopen. At most 100 per call.
   --reason string — Optional reason recorded on the timeline. (≤1024 chars)
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident reopen --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"reason":"Monitoring detected the issue recurred after the initial fix."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2216,7 +2375,7 @@ Request fields:
   --root-cause string — New root cause analysis. (3-6144 chars)
   --title string — New incident title. (3-200 chars)
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident reset --data '{"incident_id":"69da451ef77b1b51f40e83ee","incident_severity":"Critical","title":"Database connection timeout - prod-db-01 primary"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2296,7 +2455,7 @@ Request fields:
   --resolution string — Optional resolution note applied to every resolved incident. (≤1024 chars)
   --root-cause string — Optional root cause note applied to every resolved incident. (≤1024 chars)
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident resolve --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"resolution":"Deployed hotfix v2.3.1 and restarted the affected service.","root_cause":"Memory leak in the connection pool caused by a missing cleanup call."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2362,7 +2521,7 @@ Request fields:
     - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
     - template_id (string) — Notification template ID (MongoDB ObjectID).
 `,
-		Args:    requireArgs("person_ids"),
+		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty incident responder-add --data '{"incident_id":"69da451ef77b1b51f40e83ee","person_ids":[2476444212131,2476444212132]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2420,7 +2579,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to snooze. At most 100 per call.
   --minutes int (required) — Duration in minutes. Must be greater than 0 and at most 1440 (24h). (max 1440)
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident snooze --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"minutes":60}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2476,7 +2635,7 @@ API: POST /incident/unack (incidentUnack)
 Request fields:
   --incident-ids []string (required) — Incident IDs to unacknowledge. At most 100 per call.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident unack --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2528,7 +2687,7 @@ API: POST /incident/wake (incidentWake)
 Request fields:
   --incident-ids []string (required) — Incident IDs to wake. At most 100 per call.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident wake --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2708,7 +2867,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - chat_name (string) (required) — Chat/group display name.
   - share_link (string) (required) — Join link for the war room, if provided by the IM.
 `,
-		Args:    requireExactArg("chat_id"),
+		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
 		Example: `  flashduty incident war-room-detail --data '{"chat_id":"oc_a0553eda9014c2de1b3a8f75b4e0c000","integration_id":2490562293131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2773,7 +2932,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - plugin_type (string) (required) — IM plugin type (e.g. 'feishu', 'dingtalk', 'wecom', 'slack').
     - status (string) (required) — War room status.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident war-room-list --data '{"incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2919,7 +3078,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
   - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
 `,
-		Args: requireExactArg("template_id"),
+		Args: requireBodyFieldOrExactArg("template_id", "template-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -2966,7 +3125,7 @@ API: POST /incident/post-mortem/template/delete (postmortem-write-delete-templat
 Request fields:
   --template-id string (required) — Template ID.
 `,
-		Args:    requireExactArg("template_id"),
+		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"post_mortem_custom_tmpl_01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3052,7 +3211,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - title (string) (required) — Report title.
     - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident post-mortem-init --data '{"incident_ids":["69bb9233331067560c718ecd"],"template_id":"post_mortem_default_tmpl_en-us"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3114,7 +3273,7 @@ Request fields:
   --post-mortem-id string (required) — Post-mortem ID.
   --responder-ids []int — Responder member IDs to store on the report.
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-basics-reset --data '{"incidents_earliest_start_seconds":1761133512,"incidents_highest_severity":"Warning","incidents_latest_close_seconds":1761133632,"incidents_total_duration_seconds":120,"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","responder_ids":[3790925372131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3196,7 +3355,7 @@ Request fields:
   --follow-ups string — Follow-up action items as free text.
   --post-mortem-id string (required) — Post-mortem ID.
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3254,7 +3413,7 @@ Request fields:
   --post-mortem-id string (required) — Post-mortem ID.
   --status string (required) — Target report status. [drafting, published]
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","status":"published"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3312,7 +3471,7 @@ Request fields:
   --post-mortem-id string (required) — Post-mortem ID.
   --title string (required) — New report title.
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-title-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","title":"Production API latency incident"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -3441,6 +3600,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func registerGeneratedIncidents(root *cobra.Command) {
 	gIncident := genGroup(root, "incident", "On-call/Incidents API")
 	genAddLeaf(gIncident, genIncidentsReadGetWarRoomDefaultObserversCmd())
+	gIncidentTriggerSubscription := genGroup(root, "incident-trigger-subscription", "On-call/Incidents API")
+	genAddLeaf(gIncidentTriggerSubscription, genIncidentsTriggerSubscriptionWriteDeleteCmd())
+	genAddLeaf(gIncidentTriggerSubscription, genIncidentsTriggerSubscriptionWriteUpsertCmd())
 	genAddLeaf(gIncident, genIncidentsWriteAddWarRoomMemberCmd())
 	genAddLeaf(gIncident, genIncidentsAckCmd())
 	genAddLeaf(gIncident, genIncidentsAlertListCmd())

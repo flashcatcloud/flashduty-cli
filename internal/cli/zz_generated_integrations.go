@@ -26,7 +26,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - new_linked_person_ids (array<integer>) (required) — Person IDs newly linked during this call.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty datasource im-person-try-link --data '{"integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

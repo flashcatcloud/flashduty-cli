@@ -199,7 +199,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page.
   - total (integer) (required) — Total matching event count.
 `,
-		Args:    requireExactArg("alert_id"),
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -284,7 +284,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
     - updated_at (integer) (required) — Last update timestamp in Unix epoch milliseconds.
 `,
-		Args:    requireExactArg("alert_id"),
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -414,7 +414,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
 `,
-		Args:    requireExactArg("alert_id"),
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert info --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -730,7 +730,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor for the next page.
   - total (integer) — Total matching alerts.
 `,
-		Args:    requireArgs("alert_ids"),
+		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -790,7 +790,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Member ID who last updated the pipeline.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-info --data '{"integration_id":10001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -851,7 +851,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Member ID who last updated the pipeline.
 `,
-		Args:    requireArgs("integration_ids"),
+		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),
 		Example: `  flashduty alert pipeline-list --data '{"integration_ids":[10001,10002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -907,7 +907,7 @@ Request fields:
   --owner-id int — Optional new owner for the target incident.
   --title string — Optional new title for the target incident.
 `,
-		Args:    requireArgs("alert_ids"),
+		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert merge --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"],"incident_id":"663a000000000000deadbeef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -979,7 +979,7 @@ Request fields:
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

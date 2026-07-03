@@ -170,7 +170,7 @@ API: POST /schedule/delete (scheduleDelete)
 Request fields:
   --schedule-ids []int (required) — Schedule IDs to operate on.
 `,
-		Args:    requireArgs("schedule_ids"),
+		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
 		Example: `  flashduty schedule delete --data '{"schedule_ids":[2001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -371,7 +371,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - update_at (integer) (required) — Last update timestamp (Unix seconds).
   - update_by (integer) (required) — Last updater person ID.
 `,
-		Args:    requireExactArg("schedule_id"),
+		Args:    requireBodyFieldOrExactArg("schedule_id", "schedule-id"),
 		Example: `  flashduty schedule info --data '{"end":1712086400,"schedule_id":2001,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -554,7 +554,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
 `,
-		Args:    requireArgs("schedule_ids"),
+		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
 		Example: `  flashduty schedule infos --data '{"schedule_ids":[2001,2002,2003]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

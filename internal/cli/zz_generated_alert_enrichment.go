@@ -38,7 +38,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update timestamp, Unix seconds.
   - updated_by (integer) (required) — Last updater member ID.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty enrichment info --data '{"integration_id":5001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -102,7 +102,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp, Unix seconds.
     - updated_by (integer) (required) — Last updater member ID.
 `,
-		Args:    requireArgs("integration_ids"),
+		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),
 		Example: `  flashduty enrichment list --data '{"integration_ids":[5001,5002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -157,7 +157,7 @@ Request fields:
     - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
     - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.labels.region}}-{{.labels.environment}}"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -226,7 +226,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater member ID.
   - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
 `,
-		Args:    requireExactArg("field_id"),
+		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
 		Example: `  flashduty field info --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -433,7 +433,7 @@ API: POST /field/delete (field-write-delete)
 Request fields:
   --field-id string (required) — Field ID — 24-character hex ObjectID.
 `,
-		Args:    requireExactArg("field_id"),
+		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
 		Example: `  flashduty field delete --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -492,7 +492,7 @@ Request fields:
   --options []string — Replacement options list. Must obey the same per-type rules as create.
   default_value (any, via --data) — Replacement default value. Type must match the field's existing 'field_type'.
 `,
-		Args:    requireExactArg("field_id"),
+		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
 		Example: `  flashduty field update --data '{"default_value":"Medium","description":"Business severity tier.","display_name":"Severity Class","field_id":"66e9d3a4f7c2b04a1c8a91b3","options":["Critical","High","Medium","Low"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -572,7 +572,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater member ID.
   - url (string) (required) — Endpoint URL.
 `,
-		Args:    requireExactArg("api_id"),
+		Args:    requireBodyFieldOrExactArg("api_id", "api-id"),
 		Example: `  flashduty enrichment mapping-api-info --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -756,7 +756,7 @@ API: POST /enrichment/mapping/api/delete (mapping-api-write-delete)
 Request fields:
   --api-id string (required) — Mapping API ID (MongoDB ObjectID hex).
 `,
-		Args:    requireExactArg("api_id"),
+		Args:    requireBodyFieldOrExactArg("api_id", "api-id"),
 		Example: `  flashduty enrichment mapping-api-delete --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -823,7 +823,7 @@ Request fields:
   --url string — New endpoint URL (max 500 chars). (≤500 chars)
   headers (object, via --data) — New headers map (replaces existing).
 `,
-		Args:    requireExactArg("api_id"),
+		Args:    requireBodyFieldOrExactArg("api_id", "api-id"),
 		Example: `  flashduty enrichment mapping-api-update --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02","retry_count":1,"timeout":3}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -903,7 +903,7 @@ API: POST /enrichment/mapping/data/download (mapping-data-read-download)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-data-download --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -972,7 +972,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor token for the next page.
   - total (integer) (required) — Total matching rows.
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-data-list --data '{"asc":false,"limit":20,"orderby":"updated_at","p":1,"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1042,7 +1042,7 @@ Request fields:
   --keys []string (required) — Keys of rows to delete.
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-data-delete --data '{"keys":["server01","server02"],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1098,7 +1098,7 @@ API: POST /enrichment/mapping/data/truncate (mapping-data-write-truncate)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-data-truncate --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1208,7 +1208,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - keys (array<string>) (required) — Composite keys of upserted rows.
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-data-upsert --data '{"docs":[{"host":"server01","owner":"alice","service":"api","team":"sre"},{"host":"server02","owner":"bob","service":"gateway","team":"platform"}],"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1269,7 +1269,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix seconds.
   - updated_by (integer) (required) — Last updater member ID.
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-schema-info --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1437,7 +1437,7 @@ API: POST /enrichment/mapping/schema/delete (mapping-schema-write-delete)
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-schema-delete --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1495,7 +1495,7 @@ Request fields:
   --schema-name string — New schema name (max 39 chars). (≤39 chars)
   --team-id int — New owning team ID. '0' removes the team association.
 `,
-		Args:    requireExactArg("schema_id"),
+		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
 		Example: `  flashduty enrichment mapping-schema-update --data '{"description":"Updated description","schema_id":"665f1a2b3c4d5e6f7a8b9c01","schema_name":"CMDB Lookup v2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
