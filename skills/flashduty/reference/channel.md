@@ -6,6 +6,8 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on channels �
 
 "协作空间 / 频道 / 渠道 / 告警分组 / 降噪 / 静默 / 抑制 / 丢弃 / 升级策略 / 告警收敛 / channel / collaboration space / escalation rule / silence / inhibit / drop rule" → **channel**, NOT `incident` (incidents live _inside_ a channel) or `alert` (alerts are routed _into_ a channel). **`协作空间` (collaboration space) IS the `channel` API noun** — a naive translation would be "频道", but Flashduty's product surfaces it as 协作空间. Key IDs: **`channel-id` (int)** from `channel list`; **`rule-id` (MongoDB ObjectID string)** from `escalate-rule-list`, `inhibit-rule-list`, `silence-rule-list`, `unsubscribe-rule-list`.
 
+**Flashcat workspace exception.** When the user asks whether a "空间" is healthy, red/green, or specifically mentions **灭火图 / firemap**, do not assume they mean a Flashduty channel. In that context, "空间" may be a **Flashcat workspace**, and the answer must come from the Flashcat/firemap surface rather than channel incident stats. If you first resolved a name as a Flashduty `channel-id` and later resolve the same visible name as a Flashcat `workspace-id`, **do not silently switch** — tell the user these are different objects and state which ID/surface each conclusion uses.
+
 ## Intent → verb
 
 | want | verb |
