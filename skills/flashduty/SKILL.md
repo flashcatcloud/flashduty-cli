@@ -29,6 +29,8 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 **Shape the payload before you fetch it.** For ID scans, counts, or "find the matching row" tasks, prefer `--fields` projections and compact list verbs over full detail dumps. Huge raw JSON dumps are a last resort, not a default.
 
+**Large list scans: file first, summarize second.** When you truly need `--json` for `jq` over a page-sized list (`--limit 100`, broad channel/account windows, incident/alert/on-call reports), redirect JSON to a temp file and emit only counts or selected fields: `fduty ... --json > /tmp/fduty_rows.json && jq '...' /tmp/fduty_rows.json`. Do not dump page-sized JSON into the chat transcript, and do not run the same list again for each aggregation bucket.
+
 **Empty result = authoritative not-found.** A filter returning `[]` means no such entity in scope — report it (optionally the 1–2 closest names) and stop. Do **not** brute-force (no shifted-keyword re-queries, no widening past caps, no full-dump grep). Never infer "feature not enabled" from an empty list, and never fabricate data absent from tool output.
 
 **A result you did not fetch is "unknown", never "empty".** You may report a command's result — including "returned empty" or any count/list/finding — **only if that exact command appears in your tool-call history this turn**. If you did not run it, the honest answer is "未查询 / not queried", followed by the command to run. Writing "`incident similar` 返回空" or "无变更" for a command you never executed is fabrication, not a summary.

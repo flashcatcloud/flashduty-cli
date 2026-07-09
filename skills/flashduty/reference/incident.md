@@ -73,6 +73,8 @@ bash <skill-dir>/scripts/incident-summary.sh <incident-id>
 
 `<skill-dir>` is this skill's base directory — you were given it when the skill loaded (it is also the folder you read this card from). The script runs every command below and prints the results in one block, so each section of your summary is backed by real output and there is nothing to guess. (To tie post-mortems to *this* incident, re-run `incident post-mortem-list --channel-ids <channel-id>` with the `channel_id` from `detail`.)
 
+Do not re-run `incident alerts`, `incident similar`, `incident timeline`, or `change list` after `incident-summary.sh` unless the script output is missing/truncated for that exact section or you need a narrower follow-up query.
+
 If you fetch the pieces by hand instead, run **all six** — they are cheap reads:
 
 ```bash
@@ -364,6 +366,7 @@ List war rooms
 - **`update` vs `reset`**: `update <id>` edits title/description/severity/custom fields. `reset <incident-id>` additionally supports `--impact`, `--root-cause`, `--resolution` (the AI narrative fields). Use `reset` for post-incident write-back.
 - **If `list` returns a `total`, use it instead of page-walking.** For "how many incidents are Triggered / Processing / Closed", run one filtered `incident list --progress <bucket> ...` per bucket and read the returned `total`. Do not fetch page 1/2/3 just to derive counts the server already computed.
 - **Use `--fields` to keep list scans compact.** When the goal is to identify matching incidents or collect IDs/numbers/titles, project only the needed columns first, then fetch one target incident with `detail` / `alerts` / `timeline`.
+- **Page-sized scans go to files.** For analytics over many incidents, use `--json > /tmp/incidents.json` and run `jq` against the file. Print only the aggregate or selected fields; avoid raw `--limit 100` JSON/toon dumps in chat.
 - **`--list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.

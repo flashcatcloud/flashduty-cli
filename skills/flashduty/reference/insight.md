@@ -328,6 +328,8 @@ Two families with **identical value syntax** but different flag names:
 
 Both families accept: relative duration (`30d`, `24h`), `now`, `+7d`, a date, or Unix seconds — **except** `incident-export`, which takes **epoch seconds only** for `--start-time`/`--end-time` (flag type is int64).
 
+For multi-dimensional reports, fetch once to a temp file, then run every `jq` aggregation against that same file. Do not run the same account-wide list again for each `jq` bucket; if you need status, severity, channel, and responder cuts, one JSON capture plus local aggregations is cheaper and more consistent.
+
 ## Gotchas
 
 - **Two time-flag families.** Passing `--since` to an `--start-time` command (or vice-versa) fails with `unknown flag`. See the table above.
@@ -335,6 +337,7 @@ Both families accept: relative duration (`30d`, `24h`), `now`, `+7d`, a date, or
 - **`top-alerts --label`** only accepts `check` or `resource`. Any other value (e.g. `integration_name`) returns HTTP 400.
 - **Export commands output raw CSV, not JSON.** Redirect to a file; dumping CSV into context burns tokens and is unreadable. No `--limit`/`--page` — exports emit the full filtered set.
 - **`insight incidents` and `incident-list` are siblings**, not the same. `incidents` uses `--since`/`--until`, paginates, and is token-light. `incident-list` uses `--start-time`/`--end-time`, adds `--severities`/`--responder-ids`/`--query`/cursor (`--search-after-ctx`), and is the filterable variant.
+- **Large `incident-list` pages belong in files.** For any `--limit 100` or broad-window `incident-list`, redirect JSON to `/tmp/*.json`, then print only totals or selected fields. Do not paste page-sized JSON/toon into the transcript.
 - **All `insight` commands hit the OLAP backend.** HTTP 500 means the backend is down — report it, do not retry.
 - **Empty result is authoritative.** A zero-row response means no matching data for that scope/window — do not widen filters or re-query with shifted keywords.
 - **`--aggregate-unit`** (on `account`, `alert-topk-by-label`, `channel`, `responder`, `team` and their exports) splits results into time buckets: `day` / `week` / `month`. When set, the window must span ≥24 h; `day` additionally caps the range at 31 days.
