@@ -100,7 +100,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - team_id (integer)
     - team_name (string)
 `,
-		Args:    requireArgs("team_ids"),
+		Args:    requireBodyFieldOrArgs("team_ids", "team-ids"),
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

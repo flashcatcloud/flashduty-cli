@@ -23,7 +23,7 @@ API: POST /safari/skill/enable (skill-read-enable)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-enable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -96,7 +96,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - version (string) — Skill version from the frontmatter.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-get --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -239,7 +239,7 @@ API: POST /safari/skill/delete (skill-write-delete)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-delete --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -287,7 +287,7 @@ API: POST /safari/skill/disable (skill-write-disable)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-disable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -364,7 +364,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - version (string) — Skill version from the frontmatter.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-update --data '{"description":"Updated triage runbook.","skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

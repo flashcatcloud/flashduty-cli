@@ -99,6 +99,20 @@ func TestGenPositionalSliceRuntime(t *testing.T) {
 	if got, want := fmt.Sprint(stub.bodyStrings("alert_ids")), "[a1 a2 a3]"; got != want {
 		t.Errorf("alert_ids = %q, want %q", got, want)
 	}
+
+	if _, err := execCommand("alert", "list-by-ids", "--alert-ids", "b1,b2"); err != nil {
+		t.Fatalf("execCommand alert list-by-ids --alert-ids: %v", err)
+	}
+	if got, want := fmt.Sprint(stub.bodyStrings("alert_ids")), "[b1 b2]"; got != want {
+		t.Errorf("alert_ids from flag = %q, want %q", got, want)
+	}
+
+	if _, err := execCommand("alert", "list-by-ids", "--data", `{"alert_ids":["c1","c2"]}`); err != nil {
+		t.Fatalf("execCommand alert list-by-ids --data: %v", err)
+	}
+	if got, want := fmt.Sprint(stub.bodyStrings("alert_ids")), "[c1 c2]"; got != want {
+		t.Errorf("alert_ids from data = %q, want %q", got, want)
+	}
 }
 
 // TestGenPositionalIntSliceRuntime invokes a GENERATED-ONLY int-slice command
@@ -161,6 +175,34 @@ func TestGenPositionalFlagOverridesPositional(t *testing.T) {
 	}
 	if got := stub.lastBody["field_id"]; got != "fromFlag" {
 		t.Errorf("field_id = %#v, want fromFlag (explicit flag must override positional)", got)
+	}
+}
+
+func TestGenChannelEscalateRuleListArgumentSources(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	tests := []struct {
+		name string
+		args []string
+		want float64
+	}{
+		{name: "positional", args: []string{"channel", "escalate-rule-list", "42"}, want: 42},
+		{name: "typed flag", args: []string{"channel", "escalate-rule-list", "--channel-id", "43"}, want: 43},
+		{name: "data", args: []string{"channel", "escalate-rule-list", "--data", `{"channel_id":44}`}, want: 44},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := execCommand(tt.args...); err != nil {
+				t.Fatalf("execCommand: %v", err)
+			}
+			if stub.lastPath != "/channel/escalate/rule/list" {
+				t.Fatalf("path = %q, want /channel/escalate/rule/list", stub.lastPath)
+			}
+			if got := stub.lastBody["channel_id"]; got != tt.want {
+				t.Errorf("channel_id = %#v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

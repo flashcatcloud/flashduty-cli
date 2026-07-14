@@ -164,7 +164,7 @@ API: POST /channel/delete (channelDelete)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel delete --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -216,7 +216,7 @@ API: POST /channel/disable (channelDisable)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel disable --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -268,7 +268,7 @@ API: POST /channel/enable (channelEnable)
 Request fields:
   --channel-id int (required) — Channel ID.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel enable --data '{"channel_id":3521074710131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -712,7 +712,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (unix seconds).
     - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel escalate-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -973,7 +973,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
   - updated_at (integer) — Last update timestamp (unix seconds).
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel info --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1027,7 +1027,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel name.
     - status (string) — Channel status. [enabled, disabled]
 `,
-		Args:    requireArgs("channel_ids"),
+		Args:    requireBodyFieldOrArgs("channel_ids", "channel-ids"),
 		Example: `  flashduty channel infos --data '{"channel_ids":[1001,1002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1091,7 +1091,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel inhibit-rule-create --data '{"channel_id":3521074710131,"description":"When a Critical alert fires, suppress matching Info alerts","equals":["labels.cluster","labels.service"],"is_directly_discard":false,"rule_name":"Suppress Info when Critical fires","source_filters":[[{"key":"severity","oper":"IN","vals":["Critical"]}]],"target_filters":[[{"key":"severity","oper":"IN","vals":["Info"]}]]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1339,7 +1339,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel inhibit-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1662,7 +1662,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel silence-rule-create --data '{"channel_id":3521074710131,"description":"Silence all Info alerts during planned maintenance","filters":[[{"key":"severity","oper":"IN","vals":["Info"]}]],"is_directly_discard":false,"rule_name":"Maintenance window silence","time_filter":{"end_time":1773414000,"start_time":1773388800}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1924,7 +1924,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel silence-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2077,7 +2077,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name echoed back from the request.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel unsubscribe-rule-create --data '{"channel_id":3521074710131,"description":"Discard all alerts from the test environment before they create incidents","filters":[[{"key":"labels.env","oper":"IN","vals":["test","dev"]}]],"rule_name":"Drop test environment alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2314,7 +2314,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required)
     - updated_by (integer) (required)
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel unsubscribe-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2474,7 +2474,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - external_report_token (string) — Newly generated token for external reporters. Only returned when 'is_external_report_enabled' is set to 'true' in the request. Callers should store this value; it cannot be retrieved afterwards.
 `,
-		Args:    requireExactArg("channel_id"),
+		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel update --data '{"channel_id":1001,"channel_name":"Production Alerts (v2)","description":"Updated description"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2586,7 +2586,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — ID of the person who performed the last update.
   - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty route info --data '{"integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2659,7 +2659,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_by (integer) (required) — ID of the person who performed the last update.
     - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,
-		Args:    requireArgs("integration_ids"),
+		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),
 		Example: `  flashduty route list --data '{"integration_ids":[6113996590131,6113996590132]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2723,7 +2723,7 @@ Request fields:
     - name (string) (required) — Section name. Must be unique within the rule.
     - position (integer) (required) — Index in 'cases' where this section starts. Must be between 0 and the length of 'cases'.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty route upsert --data '{"cases":[{"channel_ids":[3521074710131],"fallthrough":false,"if":[{"key":"severity","oper":"IN","vals":["Critical"]}],"routing_mode":"standard"}],"default":{"channel_ids":[3521074710131]},"integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

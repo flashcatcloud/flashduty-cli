@@ -98,7 +98,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (Unix seconds).
   - total (integer) (required) — Total number of events returned.
 `,
-		Args:    requireExactArg("cal_id"),
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar event-list --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","month":5,"year":2024}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -175,7 +175,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - event_id (string) (required) — Event ID (existing or newly generated).
   - summary (string) (required) — Event summary.
 `,
-		Args:    requireExactArg("cal_id"),
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar event-upsert --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","description":"International Workers Day holiday","end_at":"2024-05-06","is_off":true,"start_at":"2024-05-01","summary":"Labour Day"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -325,7 +325,7 @@ API: POST /calendar/delete (calendarDelete)
 Request fields:
   --cal-id string (required) — Calendar ID.
 `,
-		Args:    requireExactArg("cal_id"),
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -393,7 +393,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_by (integer) (required) — Last updater person ID.
   - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
-		Args:    requireExactArg("cal_id"),
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar info --data '{"cal_id":"cal.eh9gvPtWeH3xXgKeVSRxRg"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -521,7 +521,7 @@ Request fields:
   --timezone string — New IANA timezone.
   --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
-		Args:    requireExactArg("cal_id"),
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar update --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","cal_name":"Production On-Call Calendar (Updated)","timezone":"America/New_York","workdays":[1,2,3,4,5]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

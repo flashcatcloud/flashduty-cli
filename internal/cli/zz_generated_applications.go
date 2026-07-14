@@ -47,7 +47,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Last updater member ID.
 `,
-		Args:    requireExactArg("application_id"),
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-info --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -120,7 +120,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Last updater member ID.
 `,
-		Args:    requireArgs("application_ids"),
+		Args:    requireBodyFieldOrArgs("application_ids", "application-ids"),
 		Example: `  flashduty rum application-infos --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD","WoyQQ3BohkdtPivubEvE8o"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -304,7 +304,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - application_name (string) — Application display name.
   - client_token (string) — Token for RUM SDK initialization.
 `,
-		Args:    requireExactArg("team_id"),
+		Args:    requireBodyFieldOrExactArg("team_id", "team-id"),
 		Example: `  flashduty rum application-create --data '{"application_name":"My Web App","is_private":false,"team_id":2477033058131,"type":"browser"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -372,7 +372,7 @@ API: POST /rum/application/delete (rum-application-write-delete)
 Request fields:
   --application-id string (required) — RUM application ID.
 `,
-		Args:    requireExactArg("application_id"),
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-delete --data '{"application_id":"qLpu24Dz4CAzWsESPbJYWA"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -444,7 +444,7 @@ Request fields:
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. [popup, tab]
 `,
-		Args:    requireExactArg("application_id"),
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

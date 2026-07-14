@@ -24,21 +24,35 @@ func requireArgs(argNames ...string) cobra.PositionalArgs {
 	}
 }
 
-// requireExactArg returns a positional argument validator that requires exactly
-// one argument named name, producing friendly messages that match requireArgs style:
-//
-//   - zero args: "missing <name>. Usage: ..."
-//   - >1 args:   "expects exactly one <name>. Usage: ..."
-func requireExactArg(name string) cobra.PositionalArgs {
+// requireBodyFieldOrArgs validates a required variadic positional that folds
+// into a request-body field. The same field can also come from --data or from
+// its typed flag, so zero positional args are valid when either source is set.
+func requireBodyFieldOrArgs(name, flagName string) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
-		switch {
-		case len(args) == 0:
-			return fmt.Errorf("missing %s. Usage: %s", name, cmd.UseLine())
-		case len(args) > 1:
+		if len(args) > 0 || bodyFieldSourceSet(cmd, flagName) {
+			return nil
+		}
+		return fmt.Errorf("missing %s. Usage: %s", name, cmd.UseLine())
+	}
+}
+
+// requireBodyFieldOrExactArg validates a required scalar positional that folds
+// into a request-body field. The value may instead come from --data or from the
+// typed flag, but extra positionals are still rejected.
+func requireBodyFieldOrExactArg(name, flagName string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) > 1 {
 			return fmt.Errorf("expects exactly one %s. Usage: %s", name, cmd.UseLine())
 		}
-		return nil
+		if len(args) == 1 || bodyFieldSourceSet(cmd, flagName) {
+			return nil
+		}
+		return fmt.Errorf("missing %s. Usage: %s", name, cmd.UseLine())
 	}
+}
+
+func bodyFieldSourceSet(cmd *cobra.Command, flagName string) bool {
+	return cmd.Flags().Changed("data") || cmd.Flags().Changed(flagName)
 }
 
 // optionalArg returns a positional argument validator that accepts zero or one
