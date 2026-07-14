@@ -33,7 +33,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
       - vals (array<string>) (required) — Values to match against.
     - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
-    - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+    - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+      - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
+      - drop_labels (array<string>) — List of label keys to remove from the alert.
+      - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
+      - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
+      - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
+      - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
+      - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
+      - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+      - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
+      - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
+      - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
   - status (string) (required) — Rule set status.
   - updated_at (integer) (required) — Last update timestamp, Unix seconds.
   - updated_by (integer) (required) — Last updater member ID.
@@ -97,7 +108,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
         - vals (array<string>) (required) — Values to match against.
       - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
-      - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+      - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+        - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
+        - drop_labels (array<string>) — List of label keys to remove from the alert.
+        - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
+        - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
+        - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
+        - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
+        - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
+        - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+        - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
+        - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
+        - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
     - status (string) (required) — Rule set status.
     - updated_at (integer) (required) — Last update timestamp, Unix seconds.
     - updated_by (integer) (required) — Last updater member ID.
@@ -155,7 +177,18 @@ Request fields:
       - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
       - vals (array<string>) (required) — Values to match against.
     - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
-    - settings (any) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+    - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
+      - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
+      - drop_labels (array<string>) — List of label keys to remove from the alert.
+      - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
+      - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
+      - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
+      - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
+      - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
+      - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+      - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
+      - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
+      - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.labels.region}}-{{.labels.environment}}"}}]}'`,

@@ -279,7 +279,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - created_at (integer) (required) — Creation timestamp in Unix epoch milliseconds.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
-    - detail (any) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+      - comment (string) — Comment body.
+      - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - status (string) — Severity level. [Ok, Critical, Warning, Info]
     - ref_id (string) (required) — ObjectID of the alert this entry references.
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
     - updated_at (integer) (required) — Last update timestamp in Unix epoch milliseconds.
@@ -397,7 +400,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - alt (string) — Alt text.
     - href (string) — Optional link URL when the image is clicked.
     - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-  - incident (object) — Brief incident reference embedded in an alert.
+  - incident (object) — Associated incident, if any.
     - incident_id (string) — Incident ID (ObjectID hex string).
     - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
     - title (string) — Incident title.
@@ -537,7 +540,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -711,7 +714,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -783,9 +786,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) — Member ID who created the pipeline.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
-    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+      - description (string) — New description template.
+      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+      - severity (string) — Target severity level. [Critical, Warning, Info]
+      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
   - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Member ID who last updated the pipeline.
@@ -844,9 +852,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) — Member ID who created the pipeline.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
-      - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+      - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
       - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+        - description (string) — New description template.
+        - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+        - severity (string) — Target severity level. [Critical, Warning, Info]
+        - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+        - title (string) — New title template. Supports Golang template syntax referencing alert fields.
     - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Member ID who last updated the pipeline.
@@ -975,9 +988,14 @@ API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 Request fields:
   --integration-id int (required) — Integration ID to configure.
   rules (array<object>, via --data) (required) — Rules to apply. Max 50.
-    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+      - description (string) — New description template.
+      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+      - severity (string) — Target severity level. [Critical, Warning, Info]
+      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,

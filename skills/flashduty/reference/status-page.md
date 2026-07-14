@@ -129,6 +129,17 @@ Upsert status page component
 
 ### create
 Create status page
+- `--contact-info` string — Get-in-touch contact, such as a mailto or website URL.
+- `--custom-domain` string — Custom domain for a public status page. (≤255 chars)
+- `--date-view` string (required) — How event dates are displayed. · enum: calendar | list
+- `--display-uptime-mode` string (required) — How uptime is displayed. · enum: chart_and_percentage | chart | none
+- `--name` string (required) — Display name of the status page. (≤255 chars)
+- `--page-footer` string — Footer content shown on the status page.
+- `--page-header` string — Header content shown on the status page.
+- `--page-title` string — Browser title shown for the status page.
+- `--type` string (required) — Visibility type of the status page. · enum: public | internal
+- `--url-name` string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
+- body-only (`--data`): custom_links (array<object>); subscription (object)
 
 ### delete
 Delete status page

@@ -36,9 +36,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
-  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
-  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
@@ -126,9 +126,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - http_post_trigger_id (string) — HTTP POST trigger ID.
     - http_post_trigger_url (string) — HTTP POST trigger path.
     - name (string) (required) — Rule name.
-    - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
-    - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
-    - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+    - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+    - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+    - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
     - oncall_incident_trigger_id (string) — On-call incident trigger ID.
     - owner_id (integer) (required) — Creator person ID.
     - prompt (string) (required) — Task prompt.
@@ -217,7 +217,7 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 		Short: "Create Automation rule",
 		Long: `Create Automation rule.
 
-Create an Automation rule with a schedule trigger and, optionally, an HTTP POST trigger.
+Create an Automation rule with schedule, HTTP POST, and On-call incident triggers.
 
 API: POST /safari/automation/rule/create (automation-rule-write-create)
 
@@ -228,9 +228,9 @@ Request fields:
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
   --http-post-trigger-enabled bool — Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.
   --name string (required) — Rule name. (1-255 chars)
-  --oncall-incident-channel-ids []int — On-call channel IDs whose new incidents can trigger this rule.
-  --oncall-incident-severities []string — Incident severities that can trigger this rule. [Critical, Warning, Info]
-  --oncall-incident-trigger-enabled bool — Whether to create and enable an on-call incident trigger for this rule.
+  --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+  --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
   --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
@@ -248,9 +248,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
-  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
-  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
@@ -262,7 +262,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
-		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[2468013579],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123}'`,
+		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -325,9 +325,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
 	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.")
 	cmd.Flags().StringVar(&fName, "name", "", "Rule name. (required) (1-255 chars)")
-	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call channel IDs whose new incidents can trigger this rule.")
-	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities that can trigger this rule. [Critical, Warning, Info]")
-	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether to create and enable an on-call incident trigger for this rule.")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)")
@@ -388,10 +388,10 @@ func genAutomationsRuleWriteRunCmd() *cobra.Command {
 	var fRuleID string
 	cmd := &cobra.Command{
 		Use:   "automation-rule-run <rule-id>",
-		Short: "Run Automation rule now",
-		Long: `Run Automation rule now.
+		Short: "Run Automation rule",
+		Long: `Run Automation rule.
 
-Start a manual run for an Automation rule.
+Manually run an Automation rule immediately, outside its schedule.
 
 API: POST /safari/automation/rule/run (automation-rule-write-run)
 
@@ -399,22 +399,22 @@ Request fields:
   --rule-id string (required) — Rule ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - preflight (object) (required)
-    - app_name (string) (required) — AI SRE app used to execute the rule.
-    - checks (array<string>) (required) — Preflight checks that were evaluated.
-    - ok (boolean) (required) — Whether the rule can start a run.
-    - owner_id (integer) (required) — Owner person ID used for the run context.
-    - scope (string) (required) — Hidden session scope used for the run. [person, team]
-    - team_id (integer) (required) — Team ID used for team-scoped runs; 0 for personal runs.
-    - warnings (array<string>) — Non-blocking preflight warnings.
-  - rule_id (string) (required) — Rule ID.
-  - run (object)
-    - run_id (string) (required) — Created automation run ID.
-    - session_id (string) — Hidden AI SRE session ID started for this run.
-  - trigger_kind (string) (required) — Trigger kind for this run. [manual]
+  - preflight (object) (required) — Readiness checks computed before a manual run is allowed to start.
+    - app_name (string) (required) — App the rule is scoped to. Currently always ai-sre; manual runs are only supported for that app.
+    - checks (array<string>) (required) — Names of the readiness checks performed, in order. Current fixed set: rule_loaded, actor_authorized, app_allowed, runtime_scope_resolved, rule_config_valid.
+    - ok (boolean) (required) — Whether all readiness checks passed. Always true in a response that reaches the caller — a failed preflight returns a 400/403 error instead of a payload with ok=false.
+    - owner_id (integer) (required) — Rule owner person ID.
+    - scope (string) (required) — Resolved run scope for this run; mirrors the rule's run_scope. [person, team]
+    - team_id (integer) (required) — Rule's scope team ID; 0 means a personal rule.
+    - warnings (array<string>) — Non-fatal warnings surfaced during preflight. Omitted or empty when there are none.
+  - rule_id (string) (required) — Rule ID that was run.
+  - run (object) — Reference to the run started by a manual trigger.
+    - run_id (string) (required) — Run ID, always populated once a run is created.
+    - session_id (string) — AI SRE session ID for this run. Always populated in a 200 response, since the call only returns after the session has started.
+  - trigger_kind (string) (required) — Always manual for this operation. [manual]
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-rule-run --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Example: `  flashduty safari automation-rule-run --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -467,7 +467,7 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 		Short: "Update Automation rule",
 		Long: `Update Automation rule.
 
-Update mutable fields on an Automation rule. The personal/team scope is immutable.
+Update mutable Automation rule fields, including HTTP POST and On-call incident trigger settings.
 
 API: POST /safari/automation/rule/update (automation-rule-write-update)
 
@@ -483,9 +483,9 @@ Request fields:
   --environment-id string — BYOC Runner ID.
   --http-post-trigger-enabled bool — Whether the HTTP POST trigger is enabled. Sending true creates one when missing.
   --rotate-http-post-trigger-token bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
-  --oncall-incident-trigger-enabled bool — Whether the on-call incident trigger is enabled. Sending true creates it when missing and channel/severity filters are provided.
-  --oncall-incident-channel-ids []int — On-call channel IDs whose new incidents can trigger this rule.
-  --oncall-incident-severities []string — Incident severities that can trigger this rule. [Critical, Warning, Info]
+  --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
+  --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+  --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -500,9 +500,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - http_post_trigger_id (string) — HTTP POST trigger ID.
   - http_post_trigger_url (string) — HTTP POST trigger path.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call channel IDs watched by the incident trigger.
-  - oncall_incident_severities (array<string>) — Incident severities watched by the trigger. [Critical, Warning, Info]
-  - oncall_incident_trigger_enabled (boolean) (required) — Whether the on-call incident trigger is enabled.
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
@@ -515,7 +515,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_severities":["Critical"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -592,9 +592,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID.")
 	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether the HTTP POST trigger is enabled. Sending true creates one when missing.")
 	cmd.Flags().BoolVar(&fRotateHTTPPostTriggerToken, "rotate-http-post-trigger-token", false, "Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.")
-	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the on-call incident trigger is enabled. Sending true creates it when missing and channel/severity filters are provided.")
-	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call channel IDs whose new incidents can trigger this rule.")
-	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities that can trigger this rule. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

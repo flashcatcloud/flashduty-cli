@@ -185,32 +185,6 @@ func TestGenPositionalRequiredFieldCanComeFromDataOrFlag(t *testing.T) {
 		t.Errorf("rule_id from --rule-id = %#v, want auto_2", got)
 	}
 
-	if _, err := execCommand("incident-trigger-subscription", "upsert", "--data", `{"channel_ids":[2468013579],"consumer":"fc_safari","consumer_ref":"auto_1","severities":["Critical"],"source":"ai_sre_automation"}`); err != nil {
-		t.Fatalf("incident-trigger-subscription upsert --data: %v", err)
-	}
-	if stub.lastPath != "/incident-trigger-subscription/upsert" {
-		t.Fatalf("path = %q, want /incident-trigger-subscription/upsert", stub.lastPath)
-	}
-	raw, ok := stub.lastBody["channel_ids"].([]any)
-	if !ok || len(raw) != 1 || raw[0] != float64(2468013579) {
-		t.Errorf("channel_ids from --data = %#v, want [2468013579]", stub.lastBody["channel_ids"])
-	}
-
-	if _, err := execCommand("incident-trigger-subscription", "upsert", "--channel-ids", "2468013580", "--consumer", "fc_safari", "--consumer-ref", "auto_2", "--severities", "Warning", "--source", "ai_sre_automation"); err != nil {
-		t.Fatalf("incident-trigger-subscription upsert --channel-ids: %v", err)
-	}
-	raw, ok = stub.lastBody["channel_ids"].([]any)
-	if !ok || len(raw) != 1 || raw[0] != float64(2468013580) {
-		t.Errorf("channel_ids from --channel-ids = %#v, want [2468013580]", stub.lastBody["channel_ids"])
-	}
-
-	if _, err := execCommand("incident-trigger-subscription", "upsert", "--channel-ids", "2468013581", "--consumer", "fc_safari", "--consumer-ref", "auto_3", "--severities", "Warning", "--source", "ai_sre_automation", "--enabled=false"); err != nil {
-		t.Fatalf("incident-trigger-subscription upsert --enabled=false: %v", err)
-	}
-	if got, ok := stub.lastBody["enabled"].(bool); !ok || got {
-		t.Errorf("enabled = %#v, want explicit false", stub.lastBody["enabled"])
-	}
-
 	if _, err := execCommand("safari", "automation-rule-run"); err == nil || !strings.Contains(err.Error(), "missing rule_id") {
 		t.Fatalf("automation-rule-run without arg/data/flag error = %v, want missing rule_id", err)
 	}
