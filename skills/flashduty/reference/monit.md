@@ -15,7 +15,8 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on monitors �
 | create / update a datasource | `datasource-create` / `datasource-update` |
 | delete a datasource | `datasource-delete` |
 | SLS project/logstore discovery | `datasource-sls-projects` / `datasource-sls-logstores` |
-| list alert rules (all or by folder) | `rule-list-basic` |
+| list rules directly in ONE folder (needs a real folder-id) | `rule-list-basic` |
+| count rules per top-level folder (subtree totals) | `rule-counter-status` |
 | full rule config | `rule-info` |
 | create / update a rule | `rule-create` / `rule-update` |
 | delete one or many rules | `rule-delete` / `rule-delete-batch` |
@@ -27,7 +28,7 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on monitors �
 | what datasource types support rules | `rule-dstypes` |
 | per-channel / per-node / total counters | `rule-counter-channel` / `rule-counter-node` / `rule-counter-total` |
 | run ad-hoc PromQL / SQL / LogQL | `query-rows` |
-| log pattern clustering / trend RCA | `query-diagnose` |
+| log-pattern / metric-trend RCA evidence | `query-diagnose` |
 | list monitored hosts/targets | `targets` |
 | what tools a target exposes | `tools-catalog` |
 | run host/db diagnostic tools | `tools-invoke` |
@@ -67,6 +68,23 @@ fduty monit tools-invoke --target-locator <hostname-or-ip> --output-format toon 
 {"tools":[{"tool":"host.cpu","params":{}},{"tool":"host.mem","params":{}}]}
 EOF
 ```
+
+## Hot flow — enumerate configured rules (and its hard limit)
+
+`rule-list-basic --folder-id <id>` lists only the rules **directly in that folder**, NOT its sub-folders; `--folder-id 0` or omitting it **400s "Folder not found"**. There is no "all rules" call, so enumeration means walking the folder tree:
+
+```bash
+# 1. top-level folders, each with its whole-subtree rule_total
+fduty monit rule-counter-status --output-format toon
+# 2. descend a folder to its DIRECT child folders (recurse until a folder has no children)
+fduty monit rule-status --folder-id <folder-id> --output-format toon
+# 3. list the rules sitting directly in each folder you reach
+fduty monit rule-list-basic --folder-id <node-id> --output-format toon
+```
+
+**Hard limit — large accounts cannot be fully enumerated.** `rule-counter-status` / `rule-status` abort with 400 "too many rules" past a server cap (default 100 rules; "too many folders" past 500), and no account-wide rule list exists. When you hit that cap you **cannot** enumerate every configured rule from the CLI — say so plainly ("cannot fully enumerate configured rules on this account") instead of fabricating a completeness percentage.
+
+**CONFIGURED ≠ FIRED.** Never infer rule coverage from *fired* alerts (`insight top-alerts`, alert feeds): "not fired in 90d" does **not** mean "not configured", and reporting a rule as missing on that basis is confidently wrong. Fired-alert queries answer "what is noisy", not "what is monitored".
 
 <!-- GENERATED:monit START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -327,6 +345,8 @@ Invoke target tools
 
 **`operation` on `query-diagnose`**: `log_patterns` (loki / victorialogs) or `metric_trends` (prometheus); inferred from `--ds-type` when omitted — only pass it explicitly for ambiguous source types.
 
+**`query-diagnose` output**: results are versioned evidence, not the former summary-only pattern/series lists. Read `pattern_evidence` for logs or `series_evidence` for metrics; their optional comparison fields are absent when the edge has no evidence. Log output also includes `data_handling`, which declares redaction coverage and paths carrying untrusted observed data.
+
 **`targets` response shape** — rows are under `items[]` (not `data[]`); pipe `jq '.items[]'`, not `jq '.[]'`. `updated_at` means "last seen", not "online now".
 
 ## Gotchas
@@ -338,17 +358,20 @@ Invoke target tools
 - **`tools-catalog` / `tools-invoke` `--target-locator` is required and not guessable.** If the user has not provided a host or IP, ask — do not invent one. Tool names in `invoke` must come from the `tools-catalog` response — never hallucinate them.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
+- **`rule-list-basic` needs a REAL `--folder-id` and returns only that folder's *direct* rules.** `--folder-id 0` / omitting it 400s "Folder not found" — the generated `--folder-id` help below ("0 to list all accessible rules") is a known SDK/OpenAPI bug; ignore it. Enumerate by walking the tree (`rule-counter-status` → `rule-status` → `rule-list-basic`); past the server cap the counters 400 "too many rules" and full enumeration isn't possible from the CLI — report that limit, never substitute fired alerts (see the enumerate hot flow).
 
 ## Worked example — inspect a firing rule then batch-disable it
 
 ```bash
-# 1. find triggered rules in folder 0 (all accessible)
-fduty monit rule-list-basic --folder-id 0 --output-format toon
+# 1. find a folder with triggered rules (top-level folders + subtree counts)
+fduty monit rule-counter-status --output-format toon
+# 2. list the rules directly in a chosen folder (descend with rule-status if empty)
+fduty monit rule-list-basic --folder-id <folder-id> --output-format toon
 # look at triggered=true rows; note their ids
 
-# 2. get full config of one rule
+# 3. get full config of one rule
 fduty monit rule-info --id <rule-id> --output-format toon
 
-# 3. disable several rules at once without touching other fields
+# 4. disable several rules at once without touching other fields
 fduty monit rule-update-fields --ids <id1>,<id2> --fields enabled --enabled false
 ```

@@ -55,7 +55,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
-		Args:    requireExactArg("server_id"),
+		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-get --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -361,7 +361,7 @@ API: POST /safari/mcp/server/delete (mcp-write-server-delete)
 Request fields:
   --server-id string (required) — Target MCP server ID.
 `,
-		Args:    requireExactArg("server_id"),
+		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-delete --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -409,7 +409,7 @@ API: POST /safari/mcp/server/disable (mcp-write-server-disable)
 Request fields:
   --server-id string (required) — Target MCP server ID.
 `,
-		Args:    requireExactArg("server_id"),
+		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-disable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -457,7 +457,7 @@ API: POST /safari/mcp/server/enable (mcp-write-server-enable)
 Request fields:
   --server-id string (required) — Target MCP server ID.
 `,
-		Args:    requireExactArg("server_id"),
+		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-enable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -563,7 +563,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
-		Args:    requireExactArg("server_id"),
+		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-update --data '{"description":"Query Prometheus metrics, alerts, and rules.","server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

@@ -130,7 +130,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
-		Args: requireExactArg("page_id"),
+		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -215,7 +215,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - change_id (integer) (required) — Newly created event ID.
   - change_name (string) (required) — Event title (echoed from the request).
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page change-create --data '{"description":"We are investigating degraded performance affecting the web console.","notify_subscribers":true,"page_id":5750613685214,"start_at_seconds":1712000000,"status":"investigating","title":"Web Console Degraded Performance","type":"incident","updates":[{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}],"description":"We are currently investigating an issue affecting some users.","status":"investigating"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -495,7 +495,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
-		Args: requireExactArg("page_id"),
+		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				vStartAtSeconds, okStartAtSeconds, err := genParseTimeFlag(cmd, "start-at-seconds", fStartAtSeconds)
@@ -854,7 +854,7 @@ Request fields:
   --component-ids []string (required) — IDs of components to delete.
   --page-id int (required) — Status page ID.
 `,
-		Args:    requireArgs("component_ids"),
+		Args:    requireBodyFieldOrArgs("component_ids", "component-ids"),
 		Example: `  flashduty status-page component-delete --data '{"component_ids":["01KP032KMN9YFBMPWANJMFZFG1"],"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -921,7 +921,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - component_ids (array<string>) (required) — IDs of the created or updated components, in the same order as the request.
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page component-upsert --data '{"components":[{"description":"Main web interface","name":"Web Console","order_id":1,"section_id":"01KC3FKKX5TSVG6Z3X1QNGF6V2"}],"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -956,6 +956,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genStatusPagesCreateCmd() *cobra.Command {
 	var dataJSON string
+	var fContactInfo string
+	var fCustomDomain string
+	var fDateView string
+	var fDisplayUptimeMode string
+	var fName string
+	var fPageFooter string
+	var fPageHeader string
+	var fPageTitle string
+	var fType string
+	var fURLName string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create status page",
@@ -964,29 +974,89 @@ func genStatusPagesCreateCmd() *cobra.Command {
 Create a new status page.
 
 API: POST /status-page/create (statusPageCreate)
+
+Request fields:
+  --contact-info string — Get-in-touch contact, such as a mailto or website URL.
+  --custom-domain string — Custom domain for a public status page. (≤255 chars)
+  --date-view string (required) — How event dates are displayed. [calendar, list]
+  --display-uptime-mode string (required) — How uptime is displayed. [chart_and_percentage, chart, none]
+  --name string (required) — Display name of the status page. (≤255 chars)
+  --page-footer string — Footer content shown on the status page.
+  --page-header string — Header content shown on the status page.
+  --page-title string — Browser title shown for the status page.
+  --type string (required) — Visibility type of the status page. [public, internal]
+  --url-name string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
+  custom_links (array<object>, via --data) — Custom navigation links shown on the status page.
+  subscription (object, via --data)
+    - email (boolean) — Whether email subscription is enabled.
+    - im (boolean) — Whether IM subscription is enabled.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - page_id (integer) (required) — Created status page ID.
+  - page_name (string) (required) — Created status page name.
+  - page_url_name (string) (required) — Final URL-safe slug assigned to the status page.
 `,
 		Example: `  flashduty status-page create --data '{"contact_info":"mailto:support@example.com","name":"My Status Page","page_header":"Welcome to our status page","type":"public","url_name":"my-status-page"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("contact-info") {
+						body["contact_info"] = fContactInfo
+					}
+					if cmd.Flags().Changed("custom-domain") {
+						body["custom_domain"] = fCustomDomain
+					}
+					if cmd.Flags().Changed("date-view") {
+						body["date_view"] = fDateView
+					}
+					if cmd.Flags().Changed("display-uptime-mode") {
+						body["display_uptime_mode"] = fDisplayUptimeMode
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("page-footer") {
+						body["page_footer"] = fPageFooter
+					}
+					if cmd.Flags().Changed("page-header") {
+						body["page_header"] = fPageHeader
+					}
+					if cmd.Flags().Changed("page-title") {
+						body["page_title"] = fPageTitle
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					if cmd.Flags().Changed("url-name") {
+						body["url_name"] = fURLName
+					}
 					return nil
 				})
 				if err != nil {
 					return err
 				}
-				_ = body
-				resp, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd))
+				req := new(flashduty.CreateStatusPageRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/create")
-				return nil
+				return printGenericResult(ctx, out)
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL.")
+	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. (≤255 chars)")
+	cmd.Flags().StringVar(&fDateView, "date-view", "", "How event dates are displayed. (required) [calendar, list]")
+	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. (required) [chart_and_percentage, chart, none]")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. (required) (≤255 chars)")
+	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page.")
+	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page.")
+	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page.")
+	cmd.Flags().StringVar(&fType, "type", "", "Visibility type of the status page. (required) [public, internal]")
+	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1043,7 +1113,7 @@ API: GET /status-page/info (statusPageInfo)
 Request fields:
   --page-id string (required) — Status page ID
 `,
-		Args: requireExactArg("page_id"),
+		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1160,7 +1230,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
 `,
-		Args:    requireExactArg("source_page_id"),
+		Args:    requireBodyFieldOrExactArg("source_page_id", "source-page-id"),
 		Example: `  flashduty status-page migrate-structure --data '{"api_key":"sk-stsp-xxxxxxxxxxxxxxxxxxxx","source_page_id":"abcdefghij"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1216,7 +1286,7 @@ API: POST /status-page/migration/cancel (statusPageMigrationCancel)
 Request fields:
   --job-id string (required) — Migration job ID.
 `,
-		Args:    requireExactArg("job_id"),
+		Args:    requireBodyFieldOrExactArg("job_id", "job-id"),
 		Example: `  flashduty status-page migration-cancel --data '{"job_id":"01KP0311872NVYFRRQ82FW0001"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1274,7 +1344,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - error (string) — Terminal error message when 'status' is 'failed'.
   - job_id (string) (required) — Migration job ID.
   - phase (string) (required) — Current migration phase. [structure, history, subscribers]
-  - progress (object) (required) — Progress counters for a migration job.
+  - progress (object) (required) — Per-entity progress counters.
     - completed_steps (integer) (required) — Steps completed so far.
     - components_imported (integer) (required)
     - incidents_imported (integer) (required)
@@ -1290,7 +1360,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
   - updated_at (integer) (required) — Last status update time, unix seconds.
 `,
-		Args: requireExactArg("job_id"),
+		Args: requireBodyFieldOrExactArg("job_id", "job-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1339,7 +1409,7 @@ Request fields:
   --page-id int (required) — Status page ID.
   --section-ids []string (required) — IDs of sections to delete.
 `,
-		Args:    requireArgs("section_ids"),
+		Args:    requireBodyFieldOrArgs("section_ids", "section-ids"),
 		Example: `  flashduty status-page section-delete --data '{"page_id":5750613685214,"section_ids":["01KP032J1FV2H8DDGN0QSJ1CAR"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1405,7 +1475,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - section_ids (array<string>) (required) — IDs of the created or updated sections, in the same order as the request.
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page section-upsert --data '{"page_id":5750613685214,"sections":[{"description":"Our core services","name":"Core Services","order_id":1}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1455,7 +1525,7 @@ Request fields:
   --component-ids []string — Optional component IDs to filter subscribers by.
   --page-id int (required) — Status page ID.
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page subscriber-export --data '{"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1515,7 +1585,7 @@ Request fields:
     - locale (string) — Preferred locale for notifications. Defaults to the request locale when omitted.
     - recipient (string) (required) — Email address (for public pages) or user ID (for internal pages). (≤255 chars)
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page subscriber-import --data '{"method":"email","page_id":5750613685214,"subscribers":[{"all":true,"locale":"en-US","recipient":"alice@example.com"},{"all":false,"component_ids":["01KC3GAZ6ZJE40H55GM31RPWZE"],"locale":"zh-CN","recipient":"bob@example.com"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1595,7 +1665,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
   - total (integer) (required) — Total matching subscribers.
 `,
-		Args: requireExactArg("page_id"),
+		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1716,7 +1786,7 @@ Request fields:
   --page-id int (required) — Status page ID.
   --type string (required) — Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. [pre_defined, message]
 `,
-		Args: requireExactArg("page_id"),
+		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1782,7 +1852,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — ID of the created or updated template.
 `,
-		Args:    requireExactArg("page_id"),
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page template-upsert --data '{"page_id":5720156736380,"template":{"description":"We are investigating a service disruption affecting some users.","event_type":"incident","status":"investigating","title":"Service Disruption"},"type":"pre_defined"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

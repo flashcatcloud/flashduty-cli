@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-get --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -191,7 +191,7 @@ Request fields:
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --auth-type string — Authentication type for the remote agent.
   --card-url string (required) — URL of the remote agent card.
-  --description string — Agent description.
+  --description string — Agent description. (≤2000 chars)
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --streaming bool — Whether the remote agent supports streaming.
@@ -253,7 +253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for the remote agent.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the remote agent card. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Agent description.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Agent description. (≤2000 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the remote agent supports streaming.")
@@ -277,7 +277,7 @@ API: POST /safari/a2a-agent/delete (remote-agent-write-delete)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-delete --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -325,7 +325,7 @@ API: POST /safari/a2a-agent/disable (remote-agent-write-disable)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-disable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -373,7 +373,7 @@ API: POST /safari/a2a-agent/enable (remote-agent-write-enable)
 Request fields:
   --agent-id string (required) — Target agent ID.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-enable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -433,14 +433,14 @@ Request fields:
   --auth-mode string — New auth mode: shared, per_user_secret, or per_user_oauth.
   --auth-type string — New auth type. Omit to leave unchanged.
   --card-url string — New card URL. Omit to leave unchanged.
-  --description string — New description. Omit to leave unchanged.
+  --description string — New description. Omit to leave unchanged. (≤2000 chars)
   --oauth-metadata string — New JSON OAuth metadata.
   --secret-schema string — New JSON secret schema.
   --streaming bool — Toggle streaming support. Omit to leave unchanged.
   --team-id int — Reassign team scope. Omit to leave unchanged.
   auth_config (object, via --data) — Replace the auth config. Omit to leave unchanged.
 `,
-		Args:    requireExactArg("agent_id"),
+		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D","description":"Inspects deployment pipelines and proposes rollbacks."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -500,7 +500,7 @@ Request fields:
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New auth mode: shared, per_user_secret, or per_user_oauth.")
 	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New auth type. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "New card URL. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Omit to leave unchanged. (≤2000 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New JSON OAuth metadata.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New JSON secret schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming support. Omit to leave unchanged.")

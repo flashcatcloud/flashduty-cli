@@ -10,7 +10,7 @@ Prereq: `SKILL.md` read. Datasource-side RCA: query a monitoring datasource dire
 
 | want | verb |
 |---|---|
-| pre-clustered RCA findings (surging log patterns / notable metric trends) | `diagnose --operation log_patterns\|metric_trends` |
+| pre-clustered RCA evidence (log patterns / metric trends) | `diagnose --operation log_patterns\|metric_trends` |
 | run a raw query and get values/rows back as the datasource returns them | `rows --expr "<query>"` |
 
 ## Hot flow — diagnose a noisy datasource
@@ -51,7 +51,7 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 ## Key concepts
 
 - **`rows` = raw passthrough.** Response `data` is a **top-level array** of row objects — pipe `jq '.[]'`, NOT `.items[]`. Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. **Time belongs in the query expression**, not in flags.
-- **`diagnose` = pre-clustered findings.** `--operation log_patterns` returns surging/new/gone log templates (RCA-sorted); `metric_trends` returns notable series (current vs baseline). Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
+- **`diagnose` = pre-clustered evidence.** Its versioned response echoes the datasource, query, and RFC 3339 analysis window. Each result contains method-specific `pattern_evidence` (logs) or `series_evidence` (metrics), structured window statistics, and observations; log results also declare redaction and untrusted observed-data paths in `data_handling`. Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
 
 ## Gotchas
 
@@ -60,7 +60,7 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 - `rows` has **no time flags** — putting `--time-start` on `rows` is wrong; embed the range in `--expr`.
 - Empty results = the query genuinely matched nothing in that window — report it, don't widen blindly.
 
-## Worked example — surging log patterns in the last hour
+## Worked example — log-pattern evidence in the last hour
 
 ```bash
 fduty monit-query diagnose --ds-name prod-loki --ds-type loki \

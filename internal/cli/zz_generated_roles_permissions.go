@@ -33,7 +33,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Role status. [enabled, disabled]
   - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
 `,
-		Args:    requireExactArg("role_id"),
+		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role info --data '{"role_id":2}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -252,7 +252,7 @@ API: POST /role/delete (role-write-delete)
 Request fields:
   --role-id int (required) — Role ID.
 `,
-		Args:    requireExactArg("role_id"),
+		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role delete --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -304,7 +304,7 @@ API: POST /role/disable (role-write-disable)
 Request fields:
   --role-id int (required) — Role ID.
 `,
-		Args:    requireExactArg("role_id"),
+		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role disable --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -356,7 +356,7 @@ API: POST /role/enable (role-write-enable)
 Request fields:
   --role-id int (required) — Role ID.
 `,
-		Args:    requireExactArg("role_id"),
+		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role enable --data '{"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -410,7 +410,7 @@ Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
   --role-id int (required) — Role ID to grant or revoke.
 `,
-		Args:    requireArgs("member_ids"),
+		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
 		Example: `  flashduty role member-grant --data '{"member_ids":[80011,80012],"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -468,7 +468,7 @@ Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
   --role-id int (required) — Role ID to grant or revoke.
 `,
-		Args:    requireArgs("member_ids"),
+		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
 		Example: `  flashduty role member-revoke --data '{"member_ids":[80011],"role_id":150}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

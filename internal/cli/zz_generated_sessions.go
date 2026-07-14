@@ -88,7 +88,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - reasoning_tokens (integer) — Total reasoning/thinking tokens.
     - updated_at (integer) — Unix timestamp in milliseconds of the last session update.
 `,
-		Args:    requireExactArg("session_id"),
+		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-get --data '{"num_recent_events":50,"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -301,7 +301,7 @@ API: POST /safari/session/delete (session-write-delete)
 Request fields:
   --session-id string (required) — Target session ID. (≥1 chars)
 `,
-		Args:    requireExactArg("session_id"),
+		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-delete --data '{"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

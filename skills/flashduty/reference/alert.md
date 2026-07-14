@@ -49,7 +49,11 @@ fduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment 
 
 ### event-list <alert-id>
 List events for an alert
-- `<alert-id>` (positional, required) string — Alert ID (ObjectID hex string).
+- `<alert-id>` (positional, required) string — Alert ID (MongoDB ObjectID).
+- `--asc` bool — When true, return events oldest-first. Defaults to newest-first.
+- `--limit` int64 — Page size. Defaults to 20 and cannot exceed 100. (0-100)
+- `--page` int64 — Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)
+- `--search-after-ctx` string — Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.
 
 ### events <alert_id>
 List alert events
