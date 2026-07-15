@@ -43,7 +43,7 @@ Request fields:
   --plugin-ids []int — IDs of plugins (integrations) subscribed to this channel.
   --team-id int (required) — Owning team ID.
   escalate_rule (object, via --data) — Default escalation rule applied to the channel. Omit to skip default escalation.
-    - aggr_window (integer) — Aggregation window in seconds. 0 disables aggregation. (0-3600)
+    - aggr_window (integer) — Delay window in seconds. 0 disables delay. (0-3600)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
       - by (object) — Per-severity personal notification channels. Required unless 'webhooks' is provided.
         - critical (array<string>) — Channels for Critical events (e.g. 'voice', 'sms', 'email', 'feishu').
@@ -323,7 +323,7 @@ Create an escalation rule defining who gets notified and when during an incident
 API: POST /channel/escalate/rule/create (channelEscalateRuleCreate)
 
 Request fields:
-  --aggr-window int — Aggregation window in seconds. 0 disables aggregation. (0-3600)
+  --aggr-window int — Delay window in seconds. 0 disables delay. (0-3600)
   --channel-id int (required) — Channel the rule belongs to.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first. (0-200)
@@ -398,7 +398,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Aggregation window in seconds. 0 disables aggregation. (0-3600)")
+	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Delay window in seconds. 0 disables delay. (0-3600)")
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first. (0-200)")
@@ -589,7 +589,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - aggr_window (integer) (required) — Aggregation window in seconds.
+  - aggr_window (integer) (required) — Delay window in seconds.
   - channel_id (integer) (required) — Channel the rule belongs to.
   - channel_name (string) — Channel name, populated for cross-channel listing responses.
   - created_at (integer) (required) — Creation timestamp (unix seconds).
@@ -679,7 +679,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required) — Owning account ID.
-    - aggr_window (integer) (required) — Aggregation window in seconds.
+    - aggr_window (integer) (required) — Delay window in seconds.
     - channel_id (integer) (required) — Channel the rule belongs to.
     - channel_name (string) — Channel name, populated for cross-channel listing responses.
     - created_at (integer) (required) — Creation timestamp (unix seconds).
@@ -764,7 +764,7 @@ Update an existing escalation rule configuration.
 API: POST /channel/escalate/rule/update (channelEscalateRuleUpdate)
 
 Request fields:
-  --aggr-window int — Aggregation window in seconds. 0 disables aggregation.
+  --aggr-window int — Delay window in seconds. 0 disables delay.
   --channel-id int (required) — Channel the rule belongs to.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first.
@@ -843,73 +843,13 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Aggregation window in seconds. 0 disables aggregation.")
+	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Delay window in seconds. 0 disables delay.")
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Escalation rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Notification template ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
-func genChannelsChannelEscalateWebhookRobotListCmd() *cobra.Command {
-	var dataJSON string
-	var fQuery string
-	var fType string
-	cmd := &cobra.Command{
-		Use:   "escalate-webhook-robot-list",
-		Short: "List webhook robots in escalation rules",
-		Long: `List webhook robots in escalation rules.
-
-List all IM webhook robots configured in escalation rules across the account. Returns a deduplicated list of robots with references to which channels and escalation rules use them.
-
-API: POST /channel/escalate/webhook/robot/list (channelEscalateWebhookRobotList)
-
-Request fields:
-  --query string — Search keyword. Fuzzy matches against robot alias or token, case-insensitive.
-  --type string — Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.
-
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - list (array<object>) — Deduplicated list of webhook robots.
-    - referenced_by (array<object>) — List of channels and escalation rules referencing this robot.
-      - channel_id (integer) — Channel ID.
-      - channel_name (string) — Channel name.
-      - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID).
-      - escalate_rule_name (string) — Escalation rule name.
-    - settings (object) — Robot configuration, including 'token' (webhook URL or secret) and 'alias' (robot display name) among other fields.
-    - type (string) — Robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams', etc.
-`,
-		Example: `  flashduty channel escalate-webhook-robot-list --data '{"query":"ops","type":"feishu"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("query") {
-						body["query"] = fQuery
-					}
-					if cmd.Flags().Changed("type") {
-						body["type"] = fType
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.ChannelsChannelEscalateWebhookRobotListRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.Channels.ChannelEscalateWebhookRobotList(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword. Fuzzy matches against robot alias or token, case-insensitive.")
-	cmd.Flags().StringVar(&fType, "type", "", "Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2777,7 +2717,6 @@ func registerGeneratedChannels(root *cobra.Command) {
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleListCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleUpdateCmd())
-	genAddLeaf(gChannel, genChannelsChannelEscalateWebhookRobotListCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfosCmd())
 	genAddLeaf(gChannel, genChannelsChannelInhibitRuleCreateCmd())

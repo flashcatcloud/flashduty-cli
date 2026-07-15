@@ -28,7 +28,7 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on monitors �
 | what datasource types support rules | `rule-dstypes` |
 | per-channel / per-node / total counters | `rule-counter-channel` / `rule-counter-node` / `rule-counter-total` |
 | run ad-hoc PromQL / SQL / LogQL | `query-rows` |
-| log pattern clustering / trend RCA | `query-diagnose` |
+| log-pattern / metric-trend RCA evidence | `query-diagnose` |
 | list monitored hosts/targets | `targets` |
 | what tools a target exposes | `tools-catalog` |
 | run host/db diagnostic tools | `tools-invoke` |
@@ -344,6 +344,8 @@ Invoke target tools
 **Query name** — `rule_configs.queries[].name` is a single letter (e.g. `A`, `B`). `R` is reserved — do not use it.
 
 **`operation` on `query-diagnose`**: `log_patterns` (loki / victorialogs) or `metric_trends` (prometheus); inferred from `--ds-type` when omitted — only pass it explicitly for ambiguous source types.
+
+**`query-diagnose` output**: results are versioned evidence, not the former summary-only pattern/series lists. Read `pattern_evidence` for logs or `series_evidence` for metrics; their optional comparison fields are absent when the edge has no evidence. Log output also includes `data_handling`, which declares redaction coverage and paths carrying untrusted observed data.
 
 **`targets` response shape** — rows are under `items[]` (not `data[]`); pipe `jq '.items[]'`, not `jq '.[]'`. `updated_at` means "last seen", not "online now".
 

@@ -69,165 +69,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
-func genIncidentsTriggerSubscriptionWriteDeleteCmd() *cobra.Command {
-	var dataJSON string
-	var fConsumer string
-	var fConsumerRef string
-	var fSource string
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete incident trigger subscription",
-		Long: `Delete incident trigger subscription.
-
-Delete an incident trigger subscription for AI SRE automation.
-
-API: POST /incident-trigger-subscription/delete (incident-trigger-subscription-write-delete)
-
-Request fields:
-  --consumer string (required) — Consumer system.
-  --consumer-ref string (required) — Consumer-owned reference, such as an Automation rule ID.
-  --source string (required) — Subscription source.
-`,
-		Example: `  flashduty incident-trigger-subscription delete --data '{"consumer":"fc_safari","consumer_ref":"auto_7NnLzY2Qp8xS4kUaV3mR6b","source":"ai_sre_automation"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("consumer") {
-						body["consumer"] = fConsumer
-					}
-					if cmd.Flags().Changed("consumer-ref") {
-						body["consumer_ref"] = fConsumerRef
-					}
-					if cmd.Flags().Changed("source") {
-						body["source"] = fSource
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.IncidentTriggerSubscriptionDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				resp, err := ctx.Client.Incidents.TriggerSubscriptionWriteDelete(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /incident-trigger-subscription/delete")
-				return nil
-			})
-		},
-	}
-	cmd.Flags().StringVar(&fConsumer, "consumer", "", "Consumer system. (required)")
-	cmd.Flags().StringVar(&fConsumerRef, "consumer-ref", "", "Consumer-owned reference, such as an Automation rule ID. (required)")
-	cmd.Flags().StringVar(&fSource, "source", "", "Subscription source. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
-func genIncidentsTriggerSubscriptionWriteUpsertCmd() *cobra.Command {
-	var dataJSON string
-	var fChannelIDs []int
-	var fConsumer string
-	var fConsumerRef string
-	var fEnabled bool
-	var fSeverities []string
-	var fSource string
-	var fSubscriptionID string
-	cmd := &cobra.Command{
-		Use:   "upsert <channel-id> [<id2>...]",
-		Short: "Create or update incident trigger subscription",
-		Long: `Create or update incident trigger subscription.
-
-Create or update an incident trigger subscription for AI SRE automation.
-
-API: POST /incident-trigger-subscription/upsert (incident-trigger-subscription-write-upsert)
-
-Request fields:
-  --channel-ids []int (required) — On-call channel IDs whose new incidents should trigger the consumer.
-  --consumer string (required) — Consumer system. Use 'fc_safari' for AI SRE automation rules.
-  --consumer-ref string (required) — Consumer-owned reference, such as an Automation rule ID.
-  --enabled bool — Whether the subscription is enabled. Defaults to true when omitted.
-  --severities []string (required) — Incident severities to subscribe to. 'Ok' is not valid. [Critical, Warning, Info]
-  --source string (required) — Subscription source. Use 'ai_sre_automation' for AI SRE automation rules.
-  --subscription-id string — Existing subscription ID. Omit to create or upsert by source, consumer, and consumer_ref.
-
-Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - channel_ids (array<integer>) (required) — Subscribed channel IDs.
-  - consumer (string) (required) — Consumer system.
-  - consumer_ref (string) (required) — Consumer-owned reference.
-  - created_at (integer) (required) — Unix timestamp in seconds when the subscription was created.
-  - created_by (integer) (required) — Member ID that created the subscription.
-  - deleted_at (integer) (required) — Unix timestamp in seconds when the subscription was deleted; 0 means active.
-  - enabled (boolean) (required) — Whether the subscription is enabled.
-  - severities (array<string>) (required) — Subscribed incident severities. [Critical, Warning, Info]
-  - source (string) (required) — Subscription source.
-  - subscription_id (string) (required) — Subscription ID.
-  - updated_at (integer) (required) — Unix timestamp in seconds when the subscription was last updated.
-  - updated_by (integer) (required) — Member ID that last updated the subscription.
-`,
-		Args:    requireBodyFieldOrArgs("channel_ids", "channel-ids"),
-		Example: `  flashduty incident-trigger-subscription upsert --data '{"channel_ids":[2468013579],"consumer":"fc_safari","consumer_ref":"auto_7NnLzY2Qp8xS4kUaV3mR6b","enabled":true,"severities":["Critical","Warning"],"source":"ai_sre_automation"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if err := genFoldPositional(args, body, "channel_ids", "intslice"); err != nil {
-						return err
-					}
-					if cmd.Flags().Changed("channel-ids") {
-						body["channel_ids"] = fChannelIDs
-					}
-					if cmd.Flags().Changed("consumer") {
-						body["consumer"] = fConsumer
-					}
-					if cmd.Flags().Changed("consumer-ref") {
-						body["consumer_ref"] = fConsumerRef
-					}
-					if cmd.Flags().Changed("enabled") {
-						body["enabled"] = fEnabled
-					}
-					if cmd.Flags().Changed("severities") {
-						body["severities"] = fSeverities
-					}
-					if cmd.Flags().Changed("source") {
-						body["source"] = fSource
-					}
-					if cmd.Flags().Changed("subscription-id") {
-						body["subscription_id"] = fSubscriptionID
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.IncidentTriggerSubscriptionUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.Incidents.TriggerSubscriptionWriteUpsert(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "On-call channel IDs whose new incidents should trigger the consumer. (required)")
-	cmd.Flags().StringVar(&fConsumer, "consumer", "", "Consumer system. Use 'fc_safari' for AI SRE automation rules. (required)")
-	cmd.Flags().StringVar(&fConsumerRef, "consumer-ref", "", "Consumer-owned reference, such as an Automation rule ID. (required)")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the subscription is enabled. Defaults to true when omitted.")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Incident severities to subscribe to. 'Ok' is not valid. (required) [Critical, Warning, Info]")
-	cmd.Flags().StringVar(&fSource, "source", "", "Subscription source. Use 'ai_sre_automation' for AI SRE automation rules. (required)")
-	cmd.Flags().StringVar(&fSubscriptionID, "subscription-id", "", "Existing subscription ID. Omit to create or upsert by source, consumer, and consumer_ref.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genIncidentsWriteAddWarRoomMemberCmd() *cobra.Command {
 	var dataJSON string
 	var fChatID string
@@ -412,7 +253,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -823,7 +664,64 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_at (integer) (required) — Creation timestamp in milliseconds.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
     - deleted_at (integer) — Soft-delete timestamp (ms). Zero if not deleted.
-    - detail (any) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
+      - by (string) — Delivery channel or method label.
+      - chat_id (string) — Chat group identifier.
+      - chat_name (string) — Chat group display name.
+      - chats (array<object>) — Per-chat delivery records.
+        - chat_id (string) — Chat group identifier.
+        - chat_name (string) — Chat group display name.
+        - data_source_id (integer) — Integration data source ID used to send the notification.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+      - comment (string) — Comment body.
+      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+      - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
+      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
+      - field_name (string) — Name of the custom field that was updated.
+      - fire_type (string) — Whether this is the first fire or a refire. [fire, refire]
+      - from (string) — Source that triggered the resolve action. [voice, console, card, wcard, event, autorslv, autorefresh, escalation]
+      - id (string) — Opaque assignment ID generated by the server.
+      - in_mins (integer) — Window length in minutes.
+      - integration_id (integer) — Integration ID that executed the action.
+      - integration_name (string) — Integration display name.
+      - layer_idx (integer) — Current level index within the escalation rule.
+      - max_changes (integer) — Maximum state changes allowed within the window.
+      - minutes (integer) — Snooze duration in minutes.
+      - msg_id (string) — Upstream message ID returned by the delivery channel.
+      - mute_mins (integer) — Mute duration in minutes once flapping is detected.
+      - mute_reply (boolean) — Whether replies to this comment are muted.
+      - owner_id (integer) — Member ID that performed the merge.
+      - person_ids (array<integer>) — Member IDs to assign directly.
+      - persons (array<object>) — Per-person delivery records.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - person_id (integer) — Recipient member ID.
+      - plugin_type (string) — Chat integration plugin type.
+      - progress (string) — Progress note entered at acknowledgement.
+      - reason (string) — Reason why the incident was reopened.
+      - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
+      - reporter_email (string) — Email of the reporter when the incident was created externally.
+      - rid (string) — Notification record ID.
+      - robots (array<object>) — Per-robot delivery records.
+        - alias (string) — Robot alias.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - token (string) — Robot token or identifier.
+      - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - share_link (string) — Shareable join link for the war room.
+      - snoozedBefore (integer) — Unix timestamp at which the prior snooze was scheduled to end.
+      - source_incidents (array<object>) — Source incidents that were merged.
+        - incident_id (string) — Incident ID (ObjectID hex string).
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - title (string) — Incident title.
+      - source_responders (array<integer>) — Responder member IDs carried over from the source incidents.
+      - target_incident (object) — Brief incident reference embedded in an alert.
+        - incident_id (string) — Incident ID (ObjectID hex string).
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - title (string) — Incident title.
+      - threshold (integer) — Storm threshold that was reached.
+      - title (string) — Initial incident title.
+      - to (array<integer>) — Member IDs that received the assignment.
+      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
     - ref_id (string) (required) — ObjectID of the source alert or incident this entry references.
     - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
     - updated_at (integer) (required) — Last update timestamp in milliseconds.
@@ -1013,7 +911,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - alt (string) — Alt text.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -1029,7 +927,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
     - updated_at (integer) (required) — Last update timestamp (seconds).
-  - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+  - assigned_to (object) (required) — Current assignment target for the incident.
     - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
     - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1042,14 +940,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_name (string) (required) — Channel display name.
   - channel_status (string) (required) — Channel status.
   - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-  - closer (object) — A Flashduty member reference.
+  - closer (object) — Closer member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
     - person_name (string) — Member display name.
   - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
   - created_at (integer) (required) — Creation timestamp (seconds).
-  - creator (object) — A Flashduty member reference.
+  - creator (object) — Creator member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
@@ -1089,7 +987,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - open_type (string) (required) — How the link should be opened. [popup, tab]
   - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
   - num (string) (required) — Short display identifier; not guaranteed unique.
-  - owner (object) — A Flashduty member reference.
+  - owner (object) — Owner member info. May be deprecated.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
@@ -1262,7 +1160,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1278,7 +1176,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1291,14 +1189,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1338,7 +1236,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1555,7 +1453,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1571,7 +1469,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1584,14 +1482,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1631,7 +1529,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1843,7 +1741,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1859,7 +1757,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1872,14 +1770,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1919,7 +1817,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -3600,9 +3498,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func registerGeneratedIncidents(root *cobra.Command) {
 	gIncident := genGroup(root, "incident", "On-call/Incidents API")
 	genAddLeaf(gIncident, genIncidentsReadGetWarRoomDefaultObserversCmd())
-	gIncidentTriggerSubscription := genGroup(root, "incident-trigger-subscription", "On-call/Incidents API")
-	genAddLeaf(gIncidentTriggerSubscription, genIncidentsTriggerSubscriptionWriteDeleteCmd())
-	genAddLeaf(gIncidentTriggerSubscription, genIncidentsTriggerSubscriptionWriteUpsertCmd())
 	genAddLeaf(gIncident, genIncidentsWriteAddWarRoomMemberCmd())
 	genAddLeaf(gIncident, genIncidentsAckCmd())
 	genAddLeaf(gIncident, genIncidentsAlertListCmd())

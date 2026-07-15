@@ -89,7 +89,7 @@ Enable channel
 
 ### escalate-rule-create
 Create escalation rule
-- `--aggr-window` int64 — Aggregation window in seconds. 0 disables aggregation. (0-3600)
+- `--aggr-window` int64 — Delay window in seconds. 0 disables delay. (0-3600)
 - `--channel-id` int64 (required) — Channel the rule belongs to.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
@@ -123,7 +123,7 @@ List escalation rules
 
 ### escalate-rule-update
 Update escalation rule
-- `--aggr-window` int64 — Aggregation window in seconds. 0 disables aggregation.
+- `--aggr-window` int64 — Delay window in seconds. 0 disables delay.
 - `--channel-id` int64 (required) — Channel the rule belongs to.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
@@ -131,11 +131,6 @@ Update escalation rule
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
 - body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
-
-### escalate-webhook-robot-list
-List webhook robots in escalation rules
-- `--query` string — Search keyword. Fuzzy matches against robot alias or token, case-insensitive.
-- `--type` string — Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.
 
 ### info <channel-id>
 Get channel detail

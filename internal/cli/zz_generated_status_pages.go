@@ -956,6 +956,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genStatusPagesCreateCmd() *cobra.Command {
 	var dataJSON string
+	var fContactInfo string
+	var fCustomDomain string
+	var fDateView string
+	var fDisplayUptimeMode string
+	var fName string
+	var fPageFooter string
+	var fPageHeader string
+	var fPageTitle string
+	var fType string
+	var fURLName string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create status page",
@@ -964,29 +974,89 @@ func genStatusPagesCreateCmd() *cobra.Command {
 Create a new status page.
 
 API: POST /status-page/create (statusPageCreate)
+
+Request fields:
+  --contact-info string — Get-in-touch contact, such as a mailto or website URL.
+  --custom-domain string — Custom domain for a public status page. (≤255 chars)
+  --date-view string (required) — How event dates are displayed. [calendar, list]
+  --display-uptime-mode string (required) — How uptime is displayed. [chart_and_percentage, chart, none]
+  --name string (required) — Display name of the status page. (≤255 chars)
+  --page-footer string — Footer content shown on the status page.
+  --page-header string — Header content shown on the status page.
+  --page-title string — Browser title shown for the status page.
+  --type string (required) — Visibility type of the status page. [public, internal]
+  --url-name string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
+  custom_links (array<object>, via --data) — Custom navigation links shown on the status page.
+  subscription (object, via --data)
+    - email (boolean) — Whether email subscription is enabled.
+    - im (boolean) — Whether IM subscription is enabled.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - page_id (integer) (required) — Created status page ID.
+  - page_name (string) (required) — Created status page name.
+  - page_url_name (string) (required) — Final URL-safe slug assigned to the status page.
 `,
 		Example: `  flashduty status-page create --data '{"contact_info":"mailto:support@example.com","name":"My Status Page","page_header":"Welcome to our status page","type":"public","url_name":"my-status-page"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("contact-info") {
+						body["contact_info"] = fContactInfo
+					}
+					if cmd.Flags().Changed("custom-domain") {
+						body["custom_domain"] = fCustomDomain
+					}
+					if cmd.Flags().Changed("date-view") {
+						body["date_view"] = fDateView
+					}
+					if cmd.Flags().Changed("display-uptime-mode") {
+						body["display_uptime_mode"] = fDisplayUptimeMode
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("page-footer") {
+						body["page_footer"] = fPageFooter
+					}
+					if cmd.Flags().Changed("page-header") {
+						body["page_header"] = fPageHeader
+					}
+					if cmd.Flags().Changed("page-title") {
+						body["page_title"] = fPageTitle
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					if cmd.Flags().Changed("url-name") {
+						body["url_name"] = fURLName
+					}
 					return nil
 				})
 				if err != nil {
 					return err
 				}
-				_ = body
-				resp, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd))
+				req := new(flashduty.CreateStatusPageRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/create")
-				return nil
+				return printGenericResult(ctx, out)
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL.")
+	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. (≤255 chars)")
+	cmd.Flags().StringVar(&fDateView, "date-view", "", "How event dates are displayed. (required) [calendar, list]")
+	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. (required) [chart_and_percentage, chart, none]")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. (required) (≤255 chars)")
+	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page.")
+	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page.")
+	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page.")
+	cmd.Flags().StringVar(&fType, "type", "", "Visibility type of the status page. (required) [public, internal]")
+	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1274,7 +1344,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - error (string) — Terminal error message when 'status' is 'failed'.
   - job_id (string) (required) — Migration job ID.
   - phase (string) (required) — Current migration phase. [structure, history, subscribers]
-  - progress (object) (required) — Progress counters for a migration job.
+  - progress (object) (required) — Per-entity progress counters.
     - completed_steps (integer) (required) — Steps completed so far.
     - components_imported (integer) (required)
     - incidents_imported (integer) (required)
