@@ -259,3 +259,25 @@ func TestMonitQueryRowsInvalidArgs(t *testing.T) {
 		t.Errorf("rows should not have been called: %d request(s)", stub.requests)
 	}
 }
+
+func TestMonitQueryRowsVictorialogsRawRequiresTimeRange(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"monit-query", "rows",
+		"--ds-type", "victorialogs",
+		"--ds-name", "vl-prod",
+		"--expr", "* | limit 2",
+		"--args", "victorialogs.type=raw",
+	)
+	if err == nil {
+		t.Fatal("expected error for victorialogs raw mode missing start/end, got nil")
+	}
+	if !strings.Contains(err.Error(), "victorialogs.start") || !strings.Contains(err.Error(), "victorialogs.end") {
+		t.Errorf("expected error to mention victorialogs.start/end, got %q", err.Error())
+	}
+	if stub.requests != 0 {
+		t.Errorf("rows should not have been called: %d request(s)", stub.requests)
+	}
+}

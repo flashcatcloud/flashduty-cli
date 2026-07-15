@@ -102,6 +102,10 @@ func newMonitQueryRowsCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid --args: %w", err)
 			}
+			if dsType == "victorialogs" && argsMap["victorialogs.type"] == "raw" &&
+				(argsMap["victorialogs.start"] == "" || argsMap["victorialogs.end"] == "") {
+				return fmt.Errorf("victorialogs raw mode requires --args victorialogs.start=<unix> --args victorialogs.end=<unix>; see skills/flashduty/reference/monit-query.md")
+			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				input := &flashduty.QueryRowsRequest{
