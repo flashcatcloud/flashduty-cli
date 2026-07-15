@@ -104,7 +104,7 @@ func newMonitQueryRowsCmd() *cobra.Command {
 			}
 			if dsType == "victorialogs" && argsMap["victorialogs.type"] == "raw" &&
 				(argsMap["victorialogs.start"] == "" || argsMap["victorialogs.end"] == "") {
-				return fmt.Errorf("victorialogs raw mode requires --args victorialogs.start=<unix> --args victorialogs.end=<unix>; see skills/flashduty/reference/monit-query.md")
+				return fmt.Errorf("victorialogs raw mode requires --args victorialogs.start=<unix> --args victorialogs.end=<unix>")
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
