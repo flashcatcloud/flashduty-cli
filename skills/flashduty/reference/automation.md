@@ -97,11 +97,10 @@ fduty automation delete <rule-id> --force
 fduty automation fire <trigger-id> \
   --token "$FLASHDUTY_AUTOMATION_TRIGGER_TOKEN" \
   --text "manual validation run" \
-  --dedup-key "manual-$(date +%Y%m%d%H%M)" \
   --output-format toon
 ```
 
-`--dedup-key` makes retries idempotent for the same trigger. Do not invent a token. If it is missing, rotate the trigger token through `update` or ask the user to provide it through their secure shell/environment, not in chat.
+The trigger API has no idempotency key: retry only when the failed call is known not to have reached the server. Do not invent a token. If it is missing, rotate the trigger token through `update` or ask the user to provide it through their secure shell/environment, not in chat.
 
 <!-- GENERATED:automation START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -127,7 +126,6 @@ Delete an Automation
 
 ### fire <trigger_id>
 Fire an Automation HTTP POST trigger
-- `--dedup-key` string
 - `--text` string
 - `--token` string
 

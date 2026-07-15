@@ -458,7 +458,6 @@ func buildAutomationFireCmd(use string) *cobra.Command {
 	var (
 		token    string
 		text     string
-		dedupKey string
 		dataJSON string
 	)
 
@@ -468,12 +467,11 @@ func buildAutomationFireCmd(use string) *cobra.Command {
 		Long: `Trigger an Automation run through its HTTP POST trigger.
 
 The trigger authenticates with its one-time token, not the account app key. Pass
---token or set FLASHDUTY_AUTOMATION_TRIGGER_TOKEN. Use --dedup-key to make
-retries idempotent for the same trigger.`,
+--token or set FLASHDUTY_AUTOMATION_TRIGGER_TOKEN.`,
 		Args: requireExactArg("trigger_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				out, err := runAutomationFire(ctx, ctx.Args[0], token, text, dedupKey, dataJSON)
+				out, err := runAutomationFire(ctx, ctx.Args[0], token, text, dataJSON)
 				if err != nil {
 					return err
 				}
@@ -484,18 +482,14 @@ retries idempotent for the same trigger.`,
 
 	cmd.Flags().StringVar(&token, "token", "", "HTTP POST trigger token; defaults to FLASHDUTY_AUTOMATION_TRIGGER_TOKEN")
 	cmd.Flags().StringVar(&text, "text", "", "Context text passed to this run")
-	cmd.Flags().StringVar(&dedupKey, "dedup-key", "", "Optional idempotency key")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
-func runAutomationFire(ctx *RunContext, triggerID, token, text, dedupKey, dataJSON string) (*flashduty.AutomationFireAPITriggerResponse, error) {
+func runAutomationFire(ctx *RunContext, triggerID, token, text, dataJSON string) (*flashduty.AutomationFireAPITriggerResponse, error) {
 	body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 		if ctx.Cmd.Flags().Changed("text") {
 			body["text"] = text
-		}
-		if ctx.Cmd.Flags().Changed("dedup-key") {
-			body["dedup_key"] = dedupKey
 		}
 		return nil
 	})

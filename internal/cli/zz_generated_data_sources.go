@@ -486,7 +486,7 @@ Request fields:
   --name string (required) — Datasource display name.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  payload (object, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
@@ -839,7 +839,7 @@ Request fields:
   --name string (required) — Datasource display name.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  payload (object, via --data) (required) — Type-specific datasource configuration. Include only the block matching 'type_ident'.
+  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.

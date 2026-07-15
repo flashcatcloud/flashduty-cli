@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -72,6 +73,57 @@ func TestMonitQueryDiagnoseHappyPath(t *testing.T) {
 	if fmt.Sprint(timeRange["start"]) == "0" || fmt.Sprint(timeRange["start"]) == "<nil>" ||
 		fmt.Sprint(timeRange["end"]) == "0" || fmt.Sprint(timeRange["end"]) == "<nil>" {
 		t.Errorf("expected non-zero default time range, got %#v", timeRange)
+	}
+}
+
+func TestMonitQueryDiagnoseRendersMetricEvidence(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"schema_version": "2",
+		"operation":      "metric_trends",
+		"ds_type":        "prometheus",
+		"ds_name":        "prod-prometheus",
+		"query":          "up",
+		"window":         map[string]any{"start": "2026-07-14T06:00:00Z", "end": "2026-07-14T07:00:00Z"},
+		"results": []any{map[string]any{
+			"method": "window_compare",
+			"window": map[string]any{"start": "2026-07-14T06:00:00Z", "end": "2026-07-14T07:00:00Z"},
+			"summary": map[string]any{
+				"series_total": 1, "series_analyzed": 1, "selected_series_total": 1, "series_returned": 1,
+				"analysis_truncated": false, "evidence_summary": "One series changed.",
+			},
+			"series_evidence": []any{map[string]any{
+				"labels":       map[string]any{"instance": "api-1"},
+				"observations": []any{"The current average increased."},
+			}},
+			"warnings": []any{},
+		}},
+	}
+
+	out, err := execCommand(
+		"monit-query", "diagnose",
+		"--ds-type", "prometheus",
+		"--ds-name", "prod-prometheus",
+		"--input-query", "up",
+		"--operation", "metric_trends",
+		"--output-format", "json",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var rendered map[string]any
+	if err := json.Unmarshal([]byte(out), &rendered); err != nil {
+		t.Fatalf("decode CLI JSON: %v\n%s", err, out)
+	}
+	if _, found := rendered["data_handling"]; found {
+		t.Fatalf("metric output fabricated data_handling: %s", out)
+	}
+	evidence := rendered["results"].([]any)[0].(map[string]any)["series_evidence"].([]any)[0].(map[string]any)
+	for _, field := range []string{"comparison_status", "current_window_stats", "baseline_window_stats"} {
+		if _, found := evidence[field]; found {
+			t.Fatalf("metric evidence fabricated %s: %s", field, out)
+		}
 	}
 }
 

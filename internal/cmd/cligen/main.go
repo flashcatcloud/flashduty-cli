@@ -297,8 +297,58 @@ func (w *specWalker) deref(s map[string]any) map[string]any {
 	return s
 }
 
+// isObjectSchema reports whether a schema and every oneOf branch represent an
+// object shape that can be expanded safely in command help.
+func (w *specWalker) isObjectSchema(s map[string]any) bool {
+	s = w.deref(s)
+	if str(s, "type") == "object" || s["properties"] != nil || len(asSlice(s["allOf"])) > 0 {
+		return true
+	}
+	branches := asSlice(s["oneOf"])
+	if len(branches) == 0 {
+		return false
+	}
+	for _, branch := range branches {
+		if !w.isObjectSchema(asMap(branch)) {
+			return false
+		}
+	}
+	return true
+}
+
+// mergeOneOfProperty keeps the first branch's schema details while combining
+// string enums from every object branch. Shared discriminators such as
+// `operation` and `method` otherwise inherit only the final branch's enum and
+// make generated help falsely exclude valid values.
+func mergeOneOfProperty(existing, incoming any) any {
+	left, right := asMap(existing), asMap(incoming)
+	if left == nil || right == nil {
+		return existing
+	}
+	values := append(enumStrings(left), enumStrings(right)...)
+	if len(values) == 0 {
+		return existing
+	}
+	merged := make(map[string]any, len(left)+1)
+	for k, v := range left {
+		merged[k] = v
+	}
+	seen := map[string]bool{}
+	var enum []any
+	for _, value := range values {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		enum = append(enum, value)
+	}
+	merged["enum"] = enum
+	return merged
+}
+
 // merged returns the flattened properties + required set of a schema, resolving
-// $ref and allOf.
+// $ref, allOf, and object-shaped oneOf branches. A oneOf field is required in
+// help only when every branch requires it.
 func (w *specWalker) merged(s map[string]any) (map[string]any, map[string]bool) {
 	props := map[string]any{}
 	req := map[string]bool{}
@@ -312,6 +362,42 @@ func (w *specWalker) merged(s map[string]any) (map[string]any, map[string]bool) 
 			req[k] = true
 		}
 	}
+	if branches := asSlice(s["oneOf"]); len(branches) > 0 {
+		var oneOfRequired map[string]bool
+		oneOfProps := map[string]any{}
+		for i, branch := range branches {
+			branchSchema := asMap(branch)
+			if !w.isObjectSchema(branchSchema) {
+				oneOfProps = nil
+				break
+			}
+			branchProps, branchRequired := w.merged(branchSchema)
+			for k, v := range branchProps {
+				if existing, ok := oneOfProps[k]; ok {
+					oneOfProps[k] = mergeOneOfProperty(existing, v)
+				} else {
+					oneOfProps[k] = v
+				}
+			}
+			if i == 0 {
+				oneOfRequired = branchRequired
+				continue
+			}
+			for k := range oneOfRequired {
+				if !branchRequired[k] {
+					delete(oneOfRequired, k)
+				}
+			}
+		}
+		if oneOfProps != nil {
+			for k, v := range oneOfProps {
+				props[k] = v
+			}
+			for k := range oneOfRequired {
+				req[k] = true
+			}
+		}
+	}
 	for k, v := range asMap(s["properties"]) {
 		props[k] = v
 	}
@@ -323,17 +409,27 @@ func (w *specWalker) merged(s map[string]any) (map[string]any, map[string]bool) 
 	return props, req
 }
 
+// propertyDescription preserves a property's own description when it refines a
+// referenced component. The reference's description is a fallback only.
+func propertyDescription(raw, resolved map[string]any) string {
+	if desc := str(raw, "description"); desc != "" {
+		return desc
+	}
+	return str(resolved, "description")
+}
+
 func (w *specWalker) fields(op map[string]any) []specField {
 	var fields []specField
 	if rb := asMap(op["requestBody"]); rb != nil {
 		sch := asMap(asMap(asMap(rb["content"])["application/json"])["schema"])
 		props, req := w.merged(sch)
 		for wire, v := range props {
-			pv := w.deref(asMap(v))
+			raw := asMap(v)
+			pv := w.deref(raw)
 			fields = append(fields, specField{
 				Wire:       wire,
 				Required:   req[wire],
-				Desc:       str(pv, "description"),
+				Desc:       propertyDescription(raw, pv),
 				Enum:       w.enumOf(pv),
 				Constraint: constraintOf(pv),
 			})
@@ -465,21 +561,23 @@ func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
 	props, req := w.merged(schema)
 	var out []schemaField
 	for wire, v := range props {
-		pv := w.deref(asMap(v))
+		raw := asMap(v)
+		pv := w.deref(raw)
 		f := schemaField{
 			Wire:       wire,
 			Required:   req[wire],
-			Desc:       str(pv, "description"),
+			Desc:       propertyDescription(raw, pv),
 			Enum:       enumStrings(pv),
 			Type:       schemaType(pv),
 			Constraint: constraintOf(pv),
 		}
 		switch {
-		case pv["properties"] != nil || pv["allOf"] != nil:
+		case w.isObjectSchema(pv):
+			f.Type = "object"
 			f.Children = w.tree(pv, depth+1)
 		case str(pv, "type") == "array":
 			it := w.deref(asMap(pv["items"]))
-			if it["properties"] != nil || it["allOf"] != nil {
+			if w.isObjectSchema(it) {
 				f.Children = w.tree(it, depth+1)
 			} else if len(f.Enum) == 0 {
 				f.Enum = enumStrings(it) // array of constrained scalars

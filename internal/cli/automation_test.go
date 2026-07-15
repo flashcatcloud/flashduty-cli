@@ -124,17 +124,15 @@ func TestAutomationFireSendsBearerToken(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 	stub.data = map[string]any{
-		"rule_id":      "auto_123",
-		"run_id":       "run_123",
-		"status":       "queued",
-		"trigger_kind": "http_post",
+		"type":        "routine_fire",
+		"session_id":  "sess_123",
+		"session_url": "/safari/session/sess_123",
 	}
 
 	_, err := execCommand(
 		"automation", "fire", "auttrig_123",
 		"--token", "token-123",
 		"--text", "manual test",
-		"--dedup-key", "once",
 		"--json",
 	)
 	if err != nil {
@@ -147,7 +145,20 @@ func TestAutomationFireSendsBearerToken(t *testing.T) {
 		t.Fatalf("[automation-fire] authorization = %q", stub.lastAuthorization)
 	}
 	assertBody(t, stub.lastBody, "text", "manual test")
-	assertBody(t, stub.lastBody, "dedup_key", "once")
+}
+
+func TestAutomationFireDoesNotExposeIgnoredDedupKey(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "fire", "auttrig_123",
+		"--token", "token-123",
+		"--dedup-key", "once",
+	)
+	if err == nil || !strings.Contains(err.Error(), "unknown flag: --dedup-key") {
+		t.Fatalf("expected dedup-key to be rejected, got %v", err)
+	}
 }
 
 func TestSafariAutomationTriggerFirePathCommand(t *testing.T) {
