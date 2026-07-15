@@ -60,6 +60,9 @@ var rootCmd = &cobra.Command{
 		if cmd.CommandPath() == "flashduty update" {
 			return nil
 		}
+		if update.IsManagedByRunner() {
+			return nil
+		}
 		if !isTerminalFn(int(os.Stderr.Fd())) {
 			return nil
 		}
