@@ -65,7 +65,7 @@ fduty monit tools-catalog --target-locator <hostname-or-ip> --output-format toon
 
 # 3. invoke tools (up to 8 concurrently); use heredoc to avoid shell quoting hell
 fduty monit tools-invoke --target-locator <hostname-or-ip> --output-format toon --data - <<'EOF'
-{"tools":[{"tool":"host.cpu","params":{}},{"tool":"host.mem","params":{}}]}
+{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}
 EOF
 ```
 
