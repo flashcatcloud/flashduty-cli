@@ -199,7 +199,7 @@ Request fields:
   --ds-name string (required) — Data source name; must match a configured data source under the tenant.
   --ds-type string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
   --expr string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
-  args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings. Semantics depend on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'; Loki / VictoriaLogs raw mode requires a time range via '<source>.start'/'<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit'; Prometheus and SQL sources ignore it. Always namespace keys by source (e.g. 'sls.project', 'loki.type').
+  args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings, and keys are always namespaced by source (e.g. 'sls.project', 'loki.type'). Validation depends on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'. Elasticsearch accepts 'es.type' of 'sql', or omitted — any other value is rejected. Loki and VictoriaLogs accept '<source>.type' of 'stats', 'raw', or omitted; 'raw' additionally requires a time range, either '<source>.start' + '<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit' (unit one of 's', 'm', 'h', 'd'). Prometheus and the remaining SQL sources ignore 'args' entirely.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - fields (object) — String-valued fields (labels, log fields, SQL columns).
@@ -345,18 +345,18 @@ Request fields:
   --target-locator string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - error (object) — Business error. 'null' on success.
+  - error (object) — Request-level business error. Omitted on success. Returned with HTTP 200 — do not rely on the status code alone.
     - code (string) [target_unavailable, unknown_toolset_hash, ambiguous_target_kind]
     - message (string)
     - target_kinds (array<string>) — Returned for 'ambiguous_target_kind'; lists the candidate kinds.
-  - target (object) — Resolved target. 'null' when locator could not be uniquely resolved.
+  - target (object) — Resolved target. Omitted when 'target_kind' was not supplied and the locator could not be uniquely inferred.
     - kind (string)
     - locator (string)
-  - tools (array<object>) — Tool catalog entries. Empty when 'error' is non-null.
+  - tools (array<object>) — Tool metadata advertised by the target's agent. Always present; an empty array when 'error' is set.
     - description (string) — Tool capability description for UI / AI-SRE consumption.
     - input_schema (object) — JSON Schema for 'tools[].params'.
     - name (string) — Tool name; pass into '/monit/tools/invoke' as 'tools[].tool'.
-    - output_shape (object) — Optional output JSON Schema; only returned when 'include_output_shape=true'.
+    - output_shape (object) — JSON Schema of the tool result. Returned only when the request set 'include_output_shape' to true.
     - target_kind (string) — Target kind this tool applies to.
 `,
 		Example: `  flashduty monit tools-catalog --data '{"account_id":10001,"include_output_shape":true,"target_locator":"web-01"}'`,
@@ -423,20 +423,24 @@ Request fields:
     - tool (string) (required) — Tool name, typically from '/monit/tools/catalog'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - error (object) — Request-level business error. 'null' on success.
-    - code (string) [target_unavailable, unknown_toolset_hash, forward_failed, invalid_tool_result, ambiguous_target_kind]
+  - error (object) — Request-level business error. Omitted on success. Returned with HTTP 200 — do not rely on the status code alone.
+    - code (string) [target_unavailable, unknown_toolset_hash, forward_failed, ambiguous_target_kind]
     - message (string)
     - target_kinds (array<string>)
-  - results (array<object>) — Per-tool results aligned with the request 'tools[]' order. Empty when 'error' is non-null.
-    - agent_elapsed_ms (integer) — Agent-self-reported tool execution time in milliseconds, excludes network. May be 0 when the failure occurred before the agent started executing.
-    - data (object) — Successful tool payload — passthrough of monit-agent 'ToolResultPayload.data' (typically 'data' / 'summary' / 'truncated'). 'null' when the per-tool 'error' is set.
-    - e2e_elapsed_ms (integer) — Webapi-observed end-to-end time in milliseconds (webapi → ws → edge → agent → ws → webapi). A large gap vs 'agent_elapsed_ms' indicates network / edge slowness.
-    - error (object) — Per-tool error. Mutually exclusive with 'data'.
+  - results (array<object>) — Per-tool results, aligned with the request 'tools[]' order. Empty when a request-level 'error' is present.
+    - agent_elapsed_ms (integer) — Agent-self-reported tool execution time in milliseconds, excluding network round-trips. May be 0 when the failure occurred before execution started.
+    - data (object) — Tool business payload. Present only on success. Webapi already unwraps the monit-agent result envelope, so there is no nested 'data.data'.
+    - e2e_elapsed_ms (integer) — Webapi-observed end-to-end time in milliseconds (webapi → ws → edge → agent → ws → webapi). A large gap versus 'agent_elapsed_ms' indicates network / edge slowness, not a slow tool.
+    - error (object) — Per-tool failure. Present only on failure, and mutually exclusive with 'data' / 'summary' / 'truncated'.
       - code (string) — Common values: 'timeout', 'target_unavailable', 'edge_unsupported', 'invalid_tool_result', 'internal', 'invalid_args', 'unknown_tool', 'unknown_tool_version', 'unknown_toolset_hash', 'target_not_owned', 'wrong_agent', 'overloaded', 'denied', 'permission_denied', 'credential_unavailable', 'target_unreachable'.
       - message (string)
-    - tool (string)
-    - tool_version (string) — Agent-executed tool version. Empty when execution failed before the agent picked a version.
-  - target (object) — Resolved target.
+    - params (object) — Request params echoed back by webapi. Normalized to '{}' when the request omitted them or sent null.
+    - summary (string) — Human/LLM-readable one-line distillation of the result. Present only when non-empty.
+    - tool (string) — Tool name, aligned one-to-one with the request 'tools[]' order.
+    - tool_version (string) — Agent-executed tool version. Omitted when the failure occurred before the agent picked a version.
+    - truncated (object) — Present only when the result was actually truncated — the field's presence is the signal, so there is no redundant 'truncated: true'.
+      - reason (string) — Why the result was truncated.
+  - target (object) — Resolved target. Omitted when 'target_kind' was not supplied and the locator could not be uniquely inferred.
     - kind (string)
     - locator (string)
 `,

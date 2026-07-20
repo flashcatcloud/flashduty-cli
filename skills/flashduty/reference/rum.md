@@ -158,6 +158,20 @@ Update issue
 - `--status` string — New status. · enum: for_review | reviewed | ignored | resolved
 - `--suspected-cause` string — Suspected cause. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 
+### session-replay-metadata <session-id>
+Get session replay metadata
+- `<session-id>` (positional, required) string — RUM session ID.
+- `--ts` int64 — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
+
+### session-replay-segments <session-id>
+List session replay segments
+- `--limit` int64 — Maximum number of segments to return. 1-99, default 20. (1-99)
+- `--search-after-ctx` string — Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).
+- `<session-id>` (positional, required) string — RUM session ID.
+- `--ts` int64 — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
+- `--url-mode` bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
+- `--view-id` string — Restrict results to segments belonging to this view. Omit to page through the entire session.
+
 <!-- GENERATED:rum END -->
 
 ## Key enums & state machine

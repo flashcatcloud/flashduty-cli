@@ -26,6 +26,7 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedImIntegrations(root)
 	registerGeneratedIncidents(root)
 	registerGeneratedIntegrations(root)
+	registerGeneratedLicenses(root)
 	registerGeneratedNotificationTemplates(root)
 	registerGeneratedSchedules(root)
 	registerGeneratedStatusPages(root)
@@ -38,5 +39,6 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedDataQuery(root)
 	registerGeneratedFacets(root)
 	registerGeneratedIssues(root)
+	registerGeneratedSessionReplay(root)
 	registerGeneratedSourcemaps(root)
 }

@@ -132,6 +132,7 @@ Request fields:
 func genIncidentsAckCmd() *cobra.Command {
 	var dataJSON string
 	var fIncidentIDs []string
+	var fSummary string
 	cmd := &cobra.Command{
 		Use:   "ack <incident-id> [<id2>...]",
 		Short: "Acknowledge incident",
@@ -143,6 +144,12 @@ API: POST /incident/ack (incidentAck)
 
 Request fields:
   --incident-ids []string (required) — Incident IDs to acknowledge. At most 100 per call.
+  --summary string — Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.
+  custom_fields (object, via --data) — Custom field values for the acknowledgement form. Allowed keys and values depend on the incident's visible form.
+  images (array<object>, via --data) — Images attached to the acknowledgement timeline entry.
+    - alt (string) — Alternative text for the image.
+    - href (string) — Optional link that the image points to.
+    - src (string) (required) — Image source. Accepts an 'img_' upload token, an 'http(s)' URL, or an object-storage key beginning with '/'.
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident ack --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
@@ -154,6 +161,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("summary") {
+						body["summary"] = fSummary
 					}
 					return nil
 				})
@@ -177,6 +187,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to acknowledge. At most 100 per call. (required)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -481,6 +492,7 @@ Request fields:
       - template_id (string) — Notification template ID (MongoDB ObjectID).
     - person_ids (array<integer>) — Member IDs to assign directly.
     - type (string) — Assignment type.
+  fields (object, via --data) — Custom field values keyed by field name. When a create form applies, only its visible fields are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - incident_id (string) (required) — Newly created incident ID (MongoDB ObjectID).
@@ -2336,9 +2348,11 @@ Request fields:
 
 func genIncidentsResolveCmd() *cobra.Command {
 	var dataJSON string
+	var fDescription string
 	var fIncidentIDs []string
 	var fResolution string
 	var fRootCause string
+	var fSummary string
 	cmd := &cobra.Command{
 		Use:   "resolve <incident-id> [<id2>...]",
 		Short: "Resolve incident",
@@ -2349,9 +2363,16 @@ Mark an incident as resolved.
 API: POST /incident/resolve (incidentResolve)
 
 Request fields:
+  --description string — New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)
   --incident-ids []string (required) — Incident IDs to resolve. At most 100 per call.
   --resolution string — Optional resolution note applied to every resolved incident. (≤1024 chars)
   --root-cause string — Optional root cause note applied to every resolved incident. (≤1024 chars)
+  --summary string — Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.
+  custom_fields (object, via --data) — Custom field values for the resolution form. Allowed keys and values depend on the incident's visible form.
+  images (array<object>, via --data) — Images attached to the resolution timeline entry.
+    - alt (string) — Alternative text for the image.
+    - href (string) — Optional link that the image points to.
+    - src (string) (required) — Image source. Accepts an 'img_' upload token, an 'http(s)' URL, or an object-storage key beginning with '/'.
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident resolve --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"resolution":"Deployed hotfix v2.3.1 and restarted the affected service.","root_cause":"Memory leak in the connection pool caused by a missing cleanup call."}'`,
@@ -2361,6 +2382,9 @@ Request fields:
 					if err := genFoldPositional(args, body, "incident_ids", "slice"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
 					}
@@ -2369,6 +2393,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("root-cause") {
 						body["root_cause"] = fRootCause
+					}
+					if cmd.Flags().Changed("summary") {
+						body["summary"] = fSummary
 					}
 					return nil
 				})
@@ -2391,9 +2418,11 @@ Request fields:
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fDescription, "description", "", "New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to resolve. At most 100 per call. (required)")
 	cmd.Flags().StringVar(&fResolution, "resolution", "", "Optional resolution note applied to every resolved incident. (≤1024 chars)")
 	cmd.Flags().StringVar(&fRootCause, "root-cause", "", "Optional root cause note applied to every resolved incident. (≤1024 chars)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

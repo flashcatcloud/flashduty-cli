@@ -25,7 +25,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — Whether the caller can manage this rule.
+  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
   - created_at (integer) (required) — Creation time, Unix milliseconds.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
@@ -48,10 +48,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-rule-get --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Example: `  flashduty safari automation-rule-get --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -109,13 +110,13 @@ Request fields:
   --enabled bool — Filter by enabled status.
   --include-person bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
   --keyword string — Filter by name keyword. (≤64 chars)
-  --scope string — Scope filter. Defaults to all. [all, personal, team]
-  --team-ids []int — Filter to these team IDs; this filters results and does not expand access.
+  --scope string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]
+  --team-ids []int — Filter to these team IDs; this narrows results and does not expand access.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rules (array<object>) (required)
     - account_id (integer) (required) — Account ID.
-    - can_edit (boolean) (required) — Whether the caller can manage this rule.
+    - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
     - created_at (integer) (required) — Creation time, Unix milliseconds.
     - cron_expr (string) (required) — Normalized 5-field cron expression.
     - enabled (boolean) (required) — Whether the rule is enabled.
@@ -138,6 +139,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
     - schedule_trigger_id (string) — Schedule trigger ID.
     - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+    - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
     - updated_at (integer) (required) — Last update time, Unix milliseconds.
   - total (integer) (required) — Total count.
 `,
@@ -192,8 +194,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled status.")
 	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Compatibility field; when scope is empty and this is false, behaves like team scope.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by name keyword. (≤64 chars)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Scope filter. Defaults to all. [all, personal, team]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; this filters results and does not expand access.")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; this narrows results and does not expand access.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -212,6 +214,7 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 	var fPrompt string
 	var fScheduleTriggerEnabled bool
 	var fTeamID int64
+	var fTimezone string
 	cmd := &cobra.Command{
 		Use:   "automation-rule-create",
 		Short: "Create Automation rule",
@@ -222,7 +225,7 @@ Create an Automation rule with schedule, HTTP POST, and On-call incident trigger
 API: POST /safari/automation/rule/create (automation-rule-write-create)
 
 Request fields:
-  --cron-expr string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
+  --cron-expr string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
   --enabled bool — Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.
   --environment-id string — BYOC Runner ID. Used only when 'environment_kind=byoc'.
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
@@ -234,10 +237,11 @@ Request fields:
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
   --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
+  --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then UTC when omitted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — Whether the caller can manage this rule.
+  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
   - created_at (integer) (required) — Creation time, Unix milliseconds.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
@@ -260,9 +264,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
-		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123}'`,
+		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123,"timezone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -302,6 +307,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("team-id") {
 						body["team_id"] = fTeamID
 					}
+					if cmd.Flags().Changed("timezone") {
+						body["timezone"] = fTimezone
+					}
 					return nil
 				})
 				if err != nil {
@@ -319,7 +327,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'. (required)")
+	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.")
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID. Used only when 'environment_kind=byoc'.")
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
@@ -331,6 +339,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then UTC when omitted.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -351,7 +360,7 @@ Request fields:
   --rule-id string (required) — Rule ID.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-rule-delete --data '{"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Example: `  flashduty safari automation-rule-delete --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -476,7 +485,7 @@ Request fields:
   --name string — New rule name. (≤255 chars)
   --team-id int — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
   --enabled bool — Whether the rule is enabled.
-  --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
+  --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled.
   --prompt string — New task prompt.
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
@@ -489,7 +498,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — Whether the caller can manage this rule.
+  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
   - created_at (integer) (required) — Creation time, Unix milliseconds.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
@@ -512,10 +521,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (integer) (required) — Last update time, Unix milliseconds.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
+		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -585,7 +595,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fName, "name", "", "New rule name. (≤255 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Only the current value is accepted; personal/team scope is immutable after creation. (min 0)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
-	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.")
+	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "New task prompt.")
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
@@ -650,7 +660,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - total (integer) (required) — Total count.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
-		Example: `  flashduty safari automation-run-list --data '{"limit":20,"rule_id":"auto_7NnLzY2Qp8xS4kUaV3mR6b","trigger_kind":"schedule"}'`,
+		Example: `  flashduty safari automation-run-list --data '{"limit":20,"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b","trigger_kind":"schedule"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
