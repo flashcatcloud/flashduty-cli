@@ -69,6 +69,7 @@ Get account-level insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -93,6 +94,7 @@ Get top-K alerts grouped by check or resource
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--k` int64 — Number of top entries to return, between 1 and 100.
 - `--label` string (required) — Dimension to aggregate by. · enum: check | resource
@@ -119,6 +121,7 @@ Get channel insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -143,6 +146,7 @@ Export channel insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -166,6 +170,7 @@ Export insight incidents
 - `--end-time` int64
 - `--export-fields` stringSlice
 - `--incident-ids` stringSlice
+- `--include-ever-muted` bool
 - `--is-my-team` bool
 - `--orderby` string
 - `--query` string
@@ -188,6 +193,7 @@ List insight incidents
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--limit` int64 — Page size, between 1 and 100. Defaults to 20. (1-100)
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
@@ -221,6 +227,7 @@ Get responder insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -245,6 +252,7 @@ Export responder insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -269,6 +277,7 @@ Get team insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
@@ -293,6 +302,7 @@ Export team insight
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+- `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
