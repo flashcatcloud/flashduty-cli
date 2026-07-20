@@ -20,7 +20,7 @@ Prereq: `SKILL.md` read. On-box diagnostics: run diagnostic tools on a host or d
 fduty monit-agent catalog --target-locator <host-or-instance> --output-format toon
 # 2. invoke up to 8 tools concurrently; tool names taken verbatim from the catalog
 fduty monit-agent invoke --target-locator <host-or-instance> \
-  --data '{"tools":[{"tool":"host.top","params":{}},{"tool":"host.disk","params":{}}]}'
+  --data '{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}'
 ```
 
 <!-- GENERATED:monit-agent START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -60,6 +60,6 @@ Run up to 8 monit-agent tools concurrently on a target
 
 ```bash
 fduty monit-agent invoke --target-locator web-prod-3 \
-  --data '{"tools":[{"tool":"host.top","params":{"limit":10}},{"tool":"host.disk","params":{}}]}' \
+  --data '{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}' \
   --output-format toon
 ```
