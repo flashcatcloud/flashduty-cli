@@ -26,6 +26,8 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -36,6 +38,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
+  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
   - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
@@ -94,6 +98,8 @@ func genMcpServersReadServerListCmd() *cobra.Command {
 	var fLimit int64
 	var fSearchAfterCtx string
 	var fIncludeAccount bool
+	var fQuery string
+	var fScope string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "mcp-server-list",
@@ -109,12 +115,16 @@ Request fields:
   --limit int — Page size.
   --search-after-ctx string
   --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
+  --query string — Case-insensitive substring search across name, description, AI-generated description, server ID, transport, URL, command, and source template name. (≤128 chars)
+  --scope string — Restrict results to a scope: 'account' for account-wide rows only, 'team' for the caller's own visible team rows only, or omit (defaults to 'all') for both, subject to team_ids/include_account. [all, account, team]
   --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - servers (array<object>) (required) — MCP servers on this page.
     - account_id (integer) (required) — Owning account ID.
     - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+    - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
+    - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
     - args (array<string>) — Command arguments (stdio transport).
     - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
     - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -125,6 +135,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID that created the server.
     - description (string) (required) — Server description.
     - env (object) — Environment variables (stdio transport). Secret values are masked.
+    - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
+    - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
     - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
     - list_error (string) — Error message when the live tool list failed.
     - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
@@ -161,6 +173,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("include-account") {
 						body["include_account"] = fIncludeAccount
 					}
+					if cmd.Flags().Changed("query") {
+						body["query"] = fQuery
+					}
+					if cmd.Flags().Changed("scope") {
+						body["scope"] = fScope
+					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
@@ -185,6 +203,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring search across name, description, AI-generated description, server ID, transport, URL, command, and source template name. (≤128 chars)")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict results to a scope: 'account' for account-wide rows only, 'team' for the caller's own visible team rows only, or omit (defaults to 'all') for both, subject to team_ids/include_account. [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -192,12 +212,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genMcpServersWriteServerCreateCmd() *cobra.Command {
 	var dataJSON string
+	var fAllowInsecureOauthHTTP bool
+	var fAllowInsecureTlsSkipVerify bool
 	var fArgs []string
 	var fAuthMode string
 	var fCallTimeout int64
 	var fCommand string
 	var fConnectTimeout int64
 	var fDescription string
+	var fEnvironmentID string
+	var fEnvironmentKind string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fServerName string
@@ -216,12 +240,16 @@ Register a new MCP server (connector) on the account.
 API: POST /safari/mcp/server/create (mcp-write-server-create)
 
 Request fields:
+  --allow-insecure-oauth-http bool — Allow this server's OAuth token exchange over plaintext HTTP. Testing use only; defaults to false.
+  --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification when connecting to this server. Testing use only; defaults to false.
   --args []string — Command arguments (stdio transport).
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
   --command string — Executable command (stdio transport).
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string (required) — Server description. (1-1024 chars)
+  --environment-id string — Runner ID; required when environment_kind is byoc.
+  --environment-kind string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. [byoc]
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --server-name string (required) — MCP server name, unique within the account. (1-255 chars)
@@ -236,6 +264,8 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -246,6 +276,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
+  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
   - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
@@ -269,6 +301,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("allow-insecure-oauth-http") {
+						body["allow_insecure_oauth_http"] = fAllowInsecureOauthHTTP
+					}
+					if cmd.Flags().Changed("allow-insecure-tls-skip-verify") {
+						body["allow_insecure_tls_skip_verify"] = fAllowInsecureTlsSkipVerify
+					}
 					if cmd.Flags().Changed("args") {
 						body["args"] = fArgs
 					}
@@ -286,6 +324,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("environment-id") {
+						body["environment_id"] = fEnvironmentID
+					}
+					if cmd.Flags().Changed("environment-kind") {
+						body["environment_kind"] = fEnvironmentKind
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -328,12 +372,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow this server's OAuth token exchange over plaintext HTTP. Testing use only; defaults to false.")
+	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification when connecting to this server. Testing use only; defaults to false.")
 	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Server description. (required) (1-1024 chars)")
+	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID; required when environment_kind is byoc.")
+	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. [byoc]")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name, unique within the account. (required) (1-255 chars)")
@@ -492,12 +540,16 @@ Request fields:
 
 func genMcpServersWriteServerUpdateCmd() *cobra.Command {
 	var dataJSON string
+	var fAllowInsecureOauthHTTP bool
+	var fAllowInsecureTlsSkipVerify bool
 	var fArgs []string
 	var fAuthMode string
 	var fCallTimeout int64
 	var fCommand string
 	var fConnectTimeout int64
 	var fDescription string
+	var fEnvironmentID string
+	var fEnvironmentKind string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fServerID string
@@ -515,12 +567,16 @@ Update an MCP server's configuration. Omit a field to leave it unchanged.
 API: POST /safari/mcp/server/update (mcp-write-server-update)
 
 Request fields:
+  --allow-insecure-oauth-http bool — Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.
+  --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification. Omit to leave unchanged.
   --args []string — Command arguments (stdio transport).
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
   --command string — Executable command (stdio transport).
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string — New description. (1-1024 chars)
+  --environment-id string — Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.
+  --environment-kind string — Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --server-id string (required) — Target MCP server ID.
@@ -534,6 +590,8 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - ai_description (string) — LLM-generated description, preferred over 'description' when present.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -544,6 +602,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
+  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
   - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
@@ -571,6 +631,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if err := genFoldPositional(args, body, "server_id", "string"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("allow-insecure-oauth-http") {
+						body["allow_insecure_oauth_http"] = fAllowInsecureOauthHTTP
+					}
+					if cmd.Flags().Changed("allow-insecure-tls-skip-verify") {
+						body["allow_insecure_tls_skip_verify"] = fAllowInsecureTlsSkipVerify
+					}
 					if cmd.Flags().Changed("args") {
 						body["args"] = fArgs
 					}
@@ -588,6 +654,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("environment-id") {
+						body["environment_id"] = fEnvironmentID
+					}
+					if cmd.Flags().Changed("environment-kind") {
+						body["environment_kind"] = fEnvironmentKind
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -627,12 +699,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification. Omit to leave unchanged.")
 	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (1-1024 chars)")
+	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.")
+	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")

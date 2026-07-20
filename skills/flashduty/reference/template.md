@@ -110,6 +110,7 @@ Preview template
 - `--content` string (required) — Template content to render.
 - `--incident-id` string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
 - `--type` string (required) — Template channel type that selects the rendering engine.
+- body-only (`--data`): incident_card_hidden_fields (object)
 
 ### update <template-id>
 Update a template

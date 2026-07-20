@@ -113,6 +113,8 @@ fduty incident timeline <primary-incident-id> --output-format toon
 ### ack <incident-id> [<id2>...]
 Acknowledge incident
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to acknowledge. At most 100 per call.
+- `--summary` string — Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.
+- body-only (`--data`): custom_fields (object); images (array<object>)
 
 ### add-responder <id>
 Add responders to an incident
@@ -313,9 +315,12 @@ Update incident fields
 
 ### resolve <incident-id> [<id2>...]
 Resolve incident
+- `--description` string — New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to resolve. At most 100 per call.
 - `--resolution` string — Optional resolution note applied to every resolved incident. (≤1024 chars)
 - `--root-cause` string — Optional root cause note applied to every resolved incident. (≤1024 chars)
+- `--summary` string — Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.
+- body-only (`--data`): custom_fields (object); images (array<object>)
 
 ### responder-add <person-id> [<id2>...]
 Add incident responder

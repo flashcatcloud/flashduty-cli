@@ -223,13 +223,17 @@ Request fields:
   --content string (required) — Template content to render.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine.
+  incident_card_hidden_fields (object, via --data) — Fields to hide by IM app when previewing an incident card. Only supported IM app types and field names are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content (string) — Rendered template output, present when success is true.
+  - fixed_fields (array<object>) — Fixed incident-card fields returned for supported IM previews after the requested hiding rules are applied.
+    - field (string) (required) — Incident-card field name. [channel, snoozed_before, severity, responders, aggregate_alert_count]
+    - value (string) (required) — Rendered display value for the fixed field.
   - message (string) — Error message describing why rendering failed, present when success is false.
   - success (boolean) — Whether the template rendered without errors.
 `,
-		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
+		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_card_hidden_fields":{"feishu_app":["responders"]},"incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
