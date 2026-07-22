@@ -18,6 +18,10 @@ func newUpdateCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update flashduty to the latest version",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if update.IsManagedByRunner() {
+				return fmt.Errorf("flashduty is managed by flashduty-runner; upgrade the runner instead")
+			}
+
 			w := cmd.OutOrStdout()
 			_, _ = fmt.Fprintf(w, "Current version: %s\n", versionStr)
 			_, _ = fmt.Fprintf(w, "Checking for updates...\n")

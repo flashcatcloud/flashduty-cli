@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +46,17 @@ func TestCommandIncidentListChannelIDFlag(t *testing.T) {
 	}
 	if got, want := fmt.Sprint(stub.lastBody["channel_ids"]), "[123]"; got != want {
 		t.Fatalf("channel_ids = %q, want %q", got, want)
+	}
+}
+
+func TestCommandIncidentListHelpSurfacesInsightIncidentExport(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	out, err := execCommand("incident", "list", "--help")
+	if err != nil {
+		t.Fatalf("incident list --help: %v", err)
+	}
+	if !strings.Contains(out, "fduty insight incident-export") {
+		t.Fatalf("help output missing incident export discovery hint:\n%s", out)
 	}
 }

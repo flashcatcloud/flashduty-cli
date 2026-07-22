@@ -36,7 +36,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - status (string) — Current status of the person.
     - time_zone (string) — Time zone of the person.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident war-room-default-observers --data '{"incident_id":"664a1b2c3d4e5f6a7b8c9d0e"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -88,7 +88,7 @@ Request fields:
   --integration-id int (required) — IM integration that hosts the war room.
   --member-ids []int (required) — Person IDs to add to the war room.
 `,
-		Args:    requireExactArg("chat_id"),
+		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
 		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":362,"member_ids":[20001,20002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -132,6 +132,7 @@ Request fields:
 func genIncidentsAckCmd() *cobra.Command {
 	var dataJSON string
 	var fIncidentIDs []string
+	var fSummary string
 	cmd := &cobra.Command{
 		Use:   "ack <incident-id> [<id2>...]",
 		Short: "Acknowledge incident",
@@ -143,8 +144,14 @@ API: POST /incident/ack (incidentAck)
 
 Request fields:
   --incident-ids []string (required) — Incident IDs to acknowledge. At most 100 per call.
+  --summary string — Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.
+  custom_fields (object, via --data) — Custom field values for the acknowledgement form. Allowed keys and values depend on the incident's visible form.
+  images (array<object>, via --data) — Images attached to the acknowledgement timeline entry.
+    - alt (string) — Alternative text for the image.
+    - href (string) — Optional link that the image points to.
+    - src (string) (required) — Image source. Accepts an 'img_' upload token, an 'http(s)' URL, or an object-storage key beginning with '/'.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident ack --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -154,6 +161,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("summary") {
+						body["summary"] = fSummary
 					}
 					return nil
 				})
@@ -177,6 +187,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to acknowledge. At most 100 per call. (required)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -203,7 +214,7 @@ Request fields:
   --limit int — Page size, at most 1000. (0-1000)
   --search-after-ctx string
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --include-events bool — When true, include raw alert events in each alert item.
+  --include-events bool — When true, include at most the 20 newest raw events in each alert item as a preview.
   --is-active bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -225,7 +236,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - description (string) (required) — Alert description.
     - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-    - events (array<object>) — Raw alert events, populated when the caller opts in.
+    - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -253,7 +264,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -271,8 +282,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - updated_at (integer) (required) — Last update timestamp (seconds).
   - total (integer) (required) — Total matching alerts.
 `,
-		Args:    requireExactArg("incident_id"),
-		Example: `  flashduty incident alert-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","is_active":true,"limit":100,"p":1}'`,
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
+		Example: `  flashduty incident alert-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","include_events":true,"is_active":true,"limit":100,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -318,7 +329,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 1000. (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "When true, include raw alert events in each alert item.")
+	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "When true, include at most the 20 newest raw events in each alert item as a preview.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -406,7 +417,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to comment on. At most 100 per call.
   --mute-reply bool — When true, do not trigger webhook reply actions for this comment.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident comment --data '{"comment":"Identified the root cause. Rolling back the deployment now.","incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -481,6 +492,7 @@ Request fields:
       - template_id (string) — Notification template ID (MongoDB ObjectID).
     - person_ids (array<integer>) — Member IDs to assign directly.
     - type (string) — Assignment type.
+  fields (object, via --data) — Custom field values keyed by field name. When a create form applies, only its visible fields are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - incident_id (string) (required) — Newly created incident ID (MongoDB ObjectID).
@@ -595,7 +607,7 @@ API: POST /incident/disable-merge (incidentDisableMerge)
 Request fields:
   --incident-ids []string (required) — Incident IDs whose automatic merge should be disabled.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident disable-merge --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -664,12 +676,69 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_at (integer) (required) — Creation timestamp in milliseconds.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
     - deleted_at (integer) — Soft-delete timestamp (ms). Zero if not deleted.
-    - detail (any) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
+      - by (string) — Delivery channel or method label.
+      - chat_id (string) — Chat group identifier.
+      - chat_name (string) — Chat group display name.
+      - chats (array<object>) — Per-chat delivery records.
+        - chat_id (string) — Chat group identifier.
+        - chat_name (string) — Chat group display name.
+        - data_source_id (integer) — Integration data source ID used to send the notification.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+      - comment (string) — Comment body.
+      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+      - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
+      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
+      - field_name (string) — Name of the custom field that was updated.
+      - fire_type (string) — Whether this is the first fire or a refire. [fire, refire]
+      - from (string) — Source that triggered the resolve action. [voice, console, card, wcard, event, autorslv, autorefresh, escalation]
+      - id (string) — Opaque assignment ID generated by the server.
+      - in_mins (integer) — Window length in minutes.
+      - integration_id (integer) — Integration ID that executed the action.
+      - integration_name (string) — Integration display name.
+      - layer_idx (integer) — Current level index within the escalation rule.
+      - max_changes (integer) — Maximum state changes allowed within the window.
+      - minutes (integer) — Snooze duration in minutes.
+      - msg_id (string) — Upstream message ID returned by the delivery channel.
+      - mute_mins (integer) — Mute duration in minutes once flapping is detected.
+      - mute_reply (boolean) — Whether replies to this comment are muted.
+      - owner_id (integer) — Member ID that performed the merge.
+      - person_ids (array<integer>) — Member IDs to assign directly.
+      - persons (array<object>) — Per-person delivery records.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - person_id (integer) — Recipient member ID.
+      - plugin_type (string) — Chat integration plugin type.
+      - progress (string) — Progress note entered at acknowledgement.
+      - reason (string) — Reason why the incident was reopened.
+      - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
+      - reporter_email (string) — Email of the reporter when the incident was created externally.
+      - rid (string) — Notification record ID.
+      - robots (array<object>) — Per-robot delivery records.
+        - alias (string) — Robot alias.
+        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - token (string) — Robot token or identifier.
+      - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - share_link (string) — Shareable join link for the war room.
+      - snoozedBefore (integer) — Unix timestamp at which the prior snooze was scheduled to end.
+      - source_incidents (array<object>) — Source incidents that were merged.
+        - incident_id (string) — Incident ID (ObjectID hex string).
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - title (string) — Incident title.
+      - source_responders (array<integer>) — Responder member IDs carried over from the source incidents.
+      - target_incident (object) — Brief incident reference embedded in an alert.
+        - incident_id (string) — Incident ID (ObjectID hex string).
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - title (string) — Incident title.
+      - threshold (integer) — Storm threshold that was reached.
+      - title (string) — Initial incident title.
+      - to (array<integer>) — Member IDs that received the assignment.
+      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
     - ref_id (string) (required) — ObjectID of the source alert or incident this entry references.
     - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
     - updated_at (integer) (required) — Last update timestamp in milliseconds.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident feed --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":20,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -740,7 +809,7 @@ Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   field_value (any, via --data) — New field value. Type must match the field definition.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident field-reset --data '{"field_name":"affected_service","field_value":"payment-service","incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -826,7 +895,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) (required) — Alert description.
     - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-    - events (array<object>) — Raw alert events, populated when the caller opts in.
+    - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -854,7 +923,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - alt (string) — Alt text.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -870,7 +939,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
     - updated_at (integer) (required) — Last update timestamp (seconds).
-  - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+  - assigned_to (object) (required) — Current assignment target for the incident.
     - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
     - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -883,14 +952,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_name (string) (required) — Channel display name.
   - channel_status (string) (required) — Channel status.
   - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-  - closer (object) — A Flashduty member reference.
+  - closer (object) — Closer member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
     - person_name (string) — Member display name.
   - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
   - created_at (integer) (required) — Creation timestamp (seconds).
-  - creator (object) — A Flashduty member reference.
+  - creator (object) — Creator member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
@@ -930,7 +999,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - open_type (string) (required) — How the link should be opened. [popup, tab]
   - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
   - num (string) (required) — Short display identifier; not guaranteed unique.
-  - owner (object) — A Flashduty member reference.
+  - owner (object) — Owner member info. May be deprecated.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
@@ -1078,7 +1147,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1103,7 +1172,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1119,7 +1188,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1132,14 +1201,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1179,7 +1248,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1371,7 +1440,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1396,7 +1465,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1412,7 +1481,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1425,14 +1494,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1472,7 +1541,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1498,7 +1567,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
   - total (integer) (required) — Total number of matching incidents.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident list-by-ids --data '{"incident_ids":["69da451ef77b1b51f40e83ee","69da451ef77b1b51f40e83ef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1556,7 +1625,7 @@ Request fields:
   --target-incident-id string (required) — Target incident ID that source incidents will be merged into.
   --title string — Optional new title for the target incident. (≤512 chars)
 `,
-		Args:    requireExactArg("target_incident_id"),
+		Args:    requireBodyFieldOrExactArg("target_incident_id", "target-incident-id"),
 		Example: `  flashduty incident merge --data '{"comment":"Merging related database connectivity incidents into one.","source_incident_ids":["69da451ef77b1b51f40e83ef","69da451ef77b1b51f40e83f0"],"target_incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1659,7 +1728,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - description (string) (required) — Alert description.
       - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
-      - events (array<object>) — Raw alert events, populated when the caller opts in.
+      - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -1684,7 +1753,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - alt (string) — Alt text.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
-      - incident (object) — Brief incident reference embedded in an alert.
+      - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
@@ -1700,7 +1769,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (integer) (required) — Last update timestamp (seconds).
-    - assigned_to (object) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+    - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -1713,14 +1782,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
     - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
-    - closer (object) — A Flashduty member reference.
+    - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (integer) (required) — Creation timestamp (seconds).
-    - creator (object) — A Flashduty member reference.
+    - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1760,7 +1829,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - open_type (string) (required) — How the link should be opened. [popup, tab]
     - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
     - num (string) (required) — Short display identifier; not guaranteed unique.
-    - owner (object) — A Flashduty member reference.
+    - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
@@ -1785,7 +1854,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) (required) — Incident title.
     - updated_at (integer) (required) — Last update timestamp (seconds).
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident past-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":5}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1837,7 +1906,7 @@ API: POST /incident/post-mortem/delete (incidentPostMortemDelete)
 Request fields:
   --post-mortem-id string (required) — Post-mortem ID.
 `,
-		Args:    requireExactArg("post_mortem_id"),
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-delete --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -1921,7 +1990,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - title (string) (required) — Report title.
     - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
 `,
-		Args: requireExactArg("post_mortem_id"),
+		Args: requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -2094,7 +2163,7 @@ API: POST /incident/remove (incidentRemove)
 Request fields:
   --incident-ids []string (required) — Incident IDs to remove. At most 100 per call. The caller must have access to every channel the incidents belong to.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident remove --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2148,7 +2217,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to reopen. At most 100 per call.
   --reason string — Optional reason recorded on the timeline. (≤1024 chars)
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident reopen --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"reason":"Monitoring detected the issue recurred after the initial fix."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2216,7 +2285,7 @@ Request fields:
   --root-cause string — New root cause analysis. (3-6144 chars)
   --title string — New incident title. (3-200 chars)
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident reset --data '{"incident_id":"69da451ef77b1b51f40e83ee","incident_severity":"Critical","title":"Database connection timeout - prod-db-01 primary"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2279,9 +2348,11 @@ Request fields:
 
 func genIncidentsResolveCmd() *cobra.Command {
 	var dataJSON string
+	var fDescription string
 	var fIncidentIDs []string
 	var fResolution string
 	var fRootCause string
+	var fSummary string
 	cmd := &cobra.Command{
 		Use:   "resolve <incident-id> [<id2>...]",
 		Short: "Resolve incident",
@@ -2292,17 +2363,27 @@ Mark an incident as resolved.
 API: POST /incident/resolve (incidentResolve)
 
 Request fields:
+  --description string — New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)
   --incident-ids []string (required) — Incident IDs to resolve. At most 100 per call.
   --resolution string — Optional resolution note applied to every resolved incident. (≤1024 chars)
   --root-cause string — Optional root cause note applied to every resolved incident. (≤1024 chars)
+  --summary string — Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.
+  custom_fields (object, via --data) — Custom field values for the resolution form. Allowed keys and values depend on the incident's visible form.
+  images (array<object>, via --data) — Images attached to the resolution timeline entry.
+    - alt (string) — Alternative text for the image.
+    - href (string) — Optional link that the image points to.
+    - src (string) (required) — Image source. Accepts an 'img_' upload token, an 'http(s)' URL, or an object-storage key beginning with '/'.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident resolve --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"resolution":"Deployed hotfix v2.3.1 and restarted the affected service.","root_cause":"Memory leak in the connection pool caused by a missing cleanup call."}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if err := genFoldPositional(args, body, "incident_ids", "slice"); err != nil {
 						return err
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
@@ -2312,6 +2393,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("root-cause") {
 						body["root_cause"] = fRootCause
+					}
+					if cmd.Flags().Changed("summary") {
+						body["summary"] = fSummary
 					}
 					return nil
 				})
@@ -2334,9 +2418,11 @@ Request fields:
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fDescription, "description", "", "New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to resolve. At most 100 per call. (required)")
 	cmd.Flags().StringVar(&fResolution, "resolution", "", "Optional resolution note applied to every resolved incident. (≤1024 chars)")
 	cmd.Flags().StringVar(&fRootCause, "root-cause", "", "Optional root cause note applied to every resolved incident. (≤1024 chars)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2362,7 +2448,7 @@ Request fields:
     - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
     - template_id (string) — Notification template ID (MongoDB ObjectID).
 `,
-		Args:    requireArgs("person_ids"),
+		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty incident responder-add --data '{"incident_id":"69da451ef77b1b51f40e83ee","person_ids":[2476444212131,2476444212132]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2420,7 +2506,7 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to snooze. At most 100 per call.
   --minutes int (required) — Duration in minutes. Must be greater than 0 and at most 1440 (24h). (max 1440)
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident snooze --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"minutes":60}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2476,7 +2562,7 @@ API: POST /incident/unack (incidentUnack)
 Request fields:
   --incident-ids []string (required) — Incident IDs to unacknowledge. At most 100 per call.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident unack --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2528,7 +2614,7 @@ API: POST /incident/wake (incidentWake)
 Request fields:
   --incident-ids []string (required) — Incident IDs to wake. At most 100 per call.
 `,
-		Args:    requireArgs("incident_ids"),
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident wake --data '{"incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2708,7 +2794,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - chat_name (string) (required) — Chat/group display name.
   - share_link (string) (required) — Join link for the war room, if provided by the IM.
 `,
-		Args:    requireExactArg("chat_id"),
+		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
 		Example: `  flashduty incident war-room-detail --data '{"chat_id":"oc_a0553eda9014c2de1b3a8f75b4e0c000","integration_id":2490562293131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2773,7 +2859,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - plugin_type (string) (required) — IM plugin type (e.g. 'feishu', 'dingtalk', 'wecom', 'slack').
     - status (string) (required) — War room status.
 `,
-		Args:    requireExactArg("incident_id"),
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident war-room-list --data '{"incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -2806,6 +2892,634 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Optional filter: only return war rooms for this IM integration.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemReadListTemplatesCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fAsc bool
+	var fOrderBy string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-list",
+		Short: "List post-mortem templates",
+		Long: `List post-mortem templates.
+
+Return built-in and custom post-mortem templates for the account.
+
+API: POST /incident/post-mortem/template/list (postmortem-read-list-templates)
+
+Request fields:
+  --page int — Page number starting at 1. (min 0)
+  --limit int — Page size, at most 100. (0-100)
+  --search-after-ctx string — Cursor from a previous response for forward pagination.
+  --asc bool — Ascending order when true.
+  --order-by string — Field used to order results. [created_at_seconds]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean) (required) — True when another page is available.
+  - items (array<object>) (required) — Templates in the current page.
+    - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+    - content (string) (required) — BlockNote JSON content used to initialize the report body.
+    - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+    - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+    - description (string) (required) — Template description.
+    - name (string) (required) — Template name shown in the console.
+    - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+    - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+    - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+  - search_after_ctx (string) — Cursor for forward pagination.
+  - total (integer) (required) — Total matching templates.
+`,
+		Example: `  flashduty incident post-mortem-template-list --data '{"asc":false,"limit":20,"order_by":"created_at_seconds","p":1}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("order-by") {
+						body["order_by"] = fOrderBy
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListPostMortemTemplatesRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemReadListTemplates(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
+	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemReadTemplateInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-info <template-id>",
+		Short: "Get post-mortem template detail",
+		Long: `Get post-mortem template detail.
+
+Return one post-mortem template by ID.
+
+API: GET /incident/post-mortem/template/info (postmortem-read-template-info)
+
+Request fields:
+  --template-id string (required) — Template ID.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - description (string) (required) — Template description.
+  - name (string) (required) — Template name shown in the console.
+  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+`,
+		Args: requireBodyFieldOrExactArg("template_id", "template-id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IncidentsPostmortemReadTemplateInfoRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemReadTemplateInfo(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteDeleteTemplateCmd() *cobra.Command {
+	var dataJSON string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-delete <template-id>",
+		Short: "Delete post-mortem template",
+		Long: `Delete post-mortem template.
+
+Delete a custom post-mortem template.
+
+API: POST /incident/post-mortem/template/delete (postmortem-write-delete-template)
+
+Request fields:
+  --template-id string (required) — Template ID.
+`,
+		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
+		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"post_mortem_custom_tmpl_01"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "template_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeletePostMortemTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteDeleteTemplate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/template/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteInitCmd() *cobra.Command {
+	var dataJSON string
+	var fIncidentIDs []string
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-init <incident-id> [<id2>...]",
+		Short: "Initialize post-mortem",
+		Long: `Initialize post-mortem.
+
+Create a post-mortem draft from one or more incidents and a template.
+
+API: POST /incident/post-mortem/init (postmortem-write-init)
+
+Request fields:
+  --incident-ids []string (required) — Incident IDs to link to the report. 1-10 incidents.
+  --template-id string (required) — Template ID used to initialize the report.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - basics (object) (required)
+    - incidents_earliest_start_seconds (integer) (required) — Earliest start time among linked incidents (seconds).
+    - incidents_highest_severity (string) (required) — Highest severity among linked incidents.
+    - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
+    - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
+    - responders (array<object>) (required) — Responders involved in the incident(s).
+      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - as (string) — Role label of this responder.
+      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - email (string) — Member email, filled by the server.
+      - person_id (integer) (required) — Responder member ID.
+      - person_name (string) — Member display name, filled by the server.
+  - content (object) (required)
+    - content (string) (required) — Report body content (BlockNote JSON).
+  - follow_ups (string) (required) — Follow-up action items rendered as a single string.
+  - meta (object) (required) — Post-mortem metadata (lightweight shape used in lists).
+    - account_id (integer) (required) — Account ID.
+    - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
+    - channel_id (integer) (required) — Owning channel ID. 0 if none.
+    - channel_name (string) (required) — Channel name, filled by the server.
+    - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - incident_ids (array<string>) (required) — Linked incident IDs.
+    - is_private (boolean) (required) — When true, only team members and admins can view.
+    - media_count (integer) (required) — Number of uploaded media files.
+    - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - status (string) (required) — Report status. [drafting, published]
+    - team_id (integer) (required) — Owning team ID. 0 if none.
+    - template_id (string) (required) — Template used to initialize the report.
+    - title (string) (required) — Report title.
+    - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
+`,
+		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
+		Example: `  flashduty incident post-mortem-init --data '{"incident_ids":["69bb9233331067560c718ecd"],"template_id":"post_mortem_default_tmpl_en-us"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "incident_ids", "slice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("incident-ids") {
+						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.InitPostMortemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemWriteInit(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to link to the report. 1-10 incidents. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID used to initialize the report. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetBasicsCmd() *cobra.Command {
+	var dataJSON string
+	var fIncidentsEarliestStartSeconds string
+	var fIncidentsHighestSeverity string
+	var fIncidentsLatestCloseSeconds string
+	var fIncidentsTotalDurationSeconds int64
+	var fPostMortemID string
+	var fResponderIDs []int
+	cmd := &cobra.Command{
+		Use:   "post-mortem-basics-reset <post-mortem-id>",
+		Short: "Update post-mortem basics",
+		Long: `Update post-mortem basics.
+
+Replace the incident facts stored in a post-mortem report.
+
+API: POST /incident/post-mortem/basics/reset (postmortem-write-reset-basics)
+
+Request fields:
+  --incidents-earliest-start-seconds string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incidents-highest-severity string (required) — Highest severity among linked incidents.
+  --incidents-latest-close-seconds string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incidents-total-duration-seconds int — Total incident duration in seconds. (min 0)
+  --post-mortem-id string (required) — Post-mortem ID.
+  --responder-ids []int — Responder member IDs to store on the report.
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-basics-reset --data '{"incidents_earliest_start_seconds":1761133512,"incidents_highest_severity":"Warning","incidents_latest_close_seconds":1761133632,"incidents_total_duration_seconds":120,"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","responder_ids":[3790925372131]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vIncidentsEarliestStartSeconds, okIncidentsEarliestStartSeconds, err := genParseTimeFlag(cmd, "incidents-earliest-start-seconds", fIncidentsEarliestStartSeconds)
+				if err != nil {
+					return err
+				}
+				vIncidentsLatestCloseSeconds, okIncidentsLatestCloseSeconds, err := genParseTimeFlag(cmd, "incidents-latest-close-seconds", fIncidentsLatestCloseSeconds)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if okIncidentsEarliestStartSeconds {
+						body["incidents_earliest_start_seconds"] = vIncidentsEarliestStartSeconds
+					}
+					if cmd.Flags().Changed("incidents-highest-severity") {
+						body["incidents_highest_severity"] = fIncidentsHighestSeverity
+					}
+					if okIncidentsLatestCloseSeconds {
+						body["incidents_latest_close_seconds"] = vIncidentsLatestCloseSeconds
+					}
+					if cmd.Flags().Changed("incidents-total-duration-seconds") {
+						body["incidents_total_duration_seconds"] = fIncidentsTotalDurationSeconds
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("responder-ids") {
+						body["responder_ids"] = fResponderIDs
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemBasicsRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetBasics(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/basics/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fIncidentsEarliestStartSeconds, "incidents-earliest-start-seconds", "", "Unix timestamp in seconds for the earliest linked incident start time. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fIncidentsHighestSeverity, "incidents-highest-severity", "", "Highest severity among linked incidents. (required)")
+	cmd.Flags().StringVar(&fIncidentsLatestCloseSeconds, "incidents-latest-close-seconds", "", "Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fIncidentsTotalDurationSeconds, "incidents-total-duration-seconds", 0, "Total incident duration in seconds. (min 0)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs to store on the report.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetFollowUpsCmd() *cobra.Command {
+	var dataJSON string
+	var fFollowUps string
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-follow-ups-reset <post-mortem-id>",
+		Short: "Update post-mortem follow-ups",
+		Long: `Update post-mortem follow-ups.
+
+Replace the follow-up action items on a post-mortem report.
+
+API: POST /incident/post-mortem/follow-ups/reset (postmortem-write-reset-follow-ups)
+
+Request fields:
+  --follow-ups string — Follow-up action items as free text.
+  --post-mortem-id string (required) — Post-mortem ID.
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("follow-ups") {
+						body["follow_ups"] = fFollowUps
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemFollowUpsRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetFollowUps(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/follow-ups/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fFollowUps, "follow-ups", "", "Follow-up action items as free text.")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetStatusCmd() *cobra.Command {
+	var dataJSON string
+	var fPostMortemID string
+	var fStatus string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-status-reset <post-mortem-id>",
+		Short: "Update post-mortem status",
+		Long: `Update post-mortem status.
+
+Set a post-mortem report to drafting or published.
+
+API: POST /incident/post-mortem/status/reset (postmortem-write-reset-status)
+
+Request fields:
+  --post-mortem-id string (required) — Post-mortem ID.
+  --status string (required) — Target report status. [drafting, published]
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","status":"published"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemStatusRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetStatus(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/status/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status. (required) [drafting, published]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteResetTitleCmd() *cobra.Command {
+	var dataJSON string
+	var fPostMortemID string
+	var fTitle string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-title-reset <post-mortem-id>",
+		Short: "Update post-mortem title",
+		Long: `Update post-mortem title.
+
+Replace the title of a post-mortem report.
+
+API: POST /incident/post-mortem/title/reset (postmortem-write-reset-title)
+
+Request fields:
+  --post-mortem-id string (required) — Post-mortem ID.
+  --title string (required) — New report title.
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-title-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","title":"Production API latency incident"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemTitleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.PostmortemWriteResetTitle(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/post-mortem/title/reset")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New report title. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsPostmortemWriteUpsertTemplateCmd() *cobra.Command {
+	var dataJSON string
+	var fContent string
+	var fContentMarkdown string
+	var fDescription string
+	var fName string
+	var fTeamID int64
+	var fTemplateID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-template-upsert",
+		Short: "Create or update post-mortem template",
+		Long: `Create or update post-mortem template.
+
+Create a custom post-mortem template or update an existing one.
+
+API: POST /incident/post-mortem/template/upsert (postmortem-write-upsert-template)
+
+Request fields:
+  --content string (required) — BlockNote JSON template content.
+  --content-markdown string — Markdown version of the template content.
+  --description string — Template description.
+  --name string (required) — Template name.
+  --team-id int — Managing team ID. Required when creating a custom template.
+  --template-id string — Template ID. Omit to create a new template; provide it to update an existing template.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
+  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
+  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - description (string) (required) — Template description.
+  - name (string) (required) — Template name shown in the console.
+  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
+  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
+  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+`,
+		Example: `  flashduty incident post-mortem-template-upsert --data '{"content":"[{\"type\":\"heading\",\"content\":\"Summary\"}]","content_markdown":"## Summary\nDescribe what happened.","description":"Template for production incident reviews.","name":"Production incident template","team_id":2477033058131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("content") {
+						body["content"] = fContent
+					}
+					if cmd.Flags().Changed("content-markdown") {
+						body["content_markdown"] = fContentMarkdown
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					if cmd.Flags().Changed("template-id") {
+						body["template_id"] = fTemplateID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpsertPostMortemTemplateRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostmortemWriteUpsertTemplate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fContent, "content", "", "BlockNote JSON template content. (required)")
+	cmd.Flags().StringVar(&fContentMarkdown, "content-markdown", "", "Markdown version of the template content.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Template description.")
+	cmd.Flags().StringVar(&fName, "name", "", "Template name. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Managing team ID. Required when creating a custom template.")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. Omit to create a new template; provide it to update an existing template.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2843,4 +3557,13 @@ func registerGeneratedIncidents(root *cobra.Command) {
 	genAddLeaf(gIncident, genIncidentsWarRoomDeleteCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomDetailCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomListCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemReadListTemplatesCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemReadTemplateInfoCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteDeleteTemplateCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteInitCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetBasicsCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetFollowUpsCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetStatusCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteResetTitleCmd())
+	genAddLeaf(gIncident, genIncidentsPostmortemWriteUpsertTemplateCmd())
 }

@@ -76,11 +76,12 @@ func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields string
 	var channelID int64
 	var limit, page int
+	defaultStructuredFields := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"}
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields incident_id,title,incident_severity,progress,start_time) so you get a compact record without piping to jq.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction) instead of paginating raw incidents.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,title,incident_severity,progress,start_time,channel_id; pass --fields to choose a different projection.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), fduty insight incident-list for metric-rich filtered incident rows, and fduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -113,8 +114,15 @@ func newIncidentListCmd() *cobra.Command {
 					return err
 				}
 
-				if fields != "" && ctx.Structured() {
-					proj, err := projectFields(result.Items, parseStringSlice(fields))
+				if ctx.Structured() {
+					selectedFields := defaultStructuredFields
+					if cmd.Flags().Changed("fields") {
+						selectedFields = parseStringSlice(fields)
+						if len(selectedFields) == 0 {
+							return fmt.Errorf("--fields must name at least one field")
+						}
+					}
+					proj, err := projectFields(result.Items, selectedFields)
 					if err != nil {
 						return err
 					}
@@ -353,7 +361,7 @@ func newIncidentCreateCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Channel ID")
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
-	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Person IDs to assign (use 'flashduty member list' to look up IDs)")
+	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Member IDs to assign directly (use 'flashduty member list' to look up member IDs)")
 
 	return cmd
 }
@@ -751,7 +759,7 @@ func newIncidentReassignCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&person, "person", "", "Comma-separated person IDs")
+	cmd.Flags().StringVar(&person, "person", "", "Comma-separated member IDs from 'flashduty member list'")
 	_ = cmd.MarkFlagRequired("person")
 
 	return cmd
@@ -766,8 +774,8 @@ func newIncidentAddResponderCmd() *cobra.Command {
 		Short: "Add responders to an incident",
 		Long: `Add one or more responders to an incident.
 
-Responder IDs are person IDs. Use 'flashduty member list' to find the right
-person ID before running this command. Optional notification flags let you ask
+Responder IDs are member IDs from 'flashduty member list'. Optional
+notification flags let you ask
 FlashDuty to notify added responders through their preferences, explicit
 personal channels, or a template.`,
 		Example: `  flashduty member list --name "Ada"
@@ -808,7 +816,7 @@ personal channels, or a template.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&person, "person", "", "Comma-separated person IDs to add")
+	cmd.Flags().StringVar(&person, "person", "", "Comma-separated member IDs from 'flashduty member list'")
 	cmd.Flags().BoolVar(&followPreference, "follow-preference", false, "Follow each responder's notification preferences")
 	cmd.Flags().StringVar(&notifyChannel, "notify-channel", "", "Comma-separated notification channels, e.g. voice,sms,email")
 	cmd.Flags().StringVar(&templateID, "template-id", "", "Notification template ID")
@@ -937,8 +945,8 @@ func newIncidentWarRoomCreateCmd() *cobra.Command {
 		Long: `Create an incident war room in a configured IM integration.
 
 If --integration is omitted, the CLI uses the first war-room-enabled IM
-integration returned by FlashDuty. Use --member to invite person IDs directly.
-Use 'flashduty member list' to find person IDs. Use --add-observers to also
+integration returned by FlashDuty. Use --member to invite member IDs directly.
+Use 'flashduty member list' to find member IDs. Use --add-observers to also
 invite historical responders selected by FlashDuty.`,
 		Example: `  flashduty incident war-room create inc_123
   flashduty incident war-room create inc_123 --integration 42 --member 101,202
@@ -974,7 +982,7 @@ invite historical responders selected by FlashDuty.`,
 	}
 
 	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID; if omitted, first war-room-enabled IM integration is used")
-	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs to invite")
+	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member IDs to invite")
 	cmd.Flags().BoolVar(&addObservers, "add-observers", false, "Invite historical responders as extra war-room members")
 	return cmd
 }
@@ -1117,9 +1125,8 @@ func newIncidentWarRoomAddMemberCmd() *cobra.Command {
 		Long: `Add members to an existing incident war room by IM chat ID.
 
 This command requires --integration because chat IDs are scoped to an IM
-integration. Member IDs are person IDs. Use 'flashduty member list' to find
-person IDs, and 'flashduty incident war-room list' to find chat and integration
-IDs.`,
+integration. Use 'flashduty member list' to find member IDs, and
+'flashduty incident war-room list' to find chat and integration IDs.`,
 		Example: `  flashduty member list --name "Ada"
   flashduty incident war-room list inc_123
   flashduty incident war-room add-member chat_123 --integration 42 --member 101,202`,
@@ -1147,7 +1154,7 @@ IDs.`,
 	}
 
 	cmd.Flags().Int64Var(&integrationID, "integration", 0, "IM integration ID (required)")
-	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member person IDs (required)")
+	cmd.Flags().StringVar(&member, "member", "", "Comma-separated member IDs (required)")
 	_ = cmd.MarkFlagRequired("integration")
 	_ = cmd.MarkFlagRequired("member")
 	return cmd

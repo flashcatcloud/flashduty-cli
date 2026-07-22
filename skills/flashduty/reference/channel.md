@@ -6,6 +6,8 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on channels �
 
 "协作空间 / 频道 / 渠道 / 告警分组 / 降噪 / 静默 / 抑制 / 丢弃 / 升级策略 / 告警收敛 / channel / collaboration space / escalation rule / silence / inhibit / drop rule" → **channel**, NOT `incident` (incidents live _inside_ a channel) or `alert` (alerts are routed _into_ a channel). **`协作空间` (collaboration space) IS the `channel` API noun** — a naive translation would be "频道", but Flashduty's product surfaces it as 协作空间. Key IDs: **`channel-id` (int)** from `channel list`; **`rule-id` (MongoDB ObjectID string)** from `escalate-rule-list`, `inhibit-rule-list`, `silence-rule-list`, `unsubscribe-rule-list`.
 
+**Flashcat workspace exception.** When the user asks whether a "空间" is healthy, red/green, or specifically mentions **灭火图 / firemap**, do not assume they mean a Flashduty channel. In that context, "空间" may be a **Flashcat workspace**, and the answer must come from the Flashcat/firemap surface rather than channel incident stats. If you first resolved a name as a Flashduty `channel-id` and later resolve the same visible name as a Flashcat `workspace-id`, **do not silently switch** — tell the user these are different objects and state which ID/surface each conclusion uses.
+
 ## Intent → verb
 
 | want | verb |
@@ -38,6 +40,7 @@ fduty channel create --channel-name "production-api" --team-id <team-id> \
 # → returns channel_id; use it below
 
 # 3. add an escalation rule (all flags; layers is required via --data)
+# API field `person_ids` expects member IDs from `fduty member list`.
 fduty channel escalate-rule-create \
   --channel-id <channel-id> --rule-name "P1 on-call" --template-id <template-id> \
   --data '{"layers":[{"target":{"person_ids":[<member-id>],"by":{"critical":["voice","sms"],"warning":["feishu"]}},"notify_step":5,"max_times":3,"escalate_window":30}]}'
@@ -86,7 +89,7 @@ Enable channel
 
 ### escalate-rule-create
 Create escalation rule
-- `--aggr-window` int64 — Aggregation window in seconds. 0 disables aggregation. (0-3600)
+- `--aggr-window` int64 — Delay window in seconds. 0 disables delay. (0-3600)
 - `--channel-id` int64 (required) — Channel the rule belongs to.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
@@ -120,7 +123,7 @@ List escalation rules
 
 ### escalate-rule-update
 Update escalation rule
-- `--aggr-window` int64 — Aggregation window in seconds. 0 disables aggregation.
+- `--aggr-window` int64 — Delay window in seconds. 0 disables delay.
 - `--channel-id` int64 (required) — Channel the rule belongs to.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
@@ -128,11 +131,6 @@ Update escalation rule
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
 - body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
-
-### escalate-webhook-robot-list
-List webhook robots in escalation rules
-- `--query` string — Search keyword. Fuzzy matches against robot alias or token, case-insensitive.
-- `--type` string — Filter by robot type, e.g. 'feishu', 'dingtalk', 'wecom', 'slack', 'teams'. Omit to return all types.
 
 ### info <channel-id>
 Get channel detail

@@ -18,6 +18,12 @@ type specOpMeta struct {
 	streaming bool // 200 body is not application/json (e.g. application/x-ndjson)
 }
 
+var curatedOperationIDs = map[string]bool{
+	// Uses a path parameter plus bearer trigger token instead of the app_key
+	// generated command runtime. Served by a hand-written path command.
+	"automation-trigger-write-fire": true,
+}
+
 // loadSpecOps reads every public GET/POST operation from the openapi spec
 // shipped in the linked go-flashduty module — the same spec cligen generates
 // against — recording each op's id, path, and whether its 200 response is a
@@ -143,14 +149,21 @@ func TestEveryOperationHasPathCommand(t *testing.T) {
 // stale run). Streaming ops (200 body is not application/json) are deliberately
 // excluded from generation — they cannot be modeled by the typed-response
 // template and are served by curated commands instead — so the manifest must NOT
-// contain them and they are not required to be generated.
+// contain them and they are not required to be generated. A small number of
+// non-streaming operations can also be curated when the generated app_key
+// runtime cannot model their auth or path shape.
 func TestGeneratorTargetsFullSpec(t *testing.T) {
 	ops := loadSpecOps(t)
 	streaming := map[string]bool{}
+	curated := map[string]bool{}
 	wantGenerated := map[string]bool{}
 	for _, op := range ops {
 		if op.streaming {
 			streaming[op.id] = true
+			continue
+		}
+		if curatedOperationIDs[op.id] {
+			curated[op.id] = true
 			continue
 		}
 		wantGenerated[op.id] = true
@@ -162,7 +175,10 @@ func TestGeneratorTargetsFullSpec(t *testing.T) {
 		if streaming[id] {
 			t.Errorf("manifest op %q is streaming and must not be generated (curated only)", id)
 		}
-		if !wantGenerated[id] && !streaming[id] {
+		if curated[id] {
+			t.Errorf("manifest op %q is curated and must not be generated", id)
+		}
+		if !wantGenerated[id] && !streaming[id] && !curated[id] {
 			t.Errorf("manifest op %q is not in the current spec (regenerate cligen)", id)
 		}
 	}
@@ -171,6 +187,6 @@ func TestGeneratorTargetsFullSpec(t *testing.T) {
 			t.Errorf("op %q has no generated command (regenerate cligen)", id)
 		}
 	}
-	t.Logf("generator targets %d/%d non-streaming spec operations (%d streaming, curated)",
-		len(gen), len(wantGenerated), len(streaming))
+	t.Logf("generator targets %d/%d non-streaming spec operations (%d streaming, %d curated)",
+		len(gen), len(wantGenerated), len(streaming), len(curated))
 }

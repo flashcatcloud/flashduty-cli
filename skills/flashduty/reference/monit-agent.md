@@ -20,7 +20,7 @@ Prereq: `SKILL.md` read. On-box diagnostics: run diagnostic tools on a host or d
 fduty monit-agent catalog --target-locator <host-or-instance> --output-format toon
 # 2. invoke up to 8 tools concurrently; tool names taken verbatim from the catalog
 fduty monit-agent invoke --target-locator <host-or-instance> \
-  --data '{"tools":[{"tool":"host.top","params":{}},{"tool":"host.disk","params":{}}]}'
+  --data '{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}'
 ```
 
 <!-- GENERATED:monit-agent START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -54,11 +54,12 @@ Run up to 8 monit-agent tools concurrently on a target
 - **`ambiguous_target_kind` error** ⇒ the locator matched multiple kinds; re-issue with `--target-kind`.
 - A `target_unavailable` / `target_unreachable` error means the agent isn't connected — report it; don't retry endlessly or fall back to SSH.
 - Per-tool errors (`timeout`, `denied`, `unknown_tool`…) are reported per result, mutually exclusive with that tool's `data`.
+- **Serialize per target; parallelize only across targets.** Each target enforces a per-target concurrency limit, so two `invoke`/`catalog` calls fired at the *same* locator at once make the second come back `code=overloaded` — forcing a context-bloating retry. Batch every tool for one host into a single `invoke` (its `tools` array already runs them concurrently agent-side); fan out in parallel across *distinct* targets, never against one.
 
 ## Worked example — top processes + disk on a host
 
 ```bash
 fduty monit-agent invoke --target-locator web-prod-3 \
-  --data '{"tools":[{"tool":"host.top","params":{"limit":10}},{"tool":"host.disk","params":{}}]}' \
+  --data '{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}' \
   --output-format toon
 ```
