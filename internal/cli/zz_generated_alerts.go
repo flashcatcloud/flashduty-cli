@@ -150,21 +150,30 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genAlertsReadEventListCmd() *cobra.Command {
 	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
 	var fAlertID string
+	var fAsc bool
 	cmd := &cobra.Command{
 		Use:   "event-list <alert-id>",
 		Short: "List events for an alert",
 		Long: `List events for an alert.
 
-Return all raw events that have been ingested into a specific alert, in chronological order.
+Return raw events for an alert with cursor or page-number pagination.
 
 API: POST /alert/event/list (alert-read-event-list)
 
 Request fields:
-  --alert-id string (required) — Alert ID (ObjectID hex string).
+  --page int — Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)
+  --limit int — Page size. Defaults to 20 and cannot exceed 100. (0-100)
+  --search-after-ctx string — Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.
+  --alert-id string (required) — Alert ID (MongoDB ObjectID).
+  --asc bool — When true, return events oldest-first. Defaults to newest-first.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
+  - has_next_page (boolean) (required) — Whether another page is available.
+  - items (array<object>) (required) — Raw alert events in the requested order.
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -187,17 +196,31 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (integer) — Record update time, Unix epoch seconds.
+  - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page.
+  - total (integer) (required) — Total matching event count.
 `,
-		Args:    requireExactArg("alert_id"),
-		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
+		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if err := genFoldPositional(args, body, "alert_id", "string"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
 					if cmd.Flags().Changed("alert-id") {
 						body["alert_id"] = fAlertID
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
 					}
 					return nil
 				})
@@ -216,7 +239,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (ObjectID hex string). (required)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20 and cannot exceed 100. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.")
+	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (MongoDB ObjectID). (required)")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "When true, return events oldest-first. Defaults to newest-first.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -252,12 +279,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - created_at (integer) (required) — Creation timestamp in Unix epoch milliseconds.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
-    - detail (any) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+      - comment (string) — Comment body.
+      - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - status (string) — Severity level. [Ok, Critical, Warning, Info]
     - ref_id (string) (required) — ObjectID of the alert this entry references.
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
     - updated_at (integer) (required) — Last update timestamp in Unix epoch milliseconds.
 `,
-		Args:    requireExactArg("alert_id"),
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -370,7 +400,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - alt (string) — Alt text.
     - href (string) — Optional link URL when the image is clicked.
     - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-  - incident (object) — Brief incident reference embedded in an alert.
+  - incident (object) — Associated incident, if any.
     - incident_id (string) — Incident ID (ObjectID hex string).
     - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
     - title (string) — Incident title.
@@ -387,7 +417,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
 `,
-		Args:    requireExactArg("alert_id"),
+		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert info --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -510,7 +540,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -684,7 +714,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
-    - incident (object) — Brief incident reference embedded in an alert.
+    - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
       - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
       - title (string) — Incident title.
@@ -703,7 +733,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - search_after_ctx (string) — Cursor for the next page.
   - total (integer) — Total matching alerts.
 `,
-		Args:    requireArgs("alert_ids"),
+		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -756,14 +786,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) — Member ID who created the pipeline.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
-    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+      - description (string) — New description template.
+      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+      - severity (string) — Target severity level. [Critical, Warning, Info]
+      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
   - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
   - updated_by (integer) — Member ID who last updated the pipeline.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-info --data '{"integration_id":10001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -817,14 +852,19 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) — Member ID who created the pipeline.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
-      - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+      - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
       - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+        - description (string) — New description template.
+        - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+        - severity (string) — Target severity level. [Critical, Warning, Info]
+        - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+        - title (string) — New title template. Supports Golang template syntax referencing alert fields.
     - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
     - updated_by (integer) — Member ID who last updated the pipeline.
 `,
-		Args:    requireArgs("integration_ids"),
+		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),
 		Example: `  flashduty alert pipeline-list --data '{"integration_ids":[10001,10002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -880,7 +920,7 @@ Request fields:
   --owner-id int — Optional new owner for the target incident.
   --title string — Optional new title for the target incident.
 `,
-		Args:    requireArgs("alert_ids"),
+		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert merge --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"],"incident_id":"663a000000000000deadbeef"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -948,11 +988,16 @@ API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 Request fields:
   --integration-id int (required) — Integration ID to configure.
   rules (array<object>, via --data) (required) — Rules to apply. Max 50.
-    - if (array<array>) — OR-of-AND filter tree. Outer array is a list of AND groups; the condition passes if **any** AND group matches. Within each AND group, **all** conditions must match.
+    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+      - description (string) — New description template.
+      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
+      - severity (string) — Target severity level. [Critical, Warning, Info]
+      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
 `,
-		Args:    requireExactArg("integration_id"),
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

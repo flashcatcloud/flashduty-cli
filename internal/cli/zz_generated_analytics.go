@@ -17,6 +17,7 @@ func genAnalyticsByAccountCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -47,6 +48,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -129,6 +131,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
 					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
+					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
 					}
@@ -192,6 +197,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -218,6 +224,7 @@ func genAnalyticsByChannelCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -248,6 +255,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -330,6 +338,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
 					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
+					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
 					}
@@ -393,6 +404,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -419,6 +431,7 @@ func genAnalyticsByResponderCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -449,6 +462,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -522,6 +536,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
 					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
+					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
 					}
@@ -585,6 +602,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -611,6 +629,7 @@ func genAnalyticsByTeamCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -641,6 +660,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -723,6 +743,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
 					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
+					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
 					}
@@ -786,6 +809,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -812,6 +836,7 @@ func genAnalyticsChannelExportCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -830,7 +855,7 @@ func genAnalyticsChannelExportCmd() *cobra.Command {
 		Short: "Export channel insight",
 		Long: `Export channel insight.
 
-Export channel insight metrics as a CSV file. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
+Export channel insight metrics as a CSV file. CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
 
 API: POST /insight/channel/export (insightChannelExport)
 
@@ -842,6 +867,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -890,6 +916,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -958,6 +987,7 @@ Request fields:
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -983,6 +1013,7 @@ func genAnalyticsIncidentExportCmd() *cobra.Command {
 	var fEndTime int64
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -1000,7 +1031,7 @@ func genAnalyticsIncidentExportCmd() *cobra.Command {
 		Short: "Export insight incidents",
 		Long: `Export insight incidents.
 
-Export the filtered incident analytics list as a CSV file. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
+Export the filtered incident analytics list as a CSV file. CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
 
 API: POST /insight/incident/export (insightIncidentExport)
 
@@ -1011,6 +1042,7 @@ Request fields:
   --end-time int
   --export-fields []string
   --incident-ids []string
+  --include-ever-muted bool
   --is-my-team bool
   --orderby string
   --query string
@@ -1047,6 +1079,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -1111,6 +1146,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Request field ")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Request field ")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Request field ")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Request field ")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Request field ")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Request field ")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Request field ")
@@ -1138,6 +1174,7 @@ func genAnalyticsIncidentListCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -1169,6 +1206,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -1200,25 +1238,32 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer)
     - channel_name (string)
     - closed_by (string) [auto, timeout, manually]
+    - closer_id (integer) — Member ID of the person who closed the incident.
+    - closer_name (string) — Display name of the person who closed the incident.
     - created_at (integer)
     - creator_id (integer)
     - creator_name (string)
     - description (string)
     - engaged_seconds (integer)
     - escalations (integer)
+    - ever_muted (boolean) — Whether the incident has ever been muted.
     - fields (object)
+    - frequency (string) — Incident frequency classification. [frequent, rare]
     - hours (string)
     - incident_id (string)
     - interruptions (integer)
     - labels (object)
     - manual_escalations (integer)
     - notifications (integer)
+    - owner_id (integer) — Member ID of the incident owner.
+    - owner_name (string) — Display name of the incident owner.
     - progress (string) — Incident progress state — one of 'Triggered', 'Processing', 'Closed'.
     - reassignments (integer)
     - responders (array<object>)
     - seconds_to_ack (integer)
     - seconds_to_close (integer)
     - severity (string) [Critical, Warning, Info, Ok]
+    - snoozed_before (integer) — Unix timestamp in seconds until which the incident is snoozed.
     - team_id (integer)
     - team_name (string)
     - timeout_escalations (integer)
@@ -1264,6 +1309,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -1327,6 +1375,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -1352,6 +1401,7 @@ func genAnalyticsResponderExportCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -1370,7 +1420,7 @@ func genAnalyticsResponderExportCmd() *cobra.Command {
 		Short: "Export responder insight",
 		Long: `Export responder insight.
 
-Export responder insight metrics as a CSV file. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
+Export responder insight metrics as a CSV file. CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
 
 API: POST /insight/responder/export (insightResponderExport)
 
@@ -1382,6 +1432,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -1430,6 +1481,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -1498,6 +1552,7 @@ Request fields:
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -1524,6 +1579,7 @@ func genAnalyticsTeamExportCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fOrderby string
 	var fQuery string
@@ -1542,7 +1598,7 @@ func genAnalyticsTeamExportCmd() *cobra.Command {
 		Short: "Export team insight",
 		Long: `Export team insight.
 
-Export team insight metrics as a CSV file. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
+Export team insight metrics as a CSV file. CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope.
 
 API: POST /insight/team/export (insightTeamExport)
 
@@ -1554,6 +1610,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --orderby string — Field to sort the underlying incident set by. [created_at]
   --query string — Full-text query applied to incident title and description.
@@ -1602,6 +1659,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -1670,6 +1730,7 @@ Request fields:
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
@@ -1696,6 +1757,7 @@ func genAnalyticsTopkAlertsByLabelCmd() *cobra.Command {
 	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
+	var fIncludeEverMuted bool
 	var fIsMyTeam bool
 	var fK int64
 	var fLabel string
@@ -1728,6 +1790,7 @@ Request fields:
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --k int — Number of top entries to return, between 1 and 100.
   --label string (required) — Dimension to aggregate by. [check, resource]
@@ -1785,6 +1848,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
+					}
+					if cmd.Flags().Changed("include-ever-muted") {
+						body["include_ever_muted"] = fIncludeEverMuted
 					}
 					if cmd.Flags().Changed("is-my-team") {
 						body["is_my_team"] = fIsMyTeam
@@ -1855,6 +1921,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().Int64Var(&fK, "k", 0, "Number of top entries to return, between 1 and 100.")
 	cmd.Flags().StringVar(&fLabel, "label", "", "Dimension to aggregate by. (required) [check, resource]")

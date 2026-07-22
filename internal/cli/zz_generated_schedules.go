@@ -38,7 +38,7 @@ Request fields:
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+    - day_mask (object) (required) — Day-of-week mask.
       - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
     - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
     - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -170,7 +170,7 @@ API: POST /schedule/delete (scheduleDelete)
 Request fields:
   --schedule-ids []int (required) — Schedule IDs to operate on.
 `,
-		Args:    requireArgs("schedule_ids"),
+		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
 		Example: `  flashduty schedule delete --data '{"schedule_ids":[2001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -230,7 +230,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Account ID.
   - create_at (integer) (required) — Creation timestamp (Unix seconds).
   - create_by (integer) (required) — Creator person ID.
-  - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+  - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
     - end (integer) (required) — Shift end timestamp (Unix seconds).
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -248,7 +248,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
   - end (integer) — Window end (Unix seconds).
   - field (string) — Field name used by the legacy update-field endpoint.
-  - final_schedule (object) (required) — Computed schedule for a single layer.
+  - final_schedule (object) (required) — Collapsed final schedule across all layers.
     - layer_name (string) (required) — Layer display name.
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
@@ -282,7 +282,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+    - day_mask (object) (required) — Day-of-week mask.
       - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
     - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
     - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -317,7 +317,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
   - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
-  - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+  - next_oncall (object) (required) — Next on-call group, or null when unknown.
     - end (integer) (required) — Shift end timestamp (Unix seconds).
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -371,7 +371,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - update_at (integer) (required) — Last update timestamp (Unix seconds).
   - update_by (integer) (required) — Last updater person ID.
 `,
-		Args:    requireExactArg("schedule_id"),
+		Args:    requireBodyFieldOrExactArg("schedule_id", "schedule-id"),
 		Example: `  flashduty schedule info --data '{"end":1712086400,"schedule_id":2001,"start":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -440,7 +440,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -456,7 +456,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
     - end (integer) — Window end (Unix seconds).
     - field (string) — Field name used by the legacy update-field endpoint.
-    - final_schedule (object) (required) — Computed schedule for a single layer.
+    - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
@@ -480,7 +480,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
       - create_by (integer) (required) — Creator person ID.
-      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - day_mask (object) (required) — Day-of-week mask.
         - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
       - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
       - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -513,7 +513,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_by (integer) (required) — Last updater person ID.
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
-    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - next_oncall (object) (required) — Next on-call group, or null when unknown.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -554,7 +554,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
 `,
-		Args:    requireArgs("schedule_ids"),
+		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
 		Example: `  flashduty schedule infos --data '{"schedule_ids":[2001,2002,2003]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -623,7 +623,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -639,7 +639,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
     - end (integer) — Window end (Unix seconds).
     - field (string) — Field name used by the legacy update-field endpoint.
-    - final_schedule (object) (required) — Computed schedule for a single layer.
+    - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
@@ -663,7 +663,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
       - create_by (integer) (required) — Creator person ID.
-      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - day_mask (object) (required) — Day-of-week mask.
         - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
       - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
       - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -696,7 +696,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_by (integer) (required) — Last updater person ID.
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
-    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - next_oncall (object) (required) — Next on-call group, or null when unknown.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -837,7 +837,7 @@ Request fields:
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+    - day_mask (object) (required) — Day-of-week mask.
       - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
     - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
     - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -894,7 +894,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Account ID.
   - create_at (integer) (required) — Creation timestamp (Unix seconds).
   - create_by (integer) (required) — Creator person ID.
-  - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+  - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
     - end (integer) (required) — Shift end timestamp (Unix seconds).
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -912,7 +912,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
   - end (integer) — Window end (Unix seconds).
   - field (string) — Field name used by the legacy update-field endpoint.
-  - final_schedule (object) (required) — Computed schedule for a single layer.
+  - final_schedule (object) (required) — Collapsed final schedule across all layers.
     - layer_name (string) (required) — Layer display name.
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
@@ -946,7 +946,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+    - day_mask (object) (required) — Day-of-week mask.
       - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
     - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
     - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -981,7 +981,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
   - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
-  - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+  - next_oncall (object) (required) — Next on-call group, or null when unknown.
     - end (integer) (required) — Shift end timestamp (Unix seconds).
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -1118,7 +1118,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - cur_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -1134,7 +1134,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
     - end (integer) — Window end (Unix seconds).
     - field (string) — Field name used by the legacy update-field endpoint.
-    - final_schedule (object) (required) — Computed schedule for a single layer.
+    - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
@@ -1158,7 +1158,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
       - create_by (integer) (required) — Creator person ID.
-      - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+      - day_mask (object) (required) — Day-of-week mask.
         - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
       - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
       - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).
@@ -1191,7 +1191,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_by (integer) (required) — Last updater person ID.
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
-    - next_oncall (object) (required) — Snapshot of the currently or next on-call group.
+    - next_oncall (object) (required) — Next on-call group, or null when unknown.
       - end (integer) (required) — Shift end timestamp (Unix seconds).
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
@@ -1303,7 +1303,7 @@ Request fields:
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
     - create_by (integer) (required) — Creator person ID.
-    - day_mask (object) (required) — Day-of-week mask for a rotation layer.
+    - day_mask (object) (required) — Day-of-week mask.
       - repeat (array<integer>) — Weekday numbers (0 = Sunday) included in the rotation.
     - enable_time (integer) (required) — When the layer becomes effective (Unix seconds).
     - expire_time (integer) (required) — When the layer expires (Unix seconds, 0 means never).

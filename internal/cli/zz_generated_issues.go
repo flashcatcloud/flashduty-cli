@@ -59,7 +59,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer)
   - versions (array<string>)
 `,
-		Args:    requireExactArg("issue_id"),
+		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
 		Example: `  flashduty rum issue-info --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -278,7 +278,7 @@ Request fields:
   --status string — New status. [for_review, reviewed, ignored, resolved]
   --suspected-cause string — Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
 `,
-		Args:    requireExactArg("issue_id"),
+		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
 		Example: `  flashduty rum issue-update --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9","status":"resolved"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

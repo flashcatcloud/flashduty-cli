@@ -23,8 +23,8 @@ if [ -z "$ID" ]; then
 fi
 
 # Project detail explicitly because its default table includes unbounded narrative
-# fields. The other read verbs use their compact default renderers; raw toon dumps
-# every empty field plus heavy blobs like a change's labels.steps.
+# fields. The other read verbs use their compact default renderers; raw toon would
+# dump every empty field plus heavy blobs like a change's labels.steps.
 run() { echo "===== fduty $* ====="; fduty "$@" 2>&1; echo; }
 
 run incident detail        "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon # ① 详情 + AI summary + alert counts + channel

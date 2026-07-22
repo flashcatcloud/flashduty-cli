@@ -27,7 +27,6 @@ func TestIncidentCardAvoidsUnboundedStructuredHotFlows(t *testing.T) {
 	for _, command := range []string{
 		"incident alerts <incident-id> --output-format toon",
 		`incident alerts   "$ID" --output-format toon`,
-		`incident timeline "$ID" --output-format toon`,
 		"incident post-mortem-list --channel-ids <channel-id> --output-format toon",
 		"change list --since 24h --output-format toon",
 		"incident timeline <primary-incident-id> --output-format toon",
@@ -35,5 +34,17 @@ func TestIncidentCardAvoidsUnboundedStructuredHotFlows(t *testing.T) {
 		if strings.Contains(body, command) {
 			t.Errorf("incident hot flow must use the compact default instead of %q", command)
 		}
+	}
+
+	_, summary, found := strings.Cut(body, "## Hot flow — full fault analysis (read-only summary)")
+	if !found {
+		t.Fatal("incident card is missing the full fault analysis section")
+	}
+	summary, _, found = strings.Cut(summary, "## Hot flow — resolve, document, and merge duplicates")
+	if !found {
+		t.Fatal("incident card is missing the section after full fault analysis")
+	}
+	if strings.Contains(summary, `incident timeline "$ID" --output-format toon`) {
+		t.Error("full fault analysis must use timeline's compact default; structured timeline is reserved for comment read-back")
 	}
 }
