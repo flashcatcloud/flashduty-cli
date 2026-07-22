@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // incidentRow / alertRow are multi-field stub payloads with the nested blobs
@@ -231,6 +234,158 @@ func TestFieldsUnknownFieldErrors(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "not_a_field") {
 				t.Errorf("error should name the bad field %q, got: %v", "not_a_field", err)
+			}
+		})
+	}
+}
+
+func TestIncidentSimilarStructuredProjection(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	items := make([]any, 20)
+	for i := range items {
+		row := incidentRow()
+		row["incident_id"] = "similar-" + string(rune('a'+i))
+		row["close_time"] = 1712000060
+		row["ack_time"] = 1712000030
+		row["alert_cnt"] = 3
+		row["root_cause"] = "disk exhaustion"
+		row["score"] = 0.9
+		row["description"] = strings.Repeat("large description ", 100)
+		row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
+		items[i] = row
+	}
+	stub.data = map[string]any{"items": items, "total": len(items)}
+
+	out, err := execCommand("incident", "similar", "inc-1", "--limit", "20", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if len(out) >= 16*1024 {
+		t.Fatalf("compact similar output is %d bytes, want <16 KiB", len(out))
+	}
+
+	var rows []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
+		t.Fatalf("parse compact similar json: %v\n%s", err, out)
+	}
+	want := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score"}
+	if len(rows) != len(items) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(items))
+	}
+	for _, row := range rows {
+		if len(row) != len(want) {
+			t.Fatalf("got keys %v, want exactly %v", row, want)
+		}
+		for _, field := range want {
+			if _, ok := row[field]; !ok {
+				t.Errorf("projected row missing %q", field)
+			}
+		}
+		if _, ok := row["description"]; ok {
+			t.Errorf("projected row includes description: %v", row)
+		}
+	}
+
+}
+
+func TestIncidentDetailFieldsProjection(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	row := incidentRow()
+	row["description"] = strings.Repeat("large description ", 500)
+	row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
+	stub.data = row
+
+	out, err := execCommand("incident", "detail", "inc-1", "--fields", "incident_id,title,root_cause", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if len(out) >= 8*1024 {
+		t.Fatalf("projected detail output is %d bytes, want <8 KiB", len(out))
+	}
+	var detail map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &detail); err != nil {
+		t.Fatalf("parse projected detail json: %v\n%s", err, out)
+	}
+	if len(detail) != 3 || detail["incident_id"] == nil || detail["title"] == nil || detail["root_cause"] == nil {
+		t.Fatalf("projected detail = %v, want exactly incident_id,title,root_cause", detail)
+	}
+	if _, ok := detail["description"]; ok {
+		t.Errorf("projected detail includes description: %v", detail)
+	}
+
+}
+
+func TestAlertEventListStructuredProjection(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	items := make([]any, 30)
+	for i := range items {
+		items[i] = map[string]any{
+			"event_id":       "event-" + string(rune('a'+i)),
+			"alert_id":       "alert-1",
+			"event_severity": "Warning",
+			"event_status":   "Triggered",
+			"event_time":     1712000000,
+			"title":          "CPU high",
+			"description":    strings.Repeat("large description ", 100),
+			"labels":         map[string]any{"host": "web-01"},
+			"images":         []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}},
+		}
+	}
+	stub.data = map[string]any{"items": items, "total": len(items)}
+
+	out, err := execCommand("alert-event", "list", "--limit", "30", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if len(out) >= 16*1024 {
+		t.Fatalf("compact alert-event output is %d bytes, want <16 KiB", len(out))
+	}
+	var rows []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
+		t.Fatalf("parse compact alert-event json: %v\n%s", err, out)
+	}
+	want := []string{"event_id", "alert_id", "event_severity", "event_status", "event_time", "title"}
+	if len(rows) != len(items) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(items))
+	}
+	for _, row := range rows {
+		if len(row) != len(want) {
+			t.Fatalf("got keys %v, want exactly %v", row, want)
+		}
+		for _, field := range want {
+			if _, ok := row[field]; !ok {
+				t.Errorf("projected row missing %q", field)
+			}
+		}
+	}
+
+}
+
+func TestStructuredFieldsEmptyErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		cmd  func() *cobra.Command
+		args []string
+	}{
+		{"incident similar", newIncidentSimilarCmd, []string{"inc-1", "--fields", ""}},
+		{"incident detail", newIncidentDetailCmd, []string{"inc-1", "--fields", ""}},
+		{"alert-event list", newAlertEventListCmd, []string{"--fields", ""}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			newGFStub(t)
+			flagOutputFormat = "json"
+			cmd := tc.cmd()
+			cmd.SetOut(new(bytes.Buffer))
+			cmd.SetErr(cmd.OutOrStderr())
+			cmd.SetArgs(tc.args)
+			err := cmd.Execute()
+			if err == nil || !strings.Contains(err.Error(), "--fields") {
+				t.Fatalf("empty --fields error = %v, want --fields validation", err)
 			}
 		})
 	}

@@ -564,6 +564,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 }
 
 func newIncidentSimilarCmd() *cobra.Command {
+	var fields string
 	var limit int
 
 	cmd := &cobra.Command{
@@ -573,6 +574,10 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+					return errors.New("--fields must name at least one field")
+				}
+
 				result, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), &flashduty.ListPastIncidentsRequest{
 					IncidentID: ctx.Args[0],
 					Limit:      flashduty.Int64(int64(limit)),
@@ -586,12 +591,25 @@ func newIncidentSimilarCmd() *cobra.Command {
 					return nil
 				}
 
+				if ctx.Structured() {
+					fieldNames := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score"}
+					if fields != "" {
+						fieldNames = parseStringSlice(fields)
+					}
+					proj, err := projectFields(result.Items, fieldNames)
+					if err != nil {
+						return err
+					}
+					return ctx.Printer.Print(proj, nil)
+				}
+
 				return ctx.Printer.Print(result.Items, pastIncidentColumns())
 			})
 		},
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 5, "Max results")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary.")
 	return cmd
 }
 
@@ -1301,13 +1319,19 @@ func resolveFeedOperators(rc *RunContext, items []flashduty.IncidentFeedItem) ma
 }
 
 func newIncidentDetailCmd() *cobra.Command {
-	return &cobra.Command{
+	var fields string
+
+	cmd := &cobra.Command{
 		Use:   "detail <id>",
 		Short: "View full incident detail with AI summary",
 		Long:  curatedLong("View full incident detail, including the AI summary, root cause, and resolution.", "Incidents", "Info"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+					return errors.New("--fields must name at least one field")
+				}
+
 				fullID, candidates, err := resolveIncidentArg(ctx, ctx.Args[0])
 				if err != nil {
 					return err
@@ -1324,6 +1348,13 @@ func newIncidentDetailCmd() *cobra.Command {
 				}
 
 				if ctx.Structured() {
+					if fields != "" {
+						proj, err := projectFields([]flashduty.IncidentInfo{*result}, parseStringSlice(fields))
+						if err != nil {
+							return err
+						}
+						return ctx.Printer.Print(proj[0], nil)
+					}
 					return ctx.Printer.Print(result, nil)
 				}
 
@@ -1332,6 +1363,8 @@ func newIncidentDetailCmd() *cobra.Command {
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. Omit for full detail.")
+	return cmd
 }
 
 func printIncidentFullDetail(w io.Writer, inc *flashduty.IncidentInfo) {

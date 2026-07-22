@@ -42,13 +42,13 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ```bash
 # 1. Find unacknowledged critical incidents (last 4h)
-fduty incident list --severity Critical --progress Triggered --since 4h --output-format toon
+fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,title,incident_severity,progress,start_time,channel_id --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
-fduty incident detail <incident-id> --output-format toon
+fduty incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon
 
 # 3. See contributing alerts
-fduty incident alerts <incident-id> --output-format toon
+fduty incident alerts <incident-id>
 
 # 4. Check for prior similar incidents (channel-backed only; see Gotchas)
 fduty incident similar <incident-id> --limit 5 --output-format toon
@@ -77,12 +77,12 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --output-format toon        # ① 详情 + AI summary + alert counts + channel_id
-fduty incident alerts   "$ID" --output-format toon        # ② contributing alerts (detail's embedded alerts are empty here)
-fduty incident timeline "$ID" --output-format toon        # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas)
-fduty incident post-mortem-list --channel-ids <channel-id> --output-format toon   # ⑥ post-mortems for this incident's channel
-fduty change list --since 24h --output-format toon        # ③ correlated changes — by shared labels + time; see reference/change.md
+fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon  # ① 详情 + AI summary + alert counts + channel
+fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
+fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
+fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
@@ -100,7 +100,7 @@ fduty incident reset <primary-incident-id> \
   --resolution "Increased memory limit; deployed hot patch"
 
 # Review the event timeline
-fduty incident timeline <primary-incident-id> --output-format toon
+fduty incident timeline <primary-incident-id>
 ```
 
 <!-- GENERATED:incident START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -158,6 +158,7 @@ Execute custom action
 
 ### detail <id>
 View full incident detail with AI summary
+- `--fields` string
 
 ### disable-merge <incident-id> [<id2>...]
 Disable incident merge
@@ -266,6 +267,7 @@ Add incident responder
 
 ### similar <id>
 Find similar incidents
+- `--fields` string
 - `--limit` int
 
 ### snooze <id> [<id2> ...]
