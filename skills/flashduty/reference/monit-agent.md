@@ -41,7 +41,6 @@ Run up to 8 monit-agent tools concurrently on a target
 
 - **`catalog` → `invoke` is the order.** `catalog` returns each tool's `name` (+ `input_schema` for its params); `invoke` runs them. Tool names are target-specific — take them verbatim from the catalog, do not invent.
 - **`invoke` carries the tool list in `--data`**: `{"tools":[{"tool":"<name>","params":{…}}, … up to 8]}`. `params` defaults to `{}`. `--target-locator` (required) and `--target-kind` override matching `--data` keys.
-- Each result carries `agent_elapsed_ms` (agent-side) vs `e2e_elapsed_ms` (end-to-end) — a large gap signals network/edge slowness, not a slow tool.
 
 ## Gotchas
 

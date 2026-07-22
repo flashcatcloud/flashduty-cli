@@ -16,7 +16,7 @@ func genDataSourcesReadInfoCmd() *cobra.Command {
 		Short: "Get datasource detail",
 		Long: `Get datasource detail.
 
-Retrieve full details of a single data source by its ID, including the 'payload' configuration.
+Retrieve full details of a single data source by its ID, including the 'payload' configuration, with credential fields masked as '******'.
 
 API: POST /monit/datasource/info (monit-datasource-read-info)
 
