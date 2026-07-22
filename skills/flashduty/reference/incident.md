@@ -56,12 +56,21 @@ fduty incident similar <incident-id> --limit 5 --output-format toon
 # 5. Acknowledge ownership
 fduty incident ack <incident-id>
 
-# 6. Post a status comment
-fduty incident comment <incident-id> --comment "Root cause identified: DB failover. Fix deploying."
+# 6. Post a status comment safely, then read it back
+ID=<incident-id>
+COMMENT=$(cat <<'COMMENT_EOF'
+Root cause identified: DB failover.
+Fix deploying.
+COMMENT_EOF
+)
+fduty incident comment "$ID" --comment "$COMMENT"
+fduty incident timeline "$ID" --output-format toon
 
 # 7. Resolve with root-cause note
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
+
+After every comment write, read back every target and verify the intended comment is present before reporting success. `Commented on ...` proves acceptance, not content fidelity.
 
 ## Hot flow — full fault analysis (read-only summary)
 
