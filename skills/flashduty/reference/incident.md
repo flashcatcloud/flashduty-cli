@@ -63,6 +63,8 @@ fduty incident comment <incident-id> --comment "Root cause identified: DB failov
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
+Projected `similar` lists stay below 16 KiB, and projected `detail --fields` output stays below 8 KiB. A trailing `...` means a long retained string was shortened; omit `--fields` only when the full unbounded detail is explicitly required.
+
 ## Hot flow — full fault analysis (read-only summary)
 
 When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all six aspects:

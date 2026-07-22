@@ -600,6 +600,9 @@ func newIncidentSimilarCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
+					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+						return err
+					}
 					return ctx.Printer.Print(proj, nil)
 				}
 
@@ -609,7 +612,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 5, "Max results")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary.")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary. Long strings are truncated as needed to keep structured output below 16 KiB.")
 	return cmd
 }
 
@@ -1353,6 +1356,9 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
+						if err := boundProjectedOutput(proj[0], compactDetailOutputLimit); err != nil {
+							return err
+						}
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)
@@ -1363,7 +1369,7 @@ func newIncidentDetailCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. Omit for full detail.")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. Projected strings are truncated as needed to keep output below 8 KiB; omit --fields for full detail.")
 	return cmd
 }
 

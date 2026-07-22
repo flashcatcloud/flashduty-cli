@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,48 @@ func incidentRow() map[string]any {
 		"responders": []map[string]any{
 			{"person_id": 101, "person_name": "Alice"},
 		},
+	}
+}
+
+func TestBoundProjectedOutputCapsStructuredFormats(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			flagOutputFormat = format
+			rows := []map[string]any{{
+				"incident_id": "inc-1",
+				"title":       strings.Repeat("数据库故障", 2000),
+			}}
+
+			if err := boundProjectedOutput(rows, 512); err != nil {
+				t.Fatalf("bound projected output: %v", err)
+			}
+			encoded, err := marshalStructured(rows)
+			if err != nil {
+				t.Fatalf("marshal bounded output: %v", err)
+			}
+			if len(encoded)+1 >= 512 {
+				t.Fatalf("bounded %s output is %d bytes, want <512", format, len(encoded)+1)
+			}
+			title := rows[0]["title"].(string)
+			if !utf8.ValidString(title) || !strings.HasSuffix(title, "...") {
+				t.Fatalf("truncated title = %q, want valid UTF-8 with marker", title)
+			}
+		})
+	}
+}
+
+func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	rows := make([]map[string]any, 200)
+	for i := range rows {
+		rows[i] = map[string]any{"count": i}
+	}
+
+	err := boundProjectedOutput(rows, 512)
+	if err == nil || !strings.Contains(err.Error(), "request fewer rows or fields") {
+		t.Fatalf("irreducible output error = %v, want bounded guidance", err)
 	}
 }
 
@@ -249,7 +292,8 @@ func TestIncidentSimilarStructuredProjection(t *testing.T) {
 		row["close_time"] = 1712000060
 		row["ack_time"] = 1712000030
 		row["alert_cnt"] = 3
-		row["root_cause"] = "disk exhaustion"
+		row["title"] = strings.Repeat("very long incident title ", 2000)
+		row["root_cause"] = strings.Repeat("disk exhaustion details ", 2000)
 		row["score"] = 0.9
 		row["description"] = strings.Repeat("large description ", 100)
 		row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
@@ -295,6 +339,9 @@ func TestIncidentDetailFieldsProjection(t *testing.T) {
 	row := incidentRow()
 	row["description"] = strings.Repeat("large description ", 500)
 	row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
+	row["ai_summary"] = strings.Repeat("long AI summary ", 4000)
+	row["root_cause"] = strings.Repeat("long root cause ", 4000)
+	row["resolution"] = strings.Repeat("long resolution ", 4000)
 	stub.data = row
 
 	fields := []string{"incident_id", "title", "incident_severity", "progress", "ai_summary", "root_cause", "resolution", "alert_cnt", "start_time", "channel_id"}
@@ -334,7 +381,7 @@ func TestAlertEventListStructuredProjection(t *testing.T) {
 			"event_severity": "Warning",
 			"event_status":   "Triggered",
 			"event_time":     1712000000,
-			"title":          "CPU high",
+			"title":          strings.Repeat("very long alert event title ", 2000),
 			"description":    strings.Repeat("large description ", 100),
 			"labels":         map[string]any{"host": "web-01"},
 			"images":         []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}},

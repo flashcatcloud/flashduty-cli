@@ -38,6 +38,8 @@ fduty alert feed <alert-id> --output-format toon
 fduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
+Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened.
+
 ## Hot flow — merge noisy alerts into an existing incident
 
 ```bash
