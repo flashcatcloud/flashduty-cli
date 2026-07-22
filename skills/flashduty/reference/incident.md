@@ -58,10 +58,11 @@ fduty incident ack <incident-id>
 
 # 6. Post a status comment safely, then read it back
 ID=<incident-id>
-COMMENT=$(cat <<'COMMENT_EOF'
+# Before running, choose a fresh delimiter that is absent as a full line in the intended comment.
+COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'
 Root cause identified: DB failover.
 Fix deploying.
-COMMENT_EOF
+FDUTY_COMMENT_7F3A9C2E_EOF
 )
 fduty incident comment "$ID" --comment "$COMMENT"
 fduty incident timeline "$ID" --output-format toon

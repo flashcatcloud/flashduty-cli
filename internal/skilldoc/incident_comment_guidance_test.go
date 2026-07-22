@@ -16,7 +16,7 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 	}
 
 	body := string(card)
-	quotedHeredoc := "COMMENT=$(cat <<'COMMENT_EOF'"
+	quotedHeredoc := "COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'"
 	commentCommand := `fduty incident comment "$ID" --comment "$COMMENT"`
 	timelineCommand := `fduty incident timeline "$ID" --output-format toon`
 
@@ -36,6 +36,9 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 	if !strings.Contains(body, "After every comment write, read back every target and verify the intended comment is present before reporting success.") {
 		t.Error("incident card must require content-fidelity verification after every comment write")
 	}
+	if !strings.Contains(body, "choose a fresh delimiter that is absent as a full line in the intended comment") {
+		t.Error("incident card must require a collision-free heredoc delimiter")
+	}
 	if strings.Contains(body, `fduty incident comment <incident-id> --comment "Root cause identified: DB failover. Fix deploying."`) {
 		t.Error("incident card must not retain the unsafe inline comment example")
 	}
@@ -51,11 +54,12 @@ func TestIncidentCommentQuotedHeredocPreservesMarkdown(t *testing.T) {
 }
 
 ID=64b64ca26f84f00000000000
-COMMENT=$(cat <<'COMMENT_EOF'
+COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'
 ## Investigation
 Use ` + "`kubectl get pod`" + ` to inspect the restart.
-The follow-up is still pending.
 COMMENT_EOF
+The follow-up is still pending.
+FDUTY_COMMENT_7F3A9C2E_EOF
 )
 fduty incident comment "$ID" --comment "$COMMENT"
 `
@@ -65,7 +69,7 @@ fduty incident comment "$ID" --comment "$COMMENT"
 		t.Fatalf("Bash fixture failed: %v\n%s", err, output)
 	}
 
-	want := "## Investigation\nUse `kubectl get pod` to inspect the restart.\nThe follow-up is still pending."
+	want := "## Investigation\nUse `kubectl get pod` to inspect the restart.\nCOMMENT_EOF\nThe follow-up is still pending."
 	if got := string(output); got != want {
 		t.Errorf("comment content changed:\nwant: %q\n got: %q", want, got)
 	}
