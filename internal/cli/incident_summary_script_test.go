@@ -39,7 +39,11 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 	if len(lines) != 6 {
 		t.Fatalf("fduty calls = %d, want 6:\n%s", len(lines), invocations)
 	}
-	if strings.Contains(string(invocations), "--output-format toon") {
-		t.Fatalf("summary forces toon instead of each command's compact default:\n%s", invocations)
+	wantDetail := "incident detail inc-1 --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon"
+	if lines[0] != wantDetail {
+		t.Fatalf("detail call = %q, want compact projection %q", lines[0], wantDetail)
+	}
+	if strings.Contains(strings.Join(lines[1:], "\n"), "--output-format toon") {
+		t.Fatalf("non-detail reads force raw toon instead of their compact defaults:\n%s", invocations)
 	}
 }

@@ -45,7 +45,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,title,incident_severity,progress,start_time,channel_id --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
-fduty incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon
+fduty incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon
 
 # 3. See contributing alerts
 fduty incident alerts <incident-id>
@@ -77,7 +77,7 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon  # ① 详情 + AI summary + alert counts + channel
+fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon  # ① 详情 + AI summary + alert counts + channel
 fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
 fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
 fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)

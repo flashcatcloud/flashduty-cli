@@ -16,8 +16,8 @@ func TestIncidentCardAvoidsUnboundedStructuredHotFlows(t *testing.T) {
 	body := string(card)
 	for description, command := range map[string]string{
 		"triage list":    "incident list --severity Critical --progress Triggered --since 4h --fields incident_id,title,incident_severity,progress,start_time,channel_id --output-format toon",
-		"triage detail":  "incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon",
-		"summary detail": `incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time --output-format toon`,
+		"triage detail":  "incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon",
+		"summary detail": `incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon`,
 	} {
 		if !strings.Contains(body, command) {
 			t.Errorf("incident %s must project structured output to the fields needed by the workflow", description)

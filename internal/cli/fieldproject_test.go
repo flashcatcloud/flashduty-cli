@@ -297,7 +297,8 @@ func TestIncidentDetailFieldsProjection(t *testing.T) {
 	row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
 	stub.data = row
 
-	out, err := execCommand("incident", "detail", "inc-1", "--fields", "incident_id,title,root_cause", "--output-format", "json")
+	fields := []string{"incident_id", "title", "incident_severity", "progress", "ai_summary", "root_cause", "resolution", "alert_cnt", "start_time", "channel_id"}
+	out, err := execCommand("incident", "detail", "inc-1", "--fields", strings.Join(fields, ","), "--output-format", "json")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
@@ -308,8 +309,13 @@ func TestIncidentDetailFieldsProjection(t *testing.T) {
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &detail); err != nil {
 		t.Fatalf("parse projected detail json: %v\n%s", err, out)
 	}
-	if len(detail) != 3 || detail["incident_id"] == nil || detail["title"] == nil || detail["root_cause"] == nil {
-		t.Fatalf("projected detail = %v, want exactly incident_id,title,root_cause", detail)
+	if len(detail) != len(fields) {
+		t.Fatalf("projected detail keys = %v, want exactly %v", detail, fields)
+	}
+	for _, field := range fields {
+		if detail[field] == nil {
+			t.Errorf("projected detail missing %q: %v", field, detail)
+		}
 	}
 	if _, ok := detail["description"]; ok {
 		t.Errorf("projected detail includes description: %v", detail)
