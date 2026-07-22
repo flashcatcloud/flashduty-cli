@@ -60,6 +60,9 @@ var rootCmd = &cobra.Command{
 		if cmd.CommandPath() == "flashduty update" {
 			return nil
 		}
+		if update.IsManagedByRunner() {
+			return nil
+		}
 		if !isTerminalFn(int(os.Stderr.Fd())) {
 			return nil
 		}
@@ -130,6 +133,7 @@ func init() {
 
 	// AI agent sessions (list + transcript export).
 	rootCmd.AddCommand(newSessionCmd())
+	rootCmd.AddCommand(newAutomationCmd())
 
 	// Diagnostics entry points (value-add over the raw API).
 	rootCmd.AddCommand(newMonitQueryCmd())
@@ -146,6 +150,7 @@ func init() {
 	// its path-is-king leaf to the (now-existing) generated `safari` group so the
 	// operation stays reachable at safari session-export.
 	attachSafariSessionExport(rootCmd)
+	attachSafariAutomationTriggerFire(rootCmd)
 }
 
 // Execute runs the root command.

@@ -14,6 +14,7 @@ func genSessionsReadInfoCmd() *cobra.Command {
 	var fNumRecentEvents int64
 	var fSearchAfterCtx string
 	var fSessionID string
+	var fShareToken string
 	cmd := &cobra.Command{
 		Use:   "session-get <session-id>",
 		Short: "Get session detail",
@@ -28,67 +29,81 @@ Request fields:
   --num-recent-events int — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
   --search-after-ctx string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
   --session-id string (required) — Target session ID. (≥1 chars)
+  --share-token string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - events (array<object>) — Recent events, ascending by (created_at, event_id).
+  - events (array<object>) (required) — Recent events, ascending by (created_at, event_id).
     - actions (object) — ADK actions envelope (state deltas, transfers, escalation).
     - author (string) — Event author (e.g. user, the agent name).
     - branch (string) — ADK branch path for nested agents.
     - content (object) — ADK content envelope {role, parts:[...]}.
-    - created_at (integer) — Unix timestamp in milliseconds when the event was written.
+    - created_at (integer) (required) — Unix timestamp in milliseconds when the event was written.
     - error_code (string) — Error code when the event represents a failure.
     - error_message (string) — Human-readable error message, when present.
-    - event_id (string) — Event identifier.
+    - event_id (string) (required) — Event identifier.
     - invocation_id (string) — ADK invocation id grouping a turn.
-    - partial (boolean) — True for a streaming partial chunk.
-    - session_id (string) — Owning session id.
+    - partial (boolean) (required) — True for a streaming partial chunk.
+    - session_id (string) (required) — Owning session id.
     - status (string) — Event status. [normal, compressed]
-    - turn_complete (boolean) — True on the terminal event of a turn.
+    - turn_complete (boolean) (required) — True on the terminal event of a turn.
     - usage_metadata (object) — Per-turn token usage metadata.
-  - has_more_older (boolean) — True when older events remain beyond this page.
+  - has_more_older (boolean) (required) — True when older events remain beyond this page.
   - search_after_ctx (string) — Opaque keyset cursor; pass back as search_after_ctx to fetch the next older page. Omitted when has_more_older is false.
-  - session (object) — One agent session row.
-    - app_name (string) — Agent app that owns the session.
-    - archived_at (integer) — Unix timestamp in milliseconds when archived; 0 means not archived.
+  - session (object) (required) — One agent session row.
+    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
+    - app_name (string) (required) — Agent app that owns the session.
+    - archived_at (integer) (required) — Unix timestamp in milliseconds when archived; 0 means not archived.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
-      - id (string) — Environment identifier.
-      - kind (string) — Environment kind (e.g. runner, sandbox).
-      - name (string) — Human-readable environment name.
-      - status (string) — Binding status.
-    - can_manage (boolean) — True when the caller may rename/archive/delete the session.
+      - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
+      - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
+      - name (string) — Human-readable environment name; empty for cloud bindings using the default allowlist.
+      - status (string) — Live binding health, namespaced by kind: BYOC uses online/pending/offline/deleted; cloud uses available/rebuilding/expired. [online, pending, offline, deleted, available, rebuilding, expired]
+    - can_continue (boolean) (required) — True when the caller can add a new turn to this session.
+    - can_fork (boolean) (required) — True when the caller can fork this session.
+    - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
+    - can_view (boolean) (required) — True when the caller can view this session.
     - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
       - account_pack_id (string) — Resolved account-scoped pack id.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (integer) — Unix timestamp in milliseconds when the packs were resolved.
+      - resolved_at_ms (integer) (required) — Unix timestamp in milliseconds when the packs were resolved.
       - team_pack_id (string) — Resolved team-scoped pack id.
       - versions (object) — Per-pack resolved version map.
-    - context_window (integer) — The bound model's max context size in tokens. 0 means unknown.
-    - created_at (integer) — Unix timestamp in milliseconds when the session was created.
-    - current_context_tokens (integer) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
-    - entry_kind (string) — Surface that created the session. [web, im, api, scheduled, subagent]
-    - has_unread (boolean) — True when there is assistant output the caller has not yet viewed.
-    - incognito (boolean) — True for incognito (non-persisted-memory) sessions.
-    - is_mine (boolean) — True when the caller created this session.
-    - is_running (boolean) — True when an agent turn is currently in flight for this session.
+    - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
+    - created_at (integer) (required) — Unix timestamp in milliseconds when the session was created.
+    - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
+    - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
+    - current_turn_started_at (integer) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet.
+    - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
+    - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
+    - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
+    - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
+    - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
+    - is_mine (boolean) (required) — True when the caller created this session.
+    - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
     - last_event_at (integer) — Unix timestamp in milliseconds of the most recent assistant-side event.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
-    - person_id (string) — Creator person id.
-    - pinned_at (integer) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
-    - session_id (string) — Session identifier.
-    - session_name (string) — Session title; may be empty for untitled sessions.
+    - person_id (string) (required) — Creator person id.
+    - pinned_at (integer) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
+    - session_id (string) (required) — Session identifier.
+    - session_name (string) (required) — Session title; may be empty for untitled sessions.
+    - share_enabled (boolean) (required) — True when the session's share link is active.
+    - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
+    - shared_at (integer) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared.
+    - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) — Lifecycle status. [enabled, deleted]
-    - team_id (integer) — Owning team id; 0 means no team is bound. Immutable after create.
+    - status (string) (required) — Lifecycle status. [enabled, deleted]
+    - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
     - token_usage (object) — Cumulative session-level token rollup across all turns. The account-billing source of truth.
-      - cached_tokens (integer) — Portion of input_tokens served from the prompt cache.
-      - input_tokens (integer) — Total prompt (input) tokens, including the cached portion.
-      - output_tokens (integer) — Total generated (output) tokens.
-      - reasoning_tokens (integer) — Total reasoning/thinking tokens.
-    - updated_at (integer) — Unix timestamp in milliseconds of the last session update.
+      - cached_tokens (integer) (required) — Portion of input_tokens served from the prompt cache.
+      - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
+      - output_tokens (integer) (required) — Total generated (output) tokens.
+      - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
+    - updated_at (integer) (required) — Unix timestamp in milliseconds of the last session update.
+  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not specific to this session.
 `,
-		Args:    requireExactArg("session_id"),
+		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-get --data '{"num_recent_events":50,"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -107,6 +122,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("session-id") {
 						body["session_id"] = fSessionID
+					}
+					if cmd.Flags().Changed("share-token") {
+						body["share_token"] = fShareToken
 					}
 					return nil
 				})
@@ -129,6 +147,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)")
 	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fShareToken, "share-token", "", "Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -166,52 +185,65 @@ Request fields:
   --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
   --keyword string — Filter by session-name keyword. (≤64 chars)
   --orderby string — Sort field. [created_at, updated_at]
-  --scope string — Visibility scope: all (own + member-of-team rows, default), personal, or team. [all, personal, team]
+  --scope string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]
   --status string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]
-  --team-ids []int — Optional explicit team filter; intersects with 'scope'.
+  --team-ids []int — Optional explicit team filter; intersects with 'scope' and never expands access.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - sessions (array<object>) — The page of sessions.
-    - app_name (string) — Agent app that owns the session.
-    - archived_at (integer) — Unix timestamp in milliseconds when archived; 0 means not archived.
+  - sessions (array<object>) (required) — The page of sessions.
+    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
+    - app_name (string) (required) — Agent app that owns the session.
+    - archived_at (integer) (required) — Unix timestamp in milliseconds when archived; 0 means not archived.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
-      - id (string) — Environment identifier.
-      - kind (string) — Environment kind (e.g. runner, sandbox).
-      - name (string) — Human-readable environment name.
-      - status (string) — Binding status.
-    - can_manage (boolean) — True when the caller may rename/archive/delete the session.
+      - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
+      - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
+      - name (string) — Human-readable environment name; empty for cloud bindings using the default allowlist.
+      - status (string) — Live binding health, namespaced by kind: BYOC uses online/pending/offline/deleted; cloud uses available/rebuilding/expired. [online, pending, offline, deleted, available, rebuilding, expired]
+    - can_continue (boolean) (required) — True when the caller can add a new turn to this session.
+    - can_fork (boolean) (required) — True when the caller can fork this session.
+    - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
+    - can_view (boolean) (required) — True when the caller can view this session.
     - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
       - account_pack_id (string) — Resolved account-scoped pack id.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (integer) — Unix timestamp in milliseconds when the packs were resolved.
+      - resolved_at_ms (integer) (required) — Unix timestamp in milliseconds when the packs were resolved.
       - team_pack_id (string) — Resolved team-scoped pack id.
       - versions (object) — Per-pack resolved version map.
-    - context_window (integer) — The bound model's max context size in tokens. 0 means unknown.
-    - created_at (integer) — Unix timestamp in milliseconds when the session was created.
-    - current_context_tokens (integer) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
-    - entry_kind (string) — Surface that created the session. [web, im, api, scheduled, subagent]
-    - has_unread (boolean) — True when there is assistant output the caller has not yet viewed.
-    - incognito (boolean) — True for incognito (non-persisted-memory) sessions.
-    - is_mine (boolean) — True when the caller created this session.
-    - is_running (boolean) — True when an agent turn is currently in flight for this session.
+    - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
+    - created_at (integer) (required) — Unix timestamp in milliseconds when the session was created.
+    - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
+    - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
+    - current_turn_started_at (integer) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet.
+    - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
+    - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
+    - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
+    - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
+    - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
+    - is_mine (boolean) (required) — True when the caller created this session.
+    - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
     - last_event_at (integer) — Unix timestamp in milliseconds of the most recent assistant-side event.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
-    - person_id (string) — Creator person id.
-    - pinned_at (integer) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
-    - session_id (string) — Session identifier.
-    - session_name (string) — Session title; may be empty for untitled sessions.
+    - person_id (string) (required) — Creator person id.
+    - pinned_at (integer) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
+    - session_id (string) (required) — Session identifier.
+    - session_name (string) (required) — Session title; may be empty for untitled sessions.
+    - share_enabled (boolean) (required) — True when the session's share link is active.
+    - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
+    - shared_at (integer) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared.
+    - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) — Lifecycle status. [enabled, deleted]
-    - team_id (integer) — Owning team id; 0 means no team is bound. Immutable after create.
+    - status (string) (required) — Lifecycle status. [enabled, deleted]
+    - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
     - token_usage (object) — Cumulative session-level token rollup across all turns. The account-billing source of truth.
-      - cached_tokens (integer) — Portion of input_tokens served from the prompt cache.
-      - input_tokens (integer) — Total prompt (input) tokens, including the cached portion.
-      - output_tokens (integer) — Total generated (output) tokens.
-      - reasoning_tokens (integer) — Total reasoning/thinking tokens.
-    - updated_at (integer) — Unix timestamp in milliseconds of the last session update.
-  - total (integer) — Total number of sessions matching the filter (ignoring pagination).
+      - cached_tokens (integer) (required) — Portion of input_tokens served from the prompt cache.
+      - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
+      - output_tokens (integer) (required) — Total generated (output) tokens.
+      - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
+    - updated_at (integer) (required) — Unix timestamp in milliseconds of the last session update.
+  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not dependent on this call's filters.
+  - total (integer) (required) — Total number of sessions matching the filter (ignoring pagination).
 `,
 		Example: `  flashduty safari session-list --data '{"app_name":"ai-sre","limit":2,"orderby":"updated_at","scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -279,9 +311,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: all (own + member-of-team rows, default), personal, or team. [all, personal, team]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope'.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope' and never expands access.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -301,7 +333,7 @@ API: POST /safari/session/delete (session-write-delete)
 Request fields:
   --session-id string (required) — Target session ID. (≥1 chars)
 `,
-		Args:    requireExactArg("session_id"),
+		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-delete --data '{"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

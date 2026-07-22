@@ -109,7 +109,7 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — Role IDs to grant; appended to the member's current roles (duplicates are deduplicated).
 `,
-		Args:    requireArgs("role_ids"),
+		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
 		Example: `  flashduty member role-grant --data '{"member_id":5068740052131,"role_ids":[6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -395,7 +395,7 @@ Request fields:
   --phone string — Phone number
   --time-zone string — Time zone
 `,
-		Args:    requireExactArg("member_id"),
+		Args:    requireBodyFieldOrExactArg("member_id", "member-id"),
 		Example: `  flashduty member info-reset --data '{"locale":"zh-CN","member_id":2476444212131,"member_name":"Alice","time_zone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -477,7 +477,7 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — Role IDs to remove from the member.
 `,
-		Args:    requireArgs("role_ids"),
+		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
 		Example: `  flashduty member role-revoke --data '{"member_id":5068740052131,"role_ids":[6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -535,7 +535,7 @@ Request fields:
   --member-id int (required) — Member ID
   --role-ids []int (required) — New set of role IDs
 `,
-		Args:    requireArgs("role_ids"),
+		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
 		Example: `  flashduty member role-update --data '{"member_id":5068740052131,"role_ids":[2,6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -606,7 +606,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. [enabled, pending, deleted]
     - time_zone (string) — Time zone
 `,
-		Args:    requireArgs("person_ids"),
+		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty person infos --data '{"person_ids":[2476444212131,3790925372131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {

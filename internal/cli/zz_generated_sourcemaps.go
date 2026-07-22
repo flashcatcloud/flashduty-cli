@@ -138,7 +138,142 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genSourcemapsStackEnrichCmd() *cobra.Command {
+	var dataJSON string
+	var fArch string
+	var fBuildID string
+	var fNear int64
+	var fNoCache bool
+	var fService string
+	var fSourceType string
+	var fStack string
+	var fType string
+	var fVariant string
+	var fVersion string
+	cmd := &cobra.Command{
+		Use:   "stack-enrich",
+		Short: "Enrich a stack trace",
+		Long: `Enrich a stack trace.
+
+Symbolicate or deobfuscate a browser, Android, iOS, Mini Program, or HarmonyOS stack trace.
+
+API: POST /sourcemap/stack/enrich (sourcemap-read-stack-enrich)
+
+Request fields:
+  --arch string — Android NDK architecture such as 'arm', 'arm64', 'x86', or 'x64'.
+  --build-id string — Android build ID for Gradle plugin 1.13.0 and later.
+  --near int — Number of nearby meaningful source lines to return around converted frames. (1-20)
+  --no-cache bool — Skip cached enrich results. Intended for debugging.
+  --service string (required) — Application or service name used when the sourcemap was uploaded.
+  --source-type string — Android error source type. Use 'ndk' with 'arch' for native symbolication.
+  --stack string — Raw stack trace to parse and enrich.
+  --type string — Source platform. Defaults to 'browser' when omitted. [browser, android, ios, miniprogram, harmony]
+  --variant string — Android build variant used by older Gradle plugin versions.
+  --version string (required) — Application version used when the sourcemap was uploaded.
+  binary_images (array<object>, via --data) — Loaded binary images from an iOS crash report.
+    - arch (string) — CPU architecture for this binary image.
+    - is_system (boolean) (required) — Whether this binary belongs to the operating system.
+    - load_address (any) — Runtime address. Accepts a hex string such as '0x100000000' or a decimal integer.
+    - max_address (any) — Runtime address. Accepts a hex string such as '0x100000000' or a decimal integer.
+    - name (string) (required) — Binary image name.
+    - uuid (string) (required) — Build UUID identifying the binary or dSYM.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - frames (array<object>) (required)
+    - address (string) — iOS or native memory address.
+    - class_name (string) — Android Java/Kotlin class name.
+    - code_snippets (array<object>) — Source-code snippets around this frame.
+      - code (string) (required) — Source code on that line.
+      - line (integer) (required) — Source line number.
+    - column (integer) — Column number for JavaScript or Flutter frames.
+    - converted (boolean) (required) — Whether the frame was successfully symbolicated or deobfuscated.
+    - file (string) — Source file, URL, or module path.
+    - function (string) — Function or method name.
+    - line (integer) — Line number.
+    - method_name (string) — Android Java/Kotlin method name without class prefix.
+    - module (string) — iOS Swift/Objective-C module name.
+    - native_address (string) — Unity IL native address.
+    - offset (integer) — Symbol offset from function start.
+    - original_frame (object) — Parsed stack frame fields shared across platforms.
+      - address (string) — iOS or native memory address.
+      - class_name (string) — Android Java/Kotlin class name.
+      - column (integer) — Column number for JavaScript or Flutter frames.
+      - file (string) — Source file, URL, or module path.
+      - function (string) — Function or method name.
+      - line (integer) — Line number.
+      - method_name (string) — Android Java/Kotlin method name without class prefix.
+      - module (string) — iOS Swift/Objective-C module name.
+      - native_address (string) — Unity IL native address.
+      - offset (integer) — Symbol offset from function start.
+    - third_party (boolean) — Whether the frame is from third-party or system libraries.
+`,
+		Example: `  flashduty sourcemap stack-enrich --data '{"near":3,"service":"my-web-app","stack":"TypeError: Cannot read properties of undefined\n    at render (https://cdn.example.com/app.min.js:1:2345)","type":"browser","version":"1.0.0"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("arch") {
+						body["arch"] = fArch
+					}
+					if cmd.Flags().Changed("build-id") {
+						body["build_id"] = fBuildID
+					}
+					if cmd.Flags().Changed("near") {
+						body["near"] = fNear
+					}
+					if cmd.Flags().Changed("no-cache") {
+						body["no_cache"] = fNoCache
+					}
+					if cmd.Flags().Changed("service") {
+						body["service"] = fService
+					}
+					if cmd.Flags().Changed("source-type") {
+						body["source_type"] = fSourceType
+					}
+					if cmd.Flags().Changed("stack") {
+						body["stack"] = fStack
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					if cmd.Flags().Changed("variant") {
+						body["variant"] = fVariant
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.SourcemapStackEnrichRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Sourcemaps.StackEnrich(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fArch, "arch", "", "Android NDK architecture such as 'arm', 'arm64', 'x86', or 'x64'.")
+	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android build ID for Gradle plugin 1.13.0 and later.")
+	cmd.Flags().Int64Var(&fNear, "near", 0, "Number of nearby meaningful source lines to return around converted frames. (1-20)")
+	cmd.Flags().BoolVar(&fNoCache, "no-cache", false, "Skip cached enrich results. Intended for debugging.")
+	cmd.Flags().StringVar(&fService, "service", "", "Application or service name used when the sourcemap was uploaded. (required)")
+	cmd.Flags().StringVar(&fSourceType, "source-type", "", "Android error source type. Use 'ndk' with 'arch' for native symbolication.")
+	cmd.Flags().StringVar(&fStack, "stack", "", "Raw stack trace to parse and enrich.")
+	cmd.Flags().StringVar(&fType, "type", "", "Source platform. Defaults to 'browser' when omitted. [browser, android, ios, miniprogram, harmony]")
+	cmd.Flags().StringVar(&fVariant, "variant", "", "Android build variant used by older Gradle plugin versions.")
+	cmd.Flags().StringVar(&fVersion, "version", "", "Application version used when the sourcemap was uploaded. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedSourcemaps(root *cobra.Command) {
 	gSourcemap := genGroup(root, "sourcemap", "RUM/Sourcemaps API")
 	genAddLeaf(gSourcemap, genSourcemapsListCmd())
+	genAddLeaf(gSourcemap, genSourcemapsStackEnrichCmd())
 }

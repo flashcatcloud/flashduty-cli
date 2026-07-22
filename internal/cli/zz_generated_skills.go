@@ -23,7 +23,7 @@ API: POST /safari/skill/enable (skill-read-enable)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-enable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -81,6 +81,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
   - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
@@ -88,7 +89,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - skill_name (string) (required) — Skill name, unique within the account.
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. [enabled, disabled]
+  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
   - tags (array<string>) — Tags parsed from the frontmatter.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
@@ -96,7 +97,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - version (string) — Skill version from the frontmatter.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-get --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -135,6 +136,8 @@ func genSkillsReadListCmd() *cobra.Command {
 	var fLimit int64
 	var fSearchAfterCtx string
 	var fIncludeAccount bool
+	var fQuery string
+	var fScope string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "skill-list",
@@ -149,7 +152,9 @@ Request fields:
   --page int — Page number, 1-based.
   --limit int — Page size.
   --search-after-ctx string
-  --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
+  --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true. Ignored when 'scope' is 'account' or 'team'.
+  --query string — Free-text search across skill name, description, English description, skill ID, marketplace source template name, and author. (≤128 chars)
+  --scope string — Restrict results to 'all' (default), 'account'-only (team_id=0), or 'team'-only (excludes account-scoped rows). Overrides 'include_account' when set. [all, account, team]
   --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -163,6 +168,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
     - created_by (integer) (required) — Member ID that created the skill.
     - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+    - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
     - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
     - license (string) — Skill license.
     - s3_key (string) — Object-storage key of the skill zip.
@@ -170,7 +176,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - skill_name (string) (required) — Skill name, unique within the account.
     - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
     - source_template_version (string) — Template version at install time.
-    - status (string) (required) — Skill status. [enabled, disabled]
+    - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
     - tags (array<string>) — Tags parsed from the frontmatter.
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
     - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
@@ -195,6 +201,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("include-account") {
 						body["include_account"] = fIncludeAccount
 					}
+					if cmd.Flags().Changed("query") {
+						body["query"] = fQuery
+					}
+					if cmd.Flags().Changed("scope") {
+						body["scope"] = fScope
+					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
 					}
@@ -218,7 +230,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
+	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true. Ignored when 'scope' is 'account' or 'team'.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text search across skill name, description, English description, skill ID, marketplace source template name, and author. (≤128 chars)")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict results to 'all' (default), 'account'-only (team_id=0), or 'team'-only (excludes account-scoped rows). Overrides 'include_account' when set. [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -239,7 +253,7 @@ API: POST /safari/skill/delete (skill-write-delete)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-delete --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -287,7 +301,7 @@ API: POST /safari/skill/disable (skill-write-disable)
 Request fields:
   --skill-id string (required) — Target skill ID.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-disable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -323,6 +337,7 @@ Request fields:
 func genSkillsWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
+	var fDescriptionEn string
 	var fSkillID string
 	var fTeamID int64
 	cmd := &cobra.Command{
@@ -330,12 +345,13 @@ func genSkillsWriteUpdateCmd() *cobra.Command {
 		Short: "Update skill",
 		Long: `Update skill.
 
-Update a skill's description or reassign its team scope.
+Update a skill's descriptions or reassign its team scope.
 
 API: POST /safari/skill/update (skill-write-update)
 
 Request fields:
-  --description string — New description. (≤1024 chars)
+  --description string — New description. Cannot contain '<' or '>'. Sending an empty string leaves the current value unchanged — there is no way to clear it via this field. (≤1024 chars)
+  --description-en string — New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)
   --skill-id string (required) — Target skill ID.
   --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 
@@ -349,6 +365,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
   - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
@@ -356,7 +373,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - skill_name (string) (required) — Skill name, unique within the account.
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. [enabled, disabled]
+  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
   - tags (array<string>) — Tags parsed from the frontmatter.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
@@ -364,7 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updated_at (integer) (required) — Last update time. Unix timestamp in milliseconds.
   - version (string) — Skill version from the frontmatter.
 `,
-		Args:    requireExactArg("skill_id"),
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-update --data '{"description":"Updated triage runbook.","skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -374,6 +391,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("description-en") {
+						body["description_en"] = fDescriptionEn
 					}
 					if cmd.Flags().Changed("skill-id") {
 						body["skill_id"] = fSkillID
@@ -398,7 +418,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤1024 chars)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Cannot contain '<' or '>'. Sending an empty string leaves the current value unchanged — there is no way to clear it via this field. (≤1024 chars)")
+	cmd.Flags().StringVar(&fDescriptionEn, "description-en", "", "New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)")
 	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -426,6 +447,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) (required) — Creation time. Unix timestamp in milliseconds.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
+  - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
   - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
@@ -433,7 +455,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - skill_name (string) (required) — Skill name, unique within the account.
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. [enabled, disabled]
+  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
   - tags (array<string>) — Tags parsed from the frontmatter.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').

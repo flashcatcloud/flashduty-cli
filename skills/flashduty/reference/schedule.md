@@ -37,14 +37,15 @@ fduty schedule info <schedule-id> --start now --end +1h --output-format toon
 fduty oncall who --output-format toon
 ```
 
-Both return `person_ids` (integers), not names. Resolve names by joining `member list` client-side — its rows live under `.items[]` keyed by `member_id` (+ `member_name`):
+Both return `person_ids` (integers), not names. Resolve every id in **one batch call** with `fduty person infos` (the sibling `person` group — takes positional ids or `--person-ids`):
 
 ```bash
-members=$(fduty member list --json)
-fduty schedule info <schedule-id> --start now --end +1h --json | jq --argjson m "$members" '
-  [.. | .person_ids? // empty | .[]] | unique | map(. as $id | ($m.items[]? | select(.member_id==$id) | .member_name))'
-# If the join is fiddly, just report person_ids — do NOT loop refining jq.
+# person_ids come straight from the schedule/oncall output above
+fduty person infos <person-id> [<person-id2> …] --output-format toon
+# → rows under .items[] with person_id + person_name; join on person_id client-side
 ```
+
+**`person_id` ≠ `member_id` — do NOT resolve schedule/oncall people via `member list`.** They are different id namespaces, so matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster (often 20+ pages) silently drops people who land on later pages — a real prod miss. Always feed the `person_id`s to `fduty person infos`. If a lookup genuinely fails, report the bare `person_id` rather than guessing.
 
 ## Hot flow — inspect a schedule's upcoming shifts
 

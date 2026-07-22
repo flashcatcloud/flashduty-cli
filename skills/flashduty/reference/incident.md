@@ -11,6 +11,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | want | verb |
 |---|---|
 | list / search active incidents | `list` |
+| CSV export of incidents | `fduty insight incident-export` |
 | look up by 6-char UI num | `info --num <num>` |
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
@@ -30,7 +31,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | resolve with optional note | `resolve <incident-id> [<id2>...]` |
 | snooze / un-snooze | `snooze <id> [<id2>...]` / `wake <incident-id> [<id2>...]` |
 | add comment | `comment <id> [<id2>...]` |
-| add responder by person ID | `add-responder <id>` |
+| add responder by member ID | `add-responder <id>` |
 | replace responder list | `reassign <id>` |
 | merge duplicates (IRREVERSIBLE) | `merge <target_id>` |
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
@@ -41,7 +42,9 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 ## Hot flow — triage an active incident
 
 ```bash
-# 1. Find unacknowledged critical incidents (last 4h)
+# 1. Find unacknowledged critical incidents (last 4h).
+#    toon/json list output is compact by default:
+#    incident_id,title,incident_severity,progress,start_time,channel_id
 fduty incident list --severity Critical --progress Triggered --since 4h --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
@@ -73,6 +76,8 @@ fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --
 
 After every comment write, read back every target and verify the intended comment is present before reporting success. `Commented on ...` proves acceptance, not content fidelity.
 
+> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
+
 ## Hot flow — full fault analysis (read-only summary)
 
 When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all six aspects:
@@ -87,12 +92,12 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --output-format toon        # ① 详情 + AI summary + alert counts + channel_id
-fduty incident alerts   "$ID" --output-format toon        # ② contributing alerts (detail's embedded alerts are empty here)
-fduty incident timeline "$ID" --output-format toon        # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas)
-fduty incident post-mortem-list --channel-ids <channel-id> --output-format toon   # ⑥ post-mortems for this incident's channel
-fduty change list --since 24h --output-format toon        # ③ correlated changes — by shared labels + time; see reference/change.md
+fduty incident detail   "$ID"                             # ① 详情 + AI summary + alert counts + channel_id
+fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+fduty incident similar  "$ID" --limit 5                   # ⑤ similar past incidents (channel-backed; see Gotchas)
+fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
+fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
@@ -118,6 +123,8 @@ fduty incident timeline <primary-incident-id> --output-format toon
 ### ack <incident-id> [<id2>...]
 Acknowledge incident
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to acknowledge. At most 100 per call.
+- `--summary` string — Form summary recorded as a timeline comment. Accepted only when the acknowledgement form contains a summary element.
+- body-only (`--data`): custom_fields (object); images (array<object>)
 
 ### add-responder <id>
 Add responders to an incident
@@ -129,7 +136,7 @@ Add responders to an incident
 ### alert-list <incident-id>
 List alerts of incident
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
-- `--include-events` bool — When true, include raw alert events in each alert item.
+- `--include-events` bool — When true, include at most the 20 newest raw events in each alert item as a preview.
 - `--is-active` bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 - `--limit` int64 — Page size, at most 1000. (0-1000)
 - `--page` int64 — Page number starting at 1. (min 0)
@@ -218,13 +225,32 @@ List past incidents
 - `<incident-id>` (positional, required) string — Reference incident ID (MongoDB ObjectID).
 - `--limit` int64 — Maximum number of similar incidents to return. (0-100)
 
+### post-mortem-basics-reset <post-mortem-id>
+Update post-mortem basics
+- `--incidents-earliest-start-seconds` string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incidents-highest-severity` string (required) — Highest severity among linked incidents.
+- `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--responder-ids` intSlice — Responder member IDs to store on the report.
+
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+
+### post-mortem-follow-ups-reset <post-mortem-id>
+Update post-mortem follow-ups
+- `--follow-ups` string — Follow-up action items as free text.
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
 
 ### post-mortem-info <post-mortem-id>
 Get post-mortem
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
+
+### post-mortem-init <incident-id> [<id2>...]
+Initialize post-mortem
+- `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
+- `--template-id` string (required) — Template ID used to initialize the report.
 
 ### post-mortem-list
 List post-mortems
@@ -238,6 +264,41 @@ List post-mortems
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
+
+### post-mortem-status-reset <post-mortem-id>
+Update post-mortem status
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--status` string (required) — Target report status. · enum: drafting | published
+
+### post-mortem-template-delete <template-id>
+Delete post-mortem template
+- `<template-id>` (positional, required) string — Template ID.
+
+### post-mortem-template-info <template-id>
+Get post-mortem template detail
+- `<template-id>` (positional, required) string — Template ID.
+
+### post-mortem-template-list
+List post-mortem templates
+- `--asc` bool — Ascending order when true.
+- `--limit` int64 — Page size, at most 100. (0-100)
+- `--order-by` string — Field used to order results. · enum: created_at_seconds
+- `--page` int64 — Page number starting at 1. (min 0)
+- `--search-after-ctx` string — Cursor from a previous response for forward pagination.
+
+### post-mortem-template-upsert
+Create or update post-mortem template
+- `--content` string (required) — BlockNote JSON template content.
+- `--content-markdown` string — Markdown version of the template content.
+- `--description` string — Template description.
+- `--name` string (required) — Template name.
+- `--team-id` int64 — Managing team ID. Required when creating a custom template.
+- `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
+
+### post-mortem-title-reset <post-mortem-id>
+Update post-mortem title
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `--title` string (required) — New report title.
 
 ### reassign <id>
 Reassign an incident to new responders
@@ -264,9 +325,12 @@ Update incident fields
 
 ### resolve <incident-id> [<id2>...]
 Resolve incident
+- `--description` string — New incident description, up to 6,144 characters. When set, it replaces the current description before the incident closes. (≤6144 chars)
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to resolve. At most 100 per call.
 - `--resolution` string — Optional resolution note applied to every resolved incident. (≤1024 chars)
 - `--root-cause` string — Optional root cause note applied to every resolved incident. (≤1024 chars)
+- `--summary` string — Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.
+- body-only (`--data`): custom_fields (object); images (array<object>)
 
 ### responder-add <person-id> [<id2>...]
 Add incident responder
@@ -377,7 +441,7 @@ List war rooms
 - **`--list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
-- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass via `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct-person assignment.
+- **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
 
 ## Worked example
 
