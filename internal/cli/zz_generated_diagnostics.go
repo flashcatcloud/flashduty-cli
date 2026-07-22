@@ -428,9 +428,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - message (string)
     - target_kinds (array<string>)
   - results (array<object>) — Per-tool results, aligned with the request 'tools[]' order. Empty when a request-level 'error' is present.
-    - agent_elapsed_ms (integer) — Agent-self-reported tool execution time in milliseconds, excluding network round-trips. May be 0 when the failure occurred before execution started.
     - data (object) — Tool business payload. Present only on success. Webapi already unwraps the monit-agent result envelope, so there is no nested 'data.data'.
-    - e2e_elapsed_ms (integer) — Webapi-observed end-to-end time in milliseconds (webapi → ws → edge → agent → ws → webapi). A large gap versus 'agent_elapsed_ms' indicates network / edge slowness, not a slow tool.
     - error (object) — Per-tool failure. Present only on failure, and mutually exclusive with 'data' / 'summary' / 'truncated'.
       - code (string) — Common values: 'timeout', 'target_unavailable', 'edge_unsupported', 'invalid_tool_result', 'internal', 'invalid_args', 'unknown_tool', 'unknown_tool_version', 'unknown_toolset_hash', 'target_not_owned', 'wrong_agent', 'overloaded', 'denied', 'permission_denied', 'credential_unavailable', 'target_unreachable'.
       - message (string)
