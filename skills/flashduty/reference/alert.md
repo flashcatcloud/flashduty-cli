@@ -34,7 +34,11 @@ fduty alert get <alert-id> --output-format toon
 fduty alert events <alert-id> --output-format toon
 # 4. view state transitions (mute/severity changes/operator actions)
 fduty alert feed <alert-id> --output-format toon
+# 5. for a time-window view across alerts, alert-event list is compact by default
+fduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
+
+Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened.
 
 ## Hot flow — merge noisy alerts into an existing incident
 

@@ -8,8 +8,8 @@
 #   usage: bash incident-summary.sh <incident-id>
 #
 # Section ⑥ lists recent post-mortems account-wide. To scope them to THIS incident's
-# channel, read its channel_id (fduty incident info --incident-id <id> --output-format
-# toon | grep '^channel_id:') and re-run: fduty incident post-mortem-list --channel-ids <id>
+# channel, read channel_id from the projected detail section and re-run:
+# fduty incident post-mortem-list --channel-ids <id>
 #
 # Note: errexit (-e) is intentionally NOT set — every section must run even if one
 # command fails, so the summary stays as complete as possible. Each command's own
@@ -22,14 +22,12 @@ if [ -z "$ID" ]; then
   exit 2
 fi
 
-# Print each command's DEFAULT renderer (a curated table/summary that projects the
-# summary-relevant fields), NOT --output-format toon: toon dumps the full raw objects
-# — every empty field plus heavy blobs like a change's labels.steps — which overflowed
-# the output cap and forced repeated paging. For these read verbs the lean default IS
-# the field projection a fault summary needs (id/severity/status/title/channel/times/…).
+# Project detail explicitly because its default table includes unbounded narrative
+# fields. The other read verbs use their compact default renderers; raw toon would
+# dump every empty field plus heavy blobs like a change's labels.steps.
 run() { echo "===== fduty $* ====="; fduty "$@" 2>&1; echo; }
 
-run incident detail        "$ID"              # ① 详情 + AI summary + alert counts + channel
+run incident detail        "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon # ① 详情 + AI summary + alert counts + channel
 run incident alerts        "$ID"              # ② contributing alerts
 run incident timeline      "$ID"              # ④ timeline
 run incident similar       "$ID" --limit 5    # ⑤ similar past incidents (channel-backed)

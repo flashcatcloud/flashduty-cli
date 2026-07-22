@@ -5,6 +5,12 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"unicode/utf8"
+)
+
+const (
+	compactListOutputLimit   = 16 * 1024
+	compactDetailOutputLimit = 8 * 1024
 )
 
 // projectFields reduces each struct element of items to a map containing only
@@ -61,6 +67,89 @@ func projectFields(items any, fields []string) ([]map[string]any, error) {
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// boundProjectedOutput keeps the new agent-oriented projections below their
+// command budget without changing the selected keys. Short values remain byte
+// identical; when retained strings alone would overflow the actual JSON/TOON
+// encoding, they are shortened fairly and marked with "...". If keys and
+// non-string values alone exceed the budget, the command fails with a small
+// error instead of emitting an oversized payload.
+func boundProjectedOutput(data any, maxBytes int) error {
+	var rows []map[string]any
+	switch value := data.(type) {
+	case map[string]any:
+		rows = []map[string]any{value}
+	case []map[string]any:
+		rows = value
+	default:
+		return fmt.Errorf("internal error: unsupported projected output %T", data)
+	}
+
+	encoded, err := marshalStructured(data)
+	if err != nil {
+		return err
+	}
+	if len(encoded)+1 < maxBytes {
+		return nil
+	}
+
+	stringCount := 0
+	for _, row := range rows {
+		for _, value := range row {
+			if _, ok := value.(string); ok {
+				stringCount++
+			}
+		}
+	}
+	if stringCount == 0 {
+		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+	}
+
+	fieldLimit := maxBytes / stringCount
+	for {
+		for _, row := range rows {
+			for key, value := range row {
+				if text, ok := value.(string); ok {
+					row[key] = truncateUTF8Bytes(text, fieldLimit)
+				}
+			}
+		}
+
+		encoded, err = marshalStructured(data)
+		if err != nil {
+			return err
+		}
+		if len(encoded)+1 < maxBytes {
+			return nil
+		}
+		if fieldLimit == 0 {
+			return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+		}
+		fieldLimit /= 2
+	}
+}
+
+func truncateUTF8Bytes(value string, maxBytes int) string {
+	if len(value) <= maxBytes {
+		return value
+	}
+	if maxBytes <= 0 {
+		return ""
+	}
+	if maxBytes <= 3 {
+		end := maxBytes
+		for end > 0 && !utf8.ValidString(value[:end]) {
+			end--
+		}
+		return value[:end]
+	}
+
+	end := maxBytes - 3
+	for end > 0 && !utf8.ValidString(value[:end]) {
+		end--
+	}
+	return value[:end] + "..."
 }
 
 // jsonTagIndex maps each exported field's json tag name (leading component, sans

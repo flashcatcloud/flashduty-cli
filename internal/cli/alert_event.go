@@ -21,15 +21,19 @@ func newAlertEventCmd() *cobra.Command {
 }
 
 func newAlertEventListCmd() *cobra.Command {
-	var severity, channel, integrationType, since, until string
+	var severity, channel, integrationType, since, until, fields string
 	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alert events globally",
-		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type.", "Alerts", "EventReadList"),
+		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type. In json/toon mode, output defaults to compact event fields; use --fields to choose a different projection.", "Alerts", "EventReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+					return fmt.Errorf("--fields must name at least one field")
+				}
+
 				startTime, err := timeutil.Parse(since)
 				if err != nil {
 					return fmt.Errorf("invalid --since: %w", err)
@@ -77,6 +81,21 @@ func newAlertEventListCmd() *cobra.Command {
 					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
+				if ctx.Structured() {
+					fieldNames := []string{"event_id", "alert_id", "event_severity", "event_status", "event_time", "title"}
+					if fields != "" {
+						fieldNames = parseStringSlice(fields)
+					}
+					proj, err := projectFields(result.Items, fieldNames)
+					if err != nil {
+						return err
+					}
+					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+						return err
+					}
+					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
+				}
+
 				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
 			})
 		},
@@ -90,6 +109,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. Long strings are truncated as needed to keep structured output below 16 KiB.")
 
 	return cmd
 }

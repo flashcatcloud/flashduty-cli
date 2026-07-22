@@ -42,16 +42,14 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 ## Hot flow — triage an active incident
 
 ```bash
-# 1. Find unacknowledged critical incidents (last 4h).
-#    toon/json list output is compact by default:
-#    incident_id,title,incident_severity,progress,start_time,channel_id
-fduty incident list --severity Critical --progress Triggered --since 4h --output-format toon
+# 1. Find unacknowledged critical incidents (last 4h)
+fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,title,incident_severity,progress,start_time,channel_id --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
-fduty incident detail <incident-id> --output-format toon
+fduty incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon
 
 # 3. See contributing alerts
-fduty incident alerts <incident-id> --output-format toon
+fduty incident alerts <incident-id>
 
 # 4. Check for prior similar incidents (channel-backed only; see Gotchas)
 fduty incident similar <incident-id> --limit 5 --output-format toon
@@ -74,6 +72,8 @@ fduty incident timeline "$ID" --output-format toon
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
+Projected `similar` lists stay below 16 KiB, and projected `detail --fields` output stays below 8 KiB. A trailing `...` means a long retained string was shortened; omit `--fields` only when the full unbounded detail is explicitly required.
+
 After every comment write, read back every target and verify the intended comment is present before reporting success. `Commented on ...` proves acceptance, not content fidelity.
 
 > `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
@@ -92,10 +92,10 @@ If you fetch the pieces by hand instead, run **all six** — they are cheap read
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID"                             # ① 详情 + AI summary + alert counts + channel_id
+fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon  # ① 详情 + AI summary + alert counts + channel
 fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
 fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5                   # ⑤ similar past incidents (channel-backed; see Gotchas)
+fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
 fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
 fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
@@ -115,7 +115,7 @@ fduty incident reset <primary-incident-id> \
   --resolution "Increased memory limit; deployed hot patch"
 
 # Review the event timeline
-fduty incident timeline <primary-incident-id> --output-format toon
+fduty incident timeline <primary-incident-id>
 ```
 
 <!-- GENERATED:incident START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -175,6 +175,7 @@ Execute custom action
 
 ### detail <id>
 View full incident detail with AI summary
+- `--fields` string
 
 ### disable-merge <incident-id> [<id2>...]
 Disable incident merge
@@ -340,6 +341,7 @@ Add incident responder
 
 ### similar <id>
 Find similar incidents
+- `--fields` string
 - `--limit` int
 
 ### snooze <id> [<id2> ...]
