@@ -190,7 +190,7 @@ Create alert rule
 - `--debug-log-enabled` bool
 - `--delay-seconds` int64
 - `--description` string
-- `--description-type` string — enum: text | markdown
+- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. · enum: text | markdown
 - `--ds-ids` intSlice — Specific data source IDs.
 - `--ds-list` stringSlice — Data source name patterns (supports wildcards).
 - `--ds-type` string — Data source type.
@@ -251,7 +251,7 @@ Update alert rule
 - `--debug-log-enabled` bool
 - `--delay-seconds` int64
 - `--description` string
-- `--description-type` string — enum: text | markdown
+- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. · enum: text | markdown
 - `--ds-ids` intSlice — Specific data source IDs.
 - `--ds-list` stringSlice — Data source name patterns (supports wildcards).
 - `--ds-type` string — Data source type.
@@ -319,8 +319,7 @@ List monitored targets
 ### tools-catalog
 List target tool catalog
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.
-- `--include-output-shape` bool — When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.
-- `--target-kind` string — Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.
+- `--target-kind` string — Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.
 - `--target-locator` string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
 
 ### tools-invoke

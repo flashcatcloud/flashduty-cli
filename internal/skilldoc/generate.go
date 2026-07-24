@@ -44,9 +44,13 @@ func FenceEnd(group string) string   { return fmt.Sprintf(fenceEndFmt, group) }
 func groupCommands(d Dump, group string) []Command {
 	var cmds []Command
 	for _, c := range d.Commands {
-		if c.Group == group {
-			cmds = append(cmds, c)
+		if c.Group != group {
+			continue
 		}
+		if c.Path == "incident sdp-request-list" {
+			continue
+		}
+		cmds = append(cmds, c)
 	}
 	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Path < cmds[j].Path })
 	return cmds
