@@ -79,6 +79,7 @@ var generatedOpIDs = []string{
 	"field-write-update",
 	"im-war-room-enabled-list",
 	"incident-read-get-war-room-default-observers",
+	"incident-service-desk-plus-request-read-list",
 	"incident-write-add-war-room-member",
 	"incidentAck",
 	"incidentAlertList",

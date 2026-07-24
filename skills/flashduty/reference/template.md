@@ -65,6 +65,7 @@ Create a template
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
+- `--feishu-app-card-table-enabled` bool — Render alert labels as a table in Feishu app cards.
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
@@ -120,6 +121,7 @@ Update a template
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
+- `--feishu-app-card-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
