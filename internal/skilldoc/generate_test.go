@@ -5,6 +5,29 @@ import (
 	"testing"
 )
 
+func TestGenerateFence_ExcludesLowFrequencyCommand(t *testing.T) {
+
+	d := Dump{Commands: []Command{
+
+		{Path: "incident list", Group: "incident", Short: "List incidents"},
+
+		{Path: "incident sdp-request-list", Group: "incident", Short: "Get ServiceDeskPlus linked incidents"},
+	}}
+
+	got := GenerateFence(d, "incident")
+	if !strings.Contains(got, "### list") {
+
+		t.Fatalf("ordinary incident command missing from generated fence:\n%s", got)
+
+	}
+	if strings.Contains(got, "sdp-request-list") {
+
+		t.Fatalf("low-frequency command must not appear in generated fence:\n%s", got)
+
+	}
+
+}
+
 // generatorDump mirrors the real cligen Long shape: a Request fields block with
 // a required enum flag, a non-required flag, and a nested --data body field.
 func generatorDump() Dump {
