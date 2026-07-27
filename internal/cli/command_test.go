@@ -771,8 +771,8 @@ func TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget(t *testing.T) {
 	if strings.Contains(err.Error(), "corrupted") {
 		t.Fatalf("[not-found] must not claim corruption it has not established: %v", err)
 	}
-	if !strings.Contains(err.Error(), "do not retry this command against the full batch") {
-		t.Fatalf("[not-found] must warn against a full-batch retry: %v", err)
+	if !strings.Contains(err.Error(), "Do not write the comment again") {
+		t.Fatalf("[not-found] must warn against rewriting, at any granularity: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
 		t.Fatalf("[not-found] must not report success:\n%s", out)
@@ -910,7 +910,7 @@ func TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning(t *testing.
 	if !strings.Contains(err.Error(), "inc-1") {
 		t.Fatalf("[transport-error] expected inc-1 named in the error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "do not retry this command against the full batch") {
+	if !strings.Contains(err.Error(), "Do not write the comment again") {
 		t.Fatalf("[transport-error] must carry the same anti-retry framing as the not-found case: %v", err)
 	}
 	if strings.Contains(err.Error(), "corrupted") {

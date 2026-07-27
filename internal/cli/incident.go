@@ -965,19 +965,26 @@ const maxIncidentFeedVerifyPages = 20
 // assumption about /incident/feed's undocumented default sort) at all.
 //
 // It checks every id in ctx.Args before returning, rather than stopping at
-// the first problem: the error text below tells the caller the write already
-// succeeded for the WHOLE batch and to fix only the listed incident(s)
-// individually, so that claim has to actually be backed by having examined
-// every id — reporting only the first failure would leave any incident after
-// it silently, permanently uncommented while the agent believes it handled
-// everything the error mentioned.
+// the first problem: /incident/comment is a single batch POST covering the
+// whole list (incident_ids has an lte=100 batch cap on the wire, not a
+// per-id write), so the error text below has to have actually examined every
+// id before it can say what it says about the batch as a whole — reporting
+// only the first failure would leave any incident after it silently,
+// permanently unexamined while the agent believes it handled everything the
+// error mentioned.
 //
 // Neither a page-budget miss nor a transport error while re-fetching the feed
 // means the write was corrupted — corruption can no longer even be observed
 // by this check, since it never looks at any text other than an exact match.
-// Both are reported as "could not confirm," with identical anti-retry
-// framing, because both follow a write the API already reported as
-// successful.
+// Both are reported as "could not confirm," with identical framing, because
+// both follow a write the API already reported as successful, and because
+// this check can only confirm presence, never confirm absence: a miss here
+// is not evidence the comment is missing, so it is not grounds to write it
+// again either — for the whole batch (there is no per-incident write to
+// retry, only the one batch write already made) or for a single listed
+// incident (which risks a duplicate on a write that most likely landed and
+// simply couldn't be located within budget). The safe next step is to look,
+// not to write.
 func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 	var problems []string
 	for _, id := range ctx.Args {
@@ -994,8 +1001,9 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 	}
 	return fmt.Errorf(
 		"comment verification could not confirm %d of %d incident(s) — %s. "+
-			"The write API already reported success for all %d incident(s) in this batch, so do not retry this command against the full batch: that would duplicate the comment on incidents already confirmed. "+
-			"Check the listed incident(s) manually, and if a comment is genuinely missing, write it again for that incident alone.",
+			"The write API already reported success for all %d incident(s) in this batch (a single POST covering the whole list), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. "+
+			"Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. "+
+			"Run `fduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further.",
 		len(problems), len(ctx.Args), strings.Join(problems, "; "), len(ctx.Args))
 }
 
