@@ -329,6 +329,16 @@ var responseHeaderRe = regexp.MustCompile(`^Response fields \((.*)\):$`)
 // "    - person_ids (array<integer>) ...". Capture groups: indent, name, type.
 var responseFieldRe = regexp.MustCompile(`^( *)- ([a-zA-Z0-9_]+) \(([^)]*)\)`)
 
+// wrapperWireNames are the exact wire names cligen's own listEnvelope
+// (internal/cmd/cligen/main.go) treats as a paginated-list envelope field:
+// a sole array-typed sibling named items, docs, or list. Mirrored here as a
+// sanity check, not a duplicate classifier — see the guard in
+// responseShapeLine below.
+var wrapperWireNames = map[string]bool{"items": true, "docs": true, "list": true}
+
+// respField is one parsed Response-fields bullet row.
+type respField struct{ name, typ string }
+
 // responseShapeLine renders the one-line response-shape summary for a
 // command's Long, or "" when Long documents no Response fields block (mutation
 // verbs with an empty body, and a few hand-written commands that predate
@@ -363,7 +373,7 @@ func responseShapeLine(long string) string {
 		fieldIndent = "    " // one level under the sole top-level "items" row
 	}
 
-	var fields []string
+	var fields []respField
 	for _, line := range lines[headerIdx+1:] {
 		if strings.TrimSpace(line) == "" {
 			break
@@ -372,9 +382,25 @@ func responseShapeLine(long string) string {
 		if m == nil || m[1] != fieldIndent {
 			continue
 		}
-		fields = append(fields, m[2]+" ("+m[3]+")")
+		fields = append(fields, respField{m[2], m[3]})
 	}
 	if len(fields) == 0 {
+		return ""
+	}
+
+	// Safety net: this parser only ever recognizes the wrapped shape by the
+	// literal substring "nested under items[]" in the header (see the doc
+	// comment above the const block). If cligen's wording for that header
+	// ever drifts without this parser being updated to match, `wrapped` goes
+	// false here even though the response really is a page wrapper — and the
+	// sole top-level field is then exactly one of cligen's own wrapper wire
+	// names (items/docs/list, from listEnvelope in cligen/main.go), holding
+	// an array. Asserting "single object" in that case would be confidently
+	// WRONG about the one thing this whole feature exists to get right, so
+	// refuse to guess: say nothing rather than assert a shape we can no
+	// longer be sure of. A missing line is recoverable via `--help`; a
+	// wrong one isn't.
+	if !wrapped && len(fields) == 1 && wrapperWireNames[fields[0].name] && strings.HasPrefix(fields[0].typ, "array") {
 		return ""
 	}
 
@@ -387,5 +413,9 @@ func responseShapeLine(long string) string {
 	default:
 		shape = "single object (`data` unwrapped to the top level)"
 	}
-	return fmt.Sprintf("- response: %s — fields: %s\n", shape, strings.Join(fields, "; "))
+	names := make([]string, len(fields))
+	for i, f := range fields {
+		names[i] = f.name + " (" + f.typ + ")"
+	}
+	return fmt.Sprintf("- response: %s — fields: %s\n", shape, strings.Join(names, "; "))
 }

@@ -158,53 +158,16 @@ func TestRunGenAll_FillsEveryCardAndSkipsCardless(t *testing.T) {
 	}
 }
 
-// sectionFor returns the slice of a generated fence from "### <verb>" up to
-// the next "### " heading (or end of string). Local copy of the helper
-// skilldoc's own tests use — kept private to each package since exporting it
-// would blur GenerateFence's real API surface just for test convenience.
-func sectionFor(fence, verb string) string {
-	start := strings.Index(fence, "### "+verb)
-	if start < 0 {
-		return ""
-	}
-	rest := fence[start+len("### "+verb):]
-	if next := strings.Index(rest, "\n### "); next >= 0 {
-		return fence[start : start+len("### "+verb)+next]
-	}
-	return fence[start:]
-}
-
-// TestGenerateFence_ScheduleList_ResponseShapeMatchesRealLong is the
-// ground-truth cross-check the response-shape feature exists for. Before this
-// change, skills/flashduty/reference/schedule.md carried zero envelope
-// guidance for any of its verbs (unlike incident.md/change.md/automation.md/
-// enrichment.md/monit.md, the only 5 hand-written cards that happened to
-// note their envelope shape). `schedule list` in particular is real,
-// commonly-invoked, and — per the actual live CLI tree, not a fixture —
-// documents an `{items: [...]}` page wrapper, NOT a bare top-level array
-// (that phrasing belongs to the deprecated `oncall schedule list` twin, which
-// calls the same SDK method but is a different command path with no card).
-//
-// The expected shape/fields below are derived by independently re-scanning
-// that real Long text with throwaway logic — not by calling skilldoc's own
-// extractor and not by pasting a literal expected string — so this fails if
-// the generator's extraction ever silently drifts from what cligen actually
-// wrote for this command.
-func TestGenerateFence_ScheduleList_ResponseShapeMatchesRealLong(t *testing.T) {
-	d := dump()
-
-	var long string
-	found := false
-	for _, c := range d.Commands {
-		if c.Path == "schedule list" {
-			long, found = c.Long, true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("schedule list not found in the real CLI dump — has it been renamed?")
-	}
-
+// independentlyClassifyResponse re-derives a command's response envelope
+// shape ("object" | "array" | "wrapped") and its top-level (or, for the
+// wrapped shape, per-row) field names straight from its raw Long text, using
+// logic deliberately NOT shared with skilldoc's own responseShapeLine
+// extractor (internal/skilldoc/generate.go) — a from-scratch re-read of the
+// same ground truth, not a call into the code under test. ok is false when
+// Long documents no Response fields block, or the block yields zero fields
+// at the target depth (skilldoc's own extractor also emits nothing for that
+// case — nothing to cross-check).
+func independentlyClassifyResponse(long string) (shape string, fields []string, ok bool) {
 	lines := strings.Split(long, "\n")
 	headerLine := -1
 	for i, l := range lines {
@@ -214,44 +177,132 @@ func TestGenerateFence_ScheduleList_ResponseShapeMatchesRealLong(t *testing.T) {
 		}
 	}
 	if headerLine < 0 {
-		t.Fatal("schedule list's real Long carries no Response fields block — has cligen's output changed?")
+		return "", nil, false
 	}
-	if !strings.Contains(lines[headerLine], "nested under items[]") {
-		t.Fatalf("expected schedule list to be an items[]-wrapped page response; real header was:\n%s", lines[headerLine])
+
+	header := lines[headerLine]
+	switch {
+	case strings.Contains(header, "nested under items[]"):
+		shape = "wrapped"
+	case strings.Contains(header, "TOP-LEVEL array"):
+		shape = "array"
+	default:
+		shape = "object"
 	}
-	var wantFields []string
+	prefix := "  - "
+	if shape == "wrapped" {
+		prefix = "    - " // one level under the sole top-level "items" row
+	}
 	for _, l := range lines[headerLine+1:] {
 		if strings.TrimSpace(l) == "" {
 			break
 		}
-		if strings.HasPrefix(l, "    - ") { // one level under the sole top-level "items" row
-			name := strings.TrimPrefix(l, "    - ")
-			if sp := strings.IndexAny(name, " ("); sp >= 0 {
-				name = name[:sp]
-			}
-			wantFields = append(wantFields, name)
+		if !strings.HasPrefix(l, prefix) {
+			continue
 		}
+		name := strings.TrimPrefix(l, prefix)
+		if sp := strings.IndexAny(name, " ("); sp >= 0 {
+			name = name[:sp]
+		}
+		fields = append(fields, name)
 	}
-	if len(wantFields) == 0 {
-		t.Fatal("independent scan of the real Long found no row fields under items — test logic is broken")
-	}
+	return shape, fields, len(fields) > 0
+}
 
-	fresh := skilldoc.GenerateFence(d, "schedule")
-	listSection := sectionFor(fresh, "list")
-	if listSection == "" {
-		t.Fatal("generated schedule fence has no `list` section")
-	}
-	if !strings.Contains(listSection, "page wrapper") || !strings.Contains(listSection, "jq '.items[]'") {
-		t.Errorf("schedule list card section must document the items[] page wrapper, got:\n%s", listSection)
-	}
-	if strings.Contains(listSection, "TOP-LEVEL array") {
-		t.Errorf("schedule list is NOT a top-level array — must not carry that phrasing:\n%s", listSection)
-	}
-	for _, f := range wantFields {
-		if !strings.Contains(listSection, f+" (") {
-			t.Errorf("schedule list card section missing real row field %q (from live Long):\n%s", f, listSection)
+// isCligenWrapperWireName mirrors (independently — not by import) the three
+// wire names cligen's own listEnvelope (internal/cmd/cligen/main.go) treats
+// as a paginated-list envelope field.
+func isCligenWrapperWireName(name string) bool {
+	return name == "items" || name == "docs" || name == "list"
+}
+
+// responseLineOf returns the "- response: ..." bullet inside a rendered fence
+// section, and whether one was present.
+func responseLineOf(section string) (string, bool) {
+	for _, l := range strings.Split(section, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "- response: ") {
+			return l, true
 		}
 	}
+	return "", false
+}
+
+// TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands is the
+// coverage-complete ground-truth cross-check: for every real command whose
+// live Long (built from the actual CLI tree, not a fixture) documents a
+// Response fields block, independently reclassify its envelope shape and
+// field names (independentlyClassifyResponse, above — separate logic from
+// the generator) and assert the fence GenerateFence renders for that verb
+// agrees. A single hand-picked example (`schedule list`) proved the
+// mechanism works but only ever covered one of ~200 documented commands;
+// this walks the whole real dump, so a classification drift ANYWHERE in the
+// generator fails the build, not just for the one verb someone happened to
+// write a test against.
+func TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands(t *testing.T) {
+	d := dump()
+
+	checked := 0
+	for _, c := range d.Commands {
+		wantShape, wantFields, hasBlock := independentlyClassifyResponse(c.Long)
+		if !hasBlock {
+			continue
+		}
+		checked++
+
+		// Render this ONE command in isolation (a single-command dump filtered
+		// to its own group) rather than slicing a section out of the whole
+		// group's fence: several real groups (e.g. "incident") flatten
+		// same-named leaves from different subgroups — "incident get" and
+		// "incident war-room get" both render as a "### get" heading — so a
+		// substring/heading search across the full group fence can grab the
+		// wrong command's section. A single-command fence has exactly one
+		// response line, unambiguously.
+		fence := skilldoc.GenerateFence(skilldoc.Dump{Commands: []skilldoc.Command{c}}, c.Group)
+		gotLine, hasLine := responseLineOf(fence)
+
+		// Mirrors the wrapper-drift guard in responseShapeLine: a response
+		// this classifier reads as a top-level object whose sole field is one
+		// of cligen's own list-envelope wire names (items/docs/list, array
+		// type) is a case the generator deliberately suppresses rather than
+		// assert a possibly-wrong shape. No real command hits this today
+		// (cligen's own header would already say "wrapped" for it), but nothing
+		// here should hard-fail if drift ever makes one — that is the guard
+		// working as designed, not a bug.
+		if wantShape == "object" && len(wantFields) == 1 && isCligenWrapperWireName(wantFields[0]) {
+			if hasLine {
+				t.Errorf("%s: expected the wrapper-drift guard to suppress this line (sole field %q looks like a list envelope), got:\n%s", c.Path, wantFields[0], gotLine)
+			}
+			continue
+		}
+
+		if !hasLine {
+			t.Errorf("%s: generated fence has no response line for a documented Response fields block", c.Path)
+			continue
+		}
+		switch wantShape {
+		case "wrapped":
+			if !strings.Contains(gotLine, "page wrapper") || !strings.Contains(gotLine, "jq '.items[]'") {
+				t.Errorf("%s: want items[] page wrapper, got:\n%s", c.Path, gotLine)
+			}
+		case "array":
+			if !strings.Contains(gotLine, "TOP-LEVEL array") {
+				t.Errorf("%s: want TOP-LEVEL array, got:\n%s", c.Path, gotLine)
+			}
+		default: // "object"
+			if !strings.Contains(gotLine, "single object") {
+				t.Errorf("%s: want single object, got:\n%s", c.Path, gotLine)
+			}
+		}
+		for _, f := range wantFields {
+			if !strings.Contains(gotLine, f+" (") {
+				t.Errorf("%s: missing real field %q (from live Long) in generated line:\n%s", c.Path, f, gotLine)
+			}
+		}
+	}
+	if checked < 100 {
+		t.Fatalf("only cross-checked %d commands — expected on the order of 200; did Response-fields detection break, or has the real CLI shrunk?", checked)
+	}
+	t.Logf("cross-checked response shape/fields for %d real commands", checked)
 }
 
 func TestRunGen_FillsFence(t *testing.T) {
