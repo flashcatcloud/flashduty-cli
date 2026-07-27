@@ -677,6 +677,53 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 	}
 }
 
+// TestCommandIncidentCommentVerifiesAcrossFeedPages guards the read-after-write
+// verification against /incident/feed's undocumented default sort order (see
+// verifyIncidentCommentsWritten's doc comment): it must not assume the
+// just-written comment is on page 1. This stub puts an older, unrelated
+// comment on page 1 (with has_next_page true) and the freshly written comment
+// only on page 2 (has_next_page false), simulating a feed sorted in whichever
+// direction would bury the new entry past the first page.
+func TestCommandIncidentCommentVerifiesAcrossFeedPages(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			page, _ := body["p"].(float64)
+			if page <= 1 {
+				return map[string]any{
+					"has_next_page": true,
+					"items": []any{
+						map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "an older, unrelated comment"}},
+					},
+				}
+			}
+			return map[string]any{
+				"has_next_page": false,
+				"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 2, "detail": map[string]any{"comment": posted}},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "spread across feed pages")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[feed-pagination] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[feed-pagination] unexpected output:\n%s", out)
+	}
+}
+
 // TestCommandIncidentLifecycleRejectsMoreThan100IDs covers the curated
 // commands that still enforce the 100-id batch cap client-side. unack and wake
 // were dropped in favor of their generated twins, which carry no client-side

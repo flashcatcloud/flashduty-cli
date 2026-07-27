@@ -926,25 +926,42 @@ func resolveCommentFile(path string) (string, error) {
 	return string(b), nil
 }
 
+// maxIncidentFeedVerifyPages bounds how many /incident/feed pages
+// verifyIncidentCommentsWritten walks per incident while looking for the
+// comment it just wrote. See that function's doc comment for why this walks
+// every page instead of trusting a single one. Comment counts per incident
+// are normally single digits to tens; 20 pages (2,000 i_comm entries) is
+// headroom for any real incident, and only bounds a pathological one.
+const maxIncidentFeedVerifyPages = 20
+
 // verifyIncidentCommentsWritten re-fetches each incident's timeline after a
 // comment write and confirms the stored text matches what was sent,
 // byte-for-byte. The Comment API returns no handle for the created entry, so
-// this compares against the newest i_comm entry on each incident's feed. A
-// mismatch, or no i_comm entry at all, turns what would otherwise be a silent
-// content corruption into a hard failure instead of a false "Commented on ..."
-// success line.
+// this must find it by re-listing the feed instead.
+//
+// /incident/feed's default order (when ListIncidentFeedRequest.Asc is left
+// unset) is not documented — and not distinguishable by testing it, either:
+// Asc has an `omitempty` wire tag shared by every list request in this SDK,
+// so an explicit Asc:false is byte-identical on the wire to leaving it unset.
+// There is no way for a caller to request "definitely newest first" or
+// "definitely oldest first" via the zero value. Trusting a single page under
+// an assumed order would silently break exactly on the incidents most likely
+// to matter — long-running ones with a real comment history — so this walks
+// every page (filtered to i_comm) via HasNextPage and takes the true maximum
+// CreatedAt across the complete set, removing the ordering assumption
+// entirely rather than guessing at it.
+//
+// A mismatch is a confirmed content corruption. No i_comm entry found after
+// walking every page is reported distinctly — it means verification could not
+// find what was written (e.g. it was dropped), not that corrupted content was
+// observed.
 func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 	for _, id := range ctx.Args {
-		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
-			IncidentID:  id,
-			Types:       []flashduty.IncidentFeedType{flashduty.IncidentFeedTypeIComm},
-			ListOptions: flashduty.ListOptions{Limit: 100},
-		})
+		got, found, err := latestIncidentCommentText(ctx, id)
 		if err != nil {
 			return fmt.Errorf("comment verification failed for incident %s: %w", id, err)
 		}
-		got, ok := newestCommentText(result.Items)
-		if !ok {
+		if !found {
 			return fmt.Errorf("comment verification failed for incident %s: no comment entry found on the timeline after writing", id)
 		}
 		if got != want {
@@ -954,35 +971,53 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 	return nil
 }
 
-// newestCommentText returns the comment body of the most recent i_comm entry
-// in items, by CreatedAt. Detail decodes as map[string]any because
-// IncidentFeedItem.Detail is typed any in the SDK (its shape is determined by
-// Type at runtime, not statically).
-func newestCommentText(items []flashduty.IncidentFeedItem) (string, bool) {
+// latestIncidentCommentText walks every page of incidentID's i_comm feed
+// entries (up to maxIncidentFeedVerifyPages) and returns the comment body of
+// whichever entry has the highest CreatedAt across the complete set.
+func latestIncidentCommentText(ctx *RunContext, incidentID string) (string, bool, error) {
 	var (
 		newest flashduty.TimestampMilli
 		text   string
 		found  bool
 	)
-	for _, item := range items {
-		if item.Type != flashduty.IncidentFeedTypeIComm {
-			continue
+	for page := 1; page <= maxIncidentFeedVerifyPages; page++ {
+		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
+			IncidentID:  incidentID,
+			Types:       []flashduty.IncidentFeedType{flashduty.IncidentFeedTypeIComm},
+			ListOptions: flashduty.ListOptions{Page: page, Limit: 100},
+		})
+		if err != nil {
+			return "", false, err
 		}
-		detail, ok := item.Detail.(map[string]any)
-		if !ok {
-			continue
+		for _, item := range result.Items {
+			comment, ok := incidentCommentText(item)
+			if !ok {
+				continue
+			}
+			if !found || item.CreatedAt > newest {
+				newest, text, found = item.CreatedAt, comment, true
+			}
 		}
-		comment, ok := detail["comment"].(string)
-		if !ok {
-			continue
-		}
-		if !found || item.CreatedAt > newest {
-			newest = item.CreatedAt
-			text = comment
-			found = true
+		if !result.HasNextPage {
+			break
 		}
 	}
-	return text, found
+	return text, found, nil
+}
+
+// incidentCommentText returns item's comment body if it is an i_comm entry.
+// Detail decodes as map[string]any because IncidentFeedItem.Detail is typed
+// any in the SDK (its shape is determined by Type at runtime, not statically).
+func incidentCommentText(item flashduty.IncidentFeedItem) (string, bool) {
+	if item.Type != flashduty.IncidentFeedTypeIComm {
+		return "", false
+	}
+	detail, ok := item.Detail.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	comment, ok := detail["comment"].(string)
+	return comment, ok
 }
 
 func newIncidentRemoveCmd() *cobra.Command {
