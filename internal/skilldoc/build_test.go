@@ -49,3 +49,42 @@ func TestBuild_CapturesLeafWithFlagsAndRequired(t *testing.T) {
 		t.Errorf("--type should be present and required: %+v", got.Flags)
 	}
 }
+
+// runnableGroupTree mirrors internal/cli.newGroupCmd: a container command that
+// is Runnable (RunE just prints help, same as every group in the real tree —
+// alert, incident, oncall schedule, ...) purely so a mistyped subcommand fails
+// loudly instead of cobra discarding the leftover arg silently. Runnable()
+// alone therefore cannot distinguish a group from a leaf; a command with its
+// own subcommands must be excluded regardless of whether it happens to be
+// Runnable.
+func runnableGroupTree() *cobra.Command {
+	root := &cobra.Command{Use: "fduty"}
+	incident := &cobra.Command{
+		Use: "incident", Short: "Manage incidents",
+		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
+	}
+	list := &cobra.Command{Use: "list", Short: "List incidents", Run: func(*cobra.Command, []string) {}}
+	incident.AddCommand(list)
+	root.AddCommand(incident)
+	return root
+}
+
+func TestBuild_ExcludesRunnableGroupWithSubcommands(t *testing.T) {
+	d := Build(runnableGroupTree())
+
+	for _, c := range d.Commands {
+		if c.Path == "incident" {
+			t.Fatalf("group %q has subcommands and no behavior of its own beyond dispatching to them; it must not get a card entry (it would falsely document it as an invocable command): %+v", c.Path, c)
+		}
+	}
+
+	var gotLeaf bool
+	for _, c := range d.Commands {
+		if c.Path == "incident list" {
+			gotLeaf = true
+		}
+	}
+	if !gotLeaf {
+		t.Fatalf("leaf %q under a runnable group must still get a card entry; got %+v", "incident list", d.Commands)
+	}
+}
