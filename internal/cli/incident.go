@@ -20,10 +20,7 @@ import (
 )
 
 func newIncidentCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "incident",
-		Short: "Manage incidents",
-	}
+	cmd := newGroupCmd("incident", "Manage incidents")
 	cmd.AddCommand(newIncidentListCmd())
 	cmd.AddCommand(newIncidentGetCmd())
 	cmd.AddCommand(newIncidentCreateCmd())
@@ -937,18 +934,15 @@ unless --force is provided. The command accepts up to 100 incident IDs.`,
 }
 
 func newIncidentWarRoomCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "war-room",
-		Short: "Manage incident war rooms",
-		Long: `Manage incident war rooms.
+	cmd := newGroupCmd("war-room", "Manage incident war rooms")
+	cmd.Long = `Manage incident war rooms.
 
 War rooms are IM chats attached to incidents. Creating a war room can invite
 explicit members and, when requested, historical responders as observers.
-Commands that operate on an existing IM chat require the IM integration ID.`,
-		Example: `  flashduty incident war-room create inc_123 --add-observers
+Commands that operate on an existing IM chat require the IM integration ID.`
+	cmd.Example = `  flashduty incident war-room create inc_123 --add-observers
   flashduty incident war-room list inc_123
-  flashduty incident war-room get chat_123 --integration 42`,
-	}
+  flashduty incident war-room get chat_123 --integration 42`
 	cmd.AddCommand(newIncidentWarRoomCreateCmd())
 	cmd.AddCommand(newIncidentWarRoomListCmd())
 	cmd.AddCommand(newIncidentWarRoomGetCmd())

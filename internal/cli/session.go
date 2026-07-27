@@ -15,13 +15,10 @@ import (
 )
 
 func newSessionCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "session",
-		Short: "Inspect AI agent sessions",
-		Long: "Inspect AI agent sessions (AI SRE and other Flashduty agents).\n\n" +
-			"'session list' enumerates sessions visible to the caller; 'session export' streams\n" +
-			"one session's full event transcript as newline-delimited JSON for offline analysis.",
-	}
+	cmd := newGroupCmd("session", "Inspect AI agent sessions")
+	cmd.Long = "Inspect AI agent sessions (AI SRE and other Flashduty agents).\n\n" +
+		"'session list' enumerates sessions visible to the caller; 'session export' streams\n" +
+		"one session's full event transcript as newline-delimited JSON for offline analysis."
 	cmd.AddCommand(newSessionListCmd())
 	cmd.AddCommand(newSessionExportCmd())
 	return cmd

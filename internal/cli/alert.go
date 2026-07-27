@@ -14,10 +14,7 @@ import (
 )
 
 func newAlertCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "alert",
-		Short: "Manage alerts",
-	}
+	cmd := newGroupCmd("alert", "Manage alerts")
 	cmd.AddCommand(newAlertListCmd())
 	cmd.AddCommand(newAlertGetCmd())
 	cmd.AddCommand(newAlertEventsCmd())

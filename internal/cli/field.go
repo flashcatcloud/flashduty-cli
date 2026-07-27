@@ -10,10 +10,7 @@ import (
 )
 
 func newFieldCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "field",
-		Short: "Manage custom fields",
-	}
+	cmd := newGroupCmd("field", "Manage custom fields")
 	cmd.AddCommand(newFieldListCmd())
 	return cmd
 }
