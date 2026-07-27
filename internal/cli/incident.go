@@ -948,6 +948,24 @@ func resolveCommentFile(path string) (string, error) {
 // headroom for any real incident, and only bounds a pathological one.
 const maxIncidentFeedVerifyPages = 20
 
+// commentVerificationGuidance is appended, verbatim, to every comment
+// verification failure — whether the entry simply couldn't be located (page
+// budget) or the re-fetch itself errored (transport failure). Both are
+// "could not confirm," never "confirmed missing," so both carry the
+// identical instruction. It is a named constant, not inline prose duplicated
+// at each call site, specifically so a test can assert against this exact
+// symbol instead of pinning a copy of the sentence: reword this constant and
+// every caller (production and test) picks up the new wording automatically,
+// with nothing left to fall out of sync.
+const commentVerificationGuidance = "The write API already reported success for the whole batch (a single POST covering every requested incident), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. Run `fduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further"
+
+// commentVerificationNotFoundDetailFmt is the per-incident detail appended to
+// commentVerificationGuidance's problem list when the page walk completes
+// without finding a match, formatted with maxIncidentFeedVerifyPages. Also a
+// named symbol rather than inline prose, for the same reason as
+// commentVerificationGuidance above.
+const commentVerificationNotFoundDetailFmt = "no timeline entry matches the written text within the first %d pages"
+
 // verifyIncidentCommentsWritten re-fetches every incident's timeline after a
 // comment write and confirms an entry with the exact text just sent is
 // present. The Comment API returns no handle for the created entry, so this
@@ -993,18 +1011,14 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 		case err != nil:
 			problems = append(problems, fmt.Sprintf("incident %s: %v", id, err))
 		case !found:
-			problems = append(problems, fmt.Sprintf("incident %s: no timeline entry matches the written text within the first %d pages", id, maxIncidentFeedVerifyPages))
+			problems = append(problems, fmt.Sprintf("incident %s: "+commentVerificationNotFoundDetailFmt, id, maxIncidentFeedVerifyPages))
 		}
 	}
 	if len(problems) == 0 {
 		return nil
 	}
-	return fmt.Errorf(
-		"comment verification could not confirm %d of %d incident(s) — %s. "+
-			"The write API already reported success for all %d incident(s) in this batch (a single POST covering the whole list), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. "+
-			"Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. "+
-			"Run `fduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further.",
-		len(problems), len(ctx.Args), strings.Join(problems, "; "), len(ctx.Args))
+	return fmt.Errorf("comment verification could not confirm %d of %d incident(s) — %s. %s",
+		len(problems), len(ctx.Args), strings.Join(problems, "; "), commentVerificationGuidance)
 }
 
 // incidentTimelineHasComment walks every page of incidentID's i_comm feed

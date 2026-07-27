@@ -765,14 +765,17 @@ func TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget(t *testing.T) {
 	if err == nil {
 		t.Fatal("[not-found] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "no timeline entry matches the written text") {
-		t.Fatalf("[not-found] unexpected error: %v", err)
+	if !strings.Contains(err.Error(), "inc-1") {
+		t.Fatalf("[not-found] expected the failing incident named in the error: %v", err)
 	}
 	if strings.Contains(err.Error(), "corrupted") {
 		t.Fatalf("[not-found] must not claim corruption it has not established: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Do not write the comment again") {
-		t.Fatalf("[not-found] must warn against rewriting, at any granularity: %v", err)
+	// Asserted against the same commentVerificationGuidance symbol the
+	// production code emits, not a hand-copied fragment of it — a prose
+	// rewording of the constant keeps this test green automatically.
+	if !strings.Contains(err.Error(), commentVerificationGuidance) {
+		t.Fatalf("[not-found] must carry the standard verification guidance: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
 		t.Fatalf("[not-found] must not report success:\n%s", out)
@@ -793,7 +796,7 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("[readback-missing] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "no timeline entry matches the written text") {
+	if !strings.Contains(err.Error(), fmt.Sprintf(commentVerificationNotFoundDetailFmt, maxIncidentFeedVerifyPages)) {
 		t.Fatalf("[readback-missing] unexpected error: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
@@ -908,10 +911,17 @@ func TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning(t *testing.
 		t.Fatal("[transport-error] expected a non-zero exit, got nil error")
 	}
 	if !strings.Contains(err.Error(), "inc-1") {
-		t.Fatalf("[transport-error] expected inc-1 named in the error: %v", err)
+		t.Fatalf("[transport-error] expected the failing incident named in the error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Do not write the comment again") {
-		t.Fatalf("[transport-error] must carry the same anti-retry framing as the not-found case: %v", err)
+	if strings.Contains(err.Error(), "inc-2") {
+		t.Fatalf("[transport-error] inc-2 verified fine and must not be named as a problem: %v", err)
+	}
+	// Asserted against the same commentVerificationGuidance symbol
+	// TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget checks,
+	// proving both failure branches share identical guidance by construction
+	// rather than by two independently maintained prose copies.
+	if !strings.Contains(err.Error(), commentVerificationGuidance) {
+		t.Fatalf("[transport-error] must carry the same guidance as the not-found case: %v", err)
 	}
 	if strings.Contains(err.Error(), "corrupted") {
 		t.Fatalf("[transport-error] must not claim corruption: %v", err)
