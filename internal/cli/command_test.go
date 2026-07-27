@@ -615,12 +615,54 @@ func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testin
 	})
 }
 
-// TestCommandIncidentCommentFailsOnReadbackMismatch guards the read-after-write
-// verification: when the timeline entry fetched back after the write does not
-// match what was sent, the command must exit non-zero instead of printing the
-// "Commented on ..." success line, turning silent corruption into a hard
-// failure.
-func TestCommandIncidentCommentFailsOnReadbackMismatch(t *testing.T) {
+// TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment is the
+// regression test for the false-corruption bug: verification used to trust
+// whichever i_comm entry had the highest CreatedAt, so a concurrent, unrelated
+// comment from another human or a webhook-reply bot (--mute-reply off) landing
+// after ours made the command report a perfectly good write as "corrupted."
+// This stub puts our own comment on the feed at an older CreatedAt and an
+// unrelated comment at a newer one; the command must still succeed because
+// verification now searches for an exact text match instead of trusting
+// recency.
+func TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": posted}},
+					map[string]any{"type": "i_comm", "created_at": 2, "detail": map[string]any{"comment": "a reply bot's unrelated concurrent comment"}},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[newer-concurrent-comment] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[newer-concurrent-comment] unexpected output:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget guards the
+// read-after-write verification: when no i_comm entry on the timeline (within
+// the page budget) has text matching what was written, the command must exit
+// non-zero instead of printing the "Commented on ..." success line. The feed
+// here has an entry, just not one with matching text, so this also covers
+// what used to be the "mismatch" case — under the new exact-match search that
+// entry is simply not a match, not a confirmed corruption.
+func TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 	stub.dataForPath = func(path string, body map[string]any) any {
@@ -633,7 +675,7 @@ func TestCommandIncidentCommentFailsOnReadbackMismatch(t *testing.T) {
 					map[string]any{
 						"type":       "i_comm",
 						"created_at": 1,
-						"detail":     map[string]any{"comment": "corrupted by the shell"},
+						"detail":     map[string]any{"comment": "an unrelated comment"},
 					},
 				},
 			}
@@ -645,19 +687,25 @@ func TestCommandIncidentCommentFailsOnReadbackMismatch(t *testing.T) {
 
 	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
 	if err == nil {
-		t.Fatal("[readback-mismatch] expected a non-zero exit, got nil error")
+		t.Fatal("[not-found] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "does not match the input") {
-		t.Fatalf("[readback-mismatch] unexpected error: %v", err)
+	if !strings.Contains(err.Error(), "could not find a timeline entry matching the written text") {
+		t.Fatalf("[not-found] unexpected error: %v", err)
+	}
+	if strings.Contains(err.Error(), "corrupted") {
+		t.Fatalf("[not-found] must not claim corruption it has not established: %v", err)
+	}
+	if !strings.Contains(err.Error(), "do not retry this command against the full batch") {
+		t.Fatalf("[not-found] must warn against a full-batch retry: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
-		t.Fatalf("[readback-mismatch] must not report success:\n%s", out)
+		t.Fatalf("[not-found] must not report success:\n%s", out)
 	}
 }
 
 // TestCommandIncidentCommentFailsWhenNoCommentEntryFound guards the other
-// read-after-write failure mode: the feed has no i_comm entry at all after the
-// write (e.g. it was dropped), which must also be a hard failure.
+// genuinely-absent-within-budget case: the feed has no i_comm entry at all
+// after the write (e.g. it was dropped), which must also be a hard failure.
 func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
@@ -669,7 +717,7 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("[readback-missing] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "no comment entry found") {
+	if !strings.Contains(err.Error(), "could not find a timeline entry matching the written text") {
 		t.Fatalf("[readback-missing] unexpected error: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
@@ -678,12 +726,13 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 }
 
 // TestCommandIncidentCommentVerifiesAcrossFeedPages guards the read-after-write
-// verification against /incident/feed's undocumented default sort order (see
-// verifyIncidentCommentsWritten's doc comment): it must not assume the
-// just-written comment is on page 1. This stub puts an older, unrelated
-// comment on page 1 (with has_next_page true) and the freshly written comment
-// only on page 2 (has_next_page false), simulating a feed sorted in whichever
-// direction would bury the new entry past the first page.
+// verification against /incident/feed's undocumented default sort order: it
+// must not assume the just-written comment is on page 1. This stub puts an
+// older, unrelated comment on page 1 (with has_next_page true) and the
+// freshly written comment only on page 2 (has_next_page false), simulating a
+// feed sorted in whichever direction would bury the new entry past the first
+// page. Verification must keep walking pages and find the exact-text match on
+// page 2 rather than giving up after page 1.
 func TestCommandIncidentCommentVerifiesAcrossFeedPages(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)

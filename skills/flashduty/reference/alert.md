@@ -46,7 +46,9 @@ Structured `alert-event list` output stays below 16 KiB. A trailing `...` means 
 # 1. find active critical alerts in the last 4 hours
 fduty alert list --severity Critical --active --since 4h --output-format toon
 # 2. merge (IRREVERSIBLE) — alert IDs are POSITIONAL; --incident-id is a flag
-fduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment "Related disk alerts"
+# comment text comes from a file, never an inline shell argument (see incident.md's comment workflow)
+printf '%s' 'Related disk alerts' > /tmp/merge-comment.txt
+fduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment-file /tmp/merge-comment.txt
 ```
 
 <!-- GENERATED:alert START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -98,7 +100,7 @@ List alerts by IDs
 ### merge <alert-id> [<id2>...]
 Merge alerts into an incident
 - `<alert-ids>` (positional, required) stringSlice — Alert IDs to merge.
-- `--comment` string — Optional comment on the merge action.
+- `--comment-file` string — Path to a file containing an optional comment on the merge action (- reads stdin).
 - `--incident-id` string (required) — Target incident ID.
 - `--owner-id` int64 — Optional new owner for the target incident.
 - `--title` string — Optional new title for the target incident.

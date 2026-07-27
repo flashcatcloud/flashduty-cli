@@ -935,51 +935,48 @@ func resolveCommentFile(path string) (string, error) {
 const maxIncidentFeedVerifyPages = 20
 
 // verifyIncidentCommentsWritten re-fetches each incident's timeline after a
-// comment write and confirms the stored text matches what was sent,
-// byte-for-byte. The Comment API returns no handle for the created entry, so
-// this must find it by re-listing the feed instead.
+// comment write and confirms an entry with the exact text just sent is
+// present. The Comment API returns no handle for the created entry, so this
+// must find it by re-listing the feed instead.
 //
-// /incident/feed's default order (when ListIncidentFeedRequest.Asc is left
-// unset) is not documented — and not distinguishable by testing it, either:
-// Asc has an `omitempty` wire tag shared by every list request in this SDK,
-// so an explicit Asc:false is byte-identical on the wire to leaving it unset.
-// There is no way for a caller to request "definitely newest first" or
-// "definitely oldest first" via the zero value. Trusting a single page under
-// an assumed order would silently break exactly on the incidents most likely
-// to matter — long-running ones with a real comment history — so this walks
-// every page (filtered to i_comm) via HasNextPage and takes the true maximum
-// CreatedAt across the complete set, removing the ordering assumption
-// entirely rather than guessing at it.
+// It deliberately does not track "the newest" entry and compare it against
+// want. This is a war-room CLI: another human or bot commenting on the same
+// incident inside the write→verify window is the expected case, not an edge
+// case — especially with --mute-reply off, where webhook-reply bots post
+// their own i_comm entries. Whichever entry happens to have the highest
+// CreatedAt at read time is not necessarily ours, so comparing against it
+// produced false "corrupted" reports on perfectly good writes. Searching for
+// an entry whose text exactly equals want is immune to unrelated concurrent
+// comments and needs no CreatedAt comparison (and therefore no ordering
+// assumption about /incident/feed's undocumented default sort) at all.
 //
-// A mismatch is a confirmed content corruption. No i_comm entry found after
-// walking every page is reported distinctly — it means verification could not
-// find what was written (e.g. it was dropped), not that corrupted content was
-// observed.
+// Not finding a match within the page budget does not mean the write was
+// corrupted — corruption can no longer even be observed by this check, since
+// it never looks at any text other than an exact match. It means
+// verification could not confirm what was written (e.g. it's buried past the
+// page budget, or lagging in the read path); see the error text below for why
+// that is still reported as a failure without claiming corruption.
 func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 	for _, id := range ctx.Args {
-		got, found, err := latestIncidentCommentText(ctx, id)
+		found, err := incidentTimelineHasComment(ctx, id, want)
 		if err != nil {
 			return fmt.Errorf("comment verification failed for incident %s: %w", id, err)
 		}
 		if !found {
-			return fmt.Errorf("comment verification failed for incident %s: no comment entry found on the timeline after writing", id)
-		}
-		if got != want {
-			return fmt.Errorf("comment verification failed for incident %s: the stored comment does not match the input; the write may have been corrupted", id)
+			return fmt.Errorf(
+				"comment verification failed for incident %s: could not find a timeline entry matching the written text within the first %d pages. "+
+					"The write API already reported success for all %d incident(s) in this batch, so do not retry this command against the full batch — that would duplicate the comment on incidents already confirmed. "+
+					"Check incident %s manually, and if the comment is genuinely missing, write it again for that incident alone",
+				id, maxIncidentFeedVerifyPages, len(ctx.Args), id)
 		}
 	}
 	return nil
 }
 
-// latestIncidentCommentText walks every page of incidentID's i_comm feed
-// entries (up to maxIncidentFeedVerifyPages) and returns the comment body of
-// whichever entry has the highest CreatedAt across the complete set.
-func latestIncidentCommentText(ctx *RunContext, incidentID string) (string, bool, error) {
-	var (
-		newest flashduty.TimestampMilli
-		text   string
-		found  bool
-	)
+// incidentTimelineHasComment walks every page of incidentID's i_comm feed
+// entries (up to maxIncidentFeedVerifyPages) looking for one whose text
+// exactly equals want.
+func incidentTimelineHasComment(ctx *RunContext, incidentID, want string) (bool, error) {
 	for page := 1; page <= maxIncidentFeedVerifyPages; page++ {
 		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
 			IncidentID:  incidentID,
@@ -987,22 +984,18 @@ func latestIncidentCommentText(ctx *RunContext, incidentID string) (string, bool
 			ListOptions: flashduty.ListOptions{Page: page, Limit: 100},
 		})
 		if err != nil {
-			return "", false, err
+			return false, err
 		}
 		for _, item := range result.Items {
-			comment, ok := incidentCommentText(item)
-			if !ok {
-				continue
-			}
-			if !found || item.CreatedAt > newest {
-				newest, text, found = item.CreatedAt, comment, true
+			if comment, ok := incidentCommentText(item); ok && comment == want {
+				return true, nil
 			}
 		}
 		if !result.HasNextPage {
 			break
 		}
 	}
-	return text, found, nil
+	return false, nil
 }
 
 // incidentCommentText returns item's comment body if it is an i_comm entry.
