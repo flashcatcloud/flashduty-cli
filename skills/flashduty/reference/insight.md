@@ -84,6 +84,7 @@ Get account-level insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
 
 ### alert-topk-by-label
 Get top-K alerts grouped by check or resource
@@ -111,6 +112,7 @@ Get top-K alerts grouped by check or resource
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: hours (string); label (string); total_alert_cnt (integer); total_alert_event_cnt (integer)
 
 ### channel
 Get channel insight
@@ -136,6 +138,7 @@ Get channel insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
 
 ### channel-export
 Export channel insight
@@ -210,6 +213,7 @@ List insight incidents
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: acknowledgements (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (integer); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (integer); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
 ### incidents
 Query incidents with performance metrics
@@ -217,6 +221,7 @@ Query incidents with performance metrics
 - `--page` int
 - `--since` string
 - `--until` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: acknowledgements (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (integer); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (integer); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
 ### responder
 Get responder insight
@@ -242,6 +247,7 @@ Get responder insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (integer)
 
 ### responder-export
 Export responder insight
@@ -292,6 +298,7 @@ Get team insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
 
 ### team-export
 Export team insight
@@ -324,6 +331,7 @@ Query top alert sources by label
 - `--limit` int
 - `--since` string
 - `--until` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: hours (string); label (string); total_alert_cnt (integer); total_alert_event_cnt (integer)
 
 <!-- GENERATED:insight END -->
 
@@ -348,6 +356,9 @@ Both families accept: relative duration (`30d`, `24h`), `now`, `+7d`, a date, or
 - **All `insight` commands hit the OLAP backend.** HTTP 500 means the backend is down — report it, do not retry.
 - **Empty result is authoritative.** A zero-row response means no matching data for that scope/window — do not widen filters or re-query with shifted keywords.
 - **`--aggregate-unit`** (on `account`, `alert-topk-by-label`, `channel`, `responder`, `team` and their exports) splits results into time buckets: `day` / `week` / `month`. When set, the window must span ≥24 h; `day` additionally caps the range at 31 days.
+- **`top-alerts` and `alert-topk-by-label` return the same top-K breakdown** (`label`, `hours`, `total_alert_cnt`, `total_alert_event_cnt`) — `alert-topk-by-label` is the superset (adds `--team-ids`/`--channel-ids`/severity filters and `--start-time`/`--end-time`). Pick one; don't call both for the same question.
+- **`responder` has no `--limit`/`--page`** — one call returns every responder's rollup for the account. For account-wide load analysis, use that single response; don't cap it and re-fetch for the rest.
+- **Iterating on a `jq` filter? Save `--json` once, then re-run `jq` against the saved file.** Each `fduty insight ...` invocation is a real backend query — re-running the whole command per filter tweak multiplies OLAP load for nothing and risks a timeout on a heavy window.
 
 ## Worked example — identify noisiest check sources
 
