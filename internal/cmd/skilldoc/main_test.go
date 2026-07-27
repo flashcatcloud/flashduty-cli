@@ -158,6 +158,102 @@ func TestRunGenAll_FillsEveryCardAndSkipsCardless(t *testing.T) {
 	}
 }
 
+// sectionFor returns the slice of a generated fence from "### <verb>" up to
+// the next "### " heading (or end of string). Local copy of the helper
+// skilldoc's own tests use — kept private to each package since exporting it
+// would blur GenerateFence's real API surface just for test convenience.
+func sectionFor(fence, verb string) string {
+	start := strings.Index(fence, "### "+verb)
+	if start < 0 {
+		return ""
+	}
+	rest := fence[start+len("### "+verb):]
+	if next := strings.Index(rest, "\n### "); next >= 0 {
+		return fence[start : start+len("### "+verb)+next]
+	}
+	return fence[start:]
+}
+
+// TestGenerateFence_ScheduleList_ResponseShapeMatchesRealLong is the
+// ground-truth cross-check the response-shape feature exists for. Before this
+// change, skills/flashduty/reference/schedule.md carried zero envelope
+// guidance for any of its verbs (unlike incident.md/change.md/automation.md/
+// enrichment.md/monit.md, the only 5 hand-written cards that happened to
+// note their envelope shape). `schedule list` in particular is real,
+// commonly-invoked, and — per the actual live CLI tree, not a fixture —
+// documents an `{items: [...]}` page wrapper, NOT a bare top-level array
+// (that phrasing belongs to the deprecated `oncall schedule list` twin, which
+// calls the same SDK method but is a different command path with no card).
+//
+// The expected shape/fields below are derived by independently re-scanning
+// that real Long text with throwaway logic — not by calling skilldoc's own
+// extractor and not by pasting a literal expected string — so this fails if
+// the generator's extraction ever silently drifts from what cligen actually
+// wrote for this command.
+func TestGenerateFence_ScheduleList_ResponseShapeMatchesRealLong(t *testing.T) {
+	d := dump()
+
+	var long string
+	found := false
+	for _, c := range d.Commands {
+		if c.Path == "schedule list" {
+			long, found = c.Long, true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("schedule list not found in the real CLI dump — has it been renamed?")
+	}
+
+	lines := strings.Split(long, "\n")
+	headerLine := -1
+	for i, l := range lines {
+		if strings.HasPrefix(l, "Response fields (") {
+			headerLine = i
+			break
+		}
+	}
+	if headerLine < 0 {
+		t.Fatal("schedule list's real Long carries no Response fields block — has cligen's output changed?")
+	}
+	if !strings.Contains(lines[headerLine], "nested under items[]") {
+		t.Fatalf("expected schedule list to be an items[]-wrapped page response; real header was:\n%s", lines[headerLine])
+	}
+	var wantFields []string
+	for _, l := range lines[headerLine+1:] {
+		if strings.TrimSpace(l) == "" {
+			break
+		}
+		if strings.HasPrefix(l, "    - ") { // one level under the sole top-level "items" row
+			name := strings.TrimPrefix(l, "    - ")
+			if sp := strings.IndexAny(name, " ("); sp >= 0 {
+				name = name[:sp]
+			}
+			wantFields = append(wantFields, name)
+		}
+	}
+	if len(wantFields) == 0 {
+		t.Fatal("independent scan of the real Long found no row fields under items — test logic is broken")
+	}
+
+	fresh := skilldoc.GenerateFence(d, "schedule")
+	listSection := sectionFor(fresh, "list")
+	if listSection == "" {
+		t.Fatal("generated schedule fence has no `list` section")
+	}
+	if !strings.Contains(listSection, "page wrapper") || !strings.Contains(listSection, "jq '.items[]'") {
+		t.Errorf("schedule list card section must document the items[] page wrapper, got:\n%s", listSection)
+	}
+	if strings.Contains(listSection, "TOP-LEVEL array") {
+		t.Errorf("schedule list is NOT a top-level array — must not carry that phrasing:\n%s", listSection)
+	}
+	for _, f := range wantFields {
+		if !strings.Contains(listSection, f+" (") {
+			t.Errorf("schedule list card section missing real row field %q (from live Long):\n%s", f, listSection)
+		}
+	}
+}
+
 func TestRunGen_FillsFence(t *testing.T) {
 	dir := t.TempDir()
 	d := fixtureDump()
