@@ -29,11 +29,13 @@ fduty monit-agent invoke --target-locator <host-or-instance> \
 List the diagnostic tools the agent exposes for a target
 - `--target-kind` string
 - `--target-locator` string
+- response: single object (`data` unwrapped to the top level) — fields: error (object); target (object); tools (array<object>)
 
 ### invoke
 Run up to 8 monit-agent tools concurrently on a target
 - `--target-kind` string
 - `--target-locator` string
+- response: single object (`data` unwrapped to the top level) — fields: error (object); results (array<object>); target (object)
 
 <!-- GENERATED:monit-agent END -->
 

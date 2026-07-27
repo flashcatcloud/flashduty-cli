@@ -66,6 +66,7 @@ Create calendar
 - `--team-id` int64 — Owning team ID. 0 means no team.
 - `--timezone` string — IANA timezone. Defaults to Asia/Shanghai when empty.
 - `--workdays` intSlice — Workday numbers (0 = Sunday, 6 = Saturday).
+- response: single object (`data` unwrapped to the top level) — fields: cal_id (string); cal_name (string)
 
 ### delete <cal-id>
 Delete calendar
@@ -82,6 +83,7 @@ List calendar events
 - `--day` int64 — Day (1-31). 0 means no day filter. (0-31)
 - `--month` int64 — Month (1-12). 0 means no month filter. (0-12)
 - `--year` int64 — Year. Defaults to the current year when omitted. (min 2023)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); cal_id (string); created_at (integer); creator_id (integer); description (string); end_at (string); event_id (string); is_off (boolean); start_at (string); summary (string); updated_at (integer)
 
 ### event-upsert <cal-id>
 Upsert calendar event
@@ -92,15 +94,18 @@ Upsert calendar event
 - `--is-off` bool (required) — Whether the event marks a non-working day. true = day off, false = working day override.
 - `--start-at` string (required) — Event start date in YYYY-MM-DD.
 - `--summary` string (required) — Event summary. (1-39 chars)
+- response: single object (`data` unwrapped to the top level) — fields: cal_id (string); event_id (string); summary (string)
 
 ### info <cal-id>
 Get calendar info
 - `<cal-id>` (positional, required) string — Calendar ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); cal_id (string); cal_name (string); created_at (integer); creator_id (integer); description (string); extra_cal_ids (array<string>); kind (string); status (string); team_id (integer); timezone (string); updated_at (integer); updated_by (integer); workdays (array<integer>)
 
 ### list
 List calendars
 - `--kind` string — Calendar kind filter. Defaults to personal when empty. · enum: region.official.holiday | personal
 - `--no-locale` bool — Disable locale filtering when listing public-holiday calendars.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); cal_id (string); cal_name (string); created_at (integer); creator_id (integer); description (string); extra_cal_ids (array<string>); kind (string); status (string); team_id (integer); timezone (string); updated_at (integer); updated_by (integer); workdays (array<integer>)
 
 ### update <cal-id>
 Update calendar

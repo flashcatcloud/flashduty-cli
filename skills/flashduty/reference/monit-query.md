@@ -38,6 +38,7 @@ Pre-clustered RCA findings (log_patterns or metric_trends)
 - `--time-end` string
 - `--time-start` string
 - `--timeout-seconds` int
+- response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
 
 ### rows
 Raw datasource passthrough (returns values/rows as the datasource itself would)
@@ -45,6 +46,7 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 - `--ds-name` string
 - `--ds-type` string
 - `--expr` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: fields (object); values (object)
 
 <!-- GENERATED:monit-query END -->
 

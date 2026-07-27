@@ -63,6 +63,7 @@ Create application
 - `<team-id>` (positional, required) int64 — Owning team ID.
 - `--type` string (required) — Application type. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
 - body-only (`--data`): alerting (object); links (object); tracing (object)
+- response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
 
 ### application-delete <application-id>
 Delete application
@@ -71,10 +72,12 @@ Delete application
 ### application-info <application-id>
 Get application detail
 - `<application-id>` (positional, required) string — RUM application ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-infos <application-id> [<id2>...]
 Batch get applications
 - `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-list
 List applications
@@ -86,6 +89,7 @@ List applications
 - `--query` string — Search query to filter by application name.
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-update <application-id>
 Update application
@@ -102,6 +106,7 @@ Update application
 Test application webhook
 - `<application-id>` (positional, required) string — RUM application ID.
 - `--webhook-url` string (required) — Webhook URL to receive the sample alert event.
+- response: single object (`data` unwrapped to the top level) — fields: message (string); ok (boolean); status_code (integer)
 
 ### data-query
 Query RUM data
@@ -119,20 +124,24 @@ Count facet value distribution
 - `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
 - body-only (`--data`): facet_value (any)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: count (integer); facet_value (any)
 
 ### facet-list
 List RUM facet fields
 - `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
 - `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 
 ### field-list
 List RUM fields
 - `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
 - `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 
 ### issue-info <issue-id>
 Get issue detail
 - `<issue-id>` (positional, required) string — Issue ID.
+- response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
 ### issue-list
 List issues
@@ -151,6 +160,7 @@ List issues
 - `--statuses` stringSlice — Filter by statuses. · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected causes.
 - `--team-ids` intSlice — Filter by team IDs.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
 ### issue-update <issue-id>
 Update issue
@@ -162,6 +172,7 @@ Update issue
 Get session replay metadata
 - `<session-id>` (positional, required) string — RUM session ID.
 - `--ts` int64 — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
+- response: single object (`data` unwrapped to the top level) — fields: application (object); device (object); foreground_periods (array<object>); session (object); views (array<object>)
 
 ### session-replay-segments <session-id>
 List session replay segments
@@ -171,6 +182,7 @@ List session replay segments
 - `--ts` int64 — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
 - `--url-mode` bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
 - `--view-id` string — Restrict results to segments belonging to this view. Omit to page through the entire session.
+- response: single object (`data` unwrapped to the top level) — fields: items (array<string>); search_after_ctx (string)
 
 <!-- GENERATED:rum END -->
 

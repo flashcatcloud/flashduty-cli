@@ -47,6 +47,7 @@ List sourcemaps
 - `--type` string — Platform type. Defaults to 'browser' when omitted. · enum: browser | android | ios
 - `--uuid` string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
 - `--versions` stringSlice — Filter by version strings. Up to 100 values.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); git_commit_sha (string); git_repository_url (string); key (string); metadata (object); service (string); size (integer); type (string); updated_at (integer); version (string)
 
 ### stack-enrich
 Enrich a stack trace
@@ -61,6 +62,7 @@ Enrich a stack trace
 - `--variant` string — Android build variant used by older Gradle plugin versions.
 - `--version` string (required) — Application version used when the sourcemap was uploaded.
 - body-only (`--data`): binary_images (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: frames (array<object>)
 
 <!-- GENERATED:sourcemap END -->
 

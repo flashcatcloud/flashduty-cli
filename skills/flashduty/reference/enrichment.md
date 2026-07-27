@@ -75,10 +75,12 @@ fduty enrichment info <integration-id> --output-format toon
 ### info <integration-id>
 Get enrichment rules
 - `<integration-id>` (positional, required) int64 — Integration ID to query enrichment rules for. Must be greater than 0. (min 1)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (integer); updated_by (integer)
 
 ### list <integration-id> [<id2>...]
 List enrichment rules
 - `<integration-ids>` (positional, required) intSlice — List of integration IDs to query.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (integer); updated_by (integer)
 
 ### mapping-api-create
 Create mapping API
@@ -90,6 +92,7 @@ Create mapping API
 - `--timeout` int64 — Request timeout in seconds (1–3). Default 2.
 - `--url` string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
 - body-only (`--data`): headers (object)
+- response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string)
 
 ### mapping-api-delete <api-id>
 Delete mapping API
@@ -98,9 +101,11 @@ Delete mapping API
 ### mapping-api-info <api-id>
 Get mapping API detail
 - `<api-id>` (positional, required) string — Mapping API ID (MongoDB ObjectID hex).
+- response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string); created_at (integer); creator_id (integer); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (integer); updated_by (integer); url (string)
 
 ### mapping-api-list
 List mapping APIs
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: api_id (string); api_name (string); created_at (integer); creator_id (integer); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (integer); updated_by (integer); url (string)
 
 ### mapping-api-update <api-id>
 Update mapping API
@@ -132,6 +137,7 @@ List mapping data
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
 - `--search-after-ctx` string — Opaque cursor token for cursor-based pagination.
 - body-only (`--data`): query (object)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); fields (object); key (string); updated_at (integer)
 
 ### mapping-data-truncate <schema-id>
 Truncate mapping data
@@ -146,6 +152,7 @@ Upload mapping data via CSV
 Upsert mapping data rows
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
 - body-only (`--data`): docs (array<object>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: keys (array<string>)
 
 ### mapping-schema-create
 Create mapping schema
@@ -154,6 +161,7 @@ Create mapping schema
 - `--schema-name` string (required) — Unique schema name (max 39 chars). (≤39 chars)
 - `--source-labels` stringSlice (required) — Lookup key label names (1–3). Must not overlap with 'result_labels'.
 - `--team-id` int64 — Owning team ID. '0' means no team.
+- response: single object (`data` unwrapped to the top level) — fields: schema_id (string); schema_name (string)
 
 ### mapping-schema-delete <schema-id>
 Delete mapping schema
@@ -162,9 +170,11 @@ Delete mapping schema
 ### mapping-schema-info <schema-id>
 Get mapping schema detail
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_id (integer); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (integer); updated_by (integer)
 
 ### mapping-schema-list
 List mapping schemas
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); creator_id (integer); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (integer); updated_by (integer)
 
 ### mapping-schema-update <schema-id>
 Update mapping schema

@@ -76,6 +76,7 @@ Create a template
 - `--wecom` string — WeCom robot message template source.
 - `--wecom-app` string — WeCom app message template source.
 - `--zoom` string — Zoom bot message template source.
+- response: single object (`data` unwrapped to the top level) — fields: template_id (string); template_name (string)
 
 ### delete <template-id>
 Delete a template
@@ -88,10 +89,12 @@ List available template functions
 ### get-preset
 Get the preset template for a channel
 - `--channel` string
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); deleted_at (integer); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (integer); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
 
 ### info <template-id>
 Get template detail
 - `<template-id>` (positional, required) string — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); deleted_at (integer); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (integer); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
 
 ### list
 List templates
@@ -104,6 +107,7 @@ List templates
 - `--query` string — Regex or substring match on template_name.
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter by specific team IDs.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); deleted_at (integer); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (integer); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
 
 ### preview
 Preview template
@@ -111,6 +115,7 @@ Preview template
 - `--incident-id` string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
 - `--type` string (required) — Template channel type that selects the rendering engine.
 - body-only (`--data`): incident_card_hidden_fields (object)
+- response: single object (`data` unwrapped to the top level) — fields: content (string); fixed_fields (array<object>); message (string); success (boolean)
 
 ### update <template-id>
 Update a template
@@ -138,6 +143,7 @@ Validate and preview a template
 - `--channel` string
 - `--file` string
 - `--incident` string
+- response: single object (`data` unwrapped to the top level) — fields: content (string); fixed_fields (array<object>); message (string); success (boolean)
 
 ### variables
 List available template variables

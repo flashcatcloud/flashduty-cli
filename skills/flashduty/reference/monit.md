@@ -97,6 +97,7 @@ Create datasource
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
 - body-only (`--data`): payload (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
 
 ### datasource-delete
 Delete datasource
@@ -105,10 +106,12 @@ Delete datasource
 ### datasource-info
 Get datasource detail
 - `--id` int64 (required) — Resource ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
 
 ### datasource-list
 List datasources
 - `--type` string — Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
 
 ### datasource-sls-logstores
 List SLS logstores
@@ -133,6 +136,7 @@ Update datasource
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
 - body-only (`--data`): payload (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
 
 ### preview-sync
 Preview datasource query
@@ -149,6 +153,7 @@ Diagnose data source
 - `--ds-type` string (required) — Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'.
 - `--operation` string — Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. · enum: log_patterns | metric_trends
 - body-only (`--data`): input (object) (required); methods (array<object>); options (object); time_range (object)
+- response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
 
 ### query-rows
 Query data source rows
@@ -158,14 +163,17 @@ Query data source rows
 - `--ds-type` string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
 - `--expr` string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
 - body-only (`--data`): args (object)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: fields (object); values (object)
 
 ### rule-audit-detail
 Get rule audit snapshot
 - `--id` int64 (required) — Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (integer); creator_id (integer); creator_name (string); id (integer)
 
 ### rule-audits
 List rule change history
 - `--id` int64 (required) — Rule ID.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (integer); creator_id (integer); creator_name (string); id (integer)
 
 ### rule-counter-channel
 Get rule counts by channel
@@ -175,9 +183,11 @@ Get rule counts by folder node
 
 ### rule-counter-status
 Get rule status counters for top-level folders
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: folder_id (integer); folder_name (string); rule_total (integer); triggered_rule_count (integer)
 
 ### rule-counter-total
 Get rule counter time series
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); clock (integer); id (integer); num (integer)
 
 ### rule-create
 Create alert rule
@@ -204,6 +214,7 @@ Create alert rule
 - `--updater-id` int64
 - `--updater-name` string
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object); rule_configs (object)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-delete
 Delete alert rule
@@ -215,30 +226,37 @@ Batch delete alert rules
 
 ### rule-dstypes
 List available datasource types
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); id (integer); ident (string); name (string); weight (integer)
 
 ### rule-export
 Export alert rules
 - `--ids` intSlice (required) — Rule IDs.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: annotations (object); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object)
 
 ### rule-import
 Import alert rules
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### rule-info
 Get alert rule detail
 - `--id` int64 (required) — Rule ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-list-basic
 List alert rules
 - `--folder-id` int64 — Folder ID. 0 to list all accessible rules.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); triggered (boolean); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-move
 Move alert rules to folder
 - `--dest-folder-id` int64 (required) — Destination folder ID.
 - `--ids` intSlice (required) — Rule IDs to move.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### rule-status
 Get rule trigger status under folder
 - `--folder-id` int64 — Folder ID. 0 for all.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: folder_id (integer); folder_name (string); rule_total (integer); triggered_rule_count (integer)
 
 ### rule-update
 Update alert rule
@@ -265,6 +283,7 @@ Update alert rule
 - `--updater-id` int64
 - `--updater-name` string
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object); rule_configs (object)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-update-fields
 Batch update rule fields
@@ -282,6 +301,7 @@ Batch update rule fields
 - `--repeat-interval` int64
 - `--repeat-total` int64
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### store-ruleset-create
 Create ruleset
@@ -289,6 +309,7 @@ Create ruleset
 - `--open-flag` int64 — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.
 - `--payload` string (required) — JSON string containing the alert rule definitions.
 - `--type-ident` string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
 
 ### store-ruleset-delete
 Delete ruleset
@@ -297,10 +318,12 @@ Delete ruleset
 ### store-ruleset-info
 Get ruleset detail
 - `--id` int64 (required) — Resource ID.
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
 
 ### store-ruleset-list
 List rulesets
 - `--type-ident` string (required) — Datasource type identifier to filter by, e.g. 'prometheus'.
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
 
 ### store-ruleset-update
 Update ruleset
@@ -308,6 +331,7 @@ Update ruleset
 - `--note` string (required) — New description.
 - `--open-flag` int64 — New sharing scope. '0' = private, '1' = account-shared, '2' = public.
 - `--payload` string (required) — New JSON string of alert rule definitions.
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
 
 ### targets
 List monitored targets
@@ -315,6 +339,7 @@ List monitored targets
 - `--cursor` string — Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.
 - `--keyword` string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
 - `--limit` int64 — Page size. Default 50, max 200. (max 200)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: agent_version (string); cluster_name (string); edge_ipport (string); target_kind (string); target_locator (string); updated_at (integer)
 
 ### tools-catalog
 List target tool catalog
@@ -322,6 +347,7 @@ List target tool catalog
 - `--include-output-shape` bool — When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.
 - `--target-kind` string — Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.
 - `--target-locator` string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
+- response: single object (`data` unwrapped to the top level) — fields: error (object); target (object); tools (array<object>)
 
 ### tools-invoke
 Invoke target tools
@@ -329,6 +355,7 @@ Invoke target tools
 - `--target-kind` string — Optional target kind; auto-inferred when omitted.
 - `--target-locator` string (required) — Target identifier. Same validation rules as '/monit/tools/catalog'.
 - body-only (`--data`): tools (array<object>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: error (object); results (array<object>); target (object)
 
 <!-- GENERATED:monit END -->
 
