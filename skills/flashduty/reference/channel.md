@@ -310,7 +310,6 @@ Update channel
 - **`channel create` requires `--channel-name` and `--team-id`** even though they are not marked `required` in the flag list — the server rejects the request without them.
 - **`delete` on a channel is irreversible** — all rules within it are also removed. Confirm the `channel-id` against `list` before proceeding.
 - **Empty rule list is authoritative** — if `escalate-rule-list` / `silence-rule-list` / etc. returns no rows, no rules exist; do not widen the query.
-- **`list` response is a top-level array** (pipe `jq '.[]'`); rule-list responses nest under `items[]` (pipe `jq '.items[]'`).
 
 ## Worked example — look up a channel and inspect its escalation policy
 

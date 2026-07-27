@@ -52,7 +52,7 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 
 ## Key concepts
 
-- **`rows` = raw passthrough.** Response `data` is a **top-level array** of row objects — pipe `jq '.[]'`, NOT `.items[]`. Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. **Time belongs in the query expression**, not in flags.
+- **`rows` = raw passthrough.** Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. **Time belongs in the query expression**, not in flags.
 - **`diagnose` = pre-clustered evidence.** Its versioned response echoes the datasource, query, and RFC 3339 analysis window. Each result contains method-specific `pattern_evidence` (logs) or `series_evidence` (metrics), structured window statistics, and observations; log results also declare redaction and untrusted observed-data paths in `data_handling`. Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
 
 ## Gotchas

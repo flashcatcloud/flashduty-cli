@@ -374,7 +374,7 @@ Invoke target tools
 
 **`query-diagnose` output**: results are versioned evidence, not the former summary-only pattern/series lists. Read `pattern_evidence` for logs or `series_evidence` for metrics; their optional comparison fields are absent when the edge has no evidence. Log output also includes `data_handling`, which declares redaction coverage and paths carrying untrusted observed data.
 
-**`targets` response shape** — rows are under `items[]` (not `data[]`); pipe `jq '.items[]'`, not `jq '.[]'`. `updated_at` means "last seen", not "online now".
+**`targets`**: `updated_at` means "last seen", not "online now".
 
 ## Gotchas
 

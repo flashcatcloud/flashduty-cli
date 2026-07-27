@@ -118,8 +118,6 @@ Create or update a role
 
 - **`permission-id` vs `permission-factor`**: `permission-list` returns coarse permission objects (id, name, class, scope, type=read|manage) — use these ids in `upsert --permission-ids`. `permission-factor-list` returns fine-grained factors (api/button/menu/url/visit strings like `template:read:info`) — useful for auditing what a permission covers, but not accepted by `upsert`.
 - **`permission-list --with-all`**: returns every permission in the system with `is_granted=true/false` for the requested `--role-ids`. Omit `--role-ids` + `--with-all` to see the full catalog without annotation.
-- **`permission-list` response shape**: rows are under `items[]` — pipe `jq '.items[]'`, NOT `.data.items[]`.
-- **`permission-factor-list` response shape**: top-level array — pipe `jq '.[]'`, NOT `.items[]`.
 
 ## Gotchas
 

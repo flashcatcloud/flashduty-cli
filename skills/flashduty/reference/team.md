@@ -117,7 +117,7 @@ Create or update a team
 ## Key concepts
 
 - **`status`** on `team list` rows: `enabled` | `disabled`. A disabled team still exists but is excluded from most operational contexts.
-- **`infos <team-id> [<id2>...]`** — takes team IDs as **positional args** (space-separated), not `--team-ids`. The response wraps under `items[]` (pipe `jq '.items[]'` with `--json`), NOT `.data.items[]`.
+- **`infos <team-id> [<id2>...]`** — takes team IDs as **positional args** (space-separated), not `--team-ids`.
 - **`upsert` lookup key** — matched by `--team-id` (if non-zero) or by `--team-name` (name collision). Pass `--reset-if-name-exist` to overwrite membership on a name match; omit it to leave the existing members untouched.
 
 ## Gotchas
@@ -126,7 +126,6 @@ Create or update a team
 - **`get` vs `info`** — both fetch a single team; `get` accepts `--id`/`--name`/`--ref-id`; `get [<id>]` also allows the ID as a positional arg. `info` uses `--team-id`/`--team-name`/`--ref-id` flags only. Prefer `get` for interactive lookup.
 - **`delete` is irreversible** and requires confirmation unless `--force` is set. Always confirm the correct `--id` (not `--name`) in scripts to avoid name-collision accidents.
 - **`infos` positional trap** — the `use` is `infos <team-id> [<id2>...]`; IDs are space-separated positional args, not a flag. `fduty team infos 101 102 103`, not `--team-ids 101,102,103`.
-- **`list` JSON shape** — `--json` returns a top-level array; pipe `jq '.[]'`, NOT `.items[]`.
 - **`upsert` requires `--team-name`** even when updating by `--team-id`; omitting it returns a validation error.
 
 ## Worked example
