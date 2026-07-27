@@ -41,8 +41,19 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 	if strings.Contains(body, "read back every target and verify the intended comment is present before reporting success") {
 		t.Error("incident card must not retain the manual read-back workaround now that the CLI verifies content fidelity itself")
 	}
-	if !strings.Contains(body, "exits non-zero if the stored text doesn't match the file byte-for-byte") {
-		t.Error("incident card must document the command's own read-after-write content-fidelity guarantee")
+	// Assert the guarantee is documented, not the sentence that documents it:
+	// pinning a full sentence turns this check into a checksum that goes red on
+	// every reword and teaches the next reader to update the literal reflexively.
+	if !strings.Contains(body, "reads back") || !strings.Contains(body, "exits non-zero") {
+		t.Error("incident card must document the command's own read-after-write verification — that is what replaced the manual read-back step removed above")
+	}
+	// The CLI trims leading/trailing whitespace before sending, because the
+	// server trims it too, so the stored text is deliberately NOT the file's
+	// exact bytes. The card used to promise byte-for-byte fidelity against the
+	// file; that claim is false and would set an agent up to expect trailing
+	// newlines to survive a heredoc write.
+	if strings.Contains(body, "match the file byte-for-byte") {
+		t.Error("incident card must not promise byte-for-byte fidelity against the file: leading/trailing whitespace is stripped before the write")
 	}
 }
 
