@@ -11,10 +11,7 @@ import (
 )
 
 func newAuditCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "audit",
-		Short: "Manage audit logs",
-	}
+	cmd := newGroupCmd("audit", "Manage audit logs")
 	cmd.AddCommand(newAuditSearchCmd())
 	return cmd
 }

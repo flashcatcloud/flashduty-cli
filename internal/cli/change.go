@@ -11,10 +11,7 @@ import (
 )
 
 func newChangeCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "change",
-		Short: "Manage changes",
-	}
+	cmd := newGroupCmd("change", "Manage changes")
 	cmd.AddCommand(newChangeListCmd())
 	return cmd
 }

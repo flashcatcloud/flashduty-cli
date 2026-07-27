@@ -256,7 +256,7 @@ func genGroup(parent *cobra.Command, name, short string) *cobra.Command {
 			return c
 		}
 	}
-	g := &cobra.Command{Use: name, Short: short}
+	g := newGroupCmd(name, short)
 	parent.AddCommand(g)
 	return g
 }

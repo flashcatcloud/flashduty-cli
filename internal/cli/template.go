@@ -50,10 +50,7 @@ func presetTemplateField(t *flashduty.TemplateItem, fieldName string) string {
 }
 
 func newTemplateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "template",
-		Short: "Manage notification templates",
-	}
+	cmd := newGroupCmd("template", "Manage notification templates")
 	cmd.AddCommand(newTemplateGetPresetCmd())
 	cmd.AddCommand(newTemplateValidateCmd())
 	cmd.AddCommand(newTemplateVariablesCmd())

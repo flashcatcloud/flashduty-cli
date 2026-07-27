@@ -11,10 +11,7 @@ import (
 )
 
 func newChannelCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "channel",
-		Short: "Manage channels",
-	}
+	cmd := newGroupCmd("channel", "Manage channels")
 	cmd.AddCommand(newChannelListCmd())
 	return cmd
 }

@@ -13,20 +13,14 @@ import (
 )
 
 func newOncallCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "oncall",
-		Short: "Manage on-call schedules",
-	}
+	cmd := newGroupCmd("oncall", "Manage on-call schedules")
 	cmd.AddCommand(newOncallWhoCmd())
 	cmd.AddCommand(newOncallScheduleCmd())
 	return cmd
 }
 
 func newOncallScheduleCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "schedule",
-		Short: "Manage schedules",
-	}
+	cmd := newGroupCmd("schedule", "Manage schedules")
 	cmd.AddCommand(newOncallScheduleListCmd())
 	cmd.AddCommand(newOncallScheduleGetCmd())
 	return cmd
