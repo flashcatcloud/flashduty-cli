@@ -14,9 +14,22 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
-// stdinReader is the source read when --data is exactly "-". A package var so
-// tests can substitute a buffer (mirrors newClientFn); production reads os.Stdin.
+// stdinReader is the source read by every --*-file-style flag when its value
+// is exactly "-" (--data, --prompt-file, --comment-file, ...). A package var
+// so tests can substitute a buffer (mirrors newClientFn); production reads
+// os.Stdin.
 var stdinReader io.Reader = os.Stdin
+
+// readPathOrStdin reads the raw bytes at path, or from stdinReader when path
+// is exactly "-". It performs no trimming or validation of the result;
+// callers that need trimmed text or byte-for-byte fidelity decide that
+// themselves.
+func readPathOrStdin(path string) ([]byte, error) {
+	if path == "-" {
+		return io.ReadAll(stdinReader)
+	}
+	return os.ReadFile(path)
+}
 
 // resolveDataSource turns a --data flag value into the raw JSON body string,
 // supporting two source forms across EVERY --data-bearing command:

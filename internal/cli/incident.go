@@ -850,7 +850,7 @@ personal channels, or a template.`,
 }
 
 func newIncidentCommentCmd() *cobra.Command {
-	var comment string
+	var commentFile string
 	var muteReply bool
 
 	cmd := &cobra.Command{
@@ -858,21 +858,32 @@ func newIncidentCommentCmd() *cobra.Command {
 		Short: "Add a comment to incident timelines",
 		Long: `Add a comment to one or more incident timelines.
 
-The command accepts up to 100 incidents. Comment text is required and must be
-at most 1024 characters. Use --mute-reply when the comment should not trigger
-webhook reply behavior.`,
-		Example: `  flashduty incident comment inc_123 --comment "Rollback started"
-  flashduty incident comment inc_123 inc_456 --comment "Mitigation deployed" --mute-reply`,
+The command accepts up to 100 incidents. Comment text is read verbatim from
+--comment-file (or from stdin, when the value is "-"); it is never parsed by
+a shell, so backticks, $(...), and quotes inside it reach the API exactly as
+written. The text must be non-empty and at most 1024 characters. Use
+--mute-reply when the comment should not trigger webhook reply behavior.
+
+After writing, the command reads back each incident's timeline and verifies
+the stored comment matches the input byte-for-byte; on any mismatch it exits
+non-zero instead of reporting success.`,
+		Example: `  flashduty incident comment inc_123 --comment-file ./comment.txt
+  printf '%s' 'Rollback started' | flashduty incident comment inc_123 --comment-file -`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
+
+			comment, err := resolveCommentFile(commentFile)
+			if err != nil {
+				return err
+			}
 			if strings.TrimSpace(comment) == "" {
-				return fmt.Errorf("--comment is required")
+				return fmt.Errorf("--comment-file must not be empty")
 			}
 			if len([]rune(comment)) > 1024 {
-				return fmt.Errorf("--comment must be at most 1024 characters")
+				return fmt.Errorf("--comment-file content must be at most 1024 characters")
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -884,17 +895,94 @@ webhook reply behavior.`,
 					return err
 				}
 
+				if err := verifyIncidentCommentsWritten(ctx, comment); err != nil {
+					return err
+				}
+
 				ctx.WriteResult(fmt.Sprintf("Commented on %d incident(s).", len(ctx.Args)))
 				return nil
 			})
 		},
 	}
 
-	cmd.Flags().StringVar(&comment, "comment", "", "Comment text")
+	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing the comment text (- reads stdin)")
 	cmd.Flags().BoolVar(&muteReply, "mute-reply", false, "Do not trigger webhook reply behavior for this comment")
-	_ = cmd.MarkFlagRequired("comment")
+	_ = cmd.MarkFlagRequired("comment-file")
 
 	return cmd
+}
+
+// resolveCommentFile reads --comment-file's exact bytes (or stdin, when the
+// value is "-"). The comment text is never handed to a shell, so unlike an
+// inline flag value it needs no escaping for backticks, $(...), or quotes.
+func resolveCommentFile(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("--comment-file must not be empty")
+	}
+	b, err := readPathOrStdin(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read --comment-file: %w", err)
+	}
+	return string(b), nil
+}
+
+// verifyIncidentCommentsWritten re-fetches each incident's timeline after a
+// comment write and confirms the stored text matches what was sent,
+// byte-for-byte. The Comment API returns no handle for the created entry, so
+// this compares against the newest i_comm entry on each incident's feed. A
+// mismatch, or no i_comm entry at all, turns what would otherwise be a silent
+// content corruption into a hard failure instead of a false "Commented on ..."
+// success line.
+func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
+	for _, id := range ctx.Args {
+		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
+			IncidentID:  id,
+			Types:       []flashduty.IncidentFeedType{flashduty.IncidentFeedTypeIComm},
+			ListOptions: flashduty.ListOptions{Limit: 100},
+		})
+		if err != nil {
+			return fmt.Errorf("comment verification failed for incident %s: %w", id, err)
+		}
+		got, ok := newestCommentText(result.Items)
+		if !ok {
+			return fmt.Errorf("comment verification failed for incident %s: no comment entry found on the timeline after writing", id)
+		}
+		if got != want {
+			return fmt.Errorf("comment verification failed for incident %s: the stored comment does not match the input; the write may have been corrupted", id)
+		}
+	}
+	return nil
+}
+
+// newestCommentText returns the comment body of the most recent i_comm entry
+// in items, by CreatedAt. Detail decodes as map[string]any because
+// IncidentFeedItem.Detail is typed any in the SDK (its shape is determined by
+// Type at runtime, not statically).
+func newestCommentText(items []flashduty.IncidentFeedItem) (string, bool) {
+	var (
+		newest flashduty.TimestampMilli
+		text   string
+		found  bool
+	)
+	for _, item := range items {
+		if item.Type != flashduty.IncidentFeedTypeIComm {
+			continue
+		}
+		detail, ok := item.Detail.(map[string]any)
+		if !ok {
+			continue
+		}
+		comment, ok := detail["comment"].(string)
+		if !ok {
+			continue
+		}
+		if !found || item.CreatedAt > newest {
+			newest = item.CreatedAt
+			text = comment
+			found = true
+		}
+	}
+	return text, found
 }
 
 func newIncidentRemoveCmd() *cobra.Command {

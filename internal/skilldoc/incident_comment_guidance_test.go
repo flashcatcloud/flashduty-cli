@@ -16,12 +16,11 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 	}
 
 	body := string(card)
-	quotedHeredoc := "COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'"
-	commentCommand := `fduty incident comment "$ID" --comment "$COMMENT"`
-	timelineCommand := `fduty incident timeline "$ID" --output-format toon`
+	quotedHeredoc := "cat > \"$COMMENT_FILE\" <<'FDUTY_COMMENT_7F3A9C2E_EOF'"
+	commentCommand := `fduty incident comment "$ID" --comment-file "$COMMENT_FILE"`
 
 	previous := -1
-	for _, requirement := range []string{quotedHeredoc, commentCommand, timelineCommand} {
+	for _, requirement := range []string{quotedHeredoc, commentCommand} {
 		position := strings.Index(body, requirement)
 		if position == -1 {
 			t.Errorf("incident card is missing %q", requirement)
@@ -33,35 +32,40 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 		previous = position
 	}
 
-	if !strings.Contains(body, "After every comment write, read back every target and verify the intended comment is present before reporting success.") {
-		t.Error("incident card must require content-fidelity verification after every comment write")
-	}
 	if !strings.Contains(body, "choose a fresh delimiter that is absent as a full line in the intended comment") {
 		t.Error("incident card must require a collision-free heredoc delimiter")
 	}
-	if strings.Contains(body, `fduty incident comment <incident-id> --comment "Root cause identified: DB failover. Fix deploying."`) {
-		t.Error("incident card must not retain the unsafe inline comment example")
+	if strings.Contains(body, `--comment "`) {
+		t.Error("incident card must not demonstrate the removed inline --comment flag")
+	}
+	if strings.Contains(body, "read back every target and verify the intended comment is present before reporting success") {
+		t.Error("incident card must not retain the manual read-back workaround now that the CLI verifies content fidelity itself")
+	}
+	if !strings.Contains(body, "exits non-zero if the stored text doesn't match the file byte-for-byte") {
+		t.Error("incident card must document the command's own read-after-write content-fidelity guarantee")
 	}
 }
 
-func TestIncidentCommentQuotedHeredocPreservesMarkdown(t *testing.T) {
+func TestIncidentCommentFileHeredocPreservesMarkdown(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Bash fixture is unavailable on Windows")
 	}
 
+	dir := t.TempDir()
 	script := `fduty() {
-  printf '%s' "$5"
+  # Mimic --comment-file: print the referenced file's bytes verbatim.
+  cat "$5"
 }
 
 ID=64b64ca26f84f00000000000
-COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'
+COMMENT_FILE="` + dir + `/comment.txt"
+cat > "$COMMENT_FILE" <<'FDUTY_COMMENT_7F3A9C2E_EOF'
 ## Investigation
 Use ` + "`kubectl get pod`" + ` to inspect the restart.
 COMMENT_EOF
 The follow-up is still pending.
 FDUTY_COMMENT_7F3A9C2E_EOF
-)
-fduty incident comment "$ID" --comment "$COMMENT"
+fduty incident comment "$ID" --comment-file "$COMMENT_FILE"
 `
 
 	output, err := exec.Command("bash", "-c", script).CombinedOutput()
@@ -69,7 +73,7 @@ fduty incident comment "$ID" --comment "$COMMENT"
 		t.Fatalf("Bash fixture failed: %v\n%s", err, output)
 	}
 
-	want := "## Investigation\nUse `kubectl get pod` to inspect the restart.\nCOMMENT_EOF\nThe follow-up is still pending."
+	want := "## Investigation\nUse `kubectl get pod` to inspect the restart.\nCOMMENT_EOF\nThe follow-up is still pending.\n"
 	if got := string(output); got != want {
 		t.Errorf("comment content changed:\nwant: %q\n got: %q", want, got)
 	}

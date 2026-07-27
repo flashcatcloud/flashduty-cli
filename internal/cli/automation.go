@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -530,15 +529,7 @@ func resolveAutomationPrompt(cmd *cobra.Command, prompt, promptFile string) (str
 		if promptFile == "" {
 			return "", fmt.Errorf("--prompt-file must not be empty")
 		}
-		var (
-			b   []byte
-			err error
-		)
-		if promptFile == "-" {
-			b, err = io.ReadAll(stdinReader)
-		} else {
-			b, err = os.ReadFile(promptFile)
-		}
+		b, err := readPathOrStdin(promptFile)
 		if err != nil {
 			return "", fmt.Errorf("failed to read prompt file: %w", err)
 		}
