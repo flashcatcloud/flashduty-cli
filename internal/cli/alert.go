@@ -333,11 +333,11 @@ Request fields:
 						body["alert_ids"] = fAlertIDs
 					}
 					if cmd.Flags().Changed("comment-file") {
-						b, err := readPathOrStdin(fCommentFile)
+						comment, err := resolveCommentFile(fCommentFile)
 						if err != nil {
-							return fmt.Errorf("failed to read --comment-file: %w", err)
+							return err
 						}
-						body["comment"] = string(b)
+						body["comment"] = comment
 					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID

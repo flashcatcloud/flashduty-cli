@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // saveAndResetGlobals saves the current state of all global vars that commands
@@ -571,14 +575,17 @@ func TestCommandIncidentCommentRejectsOver1024Runes(t *testing.T) {
 // regression test for the incident that motivated dropping the inline
 // --comment flag: an LLM-authored comment containing backticks, $(...),
 // unbalanced quotes, and a line that looks like a heredoc terminator must
-// reach the API exactly as written, whether it arrives via --comment-file or
-// via stdin. Neither path ever hands the text to a shell.
+// reach the API exactly as written (modulo the leading/trailing-whitespace
+// trim applied to match server storage — see
+// TestCommandIncidentCommentSurvivesServerSideTrim), whether it arrives via
+// --comment-file or via stdin. Neither path ever hands the text to a shell.
 func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testing.T) {
 	malicious := "Root cause: restart via `kubectl rollout restart deploy/api`.\n" +
 		"Then ran $(rm -rf /tmp/scratch) to clean up staging state.\n" +
 		"Quotes: \"double\" and 'single' and it's mine.\n" +
 		"EOF\n" +
 		"The line above looks like a heredoc terminator but is just comment text.\n"
+	want := strings.TrimSpace(malicious)
 
 	t.Run("comment-file", func(t *testing.T) {
 		saveAndResetGlobals(t)
@@ -589,8 +596,8 @@ func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testin
 		if err != nil {
 			t.Fatalf("[comment-file] unexpected error: %v", err)
 		}
-		if stub.bodies[0]["comment"] != malicious {
-			t.Fatalf("[comment-file] comment reached the API mangled:\nwant: %q\n got: %q", malicious, stub.bodies[0]["comment"])
+		if stub.bodies[0]["comment"] != want {
+			t.Fatalf("[comment-file] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
 		}
 		if !strings.Contains(out, "Commented on 1 incident(s).") {
 			t.Fatalf("[comment-file] unexpected output:\n%s", out)
@@ -606,13 +613,82 @@ func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testin
 		if err != nil {
 			t.Fatalf("[stdin] unexpected error: %v", err)
 		}
-		if stub.bodies[0]["comment"] != malicious {
-			t.Fatalf("[stdin] comment reached the API mangled:\nwant: %q\n got: %q", malicious, stub.bodies[0]["comment"])
+		if stub.bodies[0]["comment"] != want {
+			t.Fatalf("[stdin] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
 		}
 		if !strings.Contains(out, "Commented on 1 incident(s).") {
 			t.Fatalf("[stdin] unexpected output:\n%s", out)
 		}
 	})
+}
+
+// newIncidentCommentTrimmingEchoStub wires a gfStub so /incident/feed echoes
+// back whatever text was most recently posted to /incident/comment, but with
+// leading/trailing whitespace stripped first — reproducing fc-event's actual
+// storage behavior (cmd/server/controller/incident/action.go's Comment
+// handler calls strings.TrimSpace on the comment after validating length but
+// before writing the feed entry). Unlike newIncidentCommentEchoStub, which
+// echoes back byte-for-byte and is therefore self-consistent with whatever
+// the client happened to send, this stub is backend-consistent: it can
+// actually catch a client that fails to apply the same normalization before
+// comparing.
+func newIncidentCommentTrimmingEchoStub(t *testing.T) *gfStub {
+	t.Helper()
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{
+						"type":       "i_comm",
+						"created_at": 1,
+						"detail":     map[string]any{"comment": strings.TrimSpace(posted)},
+					},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	return stub
+}
+
+// TestCommandIncidentCommentSurvivesServerSideTrim is the regression test for
+// the critical bug found in review: fc-event trims incident comments
+// server-side before storing them (see newIncidentCommentTrimmingEchoStub's
+// doc comment for the exact call site), but verification used to compare the
+// server's trimmed, stored text against the raw, untrimmed bytes read from
+// --comment-file. This CLI's own skill card (incident.md) tells agents to
+// author the comment via a bash heredoc, which always leaves a trailing
+// newline — so every comment written by that documented workflow would fail
+// verification and be reported as "not found," and a naive retry on that
+// false signal would append one more (trimmed) duplicate comment to the
+// incident every time, forever. This test reproduces that exact input shape.
+func TestCommandIncidentCommentSurvivesServerSideTrim(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newIncidentCommentTrimmingEchoStub(t)
+
+	// Mirrors a bash heredoc's output: content followed by a trailing newline,
+	// the pattern skills/flashduty/reference/incident.md's hot flow uses.
+	heredocStyle := "Root cause identified: DB failover.\nFix deploying.\n"
+	commentFile := writeCommentFile(t, heredocStyle)
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[server-trim] unexpected error: %v", err)
+	}
+	want := strings.TrimSpace(heredocStyle)
+	if stub.bodies[0]["comment"] != want {
+		t.Fatalf("[server-trim] expected the wire payload pre-trimmed to match what the server stores:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[server-trim] unexpected output:\n%s", out)
+	}
 }
 
 // TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment is the
@@ -689,7 +765,7 @@ func TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget(t *testing.T) {
 	if err == nil {
 		t.Fatal("[not-found] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "could not find a timeline entry matching the written text") {
+	if !strings.Contains(err.Error(), "no timeline entry matches the written text") {
 		t.Fatalf("[not-found] unexpected error: %v", err)
 	}
 	if strings.Contains(err.Error(), "corrupted") {
@@ -717,11 +793,131 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("[readback-missing] expected a non-zero exit, got nil error")
 	}
-	if !strings.Contains(err.Error(), "could not find a timeline entry matching the written text") {
+	if !strings.Contains(err.Error(), "no timeline entry matches the written text") {
 		t.Fatalf("[readback-missing] unexpected error: %v", err)
 	}
 	if strings.Contains(out, "Commented on") {
 		t.Fatalf("[readback-missing] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure guards
+// against stopping at the first failing incident: the error text asserts
+// "the write already succeeded for the whole batch, don't retry it" — a claim
+// only earned by having actually examined every incident. This stub fails
+// verification for inc-1 (feed empty) and inc-3 (feed has an unrelated
+// comment), with inc-2 verifying successfully in between. inc-3's feed must
+// still be queried, and the error must name both failing incidents, proving
+// the walk doesn't stop after inc-1.
+func TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	feedCallsByIncident := map[string]int{}
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			incID, _ := body["incident_id"].(string)
+			feedCallsByIncident[incID]++
+			switch incID {
+			case "inc-2":
+				return map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "the real comment"}},
+				}}
+			case "inc-3":
+				return map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "an unrelated comment"}},
+				}}
+			default:
+				return map[string]any{"items": []any{}}
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "inc-3", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[whole-batch] expected a non-zero exit, got nil error")
+	}
+	if feedCallsByIncident["inc-3"] == 0 {
+		t.Fatalf("[whole-batch] inc-3's feed was never queried — verification stopped at the first failure: %v", err)
+	}
+	if !strings.Contains(err.Error(), "inc-1") || !strings.Contains(err.Error(), "inc-3") {
+		t.Fatalf("[whole-batch] expected both failing incidents named in the error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "inc-2") {
+		t.Fatalf("[whole-batch] inc-2 verified fine and must not be named as a problem: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[whole-batch] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning guards that
+// a transient failure while re-fetching the feed (rate limit, timeout — a
+// large batch's own read-back traffic, up to maxIncidentFeedVerifyPages
+// requests per incident, is itself a plausible source) gets the identical
+// anti-retry framing as a "not found" result. The write already succeeded in
+// both cases; a bare transport error here would trigger the same naive
+// full-batch retry reflex the "not found" message exists to defuse.
+func TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning(t *testing.T) {
+	saveAndResetGlobals(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var decoded map[string]any
+		_ = json.Unmarshal(raw, &decoded)
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Path == "/incident/feed" {
+			if incID, _ := decoded["incident_id"].(string); incID == "inc-1" {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"request_id": "req-err",
+					"error":      map[string]any{"code": "internal_error", "message": "temporarily unavailable"},
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"request_id": "req-feed",
+				"error":      map[string]any{"code": "OK", "message": ""},
+				"data": map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "the real comment"}},
+				}},
+			})
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"request_id": "req-ok",
+			"error":      map[string]any{"code": "OK", "message": ""},
+			"data":       map[string]any{},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
+	}
+
+	commentFile := writeCommentFile(t, "the real comment")
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[transport-error] expected a non-zero exit, got nil error")
+	}
+	if !strings.Contains(err.Error(), "inc-1") {
+		t.Fatalf("[transport-error] expected inc-1 named in the error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "do not retry this command against the full batch") {
+		t.Fatalf("[transport-error] must carry the same anti-retry framing as the not-found case: %v", err)
+	}
+	if strings.Contains(err.Error(), "corrupted") {
+		t.Fatalf("[transport-error] must not claim corruption: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[transport-error] must not report success:\n%s", out)
 	}
 }
 

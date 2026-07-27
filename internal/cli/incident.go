@@ -858,15 +858,19 @@ func newIncidentCommentCmd() *cobra.Command {
 		Short: "Add a comment to incident timelines",
 		Long: `Add a comment to one or more incident timelines.
 
-The command accepts up to 100 incidents. Comment text is read verbatim from
---comment-file (or from stdin, when the value is "-"); it is never parsed by
-a shell, so backticks, $(...), and quotes inside it reach the API exactly as
-written. The text must be non-empty and at most 1024 characters. Use
---mute-reply when the comment should not trigger webhook reply behavior.
+The command accepts up to 100 incidents. Comment text is read from
+--comment-file (or from stdin, when the value is "-") and never parsed by a
+shell, so backticks, $(...), and quotes inside it reach the API exactly as
+written. Leading/trailing whitespace is trimmed before sending — matching how
+the server stores it, so a bash heredoc's trailing newline (the pattern this
+CLI's own skill card recommends) does not fail verification below. The
+trimmed text must be non-empty and at most 1024 characters. Use --mute-reply
+when the comment should not trigger webhook reply behavior.
 
-After writing, the command reads back each incident's timeline and verifies
-the stored comment matches the input byte-for-byte; on any mismatch it exits
-non-zero instead of reporting success.`,
+After writing, the command reads back every incident's timeline and verifies
+an entry with the exact (trimmed) text is present; on any incident it can't
+confirm, across the whole batch, it exits non-zero instead of reporting
+success.`,
 		Example: `  flashduty incident comment inc_123 --comment-file ./comment.txt
   printf '%s' 'Rollback started' | flashduty incident comment inc_123 --comment-file -`,
 		Args: requireArgs("incident_id"),
@@ -879,7 +883,17 @@ non-zero instead of reporting success.`,
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(comment) == "" {
+			// fc-event trims incident comments server-side before storing them
+			// (cmd/server/controller/incident/action.go's Comment handler calls
+			// strings.TrimSpace on input.Comment after validating length but
+			// before writing the feed entry). Normalize identically here, once,
+			// right after reading the raw bytes, so the length cap below, the
+			// wire payload, and the read-after-write comparison in
+			// verifyIncidentCommentsWritten all operate on the exact string that
+			// ends up stored — none of them needs to special-case the server's
+			// trim again.
+			comment = strings.TrimSpace(comment)
+			if comment == "" {
 				return fmt.Errorf("--comment-file must not be empty")
 			}
 			if len([]rune(comment)) > 1024 {
@@ -934,7 +948,7 @@ func resolveCommentFile(path string) (string, error) {
 // headroom for any real incident, and only bounds a pathological one.
 const maxIncidentFeedVerifyPages = 20
 
-// verifyIncidentCommentsWritten re-fetches each incident's timeline after a
+// verifyIncidentCommentsWritten re-fetches every incident's timeline after a
 // comment write and confirms an entry with the exact text just sent is
 // present. The Comment API returns no handle for the created entry, so this
 // must find it by re-listing the feed instead.
@@ -950,32 +964,56 @@ const maxIncidentFeedVerifyPages = 20
 // comments and needs no CreatedAt comparison (and therefore no ordering
 // assumption about /incident/feed's undocumented default sort) at all.
 //
-// Not finding a match within the page budget does not mean the write was
-// corrupted — corruption can no longer even be observed by this check, since
-// it never looks at any text other than an exact match. It means
-// verification could not confirm what was written (e.g. it's buried past the
-// page budget, or lagging in the read path); see the error text below for why
-// that is still reported as a failure without claiming corruption.
+// It checks every id in ctx.Args before returning, rather than stopping at
+// the first problem: the error text below tells the caller the write already
+// succeeded for the WHOLE batch and to fix only the listed incident(s)
+// individually, so that claim has to actually be backed by having examined
+// every id — reporting only the first failure would leave any incident after
+// it silently, permanently uncommented while the agent believes it handled
+// everything the error mentioned.
+//
+// Neither a page-budget miss nor a transport error while re-fetching the feed
+// means the write was corrupted — corruption can no longer even be observed
+// by this check, since it never looks at any text other than an exact match.
+// Both are reported as "could not confirm," with identical anti-retry
+// framing, because both follow a write the API already reported as
+// successful.
 func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
+	var problems []string
 	for _, id := range ctx.Args {
 		found, err := incidentTimelineHasComment(ctx, id, want)
-		if err != nil {
-			return fmt.Errorf("comment verification failed for incident %s: %w", id, err)
-		}
-		if !found {
-			return fmt.Errorf(
-				"comment verification failed for incident %s: could not find a timeline entry matching the written text within the first %d pages. "+
-					"The write API already reported success for all %d incident(s) in this batch, so do not retry this command against the full batch — that would duplicate the comment on incidents already confirmed. "+
-					"Check incident %s manually, and if the comment is genuinely missing, write it again for that incident alone",
-				id, maxIncidentFeedVerifyPages, len(ctx.Args), id)
+		switch {
+		case err != nil:
+			problems = append(problems, fmt.Sprintf("incident %s: %v", id, err))
+		case !found:
+			problems = append(problems, fmt.Sprintf("incident %s: no timeline entry matches the written text within the first %d pages", id, maxIncidentFeedVerifyPages))
 		}
 	}
-	return nil
+	if len(problems) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"comment verification could not confirm %d of %d incident(s) — %s. "+
+			"The write API already reported success for all %d incident(s) in this batch, so do not retry this command against the full batch: that would duplicate the comment on incidents already confirmed. "+
+			"Check the listed incident(s) manually, and if a comment is genuinely missing, write it again for that incident alone.",
+		len(problems), len(ctx.Args), strings.Join(problems, "; "), len(ctx.Args))
 }
 
 // incidentTimelineHasComment walks every page of incidentID's i_comm feed
 // entries (up to maxIncidentFeedVerifyPages) looking for one whose text
 // exactly equals want.
+//
+// Converse limitation, accepted: if an OLDER i_comm entry already carries
+// text byte-identical to want (e.g. a templated automation posting the same
+// status line on every run) and the write being verified was genuinely
+// dropped, this reports success anyway — it can only prove "this text is
+// somewhere on the timeline," not "this specific write landed." That is
+// narrower, and strictly less harmful, than the recency-based design this
+// replaced, which mistook ANY unrelated concurrent comment for corruption on
+// every write, not just ones that happen to collide with pre-existing text.
+// Do not add a CreatedAt floor to close this gap — that reintroduces the
+// clock-ordering dependence that caused the original bug, to guard a narrow,
+// accepted risk.
 func incidentTimelineHasComment(ctx *RunContext, incidentID, want string) (bool, error) {
 	for page := 1; page <= maxIncidentFeedVerifyPages; page++ {
 		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{

@@ -113,3 +113,21 @@ func TestCommandAlertMergeWithoutCommentFileOmitsComment(t *testing.T) {
 		t.Fatalf("[alert-merge-no-comment] comment should be omitted, got %#v", stub.lastBody["comment"])
 	}
 }
+
+// TestCommandAlertMergeEmptyCommentFileGivesCleanError guards routing alert
+// merge's optional --comment-file through the same resolveCommentFile helper
+// incident comment uses: an explicit but empty --comment-file value must fail
+// with resolveCommentFile's clean "must not be empty" message, not the raw
+// os.ReadFile("") error.
+func TestCommandAlertMergeEmptyCommentFileGivesCleanError(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand("alert", "merge", "alert-1", "--incident-id", "inc-1", "--comment-file", "")
+	if err == nil {
+		t.Fatal("[alert-merge-empty-comment-file] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--comment-file must not be empty") {
+		t.Fatalf("[alert-merge-empty-comment-file] expected the clean resolveCommentFile message, got: %v", err)
+	}
+}
