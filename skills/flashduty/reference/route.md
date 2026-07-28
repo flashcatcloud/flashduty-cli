@@ -57,7 +57,7 @@ Get routing rule detail
 ### list <integration-id> [<id2>...]
 List routing rules
 - `<integration-ids>` (positional, required) intSlice — Integration IDs to fetch routing rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: cases (array<object>); created_at (integer); creator_id (integer); default (object); deleted_at (integer); integration_id (integer); sections (array<object>); status (string); updated_at (integer); updated_by (integer); version (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: cases (array<object>); created_at (integer); creator_id (integer); default (object); deleted_at (integer); integration_id (integer); sections (array<object>); status (string); updated_at (integer); updated_by (integer); version (integer)
 
 ### upsert <integration-id>
 Upsert routing rule

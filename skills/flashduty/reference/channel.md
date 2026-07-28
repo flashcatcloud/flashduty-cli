@@ -123,7 +123,7 @@ Get escalation rule detail
 ### escalate-rule-list <channel-id>
 List escalation rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
 ### escalate-rule-update
 Update escalation rule
@@ -144,7 +144,7 @@ Get channel detail
 ### infos <channel-id> [<id2>...]
 Batch get channels
 - `<channel-ids>` (positional, required) intSlice — Channel IDs to look up. Up to 1000.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: channel_id (integer); channel_name (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: channel_id (integer); channel_name (string); status (string)
 
 ### inhibit-rule-create <channel-id>
 Create inhibit rule
@@ -155,7 +155,7 @@ Create inhibit rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): source_filters (array<array>); target_filters (array<array>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### inhibit-rule-delete
 Delete inhibit rule
@@ -175,7 +175,7 @@ Enable inhibit rule
 ### inhibit-rule-list <channel-id>
 List inhibit rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); equals (array<string>); is_directly_discard (boolean); priority (integer); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); equals (array<string>); is_directly_discard (boolean); priority (integer); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (integer); updated_by (integer)
 
 ### inhibit-rule-update
 Update inhibit rule
@@ -204,7 +204,7 @@ Create silence rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>); time_filter (object); time_filters (array<object>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### silence-rule-delete
 Delete silence rule
@@ -224,7 +224,7 @@ Enable silence rule
 ### silence-rule-list <channel-id>
 List silence rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); priority (integer); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); priority (integer); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
 ### silence-rule-update
 Update silence rule
@@ -244,7 +244,7 @@ Create drop rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### unsubscribe-rule-delete
 Delete drop rule
@@ -264,7 +264,7 @@ Enable drop rule
 ### unsubscribe-rule-list <channel-id>
 List drop rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); priority (integer); rule_id (string); rule_name (string); status (string); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); priority (integer); rule_id (string); rule_name (string); status (string); updated_at (integer); updated_by (integer)
 
 ### unsubscribe-rule-update
 Update drop rule

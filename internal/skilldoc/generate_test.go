@@ -158,6 +158,115 @@ func TestGenerateFence_PositionalArg(t *testing.T) {
 	}
 }
 
+// TestSplitTrailingEnum_IgnoresBracketedProseInsideDescription reproduces the
+// real `field create --field-name` bug: its description quotes a regex
+// character class mid-sentence ("1-40 chars of '[a-zA-Z0-9_]'") followed by
+// more prose and a trailing constraint. An unanchored bracket match treats
+// that as a one-value enum declaration, fabricating an "enum: a-zA-Z0-9_" tag
+// AND deleting the bracket from the sentence (leaving an empty pair of
+// quotes where the character class used to be). Since
+// the bracket isn't at the tail's end (more text and the constraint follow
+// it), it must be left alone entirely: no enum, description word-for-word.
+func TestSplitTrailingEnum_IgnoresBracketedProseInsideDescription(t *testing.T) {
+	tail := `(required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)`
+	if enum := parseEnum(tail); enum != nil {
+		t.Errorf("bracketed prose must not be parsed as an enum, got %v", enum)
+	}
+	got := cleanUsage(tail)
+	want := `Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)`
+	if got != want {
+		t.Errorf("cleanUsage must leave the character class and constraint untouched:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
+// TestSplitTrailingEnum_RecognizesGenuineTrailingEnum proves the fix doesn't
+// overcorrect: cligen's own trailing enum bracket ("line += " [" + ... +
+// "]"", cligen/main.go) -- anchored at the tail's end, nothing else
+// following it -- is still recognized and still stripped from the usage
+// text.
+func TestSplitTrailingEnum_RecognizesGenuineTrailingEnum(t *testing.T) {
+	tail := `(required) — Event type. [incident, maintenance]`
+	if enum := parseEnum(tail); !equalStrings(enum, []string{"incident", "maintenance"}) {
+		t.Errorf("genuine trailing enum not recognized, got %v", enum)
+	}
+	if got, want := cleanUsage(tail), "Event type."; got != want {
+		t.Errorf("cleanUsage should strip the genuine enum bracket:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
+// TestSplitTrailingEnum_GenuineEnumWithTrailingConstraint covers a flag that
+// has BOTH an enum and a constraint (cligen writes enum then constraint, in
+// that order, when both are present): the enum must still be recognized and
+// stripped, and the constraint must survive untouched and back in its
+// original trailing position -- not swallowed by the enum-bracket removal.
+func TestSplitTrailingEnum_GenuineEnumWithTrailingConstraint(t *testing.T) {
+	tail := `— Some usage. [a, b] (≤5 chars)`
+	if enum := parseEnum(tail); !equalStrings(enum, []string{"a", "b"}) {
+		t.Errorf("enum with a trailing constraint not recognized, got %v", enum)
+	}
+	if got, want := cleanUsage(tail), "Some usage. (≤5 chars)"; got != want {
+		t.Errorf("cleanUsage must strip only the enum bracket, keeping the constraint:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
+// TestSplitTrailingEnum_SingleValueEnumAtEnd covers a one-member enum (e.g.
+// the real `--environment-kind [byoc]`), proving the fix doesn't require a
+// comma to recognize a genuine trailing bracket as an enum.
+func TestSplitTrailingEnum_SingleValueEnumAtEnd(t *testing.T) {
+	tail := `— Pin to a specific runner. [byoc]`
+	if enum := parseEnum(tail); !equalStrings(enum, []string{"byoc"}) {
+		t.Errorf("single-value trailing enum not recognized, got %v", enum)
+	}
+}
+
+// TestGenerateFence_BracketedProseSurvivesAlongsideGenuineEnum is the
+// fence-level integration check: one command with a description-embedded
+// character class (must NOT become an enum) and, on a different flag in the
+// same command, a genuine trailing enum (must still render as one) —
+// proving the fix distinguishes them within the same Request-fields block,
+// not just in isolation.
+func TestGenerateFence_BracketedProseSurvivesAlongsideGenuineEnum(t *testing.T) {
+	d := Dump{Commands: []Command{{
+		Path:  "field create",
+		Group: "field",
+		Short: "Create field",
+		Use:   "create",
+		Long: `Create field.
+
+Request fields:
+  --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
+  --field-type string (required) — Field input type. [checkbox, text]
+`,
+		Flags: []Flag{{Name: "field-name", Type: "string"}, {Name: "field-type", Type: "string"}},
+	}}}
+	sec := sectionFor(GenerateFence(d, "field"), "create")
+	if !strings.Contains(sec, "1–40 chars of '[a-zA-Z0-9_]'") {
+		t.Errorf("character class embedded in prose must render intact:\n%s", sec)
+	}
+	if strings.Contains(sec, "chars of ''") {
+		t.Errorf("character class must not be deleted from the description:\n%s", sec)
+	}
+	if strings.Contains(sec, "enum: a-zA-Z0-9_") {
+		t.Errorf("character class must not be fabricated into an enum tag:\n%s", sec)
+	}
+	if !strings.Contains(sec, "enum: checkbox | text") {
+		t.Errorf("the genuine enum on the OTHER flag in the same command must still render:\n%s", sec)
+	}
+}
+
+// equalStrings compares two string slices for the enum-parsing tests above.
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // sectionFor returns the slice of out from "### <verb>" to the next "### " or end.
 func sectionFor(out, verb string) string {
 	start := strings.Index(out, "### "+verb)

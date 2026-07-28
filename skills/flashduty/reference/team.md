@@ -73,12 +73,12 @@ Get team detail
 - `--ref-id` string — External reference ID.
 - `--team-id` int64 — Team ID.
 - `--team-name` string — Team name.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
+- response: same shape as `get [<id>]` above
 
 ### infos <team-id> [<id2>...]
 Batch get teams
 - `<team-ids>` (positional, required) intSlice — List of team IDs to look up. Max 100.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: person_ids (array<integer>); team_id (integer); team_name (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_ids (array<integer>); team_id (integer); team_name (string)
 
 ### list
 List teams

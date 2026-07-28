@@ -48,6 +48,24 @@ Request fields:
   --schedule-id int (required) — Schedule ID.
 `
 
+// itemsWrappedWithPaginationSiblingsShapeLong reproduces the real shape of
+// `fduty insight incident-list` (internal/cli/zz_generated_analytics.go): a
+// page-wrapper response whose top level carries "items" ALONGSIDE scalar
+// pagination metadata — has_next_page, search_after_ctx, total — not just
+// "items" alone. cligen's listEnvelope requires every non-"items" top-level
+// field here to be a scalar, so these three are always pagination metadata,
+// never more row data.
+const itemsWrappedWithPaginationSiblingsShapeLong = `List insight incidents.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - incident_id (string)
+    - title (string)
+  - search_after_ctx (string) — Cursor token to fetch the next page. Pass it back in the next request's 'search_after_ctx'.
+  - total (integer) — Total matching incidents.
+`
+
 // driftedWrapperHeaderLong simulates a future cligen wording change to the
 // items[]-wrapper header that no longer contains the literal substring
 // "nested under items[]" this parser keys on (e.g. cligen's header text was
@@ -145,6 +163,48 @@ func TestResponseShapeLine_ItemsWrapped(t *testing.T) {
 	}
 }
 
+// TestResponseShapeLine_ItemsWrappedNamesPaginationSiblings covers the real
+// `insight incident-list` shape: the wrapper's top level carries "items"
+// ALONGSIDE scalar pagination metadata (has_next_page, search_after_ctx,
+// total). Those siblings must be named in the wrapper descriptor itself —
+// an agent told to paginate via `--search-after-ctx` needs to know the
+// returned cursor lives at `.search_after_ctx` next to `.items`, not silently
+// dropped because the parser only ever looked one level under "items".
+func TestResponseShapeLine_ItemsWrappedNamesPaginationSiblings(t *testing.T) {
+	got := responseShapeLine(itemsWrappedWithPaginationSiblingsShapeLong)
+	if !strings.Contains(got, "items: [...]") || !strings.Contains(got, "page wrapper") {
+		t.Errorf("items[] wrapper shape not detected:\n%s", got)
+	}
+	// The siblings are named inside the wrapper descriptor, in the order
+	// cligen documented them (source order, already alphabetical here).
+	if !strings.Contains(got, "{items: [...], has_next_page, search_after_ctx, total}") {
+		t.Errorf("wrapper descriptor must name the pagination siblings:\n%s", got)
+	}
+	// The row fields (nested under items) are still named, under a label that
+	// disambiguates them from the siblings just named above.
+	if !strings.Contains(got, "items fields: incident_id (string); title (string)") {
+		t.Errorf("row fields must still be listed under an unambiguous label:\n%s", got)
+	}
+	// The siblings must not ALSO appear duplicated in the row-field list.
+	fieldsPart := strings.SplitN(got, "items fields:", 2)[1]
+	for _, sib := range []string{"has_next_page", "search_after_ctx", "total"} {
+		if strings.Contains(fieldsPart, sib) {
+			t.Errorf("pagination sibling %q must not be duplicated in the row-field list:\n%s", sib, got)
+		}
+	}
+}
+
+// TestResponseShapeLine_ItemsWrappedNoSiblingsUnchanged proves the sibling
+// feature is additive: a wrapper with no pagination siblings beyond "items"
+// (itemsWrappedShapeLong) renders the exact same wrapper descriptor as
+// before — no trailing ", " artifact from an empty sibling list.
+func TestResponseShapeLine_ItemsWrappedNoSiblingsUnchanged(t *testing.T) {
+	got := responseShapeLine(itemsWrappedShapeLong)
+	if !strings.Contains(got, "`{items: [...]}` page wrapper") {
+		t.Errorf("wrapper with no siblings must render the bare descriptor, got:\n%s", got)
+	}
+}
+
 func TestResponseShapeLine_NoBlockIsEmpty(t *testing.T) {
 	if got := responseShapeLine(noResponseBlockLong); got != "" {
 		t.Errorf("command with no Response fields block must yield no response line, got:\n%s", got)
@@ -213,5 +273,70 @@ func TestGenerateFence_InjectsResponseShapePerVerb(t *testing.T) {
 	deleteSec := sectionFor(out, "delete")
 	if strings.Contains(deleteSec, "- response:") {
 		t.Errorf("delete section must not fabricate a response line when Long documents none:\n%s", deleteSec)
+	}
+}
+
+// TestGenerateFence_DedupesIdenticalResponseShapesWithinGroup covers the fence
+// bloat a group of create/get/update-style verbs commonly produces: several
+// commands documenting the exact same resource repeat an identical ~700-800
+// byte field list once per verb. The first occurrence must keep the full
+// list; every later BYTE-IDENTICAL occurrence in the same group must instead
+// reference the first by name; a genuinely different shape must never be
+// touched.
+func TestGenerateFence_DedupesIdenticalResponseShapesWithinGroup(t *testing.T) {
+	d := Dump{Commands: []Command{
+		{Path: "widget create", Group: "widget", Short: "Create widget", Use: "create", Long: objectShapeLong},
+		{Path: "widget get", Group: "widget", Short: "Get widget", Use: "get <widget-id>", Long: objectShapeLong},
+		{Path: "widget list", Group: "widget", Short: "List widgets", Use: "list", Long: itemsWrappedShapeLong},
+	}}
+	out := GenerateFence(d, "widget")
+
+	createSec := sectionFor(out, "create")
+	if !strings.Contains(createSec, "- response: single object") || !strings.Contains(createSec, "schedule_id (integer)") {
+		t.Errorf("first occurrence must keep the full field list:\n%s", createSec)
+	}
+	if strings.Contains(createSec, "same shape as") {
+		t.Errorf("first occurrence must not reference itself:\n%s", createSec)
+	}
+
+	getSec := sectionFor(out, "get")
+	if !strings.Contains(getSec, "- response: same shape as `create` above") {
+		t.Errorf("later byte-identical shape must reference the first occurrence by name, got:\n%s", getSec)
+	}
+	if strings.Contains(getSec, "schedule_id (integer)") {
+		t.Errorf("deduped occurrence must not repeat the field list:\n%s", getSec)
+	}
+
+	listSec := sectionFor(out, "list")
+	if !strings.Contains(listSec, "page wrapper") || !strings.Contains(listSec, "schedule_id (integer)") {
+		t.Errorf("a genuinely different shape must render in full, not be deduped:\n%s", listSec)
+	}
+	if strings.Contains(listSec, "same shape as") {
+		t.Errorf("a genuinely different shape must not be treated as a duplicate:\n%s", listSec)
+	}
+
+	if out != GenerateFence(d, "widget") {
+		t.Errorf("GenerateFence dedup must be deterministic")
+	}
+}
+
+// TestGenerateFence_ResponseShapeDedupIsPerGroupNotGlobal proves the dedup map
+// is scoped to one GenerateFence call: two unrelated groups documenting the
+// identical response shape must each render their own full field list in
+// full — a card must stay self-contained and never reference a command in
+// another card.
+func TestGenerateFence_ResponseShapeDedupIsPerGroupNotGlobal(t *testing.T) {
+	d := Dump{Commands: []Command{
+		{Path: "widget create", Group: "widget", Short: "Create widget", Use: "create", Long: objectShapeLong},
+		{Path: "gadget create", Group: "gadget", Short: "Create gadget", Use: "create", Long: objectShapeLong},
+	}}
+
+	widgetSec := sectionFor(GenerateFence(d, "widget"), "create")
+	if !strings.Contains(widgetSec, "schedule_id (integer)") || strings.Contains(widgetSec, "same shape as") {
+		t.Errorf("widget's create must render its own full field list:\n%s", widgetSec)
+	}
+	gadgetSec := sectionFor(GenerateFence(d, "gadget"), "create")
+	if !strings.Contains(gadgetSec, "schedule_id (integer)") || strings.Contains(gadgetSec, "same shape as") {
+		t.Errorf("gadget's create must render its own full field list, not reference widget's card:\n%s", gadgetSec)
 	}
 }

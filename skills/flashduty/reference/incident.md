@@ -143,7 +143,7 @@ List alerts of incident
 - `--limit` int64 — Page size, at most 1000. (0-1000)
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (integer); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (integer); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
 
 ### alerts <id>
 View incident alerts
@@ -207,7 +207,7 @@ Get incident details
 Get incident detail
 - `--incident-id` string — Incident ID (MongoDB ObjectID).
 - `--num` string — Short incident ID (the 6-character uppercased id shown in the UI). Not unique — resolves to the most recent match. Supply either incident_id or num.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: same shape as `detail <id>` above
 
 ### list
 List incidents
@@ -221,12 +221,12 @@ List incidents
 - `--severity` string
 - `--since` string
 - `--until` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: same shape as `get <id> [<id2> ...]` above
 
 ### list-by-ids <incident-id> [<id2>...]
 List incidents by IDs
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to fetch.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
 
 ### merge <target_id>
 Merge incidents into a target incident
@@ -236,7 +236,7 @@ Merge incidents into a target incident
 List past incidents
 - `<incident-id>` (positional, required) string — Reference incident ID (MongoDB ObjectID).
 - `--limit` int64 — Maximum number of similar incidents to return. (0-100)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
 
 ### post-mortem-basics-reset <post-mortem-id>
 Update post-mortem basics
@@ -272,7 +272,7 @@ Get post-mortem
 Initialize post-mortem
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
 - `--template-id` string (required) — Template ID used to initialize the report.
-- response: single object (`data` unwrapped to the top level) — fields: basics (object); content (object); follow_ups (string); meta (object)
+- response: same shape as `post-mortem-info <post-mortem-id>` above
 
 ### post-mortem-list
 List post-mortems
@@ -286,7 +286,7 @@ List post-mortems
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
 
 ### post-mortem-status-reset <post-mortem-id>
 Update post-mortem status
@@ -309,7 +309,7 @@ List post-mortem templates
 - `--order-by` string — Field used to order results. · enum: created_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
 
 ### post-mortem-template-upsert
 Create or update post-mortem template
@@ -319,7 +319,7 @@ Create or update post-mortem template
 - `--name` string (required) — Template name.
 - `--team-id` int64 — Managing team ID. Required when creating a custom template.
 - `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
+- response: same shape as `post-mortem-template-info <template-id>` above
 
 ### post-mortem-title-reset <post-mortem-id>
 Update post-mortem title
@@ -377,7 +377,7 @@ Get ServiceDeskPlus linked incidents
 - `--search-after-ctx` string — Cursor returned by the previous page.
 - `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string — Synchronization status filter. · enum: success | failed
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: channel_id (integer); channel_name (string); created_at (integer); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: channel_id (integer); channel_name (string); created_at (integer); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
 
 ### similar <id>
 Find similar incidents
@@ -391,7 +391,7 @@ Snooze incidents
 
 ### timeline <id>
 View incident timeline
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); deleted_at (integer); detail (object); ref_id (string); type (string); updated_at (integer)
+- response: same shape as `feed <id>` above
 
 ### unack <incident-id> [<id2>...]
 Unacknowledge incident
@@ -450,12 +450,12 @@ Create war room
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 (required) — IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported.
 - `--member-ids` intSlice — Additional member IDs to add to the war room.
-- response: single object (`data` unwrapped to the top level) — fields: chat_id (string); chat_name (string); share_link (string)
+- response: same shape as `get <chat_id>` above
 
 ### war-room-default-observers <incident-id>
 Get war-room default observers
 - `<incident-id>` (positional, required) string — Incident ID, a MongoDB ObjectID hex string.
-- response: single object (`data` unwrapped to the top level) — fields: observers (array<object>)
+- response: same shape as `default-observers <incident_id>` above
 
 ### war-room-delete
 Delete war room
@@ -466,13 +466,13 @@ Delete war room
 Get war room detail
 - `<chat-id>` (positional, required) string — Chat/group ID on the IM side.
 - `--integration-id` int64 (required) — IM integration ID that hosts the war room.
-- response: single object (`data` unwrapped to the top level) — fields: chat_id (string); chat_name (string); share_link (string)
+- response: same shape as `get <chat_id>` above
 
 ### war-room-list <incident-id>
 List war rooms
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 — Optional filter: only return war rooms for this IM integration.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); chat_id (string); created_at (integer); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); created_at (integer); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
 
 <!-- GENERATED:incident END -->
 

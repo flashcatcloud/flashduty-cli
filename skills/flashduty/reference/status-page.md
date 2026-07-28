@@ -51,7 +51,7 @@ fduty status-page change-active-list <page_id> --type incident
 List active status page events
 - `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. · enum: incident | maintenance
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
 
 ### change-create <page-id>
 Create status page event
@@ -88,7 +88,7 @@ List status page events
 - `--start-at-seconds` string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
+- response: same shape as `change-active-list <page-id>` above
 
 ### change-timeline-create
 Create event timeline entry
@@ -157,7 +157,7 @@ Get status page detail
 
 ### list
 List status pages
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
 
 ### migrate-email-subscribers
 Migrate email subscribers
@@ -171,7 +171,7 @@ Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
 - `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
 - `--url-name` string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
-- response: single object (`data` unwrapped to the top level) — fields: job_id (string)
+- response: same shape as `migrate-email-subscribers` above
 
 ### migration-cancel <job-id>
 Cancel status page migration
@@ -210,7 +210,7 @@ List status page subscribers
 - `--limit` int64 — Page size (1-100). (1-100)
 - `--page` int64 — Page number (1-based). (min 1)
 - `<page-id>` (positional, required) int64 — Status page ID.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: all (boolean); components (array<object>); locale (string); method (string); recipient (string)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: all (boolean); components (array<object>); locale (string); method (string); recipient (string)
 
 ### template-delete
 Delete status page template

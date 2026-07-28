@@ -31,11 +31,17 @@ func GenerateFence(d Dump, group string) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, fenceStartFmt+"\n\n", group)
+	// seenShapes maps a verbatim response-shape line to the name of the first
+	// command in THIS group (only — never across cards) that rendered it in
+	// full, so a later command with a byte-identical shape can point back at
+	// it instead of repeating the field list. Scoped to one GenerateFence call,
+	// so cards stay self-contained.
+	seenShapes := map[string]string{}
 	for i, c := range cmds {
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		writeCommand(&b, c)
+		writeCommand(&b, c, seenShapes)
 	}
 	fmt.Fprintf(&b, "\n"+fenceEndFmt, group)
 	return b.String()
@@ -57,18 +63,14 @@ func groupCommands(d Dump, group string) []Command {
 	return cmds
 }
 
-func writeCommand(b *strings.Builder, c Command) {
-	verb := verbOf(c.Path)
+func writeCommand(b *strings.Builder, c Command, seenShapes map[string]string) {
+	name := commandName(c)
 	positionals := positionalsOf(c.Use)
 
 	// Heading carries the positional signature verbatim from Use (authoritative),
 	// e.g. "change-active-list <page-id>", so the reader sees the exact argument
 	// order the binary requires.
-	if len(positionals) > 0 {
-		fmt.Fprintf(b, "### %s %s\n", verb, strings.Join(positionals, " "))
-	} else {
-		fmt.Fprintf(b, "### %s\n", verb)
-	}
+	fmt.Fprintf(b, "### %s\n", name)
 	if c.Short != "" {
 		fmt.Fprintf(b, "%s\n", c.Short)
 	}
@@ -90,8 +92,32 @@ func writeCommand(b *strings.Builder, c Command) {
 		fmt.Fprintf(b, "- body-only (`--data`): %s\n", strings.Join(fields.bodyOnly, "; "))
 	}
 	if shape := responseShapeLine(c.Long); shape != "" {
-		b.WriteString(shape)
+		if first, ok := seenShapes[shape]; ok {
+			// A later command in the same group whose response is byte-identical
+			// to one already rendered in full — point back at it instead of
+			// repeating the field list. Several commands in one group commonly
+			// return the same resource (create/get/update/…), so this is the
+			// common case, not the exception.
+			fmt.Fprintf(b, "- response: same shape as `%s` above\n", first)
+		} else {
+			seenShapes[shape] = name
+			b.WriteString(shape)
+		}
 	}
+}
+
+// commandName returns the heading text for a command: the leaf verb plus its
+// positional signature verbatim from Use, e.g. "change-active-list <page-id>"
+// or, with no positional, just the verb. Also used as the referent name in a
+// deduplicated response-shape line ("same shape as `<commandName>` above"), so
+// the reference always names exactly what the reader sees in that other
+// section's own heading.
+func commandName(c Command) string {
+	verb := verbOf(c.Path)
+	if positionals := positionalsOf(c.Use); len(positionals) > 0 {
+		return verb + " " + strings.Join(positionals, " ")
+	}
+	return verb
 }
 
 // positionalsOf returns the placeholder tokens after the leaf verb in a Use
@@ -229,9 +255,45 @@ type requestFields struct {
 var (
 	flagLineRe  = regexp.MustCompile(`^\s{2}--([a-z0-9-]+)\s+\S+\s*(.*)$`)
 	bodyLineRe  = regexp.MustCompile(`^\s{2}([a-z0-9_]+)\s+\(([^,)]*)[^)]*\)\s*(.*)$`)
-	enumRe      = regexp.MustCompile(`\[([^\]]+)\]`)
 	requiredTag = "(required)"
 )
+
+// trailingConstraintRe matches a trailing "(...)" constraint parenthetical --
+// cligen appends this immediately after an enum bracket when a flag has both
+// (internal/cmd/cligen/main.go writes f.Enum then f.Constraint, in that
+// order). Setting it aside first lets enumTailRe check what's left for a
+// genuine trailing enum bracket without the constraint's own parens getting
+// in the way, and lets that constraint be reattached untouched afterward.
+var trailingConstraintRe = regexp.MustCompile(`\s*\([^()]*\)\s*$`)
+
+// enumTailRe matches a "[a, b, c]" bracket anchored to the END of its input --
+// exactly where cligen's own generator appends a real enum ("line += " [" +
+// strings.Join(f.Enum, ", ") + "]"", see cligen/main.go). Anchoring to the
+// end is what excludes an arbitrary "[...]" appearing earlier in a
+// description's free text -- e.g. a regex character class quoted inside a
+// constraint sentence ("1-40 chars of '[a-zA-Z0-9_]'", see
+// zz_generated_alert_enrichment.go's field-name flag) -- which an unanchored
+// match would misidentify as a one-value enum declaration AND delete from
+// the description, corrupting both the fabricated enum tag and the sentence.
+var enumTailRe = regexp.MustCompile(`\s*\[([^\]]+)\]\s*$`)
+
+// splitTrailingEnum peels cligen's own trailing enum bracket, if any, off
+// tail: enum is the bracket's inner text ("" when there is none), and rest is
+// tail with that bracket removed. A trailing "(constraint)" is set aside
+// before looking for the bracket and reattached untouched afterward, so it
+// never masks a genuine enum and is never itself mistaken for one. When the
+// tail-most token (once any constraint is set aside) isn't a bracket at all,
+// enum is "" and rest is tail unchanged -- any "[...]" earlier in the text is
+// incidental prose, not a declared enum, and must survive intact.
+func splitTrailingEnum(tail string) (enum, rest string) {
+	constraint := trailingConstraintRe.FindString(tail)
+	body := strings.TrimSuffix(tail, constraint)
+	loc := enumTailRe.FindStringSubmatchIndex(body)
+	if loc == nil {
+		return "", tail
+	}
+	return body[loc[2]:loc[3]], body[:loc[0]] + body[loc[1]:] + constraint
+}
 
 // parseRequestFields extracts the per-flag required/enum/usage and the
 // body-only (--data) field summaries from a command's Long "Request fields:"
@@ -277,13 +339,14 @@ func parseRequestFields(long string) requestFields {
 	return rf
 }
 
-// parseEnum pulls the enum members out of a trailing "[a, b, c]" marker.
+// parseEnum pulls the enum members out of tail's genuine trailing "[a, b, c]"
+// marker (see splitTrailingEnum), or returns nil when tail carries none.
 func parseEnum(tail string) []string {
-	m := enumRe.FindStringSubmatch(tail)
-	if m == nil {
+	enum, _ := splitTrailingEnum(tail)
+	if enum == "" {
 		return nil
 	}
-	parts := strings.Split(m[1], ",")
+	parts := strings.Split(enum, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if v := strings.TrimSpace(p); v != "" {
@@ -293,11 +356,12 @@ func parseEnum(tail string) []string {
 	return out
 }
 
-// cleanUsage strips the leading em-dash, the (required) tag, and the trailing
-// enum bracket from a flag line's tail, leaving the human description.
+// cleanUsage strips the leading em-dash, the (required) tag, and tail's
+// genuine trailing enum bracket (see splitTrailingEnum) from a flag line's
+// tail, leaving the human description -- including any trailing constraint
+// and any incidental "[...]" that isn't cligen's own enum marker.
 func cleanUsage(tail string) string {
-	s := tail
-	s = enumRe.ReplaceAllString(s, "")
+	_, s := splitTrailingEnum(tail)
 	s = strings.ReplaceAll(s, requiredTag, "")
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "—")
@@ -347,13 +411,21 @@ type respField struct{ name, typ string }
 //   - top-level object: the block's own fields are the response.
 //   - top-level array: `--json` is a bare array of these row objects — pipe
 //     `jq '.[]'`, never `.items[]`.
-//   - `{items: [...]}` page wrapper: the block's sole top-level field is
-//     `items`; the row fields are nested one level (2 spaces) deeper under it.
+//   - `{items: [...]}` page wrapper: the block's top-level array field is
+//     `items` (row fields nested one level deeper under it), alongside
+//     scalar pagination siblings — `total`, `has_next_page`,
+//     `search_after_ctx`, … (cligen's listEnvelope requires every
+//     non-`items` top-level field to be a scalar, so these are always
+//     pagination metadata, never more row data).
 //
 // Field names (with their documented type) are read from whichever indent
 // depth holds the actual row/object fields for the detected shape, so the
 // summary always names the fields an agent would pipe `jq` at — not the
-// wrapper key.
+// wrapper key. For the wrapper shape, the pagination siblings are named too
+// (by name only — their type is implied by cligen's scalar-sibling
+// invariant), since an agent told to paginate via `--search-after-ctx` still
+// needs to know the returned cursor lives at `.search_after_ctx` next to
+// `.items`, not buried in a field list it never sees.
 func responseShapeLine(long string) string {
 	lines := strings.Split(long, "\n")
 	headerIdx, header := -1, ""
@@ -370,19 +442,31 @@ func responseShapeLine(long string) string {
 	wrapped := strings.Contains(header, "nested under items[]")
 	fieldIndent := "  "
 	if wrapped {
-		fieldIndent = "    " // one level under the sole top-level "items" row
+		fieldIndent = "    " // one level under the top-level "items" row
 	}
 
-	var fields []respField
+	// fields holds the row-level fields the summary's "fields:" list names
+	// (top-level for object/array shapes, one level under "items" for the
+	// wrapper shape). siblings holds the wrapper shape's OTHER top-level
+	// fields — pagination metadata alongside "items" (total, has_next_page,
+	// search_after_ctx, …) — collected only when wrapped, since the
+	// unwrapped shapes have no such siblings to speak of.
+	var fields, siblings []respField
 	for _, line := range lines[headerIdx+1:] {
 		if strings.TrimSpace(line) == "" {
 			break
 		}
 		m := responseFieldRe.FindStringSubmatch(line)
-		if m == nil || m[1] != fieldIndent {
+		if m == nil {
 			continue
 		}
-		fields = append(fields, respField{m[2], m[3]})
+		indent, name, typ := m[1], m[2], m[3]
+		switch {
+		case indent == fieldIndent:
+			fields = append(fields, respField{name, typ})
+		case wrapped && indent == "  " && !wrapperWireNames[name]:
+			siblings = append(siblings, respField{name, typ})
+		}
 	}
 	if len(fields) == 0 {
 		return ""
@@ -404,18 +488,37 @@ func responseShapeLine(long string) string {
 		return ""
 	}
 
-	var shape string
+	var shape, fieldsLabel string
 	switch {
 	case wrapped:
-		shape = "`{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)"
+		shape = fmt.Sprintf("`{items: [...]%s}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)", siblingSuffix(siblings))
+		fieldsLabel = "items fields" // disambiguates row fields from the wrapper's own pagination siblings named above
 	case strings.Contains(header, "TOP-LEVEL array"):
 		shape = "TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`)"
+		fieldsLabel = "fields"
 	default:
 		shape = "single object (`data` unwrapped to the top level)"
+		fieldsLabel = "fields"
 	}
 	names := make([]string, len(fields))
 	for i, f := range fields {
 		names[i] = f.name + " (" + f.typ + ")"
 	}
-	return fmt.Sprintf("- response: %s — fields: %s\n", shape, strings.Join(names, "; "))
+	return fmt.Sprintf("- response: %s — %s: %s\n", shape, fieldsLabel, strings.Join(names, "; "))
+}
+
+// siblingSuffix renders a wrapped response's top-level pagination-metadata
+// siblings — e.g. ", total, has_next_page, search_after_ctx" — appended
+// inside the `{items: [...]}` wrapper descriptor, in the order cligen
+// documented them. Empty when the envelope carries no siblings beyond the
+// row array itself.
+func siblingSuffix(siblings []respField) string {
+	if len(siblings) == 0 {
+		return ""
+	}
+	names := make([]string, len(siblings))
+	for i, s := range siblings {
+		names[i] = s.name
+	}
+	return ", " + strings.Join(names, ", ")
 }

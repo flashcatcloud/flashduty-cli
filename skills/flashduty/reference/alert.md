@@ -60,7 +60,7 @@ List events for an alert
 - `--limit` int64 — Page size. Defaults to 20 and cannot exceed 100. (0-100)
 - `--page` int64 — Page number starting at 1. Used when 'search_after_ctx' is omitted. (min 0)
 - `--search-after-ctx` string — Cursor returned by the previous page. When supplied, cursor pagination is used instead of page-number pagination.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alert_id (string); alert_key (string); channel_id (integer); created_at (integer); data_source_id (integer); deleted_at (integer); description (string); event_id (string); event_severity (string); event_status (string); event_time (integer); images (array<object>); integration_id (integer); integration_type (string); labels (object); title (string); title_rule (string); updated_at (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); channel_id (integer); created_at (integer); data_source_id (integer); deleted_at (integer); description (string); event_id (string); event_severity (string); event_status (string); event_time (integer); images (array<object>); integration_id (integer); integration_type (string); labels (object); title (string); title_rule (string); updated_at (integer)
 
 ### events <alert_id>
 List alert events
@@ -74,7 +74,7 @@ List alert activity feed
 - `--page` int64 — Page number, starting at 1.
 - `--search-after-ctx` string
 - `--types` stringSlice — Filter by feed types.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); detail (object); ref_id (string); type (string); updated_at (integer)
+- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (integer); creator_id (integer); detail (object); ref_id (string); type (string); updated_at (integer)
 
 ### get <alert_id>
 Get alert detail
@@ -83,7 +83,7 @@ Get alert detail
 ### info <alert-id>
 Get alert detail
 - `<alert-id>` (positional, required) string — Alert ID (ObjectID hex string).
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
+- response: same shape as `get <alert_id>` above
 
 ### list
 List alerts
@@ -102,7 +102,7 @@ List alerts
 ### list-by-ids <alert-id> [<id2>...]
 List alerts by IDs
 - `<alert-ids>` (positional, required) stringSlice — List of alert IDs (ObjectID hex strings).
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
 
 ### merge <alert-id> [<id2>...]
 Merge alerts into an incident
@@ -120,7 +120,7 @@ Get alert pipeline
 ### pipeline-list <integration-id> [<id2>...]
 List alert pipelines
 - `<integration-ids>` (positional, required) intSlice — Integration IDs.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (integer); updated_by (integer)
 
 ### pipeline-upsert <integration-id>
 Create or update alert pipeline
