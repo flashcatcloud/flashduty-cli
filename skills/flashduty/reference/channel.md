@@ -155,7 +155,7 @@ Create inhibit rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): source_filters (array<array>); target_filters (array<array>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### inhibit-rule-delete
 Delete inhibit rule
@@ -204,7 +204,7 @@ Create silence rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>); time_filter (object); time_filters (array<object>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### silence-rule-delete
 Delete silence rule
@@ -244,7 +244,7 @@ Create drop rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+- response: same shape as `escalate-rule-create` above
 
 ### unsubscribe-rule-delete
 Delete drop rule

@@ -106,7 +106,7 @@ Delete datasource
 ### datasource-info
 Get datasource detail
 - `--id` int64 (required) — Resource ID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
+- response: same shape as `datasource-create` above
 
 ### datasource-list
 List datasources
@@ -136,7 +136,7 @@ Update datasource
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
 - body-only (`--data`): payload (object) (required)
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
+- response: same shape as `datasource-create` above
 
 ### preview-sync
 Preview datasource query
@@ -240,7 +240,7 @@ Import alert rules
 ### rule-info
 Get alert rule detail
 - `--id` int64 (required) — Rule ID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
+- response: same shape as `rule-create` above
 
 ### rule-list-basic
 List alert rules
@@ -251,12 +251,12 @@ List alert rules
 Move alert rules to folder
 - `--dest-folder-id` int64 (required) — Destination folder ID.
 - `--ids` intSlice (required) — Rule IDs to move.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
+- response: same shape as `rule-import` above
 
 ### rule-status
 Get rule trigger status under folder
 - `--folder-id` int64 — Folder ID. 0 for all.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: folder_id (integer); folder_name (string); rule_total (integer); triggered_rule_count (integer)
+- response: same shape as `rule-counter-status` above
 
 ### rule-update
 Update alert rule
@@ -283,7 +283,7 @@ Update alert rule
 - `--updater-id` int64
 - `--updater-name` string
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object); rule_configs (object)
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
+- response: same shape as `rule-create` above
 
 ### rule-update-fields
 Batch update rule fields
@@ -301,7 +301,7 @@ Batch update rule fields
 - `--repeat-interval` int64
 - `--repeat-total` int64
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object)
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
+- response: same shape as `rule-import` above
 
 ### store-ruleset-create
 Create ruleset
@@ -318,7 +318,7 @@ Delete ruleset
 ### store-ruleset-info
 Get ruleset detail
 - `--id` int64 (required) — Resource ID.
-- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
+- response: same shape as `store-ruleset-create` above
 
 ### store-ruleset-list
 List rulesets
@@ -331,7 +331,7 @@ Update ruleset
 - `--note` string (required) — New description.
 - `--open-flag` int64 — New sharing scope. '0' = private, '1' = account-shared, '2' = public.
 - `--payload` string (required) — New JSON string of alert rule definitions.
-- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
+- response: same shape as `store-ruleset-create` above
 
 ### targets
 List monitored targets

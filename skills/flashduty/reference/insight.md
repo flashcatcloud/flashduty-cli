@@ -138,7 +138,7 @@ Get channel insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
+- response: same shape as `account` above
 
 ### channel-export
 Export channel insight
@@ -298,7 +298,7 @@ Get team insight
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - body-only (`--data`): fields (object); labels (object)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
+- response: same shape as `account` above
 
 ### team-export
 Export team insight

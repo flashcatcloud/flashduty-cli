@@ -204,7 +204,7 @@ Get incident details
 Get incident detail
 - `--incident-id` string — Incident ID (MongoDB ObjectID).
 - `--num` string — Short incident ID (the 6-character uppercased id shown in the UI). Not unique — resolves to the most recent match. Supply either incident_id or num.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: same shape as `detail <id>` above
 
 ### list
 List incidents
@@ -218,7 +218,7 @@ List incidents
 - `--severity` string
 - `--since` string
 - `--until` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
+- response: same shape as `get <id> [<id2> ...]` above
 
 ### list-by-ids <incident-id> [<id2>...]
 List incidents by IDs
@@ -269,7 +269,7 @@ Get post-mortem
 Initialize post-mortem
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
 - `--template-id` string (required) — Template ID used to initialize the report.
-- response: single object (`data` unwrapped to the top level) — fields: basics (object); content (object); follow_ups (string); meta (object)
+- response: same shape as `post-mortem-info <post-mortem-id>` above
 
 ### post-mortem-list
 List post-mortems
@@ -316,7 +316,7 @@ Create or update post-mortem template
 - `--name` string (required) — Template name.
 - `--team-id` int64 — Managing team ID. Required when creating a custom template.
 - `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
+- response: same shape as `post-mortem-template-info <template-id>` above
 
 ### post-mortem-title-reset <post-mortem-id>
 Update post-mortem title
@@ -388,7 +388,7 @@ Snooze incidents
 
 ### timeline <id>
 View incident timeline
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); deleted_at (integer); detail (object); ref_id (string); type (string); updated_at (integer)
+- response: same shape as `feed <id>` above
 
 ### unack <incident-id> [<id2>...]
 Unacknowledge incident
@@ -447,12 +447,12 @@ Create war room
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 (required) — IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported.
 - `--member-ids` intSlice — Additional member IDs to add to the war room.
-- response: single object (`data` unwrapped to the top level) — fields: chat_id (string); chat_name (string); share_link (string)
+- response: same shape as `get <chat_id>` above
 
 ### war-room-default-observers <incident-id>
 Get war-room default observers
 - `<incident-id>` (positional, required) string — Incident ID, a MongoDB ObjectID hex string.
-- response: single object (`data` unwrapped to the top level) — fields: observers (array<object>)
+- response: same shape as `default-observers <incident_id>` above
 
 ### war-room-delete
 Delete war room
@@ -463,7 +463,7 @@ Delete war room
 Get war room detail
 - `<chat-id>` (positional, required) string — Chat/group ID on the IM side.
 - `--integration-id` int64 (required) — IM integration ID that hosts the war room.
-- response: single object (`data` unwrapped to the top level) — fields: chat_id (string); chat_name (string); share_link (string)
+- response: same shape as `get <chat_id>` above
 
 ### war-room-list <incident-id>
 List war rooms

@@ -83,7 +83,7 @@ Get alert detail
 ### info <alert-id>
 Get alert detail
 - `<alert-id>` (positional, required) string — Alert ID (ObjectID hex string).
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (integer); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (integer); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (integer); responder_email (string); responder_name (string); start_time (integer); title (string); title_rule (string); updated_at (integer)
+- response: same shape as `get <alert_id>` above
 
 ### list
 List alerts

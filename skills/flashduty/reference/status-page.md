@@ -88,7 +88,7 @@ List status page events
 - `--start-at-seconds` string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
+- response: same shape as `change-active-list <page-id>` above
 
 ### change-timeline-create
 Create event timeline entry
@@ -171,7 +171,7 @@ Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
 - `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
 - `--url-name` string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
-- response: single object (`data` unwrapped to the top level) — fields: job_id (string)
+- response: same shape as `migrate-email-subscribers` above
 
 ### migration-cancel <job-id>
 Cancel status page migration

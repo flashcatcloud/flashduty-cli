@@ -31,11 +31,17 @@ func GenerateFence(d Dump, group string) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, fenceStartFmt+"\n\n", group)
+	// seenShapes maps a verbatim response-shape line to the name of the first
+	// command in THIS group (only — never across cards) that rendered it in
+	// full, so a later command with a byte-identical shape can point back at
+	// it instead of repeating the field list. Scoped to one GenerateFence call,
+	// so cards stay self-contained.
+	seenShapes := map[string]string{}
 	for i, c := range cmds {
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		writeCommand(&b, c)
+		writeCommand(&b, c, seenShapes)
 	}
 	fmt.Fprintf(&b, "\n"+fenceEndFmt, group)
 	return b.String()
@@ -57,18 +63,14 @@ func groupCommands(d Dump, group string) []Command {
 	return cmds
 }
 
-func writeCommand(b *strings.Builder, c Command) {
-	verb := verbOf(c.Path)
+func writeCommand(b *strings.Builder, c Command, seenShapes map[string]string) {
+	name := commandName(c)
 	positionals := positionalsOf(c.Use)
 
 	// Heading carries the positional signature verbatim from Use (authoritative),
 	// e.g. "change-active-list <page-id>", so the reader sees the exact argument
 	// order the binary requires.
-	if len(positionals) > 0 {
-		fmt.Fprintf(b, "### %s %s\n", verb, strings.Join(positionals, " "))
-	} else {
-		fmt.Fprintf(b, "### %s\n", verb)
-	}
+	fmt.Fprintf(b, "### %s\n", name)
 	if c.Short != "" {
 		fmt.Fprintf(b, "%s\n", c.Short)
 	}
@@ -90,8 +92,32 @@ func writeCommand(b *strings.Builder, c Command) {
 		fmt.Fprintf(b, "- body-only (`--data`): %s\n", strings.Join(fields.bodyOnly, "; "))
 	}
 	if shape := responseShapeLine(c.Long); shape != "" {
-		b.WriteString(shape)
+		if first, ok := seenShapes[shape]; ok {
+			// A later command in the same group whose response is byte-identical
+			// to one already rendered in full — point back at it instead of
+			// repeating the field list. Several commands in one group commonly
+			// return the same resource (create/get/update/…), so this is the
+			// common case, not the exception.
+			fmt.Fprintf(b, "- response: same shape as `%s` above\n", first)
+		} else {
+			seenShapes[shape] = name
+			b.WriteString(shape)
+		}
 	}
+}
+
+// commandName returns the heading text for a command: the leaf verb plus its
+// positional signature verbatim from Use, e.g. "change-active-list <page-id>"
+// or, with no positional, just the verb. Also used as the referent name in a
+// deduplicated response-shape line ("same shape as `<commandName>` above"), so
+// the reference always names exactly what the reader sees in that other
+// section's own heading.
+func commandName(c Command) string {
+	verb := verbOf(c.Path)
+	if positionals := positionalsOf(c.Use); len(positionals) > 0 {
+		return verb + " " + strings.Join(positionals, " ")
+	}
+	return verb
 }
 
 // positionalsOf returns the placeholder tokens after the leaf verb in a Use

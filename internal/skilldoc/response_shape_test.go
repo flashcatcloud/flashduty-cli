@@ -215,3 +215,68 @@ func TestGenerateFence_InjectsResponseShapePerVerb(t *testing.T) {
 		t.Errorf("delete section must not fabricate a response line when Long documents none:\n%s", deleteSec)
 	}
 }
+
+// TestGenerateFence_DedupesIdenticalResponseShapesWithinGroup covers the fence
+// bloat a group of create/get/update-style verbs commonly produces: several
+// commands documenting the exact same resource repeat an identical ~700-800
+// byte field list once per verb. The first occurrence must keep the full
+// list; every later BYTE-IDENTICAL occurrence in the same group must instead
+// reference the first by name; a genuinely different shape must never be
+// touched.
+func TestGenerateFence_DedupesIdenticalResponseShapesWithinGroup(t *testing.T) {
+	d := Dump{Commands: []Command{
+		{Path: "widget create", Group: "widget", Short: "Create widget", Use: "create", Long: objectShapeLong},
+		{Path: "widget get", Group: "widget", Short: "Get widget", Use: "get <widget-id>", Long: objectShapeLong},
+		{Path: "widget list", Group: "widget", Short: "List widgets", Use: "list", Long: itemsWrappedShapeLong},
+	}}
+	out := GenerateFence(d, "widget")
+
+	createSec := sectionFor(out, "create")
+	if !strings.Contains(createSec, "- response: single object") || !strings.Contains(createSec, "schedule_id (integer)") {
+		t.Errorf("first occurrence must keep the full field list:\n%s", createSec)
+	}
+	if strings.Contains(createSec, "same shape as") {
+		t.Errorf("first occurrence must not reference itself:\n%s", createSec)
+	}
+
+	getSec := sectionFor(out, "get")
+	if !strings.Contains(getSec, "- response: same shape as `create` above") {
+		t.Errorf("later byte-identical shape must reference the first occurrence by name, got:\n%s", getSec)
+	}
+	if strings.Contains(getSec, "schedule_id (integer)") {
+		t.Errorf("deduped occurrence must not repeat the field list:\n%s", getSec)
+	}
+
+	listSec := sectionFor(out, "list")
+	if !strings.Contains(listSec, "page wrapper") || !strings.Contains(listSec, "schedule_id (integer)") {
+		t.Errorf("a genuinely different shape must render in full, not be deduped:\n%s", listSec)
+	}
+	if strings.Contains(listSec, "same shape as") {
+		t.Errorf("a genuinely different shape must not be treated as a duplicate:\n%s", listSec)
+	}
+
+	if out != GenerateFence(d, "widget") {
+		t.Errorf("GenerateFence dedup must be deterministic")
+	}
+}
+
+// TestGenerateFence_ResponseShapeDedupIsPerGroupNotGlobal proves the dedup map
+// is scoped to one GenerateFence call: two unrelated groups documenting the
+// identical response shape must each render their own full field list in
+// full — a card must stay self-contained and never reference a command in
+// another card.
+func TestGenerateFence_ResponseShapeDedupIsPerGroupNotGlobal(t *testing.T) {
+	d := Dump{Commands: []Command{
+		{Path: "widget create", Group: "widget", Short: "Create widget", Use: "create", Long: objectShapeLong},
+		{Path: "gadget create", Group: "gadget", Short: "Create gadget", Use: "create", Long: objectShapeLong},
+	}}
+
+	widgetSec := sectionFor(GenerateFence(d, "widget"), "create")
+	if !strings.Contains(widgetSec, "schedule_id (integer)") || strings.Contains(widgetSec, "same shape as") {
+		t.Errorf("widget's create must render its own full field list:\n%s", widgetSec)
+	}
+	gadgetSec := sectionFor(GenerateFence(d, "gadget"), "create")
+	if !strings.Contains(gadgetSec, "schedule_id (integer)") || strings.Contains(gadgetSec, "same shape as") {
+		t.Errorf("gadget's create must render its own full field list, not reference widget's card:\n%s", gadgetSec)
+	}
+}
