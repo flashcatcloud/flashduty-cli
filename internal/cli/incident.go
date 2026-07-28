@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flashcatcloud/go-flashduty"
@@ -946,6 +947,13 @@ func resolveCommentFile(path string) (string, error) {
 // headroom for any real incident, and only bounds a pathological one.
 const maxIncidentFeedVerifyPages = 20
 
+// maxIncidentVerifyConcurrency bounds how many incidents
+// verifyIncidentCommentsWritten checks at once. These are network round-trips
+// against one API, not CPU work, so the bound is a fixed small number rather
+// than something scaled off NumCPU or exposed as a flag: it exists only to
+// avoid firing all of a 100-incident batch's requests at the same instant.
+const maxIncidentVerifyConcurrency = 8
+
 // commentVerificationGuidance is appended, verbatim, to every comment
 // verification failure — whether the entry simply couldn't be located (page
 // budget) or the re-fetch itself errored (transport failure). Both are
@@ -987,7 +995,18 @@ const commentVerificationNotFoundDetailFmt = "no timeline entry matches the writ
 // id before it can say what it says about the batch as a whole — reporting
 // only the first failure would leave any incident after it silently,
 // permanently unexamined while the agent believes it handled everything the
-// error mentioned.
+// error mentioned. This rules out an errgroup-style fail-fast fan-out: this
+// function's whole point is to keep going after a failure, not stop on one.
+//
+// Per-incident checks run concurrently, up to maxIncidentVerifyConcurrency at
+// a time, instead of walking ctx.Args one at a time: with a batch of up to
+// 100 incidents and up to maxIncidentFeedVerifyPages page fetches apiece, a
+// sequential walk could take thousands of round-trips before the command
+// returned. Each goroutine writes only its own slot of a pre-sized results
+// slice (index == position in ctx.Args), so the problems reported below
+// always come out in ctx.Args order regardless of which request happens to
+// finish first — the message must read the same on every run, not depend on
+// network timing.
 //
 // Neither a page-budget miss nor a transport error while re-fetching the feed
 // means the write was corrupted — corruption can no longer even be observed
@@ -1002,14 +1021,32 @@ const commentVerificationNotFoundDetailFmt = "no timeline entry matches the writ
 // simply couldn't be located within budget). The safe next step is to look,
 // not to write.
 func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
-	var problems []string
-	for _, id := range ctx.Args {
-		found, err := incidentTimelineHasComment(ctx, id, want)
-		switch {
-		case err != nil:
-			problems = append(problems, fmt.Sprintf("incident %s: %v", id, err))
-		case !found:
-			problems = append(problems, fmt.Sprintf("incident %s: "+commentVerificationNotFoundDetailFmt, id, maxIncidentFeedVerifyPages))
+	slots := make([]string, len(ctx.Args))
+
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxIncidentVerifyConcurrency)
+	for i, id := range ctx.Args {
+		wg.Add(1)
+		go func(i int, id string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			found, err := incidentTimelineHasComment(ctx, id, want)
+			switch {
+			case err != nil:
+				slots[i] = fmt.Sprintf("incident %s: %v", id, err)
+			case !found:
+				slots[i] = fmt.Sprintf("incident %s: "+commentVerificationNotFoundDetailFmt, id, maxIncidentFeedVerifyPages)
+			}
+		}(i, id)
+	}
+	wg.Wait()
+
+	problems := make([]string, 0, len(slots))
+	for _, p := range slots {
+		if p != "" {
+			problems = append(problems, p)
 		}
 	}
 	if len(problems) == 0 {
