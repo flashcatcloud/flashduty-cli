@@ -1080,20 +1080,21 @@ func incidentFeedConcurrencyProbe(want string, delay time.Duration, inFlight, ma
 	}
 }
 
-// TestCommandIncidentCommentVerifyRunsConcurrently guards against a future
-// refactor silently reverting verifyIncidentCommentsWritten to a sequential
-// walk: with 4 incidents each sleeping on their /incident/feed request, a
-// sequential implementation would never have more than one request in flight
-// at once, while a correctly concurrent one will. Nothing about the command's
-// exit code or output would catch that regression — only observing overlap
-// directly, via incidentFeedConcurrencyProbe, does.
-func TestCommandIncidentCommentVerifyRunsConcurrently(t *testing.T) {
+// runIncidentCommentVerifyProbe runs `incident comment` against n incidents
+// whose /incident/feed requests are all served by incidentFeedConcurrencyProbe,
+// asserts the command itself still succeeded, and returns the peak number of
+// feed requests the probe observed in flight at once. tag prefixes every
+// failure message so a failing assertion names the calling test. Shared by
+// TestCommandIncidentCommentVerifyRunsConcurrently and
+// TestCommandIncidentCommentVerifyRespectsConcurrencyBound, which differ only
+// in n and in what they consider a passing peak.
+func runIncidentCommentVerifyProbe(t *testing.T, n int, tag string) int32 {
+	t.Helper()
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 	var inFlight, maxInFlight atomic.Int32
 	stub.dataForPath = incidentFeedConcurrencyProbe("the real comment", 20*time.Millisecond, &inFlight, &maxInFlight)
 
-	const n = 4
 	ids := make([]string, n)
 	for i := range ids {
 		ids[i] = fmt.Sprintf("inc-%d", i+1)
@@ -1104,12 +1105,24 @@ func TestCommandIncidentCommentVerifyRunsConcurrently(t *testing.T) {
 	args = append(args, "--comment-file", commentFile)
 	out, err := execCommand(args...)
 	if err != nil {
-		t.Fatalf("[verify-concurrent] unexpected error: %v", err)
+		t.Fatalf("[%s] unexpected error: %v", tag, err)
 	}
 	if !strings.Contains(out, fmt.Sprintf("Commented on %d incident(s).", n)) {
-		t.Fatalf("[verify-concurrent] unexpected output:\n%s", out)
+		t.Fatalf("[%s] unexpected output:\n%s", tag, out)
 	}
-	if got := maxInFlight.Load(); got < 2 {
+	return maxInFlight.Load()
+}
+
+// TestCommandIncidentCommentVerifyRunsConcurrently guards against a future
+// refactor silently reverting verifyIncidentCommentsWritten to a sequential
+// walk: with 4 incidents each sleeping on their /incident/feed request, a
+// sequential implementation would never have more than one request in flight
+// at once, while a correctly concurrent one will. Nothing about the command's
+// exit code or output would catch that regression — only observing overlap
+// directly, via incidentFeedConcurrencyProbe, does.
+func TestCommandIncidentCommentVerifyRunsConcurrently(t *testing.T) {
+	const n = 4
+	if got := runIncidentCommentVerifyProbe(t, n, "verify-concurrent"); got < 2 {
 		t.Fatalf("[verify-concurrent] observed peak in-flight verify requests = %d, want > 1 (verification never actually overlapped)", got)
 	}
 }
@@ -1121,28 +1134,8 @@ func TestCommandIncidentCommentVerifyRunsConcurrently(t *testing.T) {
 // the semaphore (e.g. an unbounded "go func" per incident) would fire every
 // request at once and blow past it.
 func TestCommandIncidentCommentVerifyRespectsConcurrencyBound(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	var inFlight, maxInFlight atomic.Int32
-	stub.dataForPath = incidentFeedConcurrencyProbe("the real comment", 20*time.Millisecond, &inFlight, &maxInFlight)
-
 	const n = maxIncidentVerifyConcurrency * 3
-	ids := make([]string, n)
-	for i := range ids {
-		ids[i] = fmt.Sprintf("inc-%d", i+1)
-	}
-	commentFile := writeCommentFile(t, "the real comment")
-
-	args := append([]string{"incident", "comment"}, ids...)
-	args = append(args, "--comment-file", commentFile)
-	out, err := execCommand(args...)
-	if err != nil {
-		t.Fatalf("[verify-bound] unexpected error: %v", err)
-	}
-	if !strings.Contains(out, fmt.Sprintf("Commented on %d incident(s).", n)) {
-		t.Fatalf("[verify-bound] unexpected output:\n%s", out)
-	}
-	if got := maxInFlight.Load(); got > maxIncidentVerifyConcurrency {
+	if got := runIncidentCommentVerifyProbe(t, n, "verify-bound"); got > maxIncidentVerifyConcurrency {
 		t.Fatalf("[verify-bound] observed peak in-flight verify requests = %d, want <= %d (the worker limit)", got, maxIncidentVerifyConcurrency)
 	}
 }
