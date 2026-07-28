@@ -429,12 +429,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean) (required)
   - delay_seconds (integer) (required)
   - description (string)
-  - description_type (string) [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
   - ds_ids (array<integer>) — Specific data source IDs.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) (required) — Data source type.
   - enabled (boolean) (required)
-  - enabled_times (array<object>) — Time windows when the rule is active.
+  - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
@@ -622,7 +622,7 @@ Request fields:
   --debug-log-enabled bool
   --delay-seconds int
   --description string
-  --description-type string [text, markdown]
+  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
   --ds-ids []int — Specific data source IDs.
   --ds-list []string — Data source name patterns (supports wildcards).
   --ds-type string — Data source type.
@@ -636,7 +636,7 @@ Request fields:
   --updater-id int
   --updater-name string
   annotations (object, via --data)
-  enabled_times (array<object>, via --data) — Time windows when the rule is active.
+  enabled_times (array<object>, via --data) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
@@ -692,12 +692,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean)
   - delay_seconds (integer)
   - description (string)
-  - description_type (string) [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
   - ds_ids (array<integer>) — Specific data source IDs.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) — Data source type.
   - enabled (boolean)
-  - enabled_times (array<object>) — Time windows when the rule is active.
+  - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
@@ -846,7 +846,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Request field debug_log_enabled")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Request field delay_seconds")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Request field description")
-	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Request field description_type [text, markdown]")
+	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Specific data source IDs.")
 	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type.")
@@ -1272,7 +1272,7 @@ Request fields:
   --debug-log-enabled bool
   --delay-seconds int
   --description string
-  --description-type string [text, markdown]
+  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
   --ds-ids []int — Specific data source IDs.
   --ds-list []string — Data source name patterns (supports wildcards).
   --ds-type string — Data source type.
@@ -1286,7 +1286,7 @@ Request fields:
   --updater-id int
   --updater-name string
   annotations (object, via --data)
-  enabled_times (array<object>, via --data) — Time windows when the rule is active.
+  enabled_times (array<object>, via --data) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
@@ -1342,12 +1342,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean)
   - delay_seconds (integer)
   - description (string)
-  - description_type (string) [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
   - ds_ids (array<integer>) — Specific data source IDs.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) — Data source type.
   - enabled (boolean)
-  - enabled_times (array<object>) — Time windows when the rule is active.
+  - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
@@ -1496,7 +1496,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Request field debug_log_enabled")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Request field delay_seconds")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Request field description")
-	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Request field description_type [text, markdown]")
+	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Specific data source IDs.")
 	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type.")

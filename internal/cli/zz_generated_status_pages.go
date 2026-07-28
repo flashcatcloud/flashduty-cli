@@ -449,7 +449,7 @@ func genStatusPagesChangeListCmd() *cobra.Command {
 		Short: "List status page events",
 		Long: `List status page events.
 
-List events (incidents and maintenances) for a status page.
+List status page events with only publicly visible affected components.
 
 API: GET /status-page/change/list (statusPageChangeList)
 

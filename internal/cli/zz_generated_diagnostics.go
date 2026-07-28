@@ -326,7 +326,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genDiagnosticsToolsCatalogCmd() *cobra.Command {
 	var dataJSON string
 	var fAccountID int64
-	var fIncludeOutputShape bool
 	var fTargetKind string
 	var fTargetLocator string
 	cmd := &cobra.Command{
@@ -340,13 +339,12 @@ API: POST /monit/tools/catalog (monit-read-tools-catalog)
 
 Request fields:
   --account-id int — Optional consistency check. Must equal the authenticated account when supplied.
-  --include-output-shape bool — When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.
-  --target-kind string — Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.
+  --target-kind string — Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.
   --target-locator string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - error (object) — Request-level business error. Omitted on success. Returned with HTTP 200 — do not rely on the status code alone.
-    - code (string) [target_unavailable, unknown_toolset_hash, ambiguous_target_kind]
+    - code (string) [target_unavailable, timeout, forward_failed, invalid_tool_result, ambiguous_target_kind]
     - message (string)
     - target_kinds (array<string>) — Returned for 'ambiguous_target_kind'; lists the candidate kinds.
   - target (object) — Resolved target. Omitted when 'target_kind' was not supplied and the locator could not be uniquely inferred.
@@ -356,18 +354,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) — Tool capability description for UI / AI-SRE consumption.
     - input_schema (object) — JSON Schema for 'tools[].params'.
     - name (string) — Tool name; pass into '/monit/tools/invoke' as 'tools[].tool'.
-    - output_shape (object) — JSON Schema of the tool result. Returned only when the request set 'include_output_shape' to true.
     - target_kind (string) — Target kind this tool applies to.
 `,
-		Example: `  flashduty monit tools-catalog --data '{"account_id":10001,"include_output_shape":true,"target_locator":"web-01"}'`,
+		Example: `  flashduty monit tools-catalog --data '{"account_id":10001,"target_locator":"web-01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
-					}
-					if cmd.Flags().Changed("include-output-shape") {
-						body["include_output_shape"] = fIncludeOutputShape
 					}
 					if cmd.Flags().Changed("target-kind") {
 						body["target_kind"] = fTargetKind
@@ -393,8 +387,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
-	cmd.Flags().BoolVar(&fIncludeOutputShape, "include-output-shape", false, "When true, each tool entry includes its 'output_shape' JSON Schema. Defaults to false to keep responses small for LLM consumption.")
-	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted webapi auto-infers across currently known kinds. Built-in kinds: 'host', 'mysql'. Required on retry when the previous call returned 'ambiguous_target_kind'.")
+	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.")
 	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -424,13 +417,13 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - error (object) — Request-level business error. Omitted on success. Returned with HTTP 200 — do not rely on the status code alone.
-    - code (string) [target_unavailable, unknown_toolset_hash, forward_failed, ambiguous_target_kind]
+    - code (string) [target_unavailable, forward_failed, ambiguous_target_kind]
     - message (string)
     - target_kinds (array<string>)
   - results (array<object>) — Per-tool results, aligned with the request 'tools[]' order. Empty when a request-level 'error' is present.
     - data (object) — Tool business payload. Present only on success. Webapi already unwraps the monit-agent result envelope, so there is no nested 'data.data'.
     - error (object) — Per-tool failure. Present only on failure, and mutually exclusive with 'data' / 'summary' / 'truncated'.
-      - code (string) — Common values: 'timeout', 'target_unavailable', 'edge_unsupported', 'invalid_tool_result', 'internal', 'invalid_args', 'unknown_tool', 'unknown_tool_version', 'unknown_toolset_hash', 'target_not_owned', 'wrong_agent', 'overloaded', 'denied', 'permission_denied', 'credential_unavailable', 'target_unreachable'.
+      - code (string) — Common WebAPI codes: 'timeout', 'target_unavailable', 'invalid_tool_result', 'internal', 'invalid_args', 'unsupported_syntax', 'path_not_found', and 'catalog_changed'. Agent-specific tool errors may also be returned unchanged.
       - message (string)
     - params (object) — Request params echoed back by webapi. Normalized to '{}' when the request omitted them or sent null.
     - summary (string) — Human/LLM-readable one-line distillation of the result. Present only when non-empty.
