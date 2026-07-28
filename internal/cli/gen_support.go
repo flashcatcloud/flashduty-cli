@@ -20,13 +20,42 @@ import (
 // os.Stdin.
 var stdinReader io.Reader = os.Stdin
 
-// readPathOrStdin reads the raw bytes at path, or from stdinReader when path
-// is exactly "-". It performs no trimming or validation of the result;
-// callers that need trimmed text or byte-for-byte fidelity decide that
-// themselves.
-func readPathOrStdin(path string) ([]byte, error) {
+// stdinConsumedBy names the flag that has already drained stdinReader within
+// the current invocation, once some --flag - has read it; empty until then.
+// os.Stdin (and any pipe generally) is a single-consumption stream — once one
+// flag reads it to EOF, a second flag asking for "-" gets back "" with no
+// error, which looks exactly like an intentionally empty value rather than
+// the data-loss bug it actually is (e.g. `--data - --comment-file -` silently
+// drops the comment because --data already read everything). Recording the
+// flag's name, not just a bool, lets readStdin's error identify both sides of
+// the conflict.
+var stdinConsumedBy string
+
+// readStdin is the single function through which every --*-file-style flag's
+// "-" value reads stdin. flag is the calling flag's canonical spelling (e.g.
+// "--data"), used only to label it in the already-consumed error below. A
+// second flag trying to read stdin after an earlier one already claimed it
+// errors instead of silently returning empty bytes.
+func readStdin(flag string) ([]byte, error) {
+	if stdinConsumedBy != "" {
+		return nil, fmt.Errorf("only one flag can read from stdin: %s and %s were both set to \"-\"", stdinConsumedBy, flag)
+	}
+	b, err := io.ReadAll(stdinReader)
+	if err != nil {
+		return nil, err
+	}
+	stdinConsumedBy = flag
+	return b, nil
+}
+
+// readPathOrStdin reads the raw bytes at path, or from stdin (via readStdin)
+// when path is exactly "-". flag is the calling flag's canonical spelling
+// (e.g. "--comment-file"), passed through to readStdin. It performs no
+// trimming or validation of the result; callers that need trimmed text or
+// byte-for-byte fidelity decide that themselves.
+func readPathOrStdin(flag, path string) ([]byte, error) {
 	if path == "-" {
-		return io.ReadAll(stdinReader)
+		return readStdin(flag)
 	}
 	return os.ReadFile(path)
 }
@@ -44,7 +73,7 @@ func readPathOrStdin(path string) ([]byte, error) {
 // quotes (e.g. SQL in params).
 func resolveDataSource(dataFlag string) (string, error) {
 	if dataFlag == "-" {
-		b, err := io.ReadAll(stdinReader)
+		b, err := readStdin("--data")
 		if err != nil {
 			return "", fmt.Errorf("failed to read --data from stdin: %w", err)
 		}

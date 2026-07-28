@@ -931,7 +931,7 @@ func resolveCommentFile(path string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", fmt.Errorf("--comment-file must not be empty")
 	}
-	b, err := readPathOrStdin(path)
+	b, err := readPathOrStdin("--comment-file", path)
 	if err != nil {
 		return "", fmt.Errorf("failed to read --comment-file: %w", err)
 	}
