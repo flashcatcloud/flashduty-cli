@@ -1,19 +1,12 @@
 package cli
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
-
-	"github.com/flashcatcloud/go-flashduty"
-	"github.com/spf13/cobra"
 )
 
 func TestIncidentPostMortemContentResetFromFile(t *testing.T) {
@@ -261,25 +254,24 @@ func containsArg(args []string, want string) bool {
 	return false
 }
 
-// When --expected-revision is omitted, the CLI resolves the current revision
-// through currentPostMortemRevisionFn and sends that.
+// When --expected-revision is omitted, the CLI first resolves the current
+// revision through the typed PostMortemInfo call and sends that.
 func TestIncidentPostMortemContentResetFetchesCurrentRevision(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
-	stub.data = map[string]any{
-		"post_mortem_id":      "pm_auto",
-		"generation":          5,
-		"revision":            1,
-		"previous_generation": 4,
-		"previous_revision":   16,
-		"markdown_bytes":      3,
-		"markdown_sha256":     "ab",
-	}
-
-	var gotID string
-	currentPostMortemRevisionFn = func(_ *RunContext, postMortemID string) (int64, error) {
-		gotID = postMortemID
-		return 16, nil
+	stub.dataForPath = func(path string, _ map[string]any) any {
+		if path == "/incident/post-mortem/info" {
+			return map[string]any{"meta": map[string]any{"revision": 16, "generation": 4}}
+		}
+		return map[string]any{
+			"post_mortem_id":      "pm_auto",
+			"generation":          5,
+			"revision":            1,
+			"previous_generation": 4,
+			"previous_revision":   16,
+			"markdown_bytes":      3,
+			"markdown_sha256":     "ab",
+		}
 	}
 
 	path := filepath.Join(t.TempDir(), "body.md")
@@ -295,8 +287,8 @@ func TestIncidentPostMortemContentResetFetchesCurrentRevision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotID != "pm_auto" {
-		t.Fatalf("revision lookup called with %q, want pm_auto", gotID)
+	if stub.requests != 2 {
+		t.Fatalf("requests = %d, want 2 (info then reset)", stub.requests)
 	}
 	if stub.lastPath != "/incident/post-mortem/content/reset" {
 		t.Fatalf("path = %q", stub.lastPath)
@@ -328,76 +320,5 @@ func TestIncidentPostMortemContentResetRevisionLookupFailure(t *testing.T) {
 	}
 	if stub.requests != 0 {
 		t.Fatalf("reset was sent despite revision lookup failure (path=%q)", stub.lastPath)
-	}
-}
-
-// fetchCurrentPostMortemRevision reads data.meta.revision from the info
-// envelope served at the SDK client's base URL.
-func TestFetchCurrentPostMortemRevision(t *testing.T) {
-	saveAndResetGlobals(t)
-	t.Setenv("FLASHDUTY_CRED_FD", "")
-	flagAppKey = "test-key"
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/incident/post-mortem/info" {
-			t.Fatalf("unexpected path %q", r.URL.Path)
-		}
-		if r.URL.Query().Get("post_mortem_id") != "pm_1" {
-			t.Fatalf("unexpected query %q", r.URL.RawQuery)
-		}
-		if r.URL.Query().Get("app_key") != "test-key" {
-			t.Fatalf("app_key not propagated: %q", r.URL.RawQuery)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"request_id": "r1",
-			"data":       map[string]any{"meta": map[string]any{"revision": 42}},
-		})
-	}))
-	t.Cleanup(srv.Close)
-
-	client, err := flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-	ctx := &RunContext{Client: client, Cmd: cmd}
-
-	rev, err := fetchCurrentPostMortemRevision(ctx, "pm_1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if rev != 42 {
-		t.Fatalf("revision = %d, want 42", rev)
-	}
-}
-
-// An API error envelope from the info endpoint surfaces as an error.
-func TestFetchCurrentPostMortemRevisionAPIError(t *testing.T) {
-	saveAndResetGlobals(t)
-	t.Setenv("FLASHDUTY_CRED_FD", "")
-	flagAppKey = "test-key"
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"request_id": "r1",
-			"error":      map[string]any{"code": "NOT_FOUND", "message": "post-mortem not found"},
-		})
-	}))
-	t.Cleanup(srv.Close)
-
-	client, err := flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-	ctx := &RunContext{Client: client, Cmd: cmd}
-
-	_, err = fetchCurrentPostMortemRevision(ctx, "pm_missing")
-	if err == nil || !strings.Contains(err.Error(), "post-mortem not found") {
-		t.Fatalf("expected info error, got %v", err)
 	}
 }

@@ -1,15 +1,10 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/flashcatcloud/go-flashduty"
@@ -105,90 +100,18 @@ func validatePostMortemContentResetFlags(idempotencyKey string) error {
 // post-mortem report. It is a package variable so tests can stub it.
 var currentPostMortemRevisionFn = fetchCurrentPostMortemRevision
 
-// fetchCurrentPostMortemRevision GETs /incident/post-mortem/info and reads
-// data.meta.revision. go-flashduty v0.5.11's typed PostMortemMeta does not
-// expose the revision field yet (the server returns it), so this request goes
-// out directly, reusing the SDK client's base URL and the same credential
-// resolution as defaultNewClient — including broker mode, where the sentinel
-// app_key is overwritten by the broker as the request egresses.
-//
-// TODO: switch to ctx.Client.Incidents.PostMortemInfo once go-flashduty
-// exposes meta.revision on PostMortemMeta.
+// fetchCurrentPostMortemRevision reads the report's current collaboration
+// revision via the typed SDK (data.meta.revision on PostMortemInfo, exposed
+// since go-flashduty v0.5.12). Revision 0 is a legitimate value — a document
+// that has never been saved — so no presence check is needed.
 func fetchCurrentPostMortemRevision(ctx *RunContext, postMortemID string) (int64, error) {
-	cfg, err := loadResolvedConfig()
-	if err != nil {
-		return 0, err
-	}
-
-	appKey := cfg.AppKey
-	hc := &http.Client{Timeout: 30 * time.Second}
-	if fdStr := os.Getenv("FLASHDUTY_CRED_FD"); fdStr != "" {
-		fd, perr := strconv.Atoi(fdStr)
-		// fds 0/1/2 are stdio; see defaultNewClient.
-		if perr != nil || fd < 3 {
-			return 0, fmt.Errorf("invalid FLASHDUTY_CRED_FD=%q", fdStr)
-		}
-		bc := newBrokerHTTPClient(fd)
-		if bc == nil {
-			return 0, errBrokerUnsupported
-		}
-		hc = bc
-		appKey = "broker-sentinel"
-	} else if appKey == "" {
-		return 0, fmt.Errorf("no app key configured. Run 'flashduty login' or set FLASHDUTY_APP_KEY")
-	}
-
-	rel, err := url.Parse("incident/post-mortem/info")
-	if err != nil {
-		return 0, fmt.Errorf("failed to build post-mortem info URL: %w", err)
-	}
-	u := ctx.Client.BaseURL.ResolveReference(rel)
-	q := u.Query()
-	q.Set("post_mortem_id", postMortemID)
-	q.Set("app_key", appKey)
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(cmdContext(ctx.Cmd), http.MethodGet, u.String(), nil)
-	if err != nil {
-		return 0, fmt.Errorf("failed to build post-mortem info request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := hc.Do(req)
+	info, _, err := ctx.Client.Incidents.PostMortemInfo(cmdContext(ctx.Cmd), &flashduty.IncidentsPostMortemInfoRequest{
+		PostMortemID: postMortemID,
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch post-mortem info for %s: %w", postMortemID, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return 0, fmt.Errorf("failed to read post-mortem info response: %w", err)
-	}
-
-	var env struct {
-		Error *struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-		Data struct {
-			Meta struct {
-				Revision *int64 `json:"revision"`
-			} `json:"meta"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &env); err != nil {
-		return 0, fmt.Errorf("failed to decode post-mortem info response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK || (env.Error != nil && env.Error.Code != "" && env.Error.Code != "OK") {
-		msg := http.StatusText(resp.StatusCode)
-		if env.Error != nil && env.Error.Message != "" {
-			msg = env.Error.Message
-		}
-		return 0, fmt.Errorf("failed to fetch post-mortem info for %s: %s", postMortemID, msg)
-	}
-	if env.Data.Meta.Revision == nil {
-		return 0, fmt.Errorf("post-mortem info for %s did not report a revision; pass --expected-revision explicitly", postMortemID)
-	}
-	return *env.Data.Meta.Revision, nil
+	return info.Meta.Revision, nil
 }
 
 // readPostMortemMarkdownFile loads Markdown bytes without trimming. Path "-"
