@@ -847,7 +847,7 @@ personal channels, or a template.`,
 }
 
 func newIncidentCommentCmd() *cobra.Command {
-	var comment string
+	var commentFile string
 	var muteReply bool
 
 	cmd := &cobra.Command{
@@ -855,21 +855,46 @@ func newIncidentCommentCmd() *cobra.Command {
 		Short: "Add a comment to incident timelines",
 		Long: `Add a comment to one or more incident timelines.
 
-The command accepts up to 100 incidents. Comment text is required and must be
-at most 1024 characters. Use --mute-reply when the comment should not trigger
-webhook reply behavior.`,
-		Example: `  flashduty incident comment inc_123 --comment "Rollback started"
-  flashduty incident comment inc_123 inc_456 --comment "Mitigation deployed" --mute-reply`,
+The command accepts up to 100 incidents. Comment text is read from
+--comment-file (or from stdin, when the value is "-") and never parsed by a
+shell, so backticks, $(...), and quotes inside it reach the API exactly as
+written. Leading/trailing whitespace is trimmed before sending — matching how
+the server stores it, so a bash heredoc's trailing newline (the pattern this
+CLI's own skill card recommends) does not fail verification below. The
+trimmed text must be non-empty and at most 1024 characters. Use --mute-reply
+when the comment should not trigger webhook reply behavior.
+
+After writing, the command reads back every incident's timeline and verifies
+an entry with the exact (trimmed) text is present; on any incident it can't
+confirm, across the whole batch, it exits non-zero instead of reporting
+success.`,
+		Example: `  flashduty incident comment inc_123 --comment-file ./comment.txt
+  printf '%s' 'Rollback started' | flashduty incident comment inc_123 --comment-file -`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			if strings.TrimSpace(comment) == "" {
-				return fmt.Errorf("--comment is required")
+
+			comment, err := resolveCommentFile(commentFile)
+			if err != nil {
+				return err
+			}
+			// fc-event trims incident comments server-side before storing them
+			// (cmd/server/controller/incident/action.go's Comment handler calls
+			// strings.TrimSpace on input.Comment after validating length but
+			// before writing the feed entry). Normalize identically here, once,
+			// right after reading the raw bytes, so the length cap below, the
+			// wire payload, and the read-after-write comparison in
+			// verifyIncidentCommentsWritten all operate on the exact string that
+			// ends up stored — none of them needs to special-case the server's
+			// trim again.
+			comment = strings.TrimSpace(comment)
+			if comment == "" {
+				return fmt.Errorf("--comment-file must not be empty")
 			}
 			if len([]rune(comment)) > 1024 {
-				return fmt.Errorf("--comment must be at most 1024 characters")
+				return fmt.Errorf("--comment-file content must be at most 1024 characters")
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -881,17 +906,168 @@ webhook reply behavior.`,
 					return err
 				}
 
+				if err := verifyIncidentCommentsWritten(ctx, comment); err != nil {
+					return err
+				}
+
 				ctx.WriteResult(fmt.Sprintf("Commented on %d incident(s).", len(ctx.Args)))
 				return nil
 			})
 		},
 	}
 
-	cmd.Flags().StringVar(&comment, "comment", "", "Comment text")
+	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing the comment text (- reads stdin)")
 	cmd.Flags().BoolVar(&muteReply, "mute-reply", false, "Do not trigger webhook reply behavior for this comment")
-	_ = cmd.MarkFlagRequired("comment")
+	_ = cmd.MarkFlagRequired("comment-file")
 
 	return cmd
+}
+
+// resolveCommentFile reads --comment-file's exact bytes (or stdin, when the
+// value is "-"). The comment text is never handed to a shell, so unlike an
+// inline flag value it needs no escaping for backticks, $(...), or quotes.
+func resolveCommentFile(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("--comment-file must not be empty")
+	}
+	b, err := readPathOrStdin(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read --comment-file: %w", err)
+	}
+	return string(b), nil
+}
+
+// maxIncidentFeedVerifyPages bounds how many /incident/feed pages
+// verifyIncidentCommentsWritten walks per incident while looking for the
+// comment it just wrote. See that function's doc comment for why this walks
+// every page instead of trusting a single one. Comment counts per incident
+// are normally single digits to tens; 20 pages (2,000 i_comm entries) is
+// headroom for any real incident, and only bounds a pathological one.
+const maxIncidentFeedVerifyPages = 20
+
+// commentVerificationGuidance is appended, verbatim, to every comment
+// verification failure — whether the entry simply couldn't be located (page
+// budget) or the re-fetch itself errored (transport failure). Both are
+// "could not confirm," never "confirmed missing," so both carry the
+// identical instruction. It is a named constant, not inline prose duplicated
+// at each call site, specifically so a test can assert against this exact
+// symbol instead of pinning a copy of the sentence: reword this constant and
+// every caller (production and test) picks up the new wording automatically,
+// with nothing left to fall out of sync.
+const commentVerificationGuidance = "The write API already reported success for the whole batch (a single POST covering every requested incident), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. Run `fduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further"
+
+// commentVerificationNotFoundDetailFmt is the per-incident detail appended to
+// commentVerificationGuidance's problem list when the page walk completes
+// without finding a match, formatted with maxIncidentFeedVerifyPages. Also a
+// named symbol rather than inline prose, for the same reason as
+// commentVerificationGuidance above.
+const commentVerificationNotFoundDetailFmt = "no timeline entry matches the written text within the first %d pages"
+
+// verifyIncidentCommentsWritten re-fetches every incident's timeline after a
+// comment write and confirms an entry with the exact text just sent is
+// present. The Comment API returns no handle for the created entry, so this
+// must find it by re-listing the feed instead.
+//
+// It deliberately does not track "the newest" entry and compare it against
+// want. This is a war-room CLI: another human or bot commenting on the same
+// incident inside the write→verify window is the expected case, not an edge
+// case — especially with --mute-reply off, where webhook-reply bots post
+// their own i_comm entries. Whichever entry happens to have the highest
+// CreatedAt at read time is not necessarily ours, so comparing against it
+// produced false "corrupted" reports on perfectly good writes. Searching for
+// an entry whose text exactly equals want is immune to unrelated concurrent
+// comments and needs no CreatedAt comparison (and therefore no ordering
+// assumption about /incident/feed's undocumented default sort) at all.
+//
+// It checks every id in ctx.Args before returning, rather than stopping at
+// the first problem: /incident/comment is a single batch POST covering the
+// whole list (incident_ids has an lte=100 batch cap on the wire, not a
+// per-id write), so the error text below has to have actually examined every
+// id before it can say what it says about the batch as a whole — reporting
+// only the first failure would leave any incident after it silently,
+// permanently unexamined while the agent believes it handled everything the
+// error mentioned.
+//
+// Neither a page-budget miss nor a transport error while re-fetching the feed
+// means the write was corrupted — corruption can no longer even be observed
+// by this check, since it never looks at any text other than an exact match.
+// Both are reported as "could not confirm," with identical framing, because
+// both follow a write the API already reported as successful, and because
+// this check can only confirm presence, never confirm absence: a miss here
+// is not evidence the comment is missing, so it is not grounds to write it
+// again either — for the whole batch (there is no per-incident write to
+// retry, only the one batch write already made) or for a single listed
+// incident (which risks a duplicate on a write that most likely landed and
+// simply couldn't be located within budget). The safe next step is to look,
+// not to write.
+func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
+	var problems []string
+	for _, id := range ctx.Args {
+		found, err := incidentTimelineHasComment(ctx, id, want)
+		switch {
+		case err != nil:
+			problems = append(problems, fmt.Sprintf("incident %s: %v", id, err))
+		case !found:
+			problems = append(problems, fmt.Sprintf("incident %s: "+commentVerificationNotFoundDetailFmt, id, maxIncidentFeedVerifyPages))
+		}
+	}
+	if len(problems) == 0 {
+		return nil
+	}
+	return fmt.Errorf("comment verification could not confirm %d of %d incident(s) — %s. %s",
+		len(problems), len(ctx.Args), strings.Join(problems, "; "), commentVerificationGuidance)
+}
+
+// incidentTimelineHasComment walks every page of incidentID's i_comm feed
+// entries (up to maxIncidentFeedVerifyPages) looking for one whose text
+// exactly equals want.
+//
+// Converse limitation, accepted: if an OLDER i_comm entry already carries
+// text byte-identical to want (e.g. a templated automation posting the same
+// status line on every run) and the write being verified was genuinely
+// dropped, this reports success anyway — it can only prove "this text is
+// somewhere on the timeline," not "this specific write landed." That is
+// narrower, and strictly less harmful, than the recency-based design this
+// replaced, which mistook ANY unrelated concurrent comment for corruption on
+// every write, not just ones that happen to collide with pre-existing text.
+// Do not add a CreatedAt floor to close this gap — that reintroduces the
+// clock-ordering dependence that caused the original bug, to guard a narrow,
+// accepted risk.
+func incidentTimelineHasComment(ctx *RunContext, incidentID, want string) (bool, error) {
+	for page := 1; page <= maxIncidentFeedVerifyPages; page++ {
+		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
+			IncidentID:  incidentID,
+			Types:       []flashduty.IncidentFeedType{flashduty.IncidentFeedTypeIComm},
+			ListOptions: flashduty.ListOptions{Page: page, Limit: 100},
+		})
+		if err != nil {
+			return false, err
+		}
+		for _, item := range result.Items {
+			if comment, ok := incidentCommentText(item); ok && comment == want {
+				return true, nil
+			}
+		}
+		if !result.HasNextPage {
+			break
+		}
+	}
+	return false, nil
+}
+
+// incidentCommentText returns item's comment body if it is an i_comm entry.
+// Detail decodes as map[string]any because IncidentFeedItem.Detail is typed
+// any in the SDK (its shape is determined by Type at runtime, not statically).
+func incidentCommentText(item flashduty.IncidentFeedItem) (string, bool) {
+	if item.Type != flashduty.IncidentFeedTypeIComm {
+		return "", false
+	}
+	detail, ok := item.Detail.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	comment, ok := detail["comment"].(string)
+	return comment, ok
 }
 
 func newIncidentRemoveCmd() *cobra.Command {

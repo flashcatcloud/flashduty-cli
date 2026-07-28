@@ -92,7 +92,14 @@ func newGFStub(t *testing.T) *gfStub {
 
 // bodyStrings reads a string-slice field from the last decoded request body.
 func (s *gfStub) bodyStrings(key string) []string {
-	raw, ok := s.lastBody[key].([]any)
+	return stringsField(s.lastBody, key)
+}
+
+// stringsField reads a string-slice field from a decoded JSON body map. Tests
+// that need to inspect a specific historical request (via gfStub.bodies)
+// rather than the "most recent" convenience fields call this directly.
+func stringsField(body map[string]any, key string) []string {
+	raw, ok := body[key].([]any)
 	if !ok {
 		return nil
 	}

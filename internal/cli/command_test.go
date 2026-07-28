@@ -5,11 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/flashcatcloud/go-flashduty"
 )
 
 // saveAndResetGlobals saves the current state of all global vars that commands
@@ -466,22 +472,65 @@ func TestCommandIncidentWake(t *testing.T) {
 	}
 }
 
+// newIncidentCommentEchoStub wires a gfStub so /incident/feed echoes back
+// whatever text was most recently posted to /incident/comment, as a single
+// i_comm entry — simulating a backend that faithfully stored the comment, so
+// the command's own read-after-write verification passes. Tests that need a
+// different feed response (a mismatch, or no comment entry at all) build
+// their own gfStub with a custom dataForPath instead of starting from this
+// one, since overriding the field after construction would replace this
+// whole echo behavior anyway.
+func newIncidentCommentEchoStub(t *testing.T) *gfStub {
+	t.Helper()
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{
+						"type":       "i_comm",
+						"created_at": 1,
+						"detail":     map[string]any{"comment": posted},
+					},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	return stub
+}
+
+// writeCommentFile writes content to a fresh file under t.TempDir() and
+// returns its path.
+func writeCommentFile(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "comment.txt")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("writeCommentFile: %v", err)
+	}
+	return path
+}
+
 func TestCommandIncidentComment(t *testing.T) {
 	saveAndResetGlobals(t)
-	stub := newGFStub(t)
+	stub := newIncidentCommentEchoStub(t)
+	commentFile := writeCommentFile(t, "rollback started")
 
-	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "--comment", "rollback started", "--mute-reply")
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "--comment-file", commentFile, "--mute-reply")
 	if err != nil {
 		t.Fatalf("[incident-comment] unexpected error: %v", err)
 	}
-	if stub.lastPath != "/incident/comment" {
-		t.Fatalf("[incident-comment] expected /incident/comment, got %q", stub.lastPath)
+	if len(stub.bodies) == 0 || stub.bodies[0]["comment"] != "rollback started" || stub.bodies[0]["mute_reply"] != true {
+		t.Fatalf("[incident-comment] unexpected first request: %#v", stub.bodies)
 	}
-	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1,inc-2"; got != want {
+	if got, want := strings.Join(stringsField(stub.bodies[0], "incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-comment] expected ids %q, got %q", want, got)
-	}
-	if stub.lastBody["comment"] != "rollback started" || stub.lastBody["mute_reply"] != true {
-		t.Fatalf("[incident-comment] unexpected input: %#v", stub.lastBody)
 	}
 	if !strings.Contains(out, "Commented on 2 incident(s).") {
 		t.Fatalf("[incident-comment] unexpected output:\n%s", out)
@@ -490,15 +539,443 @@ func TestCommandIncidentComment(t *testing.T) {
 
 func TestCommandIncidentCommentAllows1024UnicodeRunes(t *testing.T) {
 	saveAndResetGlobals(t)
-	stub := newGFStub(t)
+	stub := newIncidentCommentEchoStub(t)
 
 	comment := strings.Repeat("界", 1024)
-	_, err := execCommand("incident", "comment", "inc-1", "--comment", comment)
+	commentFile := writeCommentFile(t, comment)
+
+	_, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
 	if err != nil {
 		t.Fatalf("[incident-comment-unicode] unexpected error: %v", err)
 	}
-	if stub.lastBody["comment"] != comment {
-		t.Fatalf("[incident-comment-unicode] unexpected input: %#v", stub.lastBody)
+	if stub.bodies[0]["comment"] != comment {
+		t.Fatalf("[incident-comment-unicode] unexpected input: %#v", stub.bodies[0])
+	}
+}
+
+func TestCommandIncidentCommentRejectsOver1024Runes(t *testing.T) {
+	saveAndResetGlobals(t)
+	// The length check in RunE rejects the comment before any HTTP call is
+	// made, so a plain stub (never a network echo) is all that's needed —
+	// mirrors TestCommandIncidentLifecycleRejectsMoreThan100IDs.
+	newGFStub(t)
+
+	commentFile := writeCommentFile(t, strings.Repeat("界", 1025))
+
+	_, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[incident-comment-too-long] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "1024 characters") {
+		t.Fatalf("[incident-comment-too-long] unexpected error: %v", err)
+	}
+}
+
+// TestCommandIncidentCommentPreservesShellMetacharactersByteForByte is the
+// regression test for the incident that motivated dropping the inline
+// --comment flag: an LLM-authored comment containing backticks, $(...),
+// unbalanced quotes, and a line that looks like a heredoc terminator must
+// reach the API exactly as written (modulo the leading/trailing-whitespace
+// trim applied to match server storage — see
+// TestCommandIncidentCommentSurvivesServerSideTrim), whether it arrives via
+// --comment-file or via stdin. Neither path ever hands the text to a shell.
+func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testing.T) {
+	malicious := "Root cause: restart via `kubectl rollout restart deploy/api`.\n" +
+		"Then ran $(rm -rf /tmp/scratch) to clean up staging state.\n" +
+		"Quotes: \"double\" and 'single' and it's mine.\n" +
+		"EOF\n" +
+		"The line above looks like a heredoc terminator but is just comment text.\n"
+	want := strings.TrimSpace(malicious)
+
+	t.Run("comment-file", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newIncidentCommentEchoStub(t)
+		commentFile := writeCommentFile(t, malicious)
+
+		out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+		if err != nil {
+			t.Fatalf("[comment-file] unexpected error: %v", err)
+		}
+		if stub.bodies[0]["comment"] != want {
+			t.Fatalf("[comment-file] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
+		}
+		if !strings.Contains(out, "Commented on 1 incident(s).") {
+			t.Fatalf("[comment-file] unexpected output:\n%s", out)
+		}
+	})
+
+	t.Run("stdin", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newIncidentCommentEchoStub(t)
+		stdinReader = strings.NewReader(malicious)
+
+		out, err := execCommand("incident", "comment", "inc-1", "--comment-file", "-")
+		if err != nil {
+			t.Fatalf("[stdin] unexpected error: %v", err)
+		}
+		if stub.bodies[0]["comment"] != want {
+			t.Fatalf("[stdin] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
+		}
+		if !strings.Contains(out, "Commented on 1 incident(s).") {
+			t.Fatalf("[stdin] unexpected output:\n%s", out)
+		}
+	})
+}
+
+// newIncidentCommentTrimmingEchoStub wires a gfStub so /incident/feed echoes
+// back whatever text was most recently posted to /incident/comment, but with
+// leading/trailing whitespace stripped first — reproducing fc-event's actual
+// storage behavior (cmd/server/controller/incident/action.go's Comment
+// handler calls strings.TrimSpace on the comment after validating length but
+// before writing the feed entry). Unlike newIncidentCommentEchoStub, which
+// echoes back byte-for-byte and is therefore self-consistent with whatever
+// the client happened to send, this stub is backend-consistent: it can
+// actually catch a client that fails to apply the same normalization before
+// comparing.
+func newIncidentCommentTrimmingEchoStub(t *testing.T) *gfStub {
+	t.Helper()
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{
+						"type":       "i_comm",
+						"created_at": 1,
+						"detail":     map[string]any{"comment": strings.TrimSpace(posted)},
+					},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	return stub
+}
+
+// TestCommandIncidentCommentSurvivesServerSideTrim is the regression test for
+// the critical bug found in review: fc-event trims incident comments
+// server-side before storing them (see newIncidentCommentTrimmingEchoStub's
+// doc comment for the exact call site), but verification used to compare the
+// server's trimmed, stored text against the raw, untrimmed bytes read from
+// --comment-file. This CLI's own skill card (incident.md) tells agents to
+// author the comment via a bash heredoc, which always leaves a trailing
+// newline — so every comment written by that documented workflow would fail
+// verification and be reported as "not found," and a naive retry on that
+// false signal would append one more (trimmed) duplicate comment to the
+// incident every time, forever. This test reproduces that exact input shape.
+func TestCommandIncidentCommentSurvivesServerSideTrim(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newIncidentCommentTrimmingEchoStub(t)
+
+	// Mirrors a bash heredoc's output: content followed by a trailing newline,
+	// the pattern skills/flashduty/reference/incident.md's hot flow uses.
+	heredocStyle := "Root cause identified: DB failover.\nFix deploying.\n"
+	commentFile := writeCommentFile(t, heredocStyle)
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[server-trim] unexpected error: %v", err)
+	}
+	want := strings.TrimSpace(heredocStyle)
+	if stub.bodies[0]["comment"] != want {
+		t.Fatalf("[server-trim] expected the wire payload pre-trimmed to match what the server stores:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[server-trim] unexpected output:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment is the
+// regression test for the false-corruption bug: verification used to trust
+// whichever i_comm entry had the highest CreatedAt, so a concurrent, unrelated
+// comment from another human or a webhook-reply bot (--mute-reply off) landing
+// after ours made the command report a perfectly good write as "corrupted."
+// This stub puts our own comment on the feed at an older CreatedAt and an
+// unrelated comment at a newer one; the command must still succeed because
+// verification now searches for an exact text match instead of trusting
+// recency.
+func TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": posted}},
+					map[string]any{"type": "i_comm", "created_at": 2, "detail": map[string]any{"comment": "a reply bot's unrelated concurrent comment"}},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[newer-concurrent-comment] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[newer-concurrent-comment] unexpected output:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget guards the
+// read-after-write verification: when no i_comm entry on the timeline (within
+// the page budget) has text matching what was written, the command must exit
+// non-zero instead of printing the "Commented on ..." success line. The feed
+// here has an entry, just not one with matching text, so this also covers
+// what used to be the "mismatch" case — under the new exact-match search that
+// entry is simply not a match, not a confirmed corruption.
+func TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			return map[string]any{
+				"items": []any{
+					map[string]any{
+						"type":       "i_comm",
+						"created_at": 1,
+						"detail":     map[string]any{"comment": "an unrelated comment"},
+					},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[not-found] expected a non-zero exit, got nil error")
+	}
+	if !strings.Contains(err.Error(), "inc-1") {
+		t.Fatalf("[not-found] expected the failing incident named in the error: %v", err)
+	}
+	if strings.Contains(err.Error(), "corrupted") {
+		t.Fatalf("[not-found] must not claim corruption it has not established: %v", err)
+	}
+	// Asserted against the same commentVerificationGuidance symbol the
+	// production code emits, not a hand-copied fragment of it — a prose
+	// rewording of the constant keeps this test green automatically.
+	if !strings.Contains(err.Error(), commentVerificationGuidance) {
+		t.Fatalf("[not-found] must carry the standard verification guidance: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[not-found] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentFailsWhenNoCommentEntryFound guards the other
+// genuinely-absent-within-budget case: the feed has no i_comm entry at all
+// after the write (e.g. it was dropped), which must also be a hard failure.
+func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{"items": []any{}}
+
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[readback-missing] expected a non-zero exit, got nil error")
+	}
+	if !strings.Contains(err.Error(), fmt.Sprintf(commentVerificationNotFoundDetailFmt, maxIncidentFeedVerifyPages)) {
+		t.Fatalf("[readback-missing] unexpected error: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[readback-missing] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure guards
+// against stopping at the first failing incident: the error text asserts
+// "the write already succeeded for the whole batch, don't retry it" — a claim
+// only earned by having actually examined every incident. This stub fails
+// verification for inc-1 (feed empty) and inc-3 (feed has an unrelated
+// comment), with inc-2 verifying successfully in between. inc-3's feed must
+// still be queried, and the error must name both failing incidents, proving
+// the walk doesn't stop after inc-1.
+func TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	feedCallsByIncident := map[string]int{}
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			incID, _ := body["incident_id"].(string)
+			feedCallsByIncident[incID]++
+			switch incID {
+			case "inc-2":
+				return map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "the real comment"}},
+				}}
+			case "inc-3":
+				return map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "an unrelated comment"}},
+				}}
+			default:
+				return map[string]any{"items": []any{}}
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "inc-3", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[whole-batch] expected a non-zero exit, got nil error")
+	}
+	if feedCallsByIncident["inc-3"] == 0 {
+		t.Fatalf("[whole-batch] inc-3's feed was never queried — verification stopped at the first failure: %v", err)
+	}
+	if !strings.Contains(err.Error(), "inc-1") || !strings.Contains(err.Error(), "inc-3") {
+		t.Fatalf("[whole-batch] expected both failing incidents named in the error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "inc-2") {
+		t.Fatalf("[whole-batch] inc-2 verified fine and must not be named as a problem: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[whole-batch] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning guards that
+// a transient failure while re-fetching the feed (rate limit, timeout — a
+// large batch's own read-back traffic, up to maxIncidentFeedVerifyPages
+// requests per incident, is itself a plausible source) gets the identical
+// anti-retry framing as a "not found" result. The write already succeeded in
+// both cases; a bare transport error here would trigger the same naive
+// full-batch retry reflex the "not found" message exists to defuse.
+func TestCommandIncidentCommentTransportErrorCarriesAntiRetryWarning(t *testing.T) {
+	saveAndResetGlobals(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var decoded map[string]any
+		_ = json.Unmarshal(raw, &decoded)
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Path == "/incident/feed" {
+			if incID, _ := decoded["incident_id"].(string); incID == "inc-1" {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"request_id": "req-err",
+					"error":      map[string]any{"code": "internal_error", "message": "temporarily unavailable"},
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"request_id": "req-feed",
+				"error":      map[string]any{"code": "OK", "message": ""},
+				"data": map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "the real comment"}},
+				}},
+			})
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"request_id": "req-ok",
+			"error":      map[string]any{"code": "OK", "message": ""},
+			"data":       map[string]any{},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test-key", flashduty.WithBaseURL(srv.URL))
+	}
+
+	commentFile := writeCommentFile(t, "the real comment")
+	out, err := execCommand("incident", "comment", "inc-1", "inc-2", "--comment-file", commentFile)
+	if err == nil {
+		t.Fatal("[transport-error] expected a non-zero exit, got nil error")
+	}
+	if !strings.Contains(err.Error(), "inc-1") {
+		t.Fatalf("[transport-error] expected the failing incident named in the error: %v", err)
+	}
+	if strings.Contains(err.Error(), "inc-2") {
+		t.Fatalf("[transport-error] inc-2 verified fine and must not be named as a problem: %v", err)
+	}
+	// Asserted against the same commentVerificationGuidance symbol
+	// TestCommandIncidentCommentFailsWhenTextNotFoundWithinBudget checks,
+	// proving both failure branches share identical guidance by construction
+	// rather than by two independently maintained prose copies.
+	if !strings.Contains(err.Error(), commentVerificationGuidance) {
+		t.Fatalf("[transport-error] must carry the same guidance as the not-found case: %v", err)
+	}
+	if strings.Contains(err.Error(), "corrupted") {
+		t.Fatalf("[transport-error] must not claim corruption: %v", err)
+	}
+	if strings.Contains(out, "Commented on") {
+		t.Fatalf("[transport-error] must not report success:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentVerifiesAcrossFeedPages guards the read-after-write
+// verification against /incident/feed's undocumented default sort order: it
+// must not assume the just-written comment is on page 1. This stub puts an
+// older, unrelated comment on page 1 (with has_next_page true) and the
+// freshly written comment only on page 2 (has_next_page false), simulating a
+// feed sorted in whichever direction would bury the new entry past the first
+// page. Verification must keep walking pages and find the exact-text match on
+// page 2 rather than giving up after page 1.
+func TestCommandIncidentCommentVerifiesAcrossFeedPages(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var posted string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			posted, _ = body["comment"].(string)
+			return map[string]any{}
+		case "/incident/feed":
+			page, _ := body["p"].(float64)
+			if page <= 1 {
+				return map[string]any{
+					"has_next_page": true,
+					"items": []any{
+						map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "an older, unrelated comment"}},
+					},
+				}
+			}
+			return map[string]any{
+				"has_next_page": false,
+				"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 2, "detail": map[string]any{"comment": posted}},
+				},
+			}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "spread across feed pages")
+
+	out, err := execCommand("incident", "comment", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[feed-pagination] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "Commented on 1 incident(s).") {
+		t.Fatalf("[feed-pagination] unexpected output:\n%s", out)
 	}
 }
 
@@ -507,11 +984,13 @@ func TestCommandIncidentCommentAllows1024UnicodeRunes(t *testing.T) {
 // were dropped in favor of their generated twins, which carry no client-side
 // cap (the backend enforces the limit), so they are intentionally absent here.
 func TestCommandIncidentLifecycleRejectsMoreThan100IDs(t *testing.T) {
+	commentFile := writeCommentFile(t, "too many")
+
 	commands := []struct {
 		name string
 		args []string
 	}{
-		{name: "comment", args: []string{"incident", "comment", "--comment", "too many"}},
+		{name: "comment", args: []string{"incident", "comment", "--comment-file", commentFile}},
 		{name: "remove", args: []string{"incident", "remove"}},
 	}
 

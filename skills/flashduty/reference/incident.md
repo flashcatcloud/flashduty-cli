@@ -57,16 +57,15 @@ fduty incident similar <incident-id> --limit 5 --output-format toon
 # 5. Acknowledge ownership
 fduty incident ack <incident-id>
 
-# 6. Post a status comment safely, then read it back
+# 6. Post a status comment — content goes into a file, never a shell argument
 ID=<incident-id>
+COMMENT_FILE=$(mktemp)
 # Before running, choose a fresh delimiter that is absent as a full line in the intended comment.
-COMMENT=$(cat <<'FDUTY_COMMENT_7F3A9C2E_EOF'
+cat > "$COMMENT_FILE" <<'FDUTY_COMMENT_7F3A9C2E_EOF'
 Root cause identified: DB failover.
 Fix deploying.
 FDUTY_COMMENT_7F3A9C2E_EOF
-)
-fduty incident comment "$ID" --comment "$COMMENT"
-fduty incident timeline "$ID" --output-format toon
+fduty incident comment "$ID" --comment-file "$COMMENT_FILE"
 
 # 7. Resolve with root-cause note
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
@@ -74,7 +73,7 @@ fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --
 
 Projected `similar` lists stay below 16 KiB, and projected `detail --fields` output stays below 8 KiB. A trailing `...` means a long retained string was shortened; omit `--fields` only when the full unbounded detail is explicitly required.
 
-After every comment write, read back every target and verify the intended comment is present before reporting success. `Commented on ...` proves acceptance, not content fidelity.
+`comment` never accepts the text as a command-line argument — only `--comment-file <path>` (or `--comment-file -` to read stdin), so backticks/`$()`/quotes inside the comment are inert. The command also reads back every target's timeline after writing and exits non-zero unless it finds an entry matching what it sent, so `Commented on ...` is proof of content fidelity, not just acceptance — no separate manual read-back is needed. Leading and trailing whitespace is stripped before sending (the server strips it too, so this is what gets stored); everything else, including interior blank lines, is preserved exactly.
 
 > `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
 
@@ -157,7 +156,7 @@ Close incidents
 
 ### comment <id> [<id2> ...]
 Add a comment to incident timelines
-- `--comment` string
+- `--comment-file` string
 - `--mute-reply` bool
 
 ### create
