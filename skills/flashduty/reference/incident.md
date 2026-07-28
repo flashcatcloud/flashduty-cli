@@ -489,7 +489,7 @@ List war rooms
 - **`update` vs `reset`**: `update <id>` edits title/description/severity/custom fields. `reset <incident-id>` additionally supports `--impact`, `--root-cause`, `--resolution` (the AI narrative fields). Use `reset` for post-incident write-back.
 - **If `list` returns a `total`, use it instead of page-walking.** For "how many incidents are Triggered / Processing / Closed", run one filtered `incident list --progress <bucket> ...` per bucket and read the returned `total`. Do not fetch page 1/2/3 just to derive counts the server already computed.
 - **Use `--fields` to keep list scans compact.** When the goal is to identify matching incidents or collect IDs/numbers/titles, project only the needed columns first, then fetch one target incident with `detail` / `alerts` / `timeline`.
-- **`--list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
+- **`list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
 - **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
