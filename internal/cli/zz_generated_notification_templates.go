@@ -34,6 +34,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - email (string) (required) — Email body template source (Go 'html/template' syntax).
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
+  - feishu_app_card_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -127,6 +128,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - email (string) (required) — Email body template source (Go 'html/template' syntax).
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
+    - feishu_app_card_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -278,6 +280,7 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
+	var fFeishuAppCardTableEnabled bool
 	var fSlack string
 	var fSlackApp string
 	var fSMS string
@@ -305,6 +308,7 @@ Request fields:
   --email string — Email body template source (Go 'html/template' syntax).
   --feishu string — Feishu robot message template source.
   --feishu-app string — Feishu app message template source.
+  --feishu-app-card-table-enabled bool — Render alert labels as a table in Feishu app cards.
   --slack string — Slack robot message template source.
   --slack-app string — Slack app message template source.
   --sms string — SMS template source (Go 'text/template' syntax).
@@ -342,6 +346,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("feishu-app") {
 						body["feishu_app"] = fFeishuApp
+					}
+					if cmd.Flags().Changed("feishu-app-card-table-enabled") {
+						body["feishu_app_card_table_enabled"] = fFeishuAppCardTableEnabled
 					}
 					if cmd.Flags().Changed("slack") {
 						body["slack"] = fSlack
@@ -399,6 +406,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
+	cmd.Flags().BoolVar(&fFeishuAppCardTableEnabled, "feishu-app-card-table-enabled", false, "Render alert labels as a table in Feishu app cards.")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
@@ -474,6 +482,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
+	var fFeishuAppCardTableEnabled bool
 	var fSlack string
 	var fSlackApp string
 	var fSMS string
@@ -502,6 +511,7 @@ Request fields:
   --email string — Email body template source (Go 'html/template' syntax).
   --feishu string — Feishu robot message template source.
   --feishu-app string — Feishu app message template source.
+  --feishu-app-card-table-enabled bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
   --slack string — Slack robot message template source.
   --slack-app string — Slack app message template source.
   --sms string — SMS template source (Go 'text/template' syntax).
@@ -540,6 +550,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("feishu-app") {
 						body["feishu_app"] = fFeishuApp
+					}
+					if cmd.Flags().Changed("feishu-app-card-table-enabled") {
+						body["feishu_app_card_table_enabled"] = fFeishuAppCardTableEnabled
 					}
 					if cmd.Flags().Changed("slack") {
 						body["slack"] = fSlack
@@ -604,6 +617,7 @@ Request fields:
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
+	cmd.Flags().BoolVar(&fFeishuAppCardTableEnabled, "feishu-app-card-table-enabled", false, "When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")

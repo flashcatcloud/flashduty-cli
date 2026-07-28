@@ -8,6 +8,81 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genIncidentsPostMortemWriteResetContentCmd() *cobra.Command {
+	var dataJSON string
+	var fExpectedRevision int64
+	var fIdempotencyKey string
+	var fMarkdown string
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-content-reset <post-mortem-id>",
+		Short: "Reset post-mortem content",
+		Long: `Reset post-mortem content.
+
+Replace the body of a drafting post-mortem report with Markdown.
+
+API: POST /incident/post-mortem/content/reset (incident-post-mortem-write-reset-content)
+
+Request fields:
+  --expected-revision int (required) — Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (min 0)
+  --idempotency-key string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
+  --markdown string (required) — Replacement Markdown content. Limited to 4 MiB.
+  --post-mortem-id string (required) — Post-mortem ID to reset.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - generation (integer) (required) — New collaboration document generation after the reset.
+  - markdown_bytes (integer) (required) — UTF-8 byte length of the accepted Markdown content.
+  - markdown_sha256 (string) (required) — SHA-256 hex digest of the accepted Markdown content.
+  - post_mortem_id (string) (required) — ID of the reset post-mortem report.
+  - previous_generation (integer) (required) — Collaboration document generation before the reset.
+  - previous_revision (integer) (required) — Content revision before the reset.
+  - revision (integer) (required) — New content revision after the reset.
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-content-reset --data '{"expected_revision":11,"idempotency_key":"postmortem-reset-8104935102-11","markdown":"# Database saturation incident\n\nThe database pool was exhausted; added saturation alert.","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("expected-revision") {
+						body["expected_revision"] = fExpectedRevision
+					}
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("markdown") {
+						body["markdown"] = fMarkdown
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemContentRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostMortemWriteResetContent(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (required) (min 0)")
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Non-blank key for safely retrying this exact reset request. (required) (1-128 chars)")
+	cmd.Flags().StringVar(&fMarkdown, "markdown", "", "Replacement Markdown content. Limited to 4 MiB. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID to reset. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIncidentsReadGetWarRoomDefaultObserversCmd() *cobra.Command {
 	var dataJSON string
 	var fIncidentID string
@@ -65,6 +140,134 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID, a MongoDB ObjectID hex string. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsServiceDeskPlusRequestReadListCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fAsc bool
+	var fChannelIDs []int
+	var fEndTime string
+	var fIncidentID string
+	var fIntegrationID int64
+	var fRequestID string
+	var fStartTime string
+	var fStatus string
+	cmd := &cobra.Command{
+		Use:   "sdp-request-list",
+		Short: "Get ServiceDeskPlus linked incidents",
+		Long: `Get ServiceDeskPlus linked incidents.
+
+List synchronization mappings between ServiceDeskPlus requests and Flashduty incidents.
+
+API: POST /incident/sdp/request/list (incident-service-desk-plus-request-read-list)
+
+Request fields:
+  --page int — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
+  --limit int — Page size. Defaults to 20; maximum 100. (0-100)
+  --search-after-ctx string — Cursor returned by the previous page.
+  --asc bool — When 'true', sort by internal record ID ascending; otherwise descending.
+  --channel-ids []int — Channel IDs to filter by.
+  --end-time string — Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incident-id string — Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)
+  --integration-id int — ServiceDeskPlus integration ID. (min 0)
+  --request-id string — ServiceDeskPlus request ID. (≤64 chars)
+  --start-time string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --status string — Synchronization status filter. [success, failed]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean) (required) — True when more results are available.
+  - items (array<object>) (required) — Synchronization records on the current page.
+    - channel_id (integer) (required) — Channel ID for the incident.
+    - channel_name (string) (required) — Channel name for the incident.
+    - created_at (integer) (required) — Mapping record creation time, Unix seconds.
+    - error_message (string) — Error message when synchronization failed. Usually absent on successful records.
+    - incident_id (string) (required) — Associated Flashduty incident ID.
+    - incident_title (string) (required) — Associated incident title.
+    - integration_id (integer) (required) — ServiceDeskPlus integration ID.
+    - request_id (string) (required) — ServiceDeskPlus request ID.
+    - request_link (string) (required) — ServiceDeskPlus request detail URL.
+    - status (string) (required) — Synchronization status. [success, failed]
+  - search_after_ctx (string) — Cursor for the next page. Empty when no more data is available.
+  - total (integer) (required) — Total number of matching records, capped at 1,000 for counting.
+`,
+		Example: `  flashduty incident sdp-request-list --data '{"channel_ids":[12345],"end_time":1779600000,"limit":20,"start_time":1779513600,"status":"success"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("channel-ids") {
+						body["channel_ids"] = fChannelIDs
+					}
+					if okEndTime {
+						body["end_time"] = vEndTime
+					}
+					if cmd.Flags().Changed("incident-id") {
+						body["incident_id"] = fIncidentID
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					if cmd.Flags().Changed("request-id") {
+						body["request_id"] = fRequestID
+					}
+					if okStartTime {
+						body["start_time"] = vStartTime
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ServiceDeskPlusRequestListRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.ServiceDeskPlusRequestReadList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20; maximum 100. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor returned by the previous page.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "When 'true', sort by internal record ID ascending; otherwise descending.")
+	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ServiceDeskPlus integration ID. (min 0)")
+	cmd.Flags().StringVar(&fRequestID, "request-id", "", "ServiceDeskPlus request ID. (≤64 chars)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Synchronization status filter. [success, failed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3526,7 +3729,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func registerGeneratedIncidents(root *cobra.Command) {
 	gIncident := genGroup(root, "incident", "On-call/Incidents API")
+	genAddLeaf(gIncident, genIncidentsPostMortemWriteResetContentCmd())
 	genAddLeaf(gIncident, genIncidentsReadGetWarRoomDefaultObserversCmd())
+	genAddLeaf(gIncident, genIncidentsServiceDeskPlusRequestReadListCmd())
 	genAddLeaf(gIncident, genIncidentsWriteAddWarRoomMemberCmd())
 	genAddLeaf(gIncident, genIncidentsAckCmd())
 	genAddLeaf(gIncident, genIncidentsAlertListCmd())

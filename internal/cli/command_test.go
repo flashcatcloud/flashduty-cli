@@ -27,6 +27,7 @@ func saveAndResetGlobals(t *testing.T) {
 	origUpdateNotice := updateNotice
 	origUpdateCheckWarning := updateCheckWarning
 	origStdinReader := stdinReader
+	origCurrentPostMortemRevisionFn := currentPostMortemRevisionFn
 
 	// Reset to defaults so tests start clean.
 	flagJSON = false
@@ -36,6 +37,7 @@ func saveAndResetGlobals(t *testing.T) {
 	flagOutputFormat = ""
 	updateNotice = nil
 	updateCheckWarning = ""
+	currentPostMortemRevisionFn = fetchCurrentPostMortemRevision
 
 	t.Cleanup(func() {
 		newClientFn = origNewClientFn
@@ -47,6 +49,7 @@ func saveAndResetGlobals(t *testing.T) {
 		updateNotice = origUpdateNotice
 		updateCheckWarning = origUpdateCheckWarning
 		stdinReader = origStdinReader
+		currentPostMortemRevisionFn = origCurrentPostMortemRevisionFn
 	})
 }
 

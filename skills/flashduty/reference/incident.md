@@ -235,6 +235,12 @@ Update post-mortem basics
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
 - `--responder-ids` intSlice — Responder member IDs to store on the report.
 
+### post-mortem-content-reset <post-mortem-id>
+Reset post-mortem Markdown content
+- `--expected-revision` int64
+- `--idempotency-key` string
+- `--markdown-file` string
+
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
@@ -338,6 +344,20 @@ Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
 - `<person-ids>` (positional, required) intSlice — Member IDs to add as responders.
 - body-only (`--data`): notify (object)
+
+### sdp-request-list
+Get ServiceDeskPlus linked incidents
+- `--asc` bool — When 'true', sort by internal record ID ascending; otherwise descending.
+- `--channel-ids` intSlice — Channel IDs to filter by.
+- `--end-time` string — Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incident-id` string — Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)
+- `--integration-id` int64 — ServiceDeskPlus integration ID. (min 0)
+- `--limit` int64 — Page size. Defaults to 20; maximum 100. (0-100)
+- `--page` int64 — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
+- `--request-id` string — ServiceDeskPlus request ID. (≤64 chars)
+- `--search-after-ctx` string — Cursor returned by the previous page.
+- `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--status` string — Synchronization status filter. · enum: success | failed
 
 ### similar <id>
 Find similar incidents
