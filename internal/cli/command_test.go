@@ -12,10 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/flashcatcloud/go-flashduty"
 )
 
 // saveAndResetGlobals saves the current state of all global vars that commands
