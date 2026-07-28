@@ -255,9 +255,45 @@ type requestFields struct {
 var (
 	flagLineRe  = regexp.MustCompile(`^\s{2}--([a-z0-9-]+)\s+\S+\s*(.*)$`)
 	bodyLineRe  = regexp.MustCompile(`^\s{2}([a-z0-9_]+)\s+\(([^,)]*)[^)]*\)\s*(.*)$`)
-	enumRe      = regexp.MustCompile(`\[([^\]]+)\]`)
 	requiredTag = "(required)"
 )
+
+// trailingConstraintRe matches a trailing "(...)" constraint parenthetical --
+// cligen appends this immediately after an enum bracket when a flag has both
+// (internal/cmd/cligen/main.go writes f.Enum then f.Constraint, in that
+// order). Setting it aside first lets enumTailRe check what's left for a
+// genuine trailing enum bracket without the constraint's own parens getting
+// in the way, and lets that constraint be reattached untouched afterward.
+var trailingConstraintRe = regexp.MustCompile(`\s*\([^()]*\)\s*$`)
+
+// enumTailRe matches a "[a, b, c]" bracket anchored to the END of its input --
+// exactly where cligen's own generator appends a real enum ("line += " [" +
+// strings.Join(f.Enum, ", ") + "]"", see cligen/main.go). Anchoring to the
+// end is what excludes an arbitrary "[...]" appearing earlier in a
+// description's free text -- e.g. a regex character class quoted inside a
+// constraint sentence ("1-40 chars of '[a-zA-Z0-9_]'", see
+// zz_generated_alert_enrichment.go's field-name flag) -- which an unanchored
+// match would misidentify as a one-value enum declaration AND delete from
+// the description, corrupting both the fabricated enum tag and the sentence.
+var enumTailRe = regexp.MustCompile(`\s*\[([^\]]+)\]\s*$`)
+
+// splitTrailingEnum peels cligen's own trailing enum bracket, if any, off
+// tail: enum is the bracket's inner text ("" when there is none), and rest is
+// tail with that bracket removed. A trailing "(constraint)" is set aside
+// before looking for the bracket and reattached untouched afterward, so it
+// never masks a genuine enum and is never itself mistaken for one. When the
+// tail-most token (once any constraint is set aside) isn't a bracket at all,
+// enum is "" and rest is tail unchanged -- any "[...]" earlier in the text is
+// incidental prose, not a declared enum, and must survive intact.
+func splitTrailingEnum(tail string) (enum, rest string) {
+	constraint := trailingConstraintRe.FindString(tail)
+	body := strings.TrimSuffix(tail, constraint)
+	loc := enumTailRe.FindStringSubmatchIndex(body)
+	if loc == nil {
+		return "", tail
+	}
+	return body[loc[2]:loc[3]], body[:loc[0]] + body[loc[1]:] + constraint
+}
 
 // parseRequestFields extracts the per-flag required/enum/usage and the
 // body-only (--data) field summaries from a command's Long "Request fields:"
@@ -303,13 +339,14 @@ func parseRequestFields(long string) requestFields {
 	return rf
 }
 
-// parseEnum pulls the enum members out of a trailing "[a, b, c]" marker.
+// parseEnum pulls the enum members out of tail's genuine trailing "[a, b, c]"
+// marker (see splitTrailingEnum), or returns nil when tail carries none.
 func parseEnum(tail string) []string {
-	m := enumRe.FindStringSubmatch(tail)
-	if m == nil {
+	enum, _ := splitTrailingEnum(tail)
+	if enum == "" {
 		return nil
 	}
-	parts := strings.Split(m[1], ",")
+	parts := strings.Split(enum, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if v := strings.TrimSpace(p); v != "" {
@@ -319,11 +356,12 @@ func parseEnum(tail string) []string {
 	return out
 }
 
-// cleanUsage strips the leading em-dash, the (required) tag, and the trailing
-// enum bracket from a flag line's tail, leaving the human description.
+// cleanUsage strips the leading em-dash, the (required) tag, and tail's
+// genuine trailing enum bracket (see splitTrailingEnum) from a flag line's
+// tail, leaving the human description -- including any trailing constraint
+// and any incidental "[...]" that isn't cligen's own enum marker.
 func cleanUsage(tail string) string {
-	s := tail
-	s = enumRe.ReplaceAllString(s, "")
+	_, s := splitTrailingEnum(tail)
 	s = strings.ReplaceAll(s, requiredTag, "")
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "—")
