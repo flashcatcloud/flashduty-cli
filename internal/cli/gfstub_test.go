@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/flashcatcloud/go-flashduty"
@@ -18,6 +19,16 @@ import (
 // test can assert exactly what payload a command sent.
 type gfStub struct {
 	server *httptest.Server
+
+	// mu guards every field below. Verified commands (e.g. incident comment's
+	// write-back check) now issue concurrent requests against a single stub
+	// server, so the handler below runs on more than one goroutine at once;
+	// without this lock the plain field writes here would race. It is
+	// deliberately released before invoking dataFor/dataForPath/data (see the
+	// handler below) so those calls run concurrently rather than being
+	// serialized by this lock — a test whose own closure touches shared state
+	// is responsible for synchronizing that state itself.
+	mu sync.Mutex
 
 	// lastPath is the path of the most recent request (no query string).
 	lastPath string
@@ -54,26 +65,39 @@ func newGFStub(t *testing.T) *gfStub {
 	t.Helper()
 	s := &gfStub{}
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.requests++
-		s.lastPath = r.URL.Path
-		s.lastAuthorization = r.Header.Get("Authorization")
-		s.lastBody = nil
-		if body, err := io.ReadAll(r.Body); err == nil && len(body) > 0 {
-			_ = json.Unmarshal(body, &s.lastBody)
+		var body map[string]any
+		if raw, err := io.ReadAll(r.Body); err == nil && len(raw) > 0 {
+			_ = json.Unmarshal(raw, &body)
 		}
-		s.bodies = append(s.bodies, s.lastBody)
+		path := r.URL.Path
 
+		s.mu.Lock()
+		s.requests++
+		s.lastPath = path
+		s.lastAuthorization = r.Header.Get("Authorization")
+		s.lastBody = body
+		s.bodies = append(s.bodies, body)
+		dataForPath, dataFor, data := s.dataForPath, s.dataFor, s.data
+		s.mu.Unlock()
+
+		// dataForPath/dataFor/data run outside the lock: some tests (e.g. ones
+		// exercising verifyIncidentCommentsWritten's concurrent fan-out) rely on
+		// being able to observe genuine overlap between in-flight requests, which
+		// holding s.mu across the call would silently serialize away. A test
+		// closure that itself touches shared state is responsible for its own
+		// synchronization, same as any other concurrently-invoked callback.
 		var payload any
 		switch {
-		case s.dataForPath != nil:
-			payload = s.dataForPath(s.lastPath, s.lastBody)
-		case s.dataFor != nil:
-			payload = s.dataFor(s.lastBody)
-		case s.data != nil:
-			payload = s.data
+		case dataForPath != nil:
+			payload = dataForPath(path, body)
+		case dataFor != nil:
+			payload = dataFor(body)
+		case data != nil:
+			payload = data
 		default:
 			payload = map[string]any{}
 		}
+
 		resp := map[string]any{
 			"request_id": "test-request-id",
 			"error":      map[string]any{"code": "OK", "message": ""},

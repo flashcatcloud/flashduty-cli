@@ -10,7 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -820,6 +823,7 @@ func TestCommandIncidentCommentFailsWhenNoCommentEntryFound(t *testing.T) {
 func TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
+	var mu sync.Mutex
 	feedCallsByIncident := map[string]int{}
 	stub.dataForPath = func(path string, body map[string]any) any {
 		switch path {
@@ -827,7 +831,9 @@ func TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure(t *testing.T
 			return map[string]any{}
 		case "/incident/feed":
 			incID, _ := body["incident_id"].(string)
+			mu.Lock()
 			feedCallsByIncident[incID]++
+			mu.Unlock()
 			switch incID {
 			case "inc-2":
 				return map[string]any{"items": []any{
@@ -981,6 +987,163 @@ func TestCommandIncidentCommentVerifiesAcrossFeedPages(t *testing.T) {
 	}
 	if !strings.Contains(out, "Commented on 1 incident(s).") {
 		t.Fatalf("[feed-pagination] unexpected output:\n%s", out)
+	}
+}
+
+// TestCommandIncidentCommentVerifyOrderStableDespiteCompletionOrder guards
+// that concurrent verification's problem list comes out in ctx.Args order,
+// never completion order. The stub sleeps longer for earlier-indexed
+// incidents than later ones, so completion order is guaranteed to be the
+// exact reverse of argument order; a test that let requests finish in
+// whatever order they naturally would (e.g. all equally fast) could pass
+// even with results appended in completion order, since ctx.Args order and
+// completion order would coincidentally match. Forcing the inversion is what
+// makes this a real test of the ordering guarantee rather than of luck.
+func TestCommandIncidentCommentVerifyOrderStableDespiteCompletionOrder(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const n = 4
+	ids := make([]string, n)
+	delay := make(map[string]time.Duration, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("inc-%d", i+1)
+		// inc-1 sleeps longest, inc-n shortest: completion order is guaranteed
+		// to be inc-n, ..., inc-1 — the reverse of ids' (== ctx.Args') order.
+		delay[ids[i]] = time.Duration(n-i) * 15 * time.Millisecond
+	}
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			incID, _ := body["incident_id"].(string)
+			time.Sleep(delay[incID])
+			// Empty timeline: every incident fails verification, so every one
+			// of them appears in the problem list this test inspects.
+			return map[string]any{"items": []any{}}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	args := append([]string{"incident", "comment"}, ids...)
+	args = append(args, "--comment-file", commentFile)
+	_, err := execCommand(args...)
+	if err == nil {
+		t.Fatal("[verify-order] expected a non-zero exit, got nil error")
+	}
+
+	lastIdx := -1
+	for _, id := range ids {
+		idx := strings.Index(err.Error(), "incident "+id+":")
+		if idx == -1 {
+			t.Fatalf("[verify-order] expected %q named in the error: %v", id, err)
+		}
+		if idx <= lastIdx {
+			t.Fatalf("[verify-order] problems are not in ctx.Args order (completion order leaked through) in: %v", err)
+		}
+		lastIdx = idx
+	}
+}
+
+// incidentFeedConcurrencyProbe returns a stub.dataForPath function that
+// answers /incident/comment and every /incident/feed request successfully
+// (the feed always carries want as an i_comm entry), sleeping delay on each
+// feed request and recording, via inFlight/maxInFlight, the peak number of
+// feed requests in flight at once. Tests use the recorded peak to prove
+// verifyIncidentCommentsWritten's requests actually overlap (and by how
+// much), which can't be observed from the command's exit code or output
+// alone.
+func incidentFeedConcurrencyProbe(want string, delay time.Duration, inFlight, maxInFlight *atomic.Int32) func(path string, body map[string]any) any {
+	return func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			cur := inFlight.Add(1)
+			defer inFlight.Add(-1)
+			for {
+				peak := maxInFlight.Load()
+				if cur <= peak || maxInFlight.CompareAndSwap(peak, cur) {
+					break
+				}
+			}
+			time.Sleep(delay)
+			return map[string]any{"items": []any{
+				map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": want}},
+			}}
+		default:
+			return map[string]any{}
+		}
+	}
+}
+
+// TestCommandIncidentCommentVerifyRunsConcurrently guards against a future
+// refactor silently reverting verifyIncidentCommentsWritten to a sequential
+// walk: with 4 incidents each sleeping on their /incident/feed request, a
+// sequential implementation would never have more than one request in flight
+// at once, while a correctly concurrent one will. Nothing about the command's
+// exit code or output would catch that regression — only observing overlap
+// directly, via incidentFeedConcurrencyProbe, does.
+func TestCommandIncidentCommentVerifyRunsConcurrently(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var inFlight, maxInFlight atomic.Int32
+	stub.dataForPath = incidentFeedConcurrencyProbe("the real comment", 20*time.Millisecond, &inFlight, &maxInFlight)
+
+	const n = 4
+	ids := make([]string, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("inc-%d", i+1)
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	args := append([]string{"incident", "comment"}, ids...)
+	args = append(args, "--comment-file", commentFile)
+	out, err := execCommand(args...)
+	if err != nil {
+		t.Fatalf("[verify-concurrent] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, fmt.Sprintf("Commented on %d incident(s).", n)) {
+		t.Fatalf("[verify-concurrent] unexpected output:\n%s", out)
+	}
+	if got := maxInFlight.Load(); got < 2 {
+		t.Fatalf("[verify-concurrent] observed peak in-flight verify requests = %d, want > 1 (verification never actually overlapped)", got)
+	}
+}
+
+// TestCommandIncidentCommentVerifyRespectsConcurrencyBound guards the other
+// side of the same fan-out: with 3x maxIncidentVerifyConcurrency incidents,
+// each holding its /incident/feed request open for a while, the peak observed
+// in flight must never exceed the worker limit — a regression that dropped
+// the semaphore (e.g. an unbounded "go func" per incident) would fire every
+// request at once and blow past it.
+func TestCommandIncidentCommentVerifyRespectsConcurrencyBound(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var inFlight, maxInFlight atomic.Int32
+	stub.dataForPath = incidentFeedConcurrencyProbe("the real comment", 20*time.Millisecond, &inFlight, &maxInFlight)
+
+	const n = maxIncidentVerifyConcurrency * 3
+	ids := make([]string, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("inc-%d", i+1)
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	args := append([]string{"incident", "comment"}, ids...)
+	args = append(args, "--comment-file", commentFile)
+	out, err := execCommand(args...)
+	if err != nil {
+		t.Fatalf("[verify-bound] unexpected error: %v", err)
+	}
+	if !strings.Contains(out, fmt.Sprintf("Commented on %d incident(s).", n)) {
+		t.Fatalf("[verify-bound] unexpected output:\n%s", out)
+	}
+	if got := maxInFlight.Load(); got > maxIncidentVerifyConcurrency {
+		t.Fatalf("[verify-bound] observed peak in-flight verify requests = %d, want <= %d (the worker limit)", got, maxIncidentVerifyConcurrency)
 	}
 }
 
