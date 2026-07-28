@@ -1,6 +1,6 @@
 # fduty enrichment — command card
 
-Prereq: `SKILL.md` read. Read verbs are free. **`upsert` fully replaces all rules for an integration** (atomic, irreversible in the sense that the previous ruleset is gone); `mapping-schema-delete`, `mapping-api-delete`, and `mapping-data-truncate` are irreversible — confirm IDs before running.
+Prereq: `SKILL.md` read. Read verbs are free. **`upsert` fully replaces all rules for an integration** (atomic, irreversible in the sense that the previous ruleset is gone); `mapping-schema-delete`, `mapping-api-delete`, `mapping-data-truncate`, and `mapping-data-upload` are irreversible — confirm IDs before running.
 
 ## Route here when
 
@@ -64,7 +64,7 @@ fduty enrichment info <integration-id> --output-format toon
 
 # 3. Upsert rules (full replacement; rules array via --data)
 fduty enrichment upsert <integration-id> \
-  --data '{"rules":[{"kind":"mapping","settings":{"schema_id":"<schema-id>","source_labels":["service"],"result_labels":["owner_team","oncall_email"]}},{"kind":"composition","settings":{"target":"summary","template":"[{{.owner_team}}] {{.title}}"}}]}'
+  --data '{"rules":[{"kind":"mapping","settings":{"mapping_type":"schema","schema_id":"<schema-id>","result_labels":["owner_team","oncall_email"]}},{"kind":"composition","settings":{"result_label":"summary","template":"[{{.owner_team}}] {{.title}}"}}]}'
 
 # 4. Confirm the new ruleset
 fduty enrichment info <integration-id> --output-format toon
@@ -194,10 +194,10 @@ Upsert enrichment rules
 
 | kind | what it does | key `settings` fields |
 |---|---|---|
-| `extraction` | extracts a new label via regex or GJson path | `source`, `target`, `method` (`regex`/`gjson`), `pattern` |
-| `composition` | builds a label from a Go template over existing labels | `target`, `template` |
-| `mapping` | looks up result labels from a schema or API by source label values | `schema_id` OR `api_id`, `source_labels`, `result_labels` |
-| `drop` | removes labels matching a list | `labels` |
+| `extraction` | extracts a new label via regex or GJson path | `source_field`, `result_label`, `pattern` XOR `g_json`, optional `override` |
+| `composition` | builds a label from a Go template over existing labels | `result_label`, `template`, optional `override` |
+| `mapping` | looks up result labels from a schema or external API | `mapping_type` (`schema`\|`api`), `schema_id` (when `schema`) or `api_id` (when `api`), `result_labels` — the mapping schema's own `source_labels` drive the lookup; there is no rule-level source-label field |
+| `drop` | removes labels matching a list | `drop_labels` |
 
 Each rule may have an optional `if` AND-filter: `[{"key":"env","oper":"IN","vals":["prod"]}]` — rule is skipped when the filter does not match. `oper` must be `IN` or `NOTIN`.
 
@@ -209,6 +209,8 @@ Each rule may have an optional `if` AND-filter: `[{"key":"env","oper":"IN","vals
 - **`mapping-data-upsert` requires `docs` via `--data`** — this array cannot be expressed as flat flags. Each doc must include all `source_labels` AND all `result_labels` fields for the schema, or the row is rejected.
 - **`mapping-schema-create` requires Pro plan** — creating a schema on a free account returns a plan-gate error, not a 404.
 - **`mapping-data-truncate` wipes all rows immediately** — there is no undo. Use `mapping-data-download` to export a backup CSV first if the data matters.
+- **`mapping-data-upload` truncates existing schema data before loading the new CSV rows** — this is the documented default behavior, and there is no append/no-truncate flag. Treat it like `mapping-data-truncate` followed by a bulk load; use `mapping-data-download` to back up first if the data matters.
+- **`mapping-data-delete` accepts at most 100 keys per call** — batch larger deletes into multiple calls.
 - **`source-labels` and `result-labels` must not overlap** on `mapping-schema-create`; max 3 source labels, max 10 result labels. Violating either constraint 400s.
 
 ## Worked example — inspect and extend enrichment rules
@@ -218,5 +220,5 @@ Each rule may have an optional `if` AND-filter: `[{"key":"env","oper":"IN","vals
 fduty enrichment info 42 --output-format toon
 # → copy the existing rules[] array, append the new rule, then upsert the full set:
 fduty enrichment upsert 42 \
-  --data '{"rules":[<existing_rules...>,{"kind":"drop","settings":{"labels":["raw_body","_meta"]}}]}'
+  --data '{"rules":[<existing_rules...>,{"kind":"drop","settings":{"drop_labels":["raw_body","_meta"]}}]}'
 ```

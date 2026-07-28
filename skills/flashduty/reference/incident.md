@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ## Route here when
 
-"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate / post-mortem" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). You need **`incident_id` (24-char MongoDB ObjectID)** for most verbs — not the 6-char `num` shown in the UI. If you only have a num, use `incident info --num <num>` first.
+"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate / post-mortem" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). You need **`incident_id` (24-char MongoDB ObjectID)** for most verbs — not the 6-char `num` shown in the UI. **`detail` and `get` are the exception and accept either** (a num auto-resolves via a 30-day lookback). For any other verb, if you only have a num, use `incident info --num <num>` first.
 
 ## Intent → verb
 
@@ -32,12 +32,15 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | snooze / un-snooze | `snooze <id> [<id2>...]` / `wake <incident-id> [<id2>...]` |
 | add comment | `comment <id> [<id2>...]` |
 | add responder by member ID | `add-responder <id>` |
+| add responders (alternate; positional person IDs) | `responder-add <person-id> [<id2>...] --incident-id <id>` |
+| dispatch to an escalation level / responder | `assign --data '{"incident_id":"<id>","assigned_to":{...}}'` (body-only `assigned_to`) |
 | replace responder list | `reassign <id>` |
 | merge duplicates (IRREVERSIBLE) | `merge <target_id>` |
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
 | permanently delete (IRREVERSIBLE) | `remove <id> [<id2>...]` |
 | post-mortem reports | `post-mortem-list` / `post-mortem-info <post-mortem-id>` / `post-mortem-delete <post-mortem-id>` |
 | war room (IM chat) | `war-room-list <incident-id>` → `war-room-create <incident-id>` |
+| war room (IM chat), nested subcommand form | `war-room list/create/get/add-member/default-observers/delete <id>` |
 
 ## Hot flow — triage an active incident
 
@@ -481,7 +484,7 @@ List war rooms
 
 ## Gotchas
 
-- **24-char `incident_id` vs 6-char `num`**: positional-id verbs (`ack`, `close`, `resolve`, `detail`, `alerts`, `timeline`, `merge`, `reassign`, `comment`, `reset`, …) require the full ObjectID. Passing a 6-char num 400s. Use `incident info --num <num>` to resolve, or `incident list --query <num>` and read `incident_id`.
+- **24-char `incident_id` vs 6-char `num`**: most positional-id verbs (`ack`, `close`, `resolve`, `alerts`, `timeline`, `merge`, `reassign`, `comment`, `reset`, …) require the full ObjectID. Passing a 6-char num to any of them 400s. Use `incident info --num <num>` to resolve, or `incident list --query <num>` and read `incident_id`. **Exception: `detail` and `get` accept either form** — a 6-char num auto-resolves against the last 30 days via `/incident/list`; a miss errors `no incident with short id ... in the last 30 days`, and multiple matches list full-id candidates to disambiguate.
 - **`similar` only works on channel-backed incidents** (those with a real `channel_id`). Manually created incidents with no channel return HTTP 400 "Channel not found" — this is expected, not transient. Fall back to `incident list --query "<keywords>"` for text search.
 - **`update` vs `reset`**: `update <id>` edits title/description/severity/custom fields. `reset <incident-id>` additionally supports `--impact`, `--root-cause`, `--resolution` (the AI narrative fields). Use `reset` for post-incident write-back.
 - **If `list` returns a `total`, use it instead of page-walking.** For "how many incidents are Triggered / Processing / Closed", run one filtered `incident list --progress <bucket> ...` per bucket and read the returned `total`. Do not fetch page 1/2/3 just to derive counts the server already computed.
