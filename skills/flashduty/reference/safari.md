@@ -58,6 +58,7 @@ Create A2A agent
 - `--streaming` bool — Whether the remote agent supports streaming.
 - `--team-id` int64 — Team scope: 0 = account-wide; >0 = team. Creating at account scope requires the owner/admin role; creating into a team requires actual membership in that team.
 - body-only (`--data`): auth_config (object)
+- response: single object (`data` unwrapped to the top level) — fields: agent_id (string)
 
 ### a2a-agent-delete <agent-id>
 Delete A2A agent
@@ -74,6 +75,7 @@ Enable A2A agent
 ### a2a-agent-get <agent-id>
 Get A2A agent detail
 - `<agent-id>` (positional, required) string — Target agent ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (integer); created_by (integer); environment_id (string); environment_kind (string); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (integer)
 
 ### a2a-agent-list
 List A2A agents
@@ -83,6 +85,7 @@ List A2A agents
 - `--query` string — Case-insensitive substring search across agent name, instructions, card URL, agent ID, and the resolved card name. (≤128 chars)
 - `--scope` string — Visibility scope: 'all' (account-scope plus the caller's visible teams), 'account' (account-scope only), or 'team' (team-scoped rows across the caller's visible teams). · enum: all | account | team
 - `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (integer); created_by (integer); environment_id (string); environment_kind (string); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (integer)
 
 ### a2a-agent-update <agent-id>
 Update A2A agent
@@ -117,6 +120,7 @@ Create Automation rule
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
 - `--team-id` int64 — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
 - `--timezone` string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then UTC when omitted.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 ### automation-rule-delete <rule-id>
 Delete Automation rule
@@ -125,6 +129,7 @@ Delete Automation rule
 ### automation-rule-get <rule-id>
 Get Automation rule
 - `<rule-id>` (positional, required) string — Rule ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 ### automation-rule-list
 List Automation rules
@@ -136,10 +141,12 @@ List Automation rules
 - `--scope` string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. · enum: all | personal | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter to these team IDs; this narrows results and does not expand access.
+- response: single object (`data` unwrapped to the top level) — fields: rules (array<object>); total (integer)
 
 ### automation-rule-run <rule-id>
 Run Automation rule
 - `<rule-id>` (positional, required) string — Rule ID.
+- response: single object (`data` unwrapped to the top level) — fields: preflight (object); rule_id (string); run (object); trigger_kind (string)
 
 ### automation-rule-update <rule-id>
 Update Automation rule
@@ -157,6 +164,7 @@ Update Automation rule
 - `<rule-id>` (positional, required) string — Target rule ID.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
 - `--team-id` int64 — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 ### automation-run-list <rule-id>
 List Automation runs
@@ -168,10 +176,12 @@ List Automation runs
 - `--started-before-ms` int64 — Start-time upper bound, Unix milliseconds.
 - `--status` string — Run status filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned
 - `--trigger-kind` string — Trigger kind filter. · enum: schedule | debug | manual | http_post | oncall_incident
+- response: single object (`data` unwrapped to the top level) — fields: runs (array<object>); total (integer)
 
 ### automation-template-list
 List Automation templates
 - `--locale` string — Template locale such as zh-CN or en-US. Omit to detect from the request locale. (≤16 chars)
+- response: single object (`data` unwrapped to the top level) — fields: templates (array<object>)
 
 ### automation-triggers-{trigger_id}-fire <trigger_id>
 Fire an Automation HTTP POST trigger
@@ -199,6 +209,7 @@ Create MCP server
 - `--transport` string (required) — Transport protocol. · enum: stdio | sse | streamable-http
 - `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (integer); created_by (integer); description (string); env (object); environment_id (string); environment_kind (string); headers (object); list_error (string); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); tool_count (integer); tools (array<object>); transport (string); updated_at (integer); url (string)
 
 ### mcp-server-delete <server-id>
 Delete MCP server
@@ -215,6 +226,7 @@ Enable MCP server
 ### mcp-server-get <server-id>
 Get MCP server detail
 - `<server-id>` (positional, required) string — Target MCP server ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (integer); created_by (integer); description (string); env (object); environment_id (string); environment_kind (string); headers (object); list_error (string); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); tool_count (integer); tools (array<object>); transport (string); updated_at (integer); url (string)
 
 ### mcp-server-list
 List MCP servers
@@ -225,6 +237,7 @@ List MCP servers
 - `--scope` string — Restrict results to a scope: 'account' for account-wide rows only, 'team' for the caller's own visible team rows only, or omit (defaults to 'all') for both, subject to team_ids/include_account. · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
+- response: single object (`data` unwrapped to the top level) — fields: servers (array<object>); total (integer)
 
 ### mcp-server-update <server-id>
 Update MCP server
@@ -246,6 +259,7 @@ Update MCP server
 - `--transport` string — Transport protocol. · enum: stdio | sse | streamable-http
 - `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (integer); created_by (integer); description (string); env (object); environment_id (string); environment_kind (string); headers (object); list_error (string); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); tool_count (integer); tools (array<object>); transport (string); updated_at (integer); url (string)
 
 ### session-delete <session-id>
 Delete session
@@ -262,6 +276,7 @@ Get session detail
 - `--search-after-ctx` string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
 - `<session-id>` (positional, required) string — Target session ID. (≥1 chars)
 - `--share-token` string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
+- response: single object (`data` unwrapped to the top level) — fields: events (array<object>); has_more_older (boolean); search_after_ctx (string); session (object); suggest_init (boolean)
 
 ### session-list
 List sessions
@@ -277,6 +292,7 @@ List sessions
 - `--search-after-ctx` string
 - `--status` string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. · enum: active | archived | all
 - `--team-ids` intSlice — Optional explicit team filter; intersects with 'scope' and never expands access.
+- response: single object (`data` unwrapped to the top level) — fields: sessions (array<object>); suggest_init (boolean); total (integer)
 
 ### skill-delete <skill-id>
 Delete skill
@@ -293,6 +309,7 @@ Enable skill
 ### skill-get <skill-id>
 Get skill detail
 - `<skill-id>` (positional, required) string — Target skill ID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (integer); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (integer); version (string)
 
 ### skill-list
 List skills
@@ -303,6 +320,7 @@ List skills
 - `--scope` string — Restrict results to 'all' (default), 'account'-only (team_id=0), or 'team'-only (excludes account-scoped rows). Overrides 'include_account' when set. · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
+- response: single object (`data` unwrapped to the top level) — fields: skills (array<object>); total (integer)
 
 ### skill-update <skill-id>
 Update skill
@@ -310,9 +328,11 @@ Update skill
 - `--description-en` string — New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)
 - `<skill-id>` (positional, required) string — Target skill ID.
 - `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (integer); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (integer); version (string)
 
 ### skill-upload
 Upload skill
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (integer); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (integer); version (string)
 
 <!-- GENERATED:safari END -->
 

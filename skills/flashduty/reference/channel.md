@@ -74,6 +74,7 @@ Create channel
 - `--plugin-ids` intSlice — IDs of plugins (integrations) subscribed to this channel.
 - `--team-id` int64 (required) — Owning team ID.
 - body-only (`--data`): escalate_rule (object); flapping (object); group (object)
+- response: single object (`data` unwrapped to the top level) — fields: channel_id (integer); channel_name (string); external_report_token (string)
 
 ### delete <channel-id>
 Delete channel
@@ -96,6 +97,7 @@ Create escalation rule
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
 - body-only (`--data`): filters (array<array>); layers (array<object>) (required); time_filters (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### escalate-rule-delete
 Delete escalation rule
@@ -116,10 +118,12 @@ Enable escalation rule
 Get escalation rule detail
 - `--channel-id` int64 (required) — Channel the rule belongs to.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
 ### escalate-rule-list <channel-id>
 List escalation rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
 ### escalate-rule-update
 Update escalation rule
@@ -135,10 +139,12 @@ Update escalation rule
 ### info <channel-id>
 Get channel detail
 - `<channel-id>` (positional, required) int64 — Channel ID to fetch.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
 
 ### infos <channel-id> [<id2>...]
 Batch get channels
 - `<channel-ids>` (positional, required) intSlice — Channel IDs to look up. Up to 1000.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: channel_id (integer); channel_name (string); status (string)
 
 ### inhibit-rule-create <channel-id>
 Create inhibit rule
@@ -149,6 +155,7 @@ Create inhibit rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): source_filters (array<array>); target_filters (array<array>)
+- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### inhibit-rule-delete
 Delete inhibit rule
@@ -168,6 +175,7 @@ Enable inhibit rule
 ### inhibit-rule-list <channel-id>
 List inhibit rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); equals (array<string>); is_directly_discard (boolean); priority (integer); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (integer); updated_by (integer)
 
 ### inhibit-rule-update
 Update inhibit rule
@@ -184,6 +192,7 @@ Update inhibit rule
 List channels
 - `--name` string
 - `--team-ids` int64Slice
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
 
 ### silence-rule-create <channel-id>
 Create silence rule
@@ -195,6 +204,7 @@ Create silence rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>); time_filter (object); time_filters (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### silence-rule-delete
 Delete silence rule
@@ -214,6 +224,7 @@ Enable silence rule
 ### silence-rule-list <channel-id>
 List silence rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); priority (integer); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
 ### silence-rule-update
 Update silence rule
@@ -233,6 +244,7 @@ Create drop rule
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array>)
+- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### unsubscribe-rule-delete
 Delete drop rule
@@ -252,6 +264,7 @@ Enable drop rule
 ### unsubscribe-rule-list <channel-id>
 List drop rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); priority (integer); rule_id (string); rule_name (string); status (string); updated_at (integer); updated_by (integer)
 
 ### unsubscribe-rule-update
 Update drop rule
@@ -276,6 +289,7 @@ Update channel
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
 - `--team-id` int64 — New owning team ID.
 - body-only (`--data`): flapping (object); group (object)
+- response: single object (`data` unwrapped to the top level) — fields: external_report_token (string)
 
 <!-- GENERATED:channel END -->
 
@@ -296,7 +310,6 @@ Update channel
 - **`channel create` requires `--channel-name` and `--team-id`** even though they are not marked `required` in the flag list — the server rejects the request without them.
 - **`delete` on a channel is irreversible** — all rules within it are also removed. Confirm the `channel-id` against `list` before proceeding.
 - **Empty rule list is authoritative** — if `escalate-rule-list` / `silence-rule-list` / etc. returns no rows, no rules exist; do not widen the query.
-- **`list` response is a top-level array** (pipe `jq '.[]'`); rule-list responses nest under `items[]` (pipe `jq '.items[]'`).
 
 ## Worked example — look up a channel and inspect its escalation policy
 

@@ -31,7 +31,7 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 **Empty result = authoritative not-found.** A filter returning `[]` means no such entity in scope — report it (optionally the 1–2 closest names) and stop. Do **not** brute-force (no shifted-keyword re-queries, no widening past caps, no full-dump grep). Never infer "feature not enabled" from an empty list, and never fabricate data absent from tool output.
 
-**A result you did not fetch is "unknown", never "empty".** You may report a command's result — including "returned empty" or any count/list/finding — **only if that exact command appears in your tool-call history this turn**. If you did not run it, the honest answer is "未查询 / not queried", followed by the command to run. Writing "`incident similar` 返回空" or "无变更" for a command you never executed is fabrication, not a summary.
+**A result you did not fetch is "unknown", never "empty" — and "fetched" means the same scope, not just the same verb.** You may report a command's result for a given window, entity, or aspect — including "returned empty" or any count/list/finding — **only if a call covering that exact scope appears in your tool-call history this turn**. A wider or different time window, or a sibling entity's result, does not transfer: extrapolating from what you did fetch is the same fabrication as skipping the fetch. If the scope wasn't queried, the honest answer is "未查询 — 可运行 <command>", not a filled-in number or a generalized claim.
 
 ## Command names — don't guess, read the card
 

@@ -65,6 +65,7 @@ Delete member
 
 ### info
 Get current member info
+- response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); status (string); time_zone (string)
 
 ### info-reset <member-id>
 Reset member info
@@ -81,6 +82,7 @@ Reset member info
 Invite members
 - `--from` string — Invite source context
 - body-only (`--data`): members (array<object>) (required)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: member_id (integer); member_name (string)
 
 ### list
 List members
@@ -91,6 +93,7 @@ List members
 - `--query` string — Search keyword
 - `--role-id` int64 — Filter by role ID
 - `--search-after-ctx` string
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (integer); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (integer)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member

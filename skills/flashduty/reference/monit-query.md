@@ -38,6 +38,7 @@ Pre-clustered RCA findings (log_patterns or metric_trends)
 - `--time-end` string
 - `--time-start` string
 - `--timeout-seconds` int
+- response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
 
 ### rows
 Raw datasource passthrough (returns values/rows as the datasource itself would)
@@ -45,12 +46,13 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 - `--ds-name` string
 - `--ds-type` string
 - `--expr` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: fields (object); values (object)
 
 <!-- GENERATED:monit-query END -->
 
 ## Key concepts
 
-- **`rows` = raw passthrough.** Response `data` is a **top-level array** of row objects — pipe `jq '.[]'`, NOT `.items[]`. Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. **Time belongs in the query expression**, not in flags.
+- **`rows` = raw passthrough.** Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. **Time belongs in the query expression**, not in flags.
 - **`diagnose` = pre-clustered evidence.** Its versioned response echoes the datasource, query, and RFC 3339 analysis window. Each result contains method-specific `pattern_evidence` (logs) or `series_evidence` (metrics), structured window statistics, and observations; log results also declare redaction and untrusted observed-data paths in `data_handling`. Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
 
 ## Gotchas

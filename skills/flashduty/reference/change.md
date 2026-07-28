@@ -33,6 +33,7 @@ List changes
 - `--query` string
 - `--since` string
 - `--until` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); change_id (string); change_key (string); change_status (string); channel_id (integer); channel_name (string); channel_status (string); description (string); end_time (integer); events (array<object>); integration_id (integer); integration_name (string); labels (object); last_time (integer); link (string); start_time (integer); title (string)
 
 <!-- GENERATED:change END -->
 

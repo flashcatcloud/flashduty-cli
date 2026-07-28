@@ -51,6 +51,7 @@ fduty status-page change-active-list <page_id> --type incident
 List active status page events
 - `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. · enum: incident | maintenance
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
 
 ### change-create <page-id>
 Create status page event
@@ -67,6 +68,7 @@ Create status page event
 - `--title` string (required) — Event title, up to 255 characters. (≤255 chars)
 - `--type` string (required) — Event type. · enum: incident | maintenance
 - body-only (`--data`): updates (array<object>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: change_id (integer); change_name (string)
 
 ### change-delete
 Delete status page event
@@ -77,6 +79,7 @@ Delete status page event
 Get status page event detail
 - `--change-id` int64 (required) — Event (change) ID.
 - `--page-id` int64 (required) — Status page ID.
+- response: single object (`data` unwrapped to the top level) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
 
 ### change-list <page-id>
 List status page events
@@ -85,6 +88,7 @@ List status page events
 - `--start-at-seconds` string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
 
 ### change-timeline-create
 Create event timeline entry
@@ -94,6 +98,7 @@ Create event timeline entry
 - `--page-id` int64 (required) — Status page ID.
 - `--status` string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - body-only (`--data`): component_changes (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: update_id (string)
 
 ### change-timeline-delete
 Delete event timeline entry
@@ -126,6 +131,7 @@ Delete status page component
 Upsert status page component
 - `<page-id>` (positional, required) int64 — Status page ID.
 - body-only (`--data`): components (array<object>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: component_ids (array<string>)
 
 ### create
 Create status page
@@ -140,6 +146,7 @@ Create status page
 - `--type` string (required) — Visibility type of the status page. · enum: public | internal
 - `--url-name` string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
 - body-only (`--data`): custom_links (array<object>); subscription (object)
+- response: single object (`data` unwrapped to the top level) — fields: page_id (integer); page_name (string); page_url_name (string)
 
 ### delete
 Delete status page
@@ -150,18 +157,21 @@ Get status page detail
 
 ### list
 List status pages
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
 
 ### migrate-email-subscribers
 Migrate email subscribers
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
 - `--source-page-id` string (required) — Atlassian Statuspage source page ID.
 - `--target-page-id` int64 (required) — Flashduty target status page ID that will receive the imported subscribers.
+- response: single object (`data` unwrapped to the top level) — fields: job_id (string)
 
 ### migrate-structure <source-page-id>
 Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
 - `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
 - `--url-name` string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
+- response: single object (`data` unwrapped to the top level) — fields: job_id (string)
 
 ### migration-cancel <job-id>
 Cancel status page migration
@@ -170,6 +180,7 @@ Cancel status page migration
 ### migration-status <job-id>
 Get migration status
 - `<job-id>` (positional, required) string — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); error (string); job_id (string); phase (string); progress (object); source_page_id (string); status (string); target_page_id (integer); updated_at (integer)
 
 ### section-delete <section-id> [<id2>...]
 Delete status page section
@@ -180,6 +191,7 @@ Delete status page section
 Upsert status page section
 - `<page-id>` (positional, required) int64 — Status page ID.
 - body-only (`--data`): sections (array<object>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: section_ids (array<string>)
 
 ### subscriber-export <page-id>
 Export subscribers
@@ -198,6 +210,7 @@ List status page subscribers
 - `--limit` int64 — Page size (1-100). (1-100)
 - `--page` int64 — Page number (1-based). (min 1)
 - `<page-id>` (positional, required) int64 — Status page ID.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: all (boolean); components (array<object>); locale (string); method (string); recipient (string)
 
 ### template-delete
 Delete status page template
@@ -215,6 +228,7 @@ Upsert status page template
 - `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. · enum: pre_defined | message
 - body-only (`--data`): template (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: template_id (string)
 
 ### update
 Update status page
