@@ -250,6 +250,7 @@ Reset post-mortem content
 - `--idempotency-key` string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
 - `--markdown` string (required) — Replacement Markdown content. Limited to 4 MiB.
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID to reset.
+- response: single object (`data` unwrapped to the top level) — fields: generation (integer); markdown_bytes (integer); markdown_sha256 (string); post_mortem_id (string); previous_generation (integer); previous_revision (integer); revision (integer)
 
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
@@ -374,6 +375,7 @@ Get ServiceDeskPlus linked incidents
 - `--search-after-ctx` string — Cursor returned by the previous page.
 - `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string — Synchronization status filter. · enum: success | failed
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: channel_id (integer); channel_name (string); created_at (integer); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
 
 ### similar <id>
 Find similar incidents
