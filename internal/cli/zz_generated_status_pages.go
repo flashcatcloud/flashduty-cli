@@ -1063,26 +1063,40 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genStatusPagesDeleteCmd() *cobra.Command {
 	var dataJSON string
+	var fPageID int64
 	cmd := &cobra.Command{
-		Use:   "delete",
+		Use:   "delete <page-id>",
 		Short: "Delete status page",
 		Long: `Delete status page.
 
 Delete a status page.
 
 API: POST /status-page/delete (statusPageDelete)
+
+Request fields:
+  --page-id int (required) — Status page ID.
 `,
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page delete --data '{"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
 					return nil
 				})
 				if err != nil {
 					return err
 				}
-				_ = body
-				resp, err := ctx.Client.StatusPages.Delete(cmdContext(ctx.Cmd))
+				req := new(flashduty.DeleteStatusPageRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.Delete(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -1094,6 +1108,7 @@ API: POST /status-page/delete (statusPageDelete)
 			})
 		},
 	}
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1891,26 +1906,114 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genStatusPagesUpdateCmd() *cobra.Command {
 	var dataJSON string
+	var fContactInfo string
+	var fCustomDomain string
+	var fDarkLogo string
+	var fDateView string
+	var fDisplayUptimeMode string
+	var fFavicon string
+	var fLogo string
+	var fLogoURL string
+	var fName string
+	var fPageFooter string
+	var fPageHeader string
+	var fPageID int64
+	var fPageTitle string
+	var fTemplatePreference string
+	var fURLName string
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "update <page-id>",
 		Short: "Update status page",
 		Long: `Update status page.
 
 Update an existing status page configuration.
 
 API: POST /status-page/update (statusPageUpdate)
+
+Request fields:
+  --contact-info string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
+  --custom-domain string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
+  --dark-logo string — Dark-mode logo image of the status page. Omit to keep the existing value.
+  --date-view string — How event dates are displayed. Omit to keep the existing value. [calendar, list]
+  --display-uptime-mode string — How uptime is displayed. Omit to keep the existing value. [chart_and_percentage, chart, none]
+  --favicon string — Favicon of the status page. Omit to keep the existing value.
+  --logo string — Logo image of the status page. Omit to keep the existing value.
+  --logo-url string — URL opened when the logo is clicked. Omit to keep the existing value.
+  --name string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
+  --page-footer string — Footer content shown on the status page. Omit to keep the existing value.
+  --page-header string — Header content shown on the status page. Omit to keep the existing value.
+  --page-id int (required) — Status page ID.
+  --page-title string — Browser title shown for the status page. Omit to keep the existing value.
+  --template-preference string — Preferred change-event template type. Omit to keep the existing value.
+  --url-name string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)
+  custom_links (array<object>, via --data) — Custom navigation links shown on the status page. Omit to keep the existing value.
+  subscription (object, via --data)
+    - email (boolean) — Whether email subscription is enabled.
+    - im (boolean) — Whether IM subscription is enabled.
 `,
+		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page update --data '{"contact_info":"mailto:support@example.com","name":"Flashduty Status Page (Updated)","page_header":"Updated status page header","page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("contact-info") {
+						body["contact_info"] = fContactInfo
+					}
+					if cmd.Flags().Changed("custom-domain") {
+						body["custom_domain"] = fCustomDomain
+					}
+					if cmd.Flags().Changed("dark-logo") {
+						body["dark_logo"] = fDarkLogo
+					}
+					if cmd.Flags().Changed("date-view") {
+						body["date_view"] = fDateView
+					}
+					if cmd.Flags().Changed("display-uptime-mode") {
+						body["display_uptime_mode"] = fDisplayUptimeMode
+					}
+					if cmd.Flags().Changed("favicon") {
+						body["favicon"] = fFavicon
+					}
+					if cmd.Flags().Changed("logo") {
+						body["logo"] = fLogo
+					}
+					if cmd.Flags().Changed("logo-url") {
+						body["logo_url"] = fLogoURL
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("page-footer") {
+						body["page_footer"] = fPageFooter
+					}
+					if cmd.Flags().Changed("page-header") {
+						body["page_header"] = fPageHeader
+					}
+					if cmd.Flags().Changed("page-id") {
+						body["page_id"] = fPageID
+					}
+					if cmd.Flags().Changed("page-title") {
+						body["page_title"] = fPageTitle
+					}
+					if cmd.Flags().Changed("template-preference") {
+						body["template_preference"] = fTemplatePreference
+					}
+					if cmd.Flags().Changed("url-name") {
+						body["url_name"] = fURLName
+					}
 					return nil
 				})
 				if err != nil {
 					return err
 				}
-				_ = body
-				resp, err := ctx.Client.StatusPages.Update(cmdContext(ctx.Cmd))
+				req := new(flashduty.UpdateStatusPageRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.StatusPages.Update(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -1922,6 +2025,21 @@ API: POST /status-page/update (statusPageUpdate)
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fDarkLogo, "dark-logo", "", "Dark-mode logo image of the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fDateView, "date-view", "", "How event dates are displayed. Omit to keep the existing value. [calendar, list]")
+	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. Omit to keep the existing value. [chart_and_percentage, chart, none]")
+	cmd.Flags().StringVar(&fFavicon, "favicon", "", "Favicon of the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fLogo, "logo", "", "Logo image of the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fLogoURL, "logo-url", "", "URL opened when the logo is clicked. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. Omit to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page. Omit to keep the existing value.")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fTemplatePreference, "template-preference", "", "Preferred change-event template type. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

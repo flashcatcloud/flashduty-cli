@@ -72,7 +72,7 @@ Request fields:
     - method (string) (required) — Grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
     - storm_threshold (integer) — Alert storm threshold. (0-10000)
     - storm_thresholds (array<integer>) — Multi-level storm thresholds.
-    - time_window (integer) — Grouping time window in seconds. (min 0)
+    - time_window (integer) — Grouping time window in minutes. Default max is 1440 minutes (24 h); extended accounts may allow up to 43200 minutes (30 days). (min 0)
     - window_type (string) — Window type. Defaults to 'tumbling'. [tumbling, sliding]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
