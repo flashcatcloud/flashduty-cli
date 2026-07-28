@@ -143,14 +143,18 @@ View alert timeline
 
 ## Pipeline rule kinds
 
-`pipeline-upsert` replaces the whole pipeline; `rules[].kind` values: `title_reset` · `description_reset` · `severity_reset` · `alert_drop` · `alert_inhibit`. The `rules` array has no typed flag — pass it via `--data '{"rules":[...]}'`. The call is idempotent (upsert), so re-running with the same body is safe.
+`pipeline-upsert` replaces the whole pipeline (max 50 rules); `rules[].kind` values: `title_reset` · `description_reset` · `severity_reset` · `alert_drop` · `alert_inhibit`. The `rules` array has no typed flag — pass it via `--data '{"rules":[...]}'`. The call is idempotent (upsert), so re-running with the same body is safe.
+
+`settings` shape depends on `kind`: `title_reset` → `{"title": "<template>"}`; `description_reset` → `{"description": "<template>"}`; `severity_reset` → `{"severity": "Critical"|"Warning"|"Info"}`; `alert_drop` → `{}` (empty object); `alert_inhibit` → `{"equals": ["<label_key>", ...], "source_filters": <OrFilterGroup>}`.
+
+**`rules[].if` (and `alert_inhibit`'s `source_filters`) is OR-of-AND** — an array of arrays of conditions: the outer array is OR, each inner array is AND. This is unlike `enrichment`'s rule-level `if`, which is a single flat AND-only condition list.
 
 ## Gotchas
 
 - **All alert verbs are positional except `list` and the two-ID `merge` flag.** Every verb with `<alert-id>` in its `use` form takes that ID as the first bare argument — do NOT pass `--alert-id`. The single exception: `merge` takes the first alert ID positionally AND requires `--incident-id` as a flag (two different IDs, different roles).
 - **`alert get` vs `alert info`, `alert events` vs `alert-event list`:** both pairs exist; prefer `get`/`events` (shorter, no extra flag); `info`/`event-list` accept `--alert-id` as a flag override for scripting.
 - **No server-side title filter on `list`.** To search by title, use `--json` and pipe to `jq`: `fduty alert list --json | jq '.[] | select(.title | test("disk";"i"))'`
-- **If `list` returns a `total`, use it.** Do not paginate page 1/2/3... just to count alerts. Ask the narrowest question (`--active`, `--recovered`, `--severity`, `--channel`, `--since`) and read the server-reported total for that bucket.
+- **`list`'s structured output has no `total`/page metadata** — its `--json`/`toon` response is a bare TOP-LEVEL array (see the `list` fence entry above), not a `{items, total}` wrapper. To count matches, project the narrowest field with `--fields` and count elements, or use a wrapper-style verb whose fence shows `total` (e.g. `list-by-ids`). Don't paginate page 1/2/3... just to count alerts — narrow the query instead (`--active`, `--recovered`, `--severity`, `--channel`, `--since`).
 - **Use `--fields` when hunting IDs, not full rows.** If the task is "find alert IDs / titles / channels / severities", project only those fields first, then drill into one alert with `get` / `events`. Dumping every field for 100 alerts wastes tokens and hides the one row you need.
 - **`list` time window cap is 31 days**; `--limit` max is 100. For broader queries use `insight` domain.
 - **`pipeline-upsert` fully replaces** the existing pipeline — always fetch current config with `pipeline-info` first and include unchanged rules in the new body.

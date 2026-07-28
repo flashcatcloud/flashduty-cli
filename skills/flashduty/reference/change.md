@@ -40,11 +40,12 @@ List changes
 ## Key concepts
 
 - **Correlation is heuristic, not relational.** A change is "related" to an incident when their `labels` overlap and their timestamps are close — there is no `incident_id` on a change. Judge the overlap yourself; do not claim a causal link the data doesn't support.
-- **`--integration` / `--channel`** scope to the source that emitted the change; **`--since` / `--until`** bound the window (relative like `24h`, `-1h`, `now`, or Unix seconds).
+- **`--integration` / `--channel`** scope to the source that emitted the change; **`--since` / `--until`** bound the window (a non-negative duration like `24h`, a future offset like `+24h`, `now`, a date/datetime, or Unix seconds — negative durations like `-1h` are rejected).
 
 ## Gotchas
 
 - **List-only domain.** There is no `change get` / `change detail` verb — `list` (with filters) is the whole surface. Don't guess a detail verb.
+- **`list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100.
 - **Empty result is authoritative** — no changes in that window/scope. Report it; don't widen blindly or invent a change to explain the incident.
 
 ## Worked example

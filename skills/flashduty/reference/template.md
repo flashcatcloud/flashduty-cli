@@ -165,6 +165,7 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 
 - **`info`, `update`, `delete` take `<template-id>` as a positional first argument** — pass it bare, not as `--template-id`. `create`, `list`, `preview`, `validate`, `get-preset`, `functions`, `variables` take all inputs as flags.
 - **`update` replaces every channel field you pass — omitted channel flags are left unchanged** (server behavior: only supplied fields overwrite). Always pass `--template-name` even if the name is unchanged — it is required on update.
+- **`--feishu-app-card-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
 - **`delete` is permanent.** The built-in preset (`template_id = 000000000000000000000001`) can be addressed by that sentinel ID in `info` and `delete` — don't delete it.
 - **`validate` reads from a local `--file`; `preview` takes inline `--content`.** They are complementary: `validate` gives size-vs-limit diagnostics; `preview` renders against real or mock incident data.
 - **`email` uses `html/template` syntax; `sms` and `voice` use `text/template`** — auto-escaping rules differ. Don't mix them.
