@@ -526,7 +526,7 @@ func resolveAutomationPrompt(cmd *cobra.Command, prompt, promptFile string) (str
 		if promptFile == "" {
 			return "", fmt.Errorf("--prompt-file must not be empty")
 		}
-		b, err := readPathOrStdin(promptFile)
+		b, err := readPathOrStdin("--prompt-file", promptFile)
 		if err != nil {
 			return "", fmt.Errorf("failed to read prompt file: %w", err)
 		}

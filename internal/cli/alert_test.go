@@ -131,3 +131,28 @@ func TestCommandAlertMergeEmptyCommentFileGivesCleanError(t *testing.T) {
 		t.Fatalf("[alert-merge-empty-comment-file] expected the clean resolveCommentFile message, got: %v", err)
 	}
 }
+
+// TestCommandAlertMergeDataAndCommentFileBothStdinErrors guards against a
+// silent-data-loss regression: --data and --comment-file can each read "-"
+// for stdin, but stdin is a single stream that only one of them can actually
+// drain. genAssembleBody resolves --data before --comment-file, so --data
+// claims stdin first; --comment-file must then get a clear, named error
+// instead of silently reading EOF and sending an empty comment (which the
+// SDK's omitempty tag would then drop from the wire entirely, making the
+// command falsely report success).
+func TestCommandAlertMergeDataAndCommentFileBothStdinErrors(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	stdinReader = strings.NewReader("{}")
+
+	_, err := execCommand("alert", "merge", "alert-1", "--incident-id", "inc-1",
+		"--data", "-", "--comment-file", "-")
+	if err == nil {
+		t.Fatal("[alert-merge-double-stdin] expected an error, got nil")
+	}
+	const want = `only one flag can read from stdin: --data and --comment-file were both set to "-"`
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("[alert-merge-double-stdin] expected the double-stdin-read error naming both flags, got: %v", err)
+	}
+}
