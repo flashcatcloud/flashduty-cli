@@ -30,13 +30,20 @@ type gfStub struct {
 	// is responsible for synchronizing that state itself.
 	mu sync.Mutex
 
-	// lastPath is the path of the most recent request (no query string).
+	// lastPath is the path of the most recent request (no query string). When
+	// a test fans out concurrent requests, "most recent" is whichever
+	// goroutine happened to reach this handler last, not any particular
+	// logical request — such a test should assert against bodies, or a
+	// dataForPath closure that inspects each request as it arrives, instead.
 	lastPath string
-	// lastBody is the decoded JSON body of the most recent request.
+	// lastBody is the decoded JSON body of the most recent request. Same
+	// concurrency caveat as lastPath.
 	lastBody map[string]any
-	// lastAuthorization is the Authorization header of the most recent request.
+	// lastAuthorization is the Authorization header of the most recent
+	// request. Same concurrency caveat as lastPath.
 	lastAuthorization string
-	// bodies records the decoded body of every request, in order.
+	// bodies records the decoded body of every request, in the order each
+	// reached this handler.
 	bodies []map[string]any
 	// requests counts how many requests reached the stub.
 	requests int
@@ -70,11 +77,12 @@ func newGFStub(t *testing.T) *gfStub {
 			_ = json.Unmarshal(raw, &body)
 		}
 		path := r.URL.Path
+		authorization := r.Header.Get("Authorization")
 
 		s.mu.Lock()
 		s.requests++
 		s.lastPath = path
-		s.lastAuthorization = r.Header.Get("Authorization")
+		s.lastAuthorization = authorization
 		s.lastBody = body
 		s.bodies = append(s.bodies, body)
 		dataForPath, dataFor, data := s.dataForPath, s.dataFor, s.data
