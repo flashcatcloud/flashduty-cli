@@ -29,14 +29,14 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ## Scheduling
 
 - Default create behavior: enabled immediately. Use `--disabled` only if the user asks for a disabled Automation.
-- No timezone flag is exposed by the current API. Automation schedules are stored and sent as UTC cron.
-- If the user asks for a local wall-clock schedule, first identify the intended timezone from the session context, runner `date`, or the user's wording. Convert that local time to UTC before calling the CLI. If the timezone is unclear, ask before creating or updating the schedule.
-- Helper schedules:
-  - `--schedule hourly --at 00:15` -> minute 15 of every UTC hour.
-  - `--schedule daily --at 01:30` -> every day at 01:30 UTC.
-  - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00 UTC.
-- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in UTC.
-- Example: Asia/Shanghai 11:00 is UTC 03:00, so use `--schedule daily --at 03:00` or `--cron-expr "0 3 * * *"`.
+- `create`/`update` expose no `--timezone` flag. The cron expression runs in the rule's timezone, which the server resolves from the caller's member timezone, then the account timezone, falling back to UTC only when neither is set.
+- Pass the user's local wall-clock time directly to `--at` or `--cron-expr` — do not convert it to UTC first. The rule already runs in the caller's own resolved timezone, so a manual UTC conversion shifts the schedule by the account's UTC offset.
+- Helper schedules (times are in the rule's resolved timezone, not UTC):
+  - `--schedule hourly --at 00:15` -> minute 15 of every hour.
+  - `--schedule daily --at 01:30` -> every day at 01:30.
+  - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00.
+- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time.
+- To pin a rule to a specific timezone (e.g. UTC) regardless of the caller's default, use `safari automation-rule-create --timezone <IANA tz>` instead — the curated `create`/`update` commands cannot set it, and `update` cannot change it after creation.
 - HTTP POST-only rule: pass `--http-post-trigger` without schedule flags. The CLI sends a placeholder cron and disables the schedule trigger.
 
 ## Hot flow - create from chat
