@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -17,15 +16,12 @@ const automationHTTPPostOnlyCron = "0 0 * * *"
 const automationUTCNote = "Convert local wall-clock requests to UTC before passing --at or --cron-expr."
 
 func newAutomationCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "automation",
-		Short: "Manage AI SRE Automations",
-		Long:  "Create, list, update, delete, inspect, and trigger AI SRE Automations.",
-		Example: `  flashduty automation create --name "Daily SRE brief" --schedule daily --at 09:30 --prompt "Summarize yesterday's incidents"
+	cmd := newGroupCmd("automation", "Manage AI SRE Automations")
+	cmd.Long = "Create, list, update, delete, inspect, and trigger AI SRE Automations."
+	cmd.Example = `  flashduty automation create --name "Daily SRE brief" --schedule daily --at 09:30 --prompt "Summarize yesterday's incidents"
   flashduty automation create --name "Webhook triage" --http-post-trigger --prompt-file ./prompt.md
   flashduty automation list --scope all --limit 20
-  flashduty automation fire auttrig_123 --token "$TOKEN" --text "manual test"`,
-	}
+  flashduty automation fire auttrig_123 --token "$TOKEN" --text "manual test"`
 
 	cmd.AddCommand(newAutomationCreateCmd())
 	cmd.AddCommand(newAutomationListCmd())
@@ -530,15 +526,7 @@ func resolveAutomationPrompt(cmd *cobra.Command, prompt, promptFile string) (str
 		if promptFile == "" {
 			return "", fmt.Errorf("--prompt-file must not be empty")
 		}
-		var (
-			b   []byte
-			err error
-		)
-		if promptFile == "-" {
-			b, err = io.ReadAll(stdinReader)
-		} else {
-			b, err = os.ReadFile(promptFile)
-		}
+		b, err := readPathOrStdin("--prompt-file", promptFile)
 		if err != nil {
 			return "", fmt.Errorf("failed to read prompt file: %w", err)
 		}

@@ -8,10 +8,7 @@ import (
 )
 
 func newMonitAgentCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "monit-agent",
-		Short: "On-box diagnostics via flashmonit agents (host/mysql/redis/…)",
-	}
+	cmd := newGroupCmd("monit-agent", "On-box diagnostics via flashmonit agents (host/mysql/redis/…)")
 	cmd.AddCommand(newMonitAgentCatalogCmd())
 	cmd.AddCommand(newMonitAgentInvokeCmd())
 	return cmd

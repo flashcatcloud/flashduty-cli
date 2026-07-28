@@ -13,11 +13,8 @@ import (
 )
 
 func newTeamCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "team",
-		Short: "Manage teams",
-		Long:  "Create, list, view, update, and delete teams in your FlashDuty account.",
-	}
+	cmd := newGroupCmd("team", "Manage teams")
+	cmd.Long = "Create, list, view, update, and delete teams in your FlashDuty account."
 	cmd.AddCommand(newTeamListCmd())
 	cmd.AddCommand(newTeamGetCmd())
 	cmd.AddCommand(newTeamCreateCmd())

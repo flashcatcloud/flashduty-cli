@@ -11,10 +11,7 @@ import (
 )
 
 func newMonitQueryCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "monit-query",
-		Short: "Probe monit-backed datasources (prometheus|victorialogs|loki|mysql)",
-	}
+	cmd := newGroupCmd("monit-query", "Probe monit-backed datasources (prometheus|victorialogs|loki|mysql)")
 	cmd.AddCommand(newMonitQueryDiagnoseCmd())
 	cmd.AddCommand(newMonitQueryRowsCmd())
 	return cmd

@@ -52,10 +52,12 @@ fduty route list <integration-id-1> <integration-id-2> --output-format toon
 ### info <integration-id>
 Get routing rule detail
 - `<integration-id>` (positional, required) int64 — Integration ID. Must be greater than 0.
+- response: single object (`data` unwrapped to the top level) — fields: cases (array<object>); created_at (integer); creator_id (integer); default (object); deleted_at (integer); integration_id (integer); sections (array<object>); status (string); updated_at (integer); updated_by (integer); version (integer)
 
 ### list <integration-id> [<id2>...]
 List routing rules
 - `<integration-ids>` (positional, required) intSlice — Integration IDs to fetch routing rules for.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: cases (array<object>); created_at (integer); creator_id (integer); default (object); deleted_at (integer); integration_id (integer); sections (array<object>); status (string); updated_at (integer); updated_by (integer); version (integer)
 
 ### upsert <integration-id>
 Upsert routing rule

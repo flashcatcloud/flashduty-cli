@@ -50,6 +50,7 @@ Create field
 - `--options` stringSlice — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
 - `--value-type` string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. · enum: string | bool | float
 - body-only (`--data`): default_value (any)
+- response: single object (`data` unwrapped to the top level) — fields: field_id (string); field_name (string)
 
 ### delete <field-id>
 Delete field
@@ -58,10 +59,12 @@ Delete field
 ### info <field-id>
 Get field detail
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); default_value (any); deleted_at (integer); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (integer); updated_by (integer); value_type (string)
 
 ### list
 List custom fields
 - `--name` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); default_value (any); deleted_at (integer); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (integer); updated_by (integer); value_type (string)
 
 ### update <field-id>
 Update field

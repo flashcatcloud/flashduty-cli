@@ -14,9 +14,51 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
-// stdinReader is the source read when --data is exactly "-". A package var so
-// tests can substitute a buffer (mirrors newClientFn); production reads os.Stdin.
+// stdinReader is the source read by every --*-file-style flag when its value
+// is exactly "-" (--data, --prompt-file, --comment-file, ...). A package var
+// so tests can substitute a buffer (mirrors newClientFn); production reads
+// os.Stdin.
 var stdinReader io.Reader = os.Stdin
+
+// stdinConsumedBy names the flag that has already drained stdinReader within
+// the current invocation, once some --flag - has read it; empty until then.
+// os.Stdin (and any pipe generally) is a single-consumption stream — once one
+// flag reads it to EOF, a second flag asking for "-" gets back "" with no
+// error, which looks exactly like an intentionally empty value rather than
+// the data-loss bug it actually is (e.g. `--data - --comment-file -` silently
+// drops the comment because --data already read everything). Recording the
+// flag's name, not just a bool, lets readStdin's error identify both sides of
+// the conflict.
+var stdinConsumedBy string
+
+// readStdin is the single function through which every --*-file-style flag's
+// "-" value reads stdin. flag is the calling flag's canonical spelling (e.g.
+// "--data"), used only to label it in the already-consumed error below. A
+// second flag trying to read stdin after an earlier one already claimed it
+// errors instead of silently returning empty bytes.
+func readStdin(flag string) ([]byte, error) {
+	if stdinConsumedBy != "" {
+		return nil, fmt.Errorf("only one flag can read from stdin: %s and %s were both set to \"-\"", stdinConsumedBy, flag)
+	}
+	b, err := io.ReadAll(stdinReader)
+	if err != nil {
+		return nil, err
+	}
+	stdinConsumedBy = flag
+	return b, nil
+}
+
+// readPathOrStdin reads the raw bytes at path, or from stdin (via readStdin)
+// when path is exactly "-". flag is the calling flag's canonical spelling
+// (e.g. "--comment-file"), passed through to readStdin. It performs no
+// trimming or validation of the result; callers that need trimmed text or
+// byte-for-byte fidelity decide that themselves.
+func readPathOrStdin(flag, path string) ([]byte, error) {
+	if path == "-" {
+		return readStdin(flag)
+	}
+	return os.ReadFile(path)
+}
 
 // resolveDataSource turns a --data flag value into the raw JSON body string,
 // supporting two source forms across EVERY --data-bearing command:
@@ -31,7 +73,7 @@ var stdinReader io.Reader = os.Stdin
 // quotes (e.g. SQL in params).
 func resolveDataSource(dataFlag string) (string, error) {
 	if dataFlag == "-" {
-		b, err := io.ReadAll(stdinReader)
+		b, err := readStdin("--data")
 		if err != nil {
 			return "", fmt.Errorf("failed to read --data from stdin: %w", err)
 		}
@@ -138,8 +180,10 @@ func genFoldPositional(args []string, body map[string]any, wire, kind string) er
 	return nil
 }
 
-// genBindBody marshals the assembled body map into the typed request struct so
-// the call benefits from the SDK's wire encoding (nullable pointers, etc.).
+// genBindBody validates and marshals the assembled body map into the typed
+// request struct. SDK request tags without omitempty/omitzero represent required
+// OpenAPI fields; checking their presence before unmarshalling distinguishes an
+// omitted field from an explicitly supplied zero value.
 //
 // POST request structs tag fields with `json`, so json.Unmarshal binds them.
 // GET query structs tag fields with `url` and carry NO json tag, so the
@@ -148,6 +192,53 @@ func genFoldPositional(args []string, body map[string]any, wire, kind string) er
 // field from the body by its url wire-name. For POST structs the url pass is a
 // no-op, so existing behavior is unchanged.
 func genBindBody(body map[string]any, req any) error {
+	var missing []string
+	var inspect func(reflect.Type)
+	inspect = func(rt reflect.Type) {
+		for rt.Kind() == reflect.Ptr {
+			rt = rt.Elem()
+		}
+		if rt.Kind() != reflect.Struct {
+			return
+		}
+		for i := 0; i < rt.NumField(); i++ {
+			field := rt.Field(i)
+			if field.PkgPath != "" {
+				continue
+			}
+			if field.Anonymous {
+				inspect(field.Type)
+				continue
+			}
+
+			tag := field.Tag.Get("json")
+			if tag == "" {
+				tag = field.Tag.Get("url")
+			}
+			parts := strings.Split(tag, ",")
+			if parts[0] == "" || parts[0] == "-" {
+				continue
+			}
+			optional := false
+			for _, option := range parts[1:] {
+				if option == "omitempty" || option == "omitzero" {
+					optional = true
+					break
+				}
+			}
+			if !optional {
+				value, ok := body[parts[0]]
+				if !ok || (value == nil && field.Type.Kind() != reflect.Ptr) {
+					missing = append(missing, parts[0])
+				}
+			}
+		}
+	}
+	inspect(reflect.TypeOf(req))
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required request fields: %s", strings.Join(missing, ", "))
+	}
+
 	b, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to encode request: %w", err)
@@ -256,7 +347,7 @@ func genGroup(parent *cobra.Command, name, short string) *cobra.Command {
 			return c
 		}
 	}
-	g := &cobra.Command{Use: name, Short: short}
+	g := newGroupCmd(name, short)
 	parent.AddCommand(g)
 	return g
 }

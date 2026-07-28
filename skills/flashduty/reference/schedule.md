@@ -6,14 +6,14 @@ Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — con
 
 "值班 / 排班 / 轮班 / 轮值 / 值班表 / 班表 / 谁在值班 / 当前值班 / 下一班 / 排班配置 / on-call / who is on call / schedule / rotation / shift / next on call / view or edit shifts" → **schedule**. This is the single home for everything 值班/on-call. The key ID you need is **`schedule_id` (int)** — get it from `schedule list`.
 
-**Who is on call right now** is computed from a schedule, not stored: `schedule info <id> --start now --end +1h` returns the current shift (and its `person_ids`). The legacy **`oncall who`** aggregates the live on-call across *all* schedules in one call, but the **`oncall` command group is being deprecated and folded into `schedule`** — use `oncall who` only as a convenience for the global snapshot; prefer `schedule info` for the durable path, and do not build new flows on `oncall *`.
+**Who is on call right now** is computed from a schedule, not stored: `schedule info <id> --start now --end +1h` returns the current shift (and its `person_ids`). The legacy **`oncall who`** returns the same data across *all* schedules in one call, but the response is 77-82KB (~2800 lines) — it always spills to a file, and still takes 3-10 follow-up reads to dig the 3-4 fields you wanted out of it. For several schedules at once, scope it instead: `schedule list --query <name>` or `--team-ids <id>` to get the schedule IDs, then `schedule info <id> --start now --end +1h` per schedule. The **`oncall` command group is being deprecated and folded into `schedule`** — do not build new flows on `oncall *`.
 
 ## Intent → verb
 
 | want | verb |
 |---|---|
 | who is on call right now (one schedule) | `info <schedule-id> --start now --end +1h` |
-| who is on call right now (all schedules, legacy) | `oncall who` — *deprecated group; prefer per-schedule `info`* |
+| who is on call right now (all schedules, legacy) | `oncall who` — *deprecated, whole-account dump (~80KB); prefer `schedule list` + per-schedule `info`* |
 | list all schedules (with name search / team filter) | `list` |
 | schedules I am assigned to | `self` |
 | detail + computed shifts for a schedule | `info <schedule-id>` |
@@ -26,18 +26,17 @@ Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — con
 ## Hot flow — who is on call right now
 
 ```bash
-# 1. Find the schedule ID
+# 1. Find the schedule ID(s) — scope by name or team; don't fetch every schedule
 fduty schedule list --query "SRE" --output-format toon
+# or, for several: fduty schedule list --team-ids <team-id> --output-format toon
 
-# 2a. Current on-call for THIS schedule — a tiny now-window yields the live shift
+# 2. Current on-call for each schedule — a tiny now-window yields the live shift
 fduty schedule info <schedule-id> --start now --end +1h --output-format toon
-
-# 2b. Or the live on-call across ALL schedules in one call (legacy oncall group,
-#     being deprecated into schedule — fine for a quick global snapshot)
-fduty oncall who --output-format toon
 ```
 
-Both return `person_ids` (integers), not names. Resolve every id in **one batch call** with `fduty person infos` (the sibling `person` group — takes positional ids or `--person-ids`):
+`--output-format toon` is for reading, not piping — it is **not** jq-parseable. If you need to filter/extract with `jq`, use `--json` instead.
+
+`schedule info`'s on-call groups carry `person_ids` (integers), not names. Resolve every id in **one batch call** with `fduty person infos` (the sibling `person` group — takes positional ids or `--person-ids`):
 
 ```bash
 # person_ids come straight from the schedule/oncall output above
@@ -109,6 +108,7 @@ Create schedule
 - `--start` string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-id` int64 — Owning team ID.
 - body-only (`--data`): layers (array<object>); notify (object)
+- response: single object (`data` unwrapped to the top level) — fields: schedule_id (integer)
 
 ### delete <schedule-id> [<id2>...]
 Delete schedules
@@ -119,10 +119,12 @@ Get schedule info
 - `--end` string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `<schedule-id>` (positional, required) int64 — Schedule ID.
 - `--start` string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### infos <schedule-id> [<id2>...]
 Batch get schedules
 - `<schedule-ids>` (positional, required) intSlice — Schedule ID list.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### list
 List schedules
@@ -135,6 +137,7 @@ List schedules
 - `--search-after-ctx` string
 - `--start` string — When set together with end, computed layer schedules are returned. Span must be less than 45 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### preview
 Preview schedule
@@ -146,11 +149,13 @@ Preview schedule
 - `--start` string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-id` int64 — Owning team ID.
 - body-only (`--data`): layers (array<object>); notify (object)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### self
 List my schedules
 - `--end` string — Window end (Unix seconds, 10 digits). Must be within 30 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--start` string — Window start (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### update
 Update schedule
@@ -182,7 +187,7 @@ Update schedule
 - **`list` without `--start`/`--end` omits computed shifts** — only schedule metadata is returned. Pass both flags (≤45 day span) to get rotation slots in the list response.
 - **`delete` is irreversible** — takes one or more `<schedule-id>` positionals; double-check IDs before executing.
 - **`list` default page size is 10** — pass `--limit 100` when scanning all schedules.
-- **Legacy `oncall who`:** `--team` does **not** filter server-side (any value returns the full list — scope by `--query <schedule_name>` instead), and an empty result is authoritative ("no one on call in that window") — report it, don't widen or fabricate a responder. The `oncall` group will be removed; don't depend on it.
+- **Legacy `oncall who`:** returns ALL schedules in one call (77-82KB / ~2800 lines, always spills to a file) — prefer `schedule list --query|--team-ids` + per-schedule `info` instead. If you do use it: `--team` does **not** filter server-side (any value returns the full list — scope by `--query <schedule_name>`), and an empty result is authoritative ("no one on call in that window") — report it, don't widen or fabricate a responder. The `oncall` group will be removed; don't depend on it.
 
 ## Worked example
 

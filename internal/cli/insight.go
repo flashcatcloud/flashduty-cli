@@ -11,10 +11,7 @@ import (
 )
 
 func newInsightCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "insight",
-		Short: "Query aggregated incident metrics by team, responder, or channel",
-	}
+	cmd := newGroupCmd("insight", "Query aggregated incident metrics by team, responder, or channel")
 	// insight team/channel/responder are now served by the generated commands
 	// (richer flag set: severities, *_ids, fields, aggregate-unit, …; relative
 	// time on --start-time/--end-time). Their human tables are preserved via the

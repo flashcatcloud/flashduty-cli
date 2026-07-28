@@ -75,11 +75,13 @@ Enable a role
 ### info <role-id>
 Get role detail
 - `<role-id>` (positional, required) int64 — Role ID.
+- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
 
 ### list
 List roles
 - `--asc` bool — Ascending sort order.
 - `--orderby` string — Sort field. · enum: created_at | updated_at
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members
@@ -94,11 +96,13 @@ Revoke role from members
 ### permission-factor-list
 List permission factors
 - `--factor-types` stringSlice — Filter by factor type. · enum: api | button | visit | menu | url
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: factor_name (string); factor_type (string)
 
 ### permission-list
 List permissions
 - `--role-ids` intSlice — Filter to permissions granted to these roles.
 - `--with-all` bool — If true, return all permissions with is_granted set to indicate which are granted.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); status (string)
 
 ### upsert
 Create or update a role
@@ -106,6 +110,7 @@ Create or update a role
 - `--permission-ids` intSlice — Permission IDs to grant. Replaces the existing set.
 - `--role-id` int64 — Role ID. Omit or set to 0 to create.
 - `--role-name` string (required) — Role display name. 1–39 characters. (1-39 chars)
+- response: single object (`data` unwrapped to the top level) — fields: role_id (integer); role_name (string)
 
 <!-- GENERATED:role END -->
 
@@ -113,8 +118,6 @@ Create or update a role
 
 - **`permission-id` vs `permission-factor`**: `permission-list` returns coarse permission objects (id, name, class, scope, type=read|manage) — use these ids in `upsert --permission-ids`. `permission-factor-list` returns fine-grained factors (api/button/menu/url/visit strings like `template:read:info`) — useful for auditing what a permission covers, but not accepted by `upsert`.
 - **`permission-list --with-all`**: returns every permission in the system with `is_granted=true/false` for the requested `--role-ids`. Omit `--role-ids` + `--with-all` to see the full catalog without annotation.
-- **`permission-list` response shape**: rows are under `items[]` — pipe `jq '.items[]'`, NOT `.data.items[]`.
-- **`permission-factor-list` response shape**: top-level array — pipe `jq '.[]'`, NOT `.items[]`.
 
 ## Gotchas
 

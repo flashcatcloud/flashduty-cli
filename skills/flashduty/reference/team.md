@@ -66,16 +66,19 @@ Get team detail
 - `--id` int64
 - `--name` string
 - `--ref-id` string
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
 
 ### info
 Get team detail
 - `--ref-id` string — External reference ID.
 - `--team-id` int64 — Team ID.
 - `--team-name` string — Team name.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
 
 ### infos <team-id> [<id2>...]
 Batch get teams
 - `<team-ids>` (positional, required) intSlice — List of team IDs to look up. Max 100.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: person_ids (array<integer>); team_id (integer); team_name (string)
 
 ### list
 List teams
@@ -85,6 +88,7 @@ List teams
 - `--orderby` string
 - `--page` int
 - `--person-id` int64
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
 
 ### update
 Update an existing team
@@ -106,13 +110,14 @@ Create or update a team
 - `--reset-if-name-exist` bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
 - `--team-id` int64 — Team ID. Omit or set to 0 to create a new team.
 - `--team-name` string (required) — Team display name. 1–39 characters. (1-39 chars)
+- response: single object (`data` unwrapped to the top level) — fields: team_id (integer); team_name (string)
 
 <!-- GENERATED:team END -->
 
 ## Key concepts
 
 - **`status`** on `team list` rows: `enabled` | `disabled`. A disabled team still exists but is excluded from most operational contexts.
-- **`infos <team-id> [<id2>...]`** — takes team IDs as **positional args** (space-separated), not `--team-ids`. The response wraps under `items[]` (pipe `jq '.items[]'` with `--json`), NOT `.data.items[]`.
+- **`infos <team-id> [<id2>...]`** — takes team IDs as **positional args** (space-separated), not `--team-ids`.
 - **`upsert` lookup key** — matched by `--team-id` (if non-zero) or by `--team-name` (name collision). Pass `--reset-if-name-exist` to overwrite membership on a name match; omit it to leave the existing members untouched.
 
 ## Gotchas
@@ -121,7 +126,6 @@ Create or update a team
 - **`get` vs `info`** — both fetch a single team; `get` accepts `--id`/`--name`/`--ref-id`; `get [<id>]` also allows the ID as a positional arg. `info` uses `--team-id`/`--team-name`/`--ref-id` flags only. Prefer `get` for interactive lookup.
 - **`delete` is irreversible** and requires confirmation unless `--force` is set. Always confirm the correct `--id` (not `--name`) in scripts to avoid name-collision accidents.
 - **`infos` positional trap** — the `use` is `infos <team-id> [<id2>...]`; IDs are space-separated positional args, not a flag. `fduty team infos 101 102 103`, not `--team-ids 101,102,103`.
-- **`list` JSON shape** — `--json` returns a top-level array; pipe `jq '.[]'`, NOT `.items[]`.
 - **`upsert` requires `--team-name`** even when updating by `--team-id`; omitting it returns a validation error.
 
 ## Worked example

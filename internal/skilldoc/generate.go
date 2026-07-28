@@ -17,9 +17,14 @@ const (
 // GenerateFence renders the factual fenced block for one command group: a
 // section per leaf verb with its short description and a flag table (name,
 // type, required, usage + enum), plus a body-only (--data) note when the
-// command has nested JSON-only fields. Required-ness and enums are sourced from
-// the authoritative "Request fields:" text in each command's Long; the flag
-// list falls back to the dump's Flags when no such block exists (read-only
+// command has nested JSON-only fields, plus a one-line response-shape summary
+// (top-level object vs. bare array vs. `{items: [...]}` page wrapper, and the
+// field names at that level) when the command documents one. Required-ness
+// and enums are sourced from the authoritative "Request fields:" text in each
+// command's Long; the response shape is likewise sourced from that same
+// Long's "Response fields (...):" block (cligen's own ground truth — see
+// responseShapeLine), not re-derived or hand-curated. The flag list falls
+// back to the dump's Flags when no Request-fields block exists (read-only
 // verbs). Output is deterministic.
 func GenerateFence(d Dump, group string) string {
 	cmds := groupCommands(d, group)
@@ -83,6 +88,9 @@ func writeCommand(b *strings.Builder, c Command) {
 	}
 	if len(fields.bodyOnly) > 0 {
 		fmt.Fprintf(b, "- body-only (`--data`): %s\n", strings.Join(fields.bodyOnly, "; "))
+	}
+	if shape := responseShapeLine(c.Long); shape != "" {
+		b.WriteString(shape)
 	}
 }
 
@@ -294,4 +302,120 @@ func cleanUsage(tail string) string {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "—")
 	return strings.TrimSpace(s)
+}
+
+// --- Long "Response fields:" parser -----------------------------------------
+//
+// cligen classifies every documented response into exactly one of three
+// envelope shapes and says so verbatim in the "Response fields (...):" header
+// it writes into Long — this parser only ever recognizes those three; it does
+// not infer a shape of its own. That header (and the field list under it) is
+// authoritative today but surfaces only via `--help`, which an agent that
+// reads just the card fence never invokes. responseShapeLine folds a
+// one-line summary of it into the fence so every generated verb — not only
+// the handful some earlier hand-written card happened to cover — tells the
+// agent up front whether `--json` is a bare array, a single object, or a
+// `{items: [...]}` page wrapper, and exactly which field names exist at that
+// level. Guessing a field name silently returns null instead of an error, so
+// this is the difference between an agent noticing its own mistake and not.
+
+// responseHeaderRe matches the header line, capturing the parenthetical shape
+// description cligen wrote (verbatim, no leading indent — it starts a new
+// paragraph in Long).
+var responseHeaderRe = regexp.MustCompile(`^Response fields \((.*)\):$`)
+
+// responseFieldRe matches one Response-fields bullet row at any indent depth,
+// e.g. "  - account_id (integer) (required) — ..." or, one level deeper,
+// "    - person_ids (array<integer>) ...". Capture groups: indent, name, type.
+var responseFieldRe = regexp.MustCompile(`^( *)- ([a-zA-Z0-9_]+) \(([^)]*)\)`)
+
+// wrapperWireNames are the exact wire names cligen's own listEnvelope
+// (internal/cmd/cligen/main.go) treats as a paginated-list envelope field:
+// a sole array-typed sibling named items, docs, or list. Mirrored here as a
+// sanity check, not a duplicate classifier — see the guard in
+// responseShapeLine below.
+var wrapperWireNames = map[string]bool{"items": true, "docs": true, "list": true}
+
+// respField is one parsed Response-fields bullet row.
+type respField struct{ name, typ string }
+
+// responseShapeLine renders the one-line response-shape summary for a
+// command's Long, or "" when Long documents no Response fields block (mutation
+// verbs with an empty body, and a few hand-written commands that predate
+// cligen). The three shapes cligen's header can name:
+//
+//   - top-level object: the block's own fields are the response.
+//   - top-level array: `--json` is a bare array of these row objects — pipe
+//     `jq '.[]'`, never `.items[]`.
+//   - `{items: [...]}` page wrapper: the block's sole top-level field is
+//     `items`; the row fields are nested one level (2 spaces) deeper under it.
+//
+// Field names (with their documented type) are read from whichever indent
+// depth holds the actual row/object fields for the detected shape, so the
+// summary always names the fields an agent would pipe `jq` at — not the
+// wrapper key.
+func responseShapeLine(long string) string {
+	lines := strings.Split(long, "\n")
+	headerIdx, header := -1, ""
+	for i, line := range lines {
+		if m := responseHeaderRe.FindStringSubmatch(line); m != nil {
+			headerIdx, header = i, m[1]
+			break
+		}
+	}
+	if headerIdx < 0 {
+		return ""
+	}
+
+	wrapped := strings.Contains(header, "nested under items[]")
+	fieldIndent := "  "
+	if wrapped {
+		fieldIndent = "    " // one level under the sole top-level "items" row
+	}
+
+	var fields []respField
+	for _, line := range lines[headerIdx+1:] {
+		if strings.TrimSpace(line) == "" {
+			break
+		}
+		m := responseFieldRe.FindStringSubmatch(line)
+		if m == nil || m[1] != fieldIndent {
+			continue
+		}
+		fields = append(fields, respField{m[2], m[3]})
+	}
+	if len(fields) == 0 {
+		return ""
+	}
+
+	// Safety net: this parser only ever recognizes the wrapped shape by the
+	// literal substring "nested under items[]" in the header (see the doc
+	// comment above the const block). If cligen's wording for that header
+	// ever drifts without this parser being updated to match, `wrapped` goes
+	// false here even though the response really is a page wrapper — and the
+	// sole top-level field is then exactly one of cligen's own wrapper wire
+	// names (items/docs/list, from listEnvelope in cligen/main.go), holding
+	// an array. Asserting "single object" in that case would be confidently
+	// WRONG about the one thing this whole feature exists to get right, so
+	// refuse to guess: say nothing rather than assert a shape we can no
+	// longer be sure of. A missing line is recoverable via `--help`; a
+	// wrong one isn't.
+	if !wrapped && len(fields) == 1 && wrapperWireNames[fields[0].name] && strings.HasPrefix(fields[0].typ, "array") {
+		return ""
+	}
+
+	var shape string
+	switch {
+	case wrapped:
+		shape = "`{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)"
+	case strings.Contains(header, "TOP-LEVEL array"):
+		shape = "TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`)"
+	default:
+		shape = "single object (`data` unwrapped to the top level)"
+	}
+	names := make([]string, len(fields))
+	for i, f := range fields {
+		names[i] = f.name + " (" + f.typ + ")"
+	}
+	return fmt.Sprintf("- response: %s — fields: %s\n", shape, strings.Join(names, "; "))
 }

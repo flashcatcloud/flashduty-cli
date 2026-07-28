@@ -9,8 +9,10 @@ import (
 )
 
 // Build walks the cobra tree rooted at root and returns a structured dump of
-// every runnable, non-hidden leaf command. Group containers (non-runnable
-// parents like "status-page") are descended into but not emitted themselves.
+// every runnable, non-hidden leaf command. Group containers (parents with
+// their own subcommands, like "status-page") are descended into but not
+// emitted themselves — see the predicate comment in walk for why this is
+// keyed off subcommands rather than Runnable().
 //
 // Path is the space-joined chain of cobra command names below the root, using
 // c.Name() so a positional placeholder in Use (e.g. "change-create <page-id>")
@@ -33,7 +35,24 @@ func walk(c *cobra.Command, parents []string, d *Dump) {
 		path = append(append([]string{}, parents...), c.Name())
 	}
 
-	if c.Runnable() && !c.Hidden {
+	// A card entry is only correct for a leaf an agent can actually invoke to
+	// get work done. c.Runnable() alone is NOT that signal: every command
+	// group in this tree (alert, incident, oncall schedule, incident
+	// war-room, the generated genGroup groups, ...) is built through
+	// newGroupCmd (internal/cli/command.go), which gives it a real RunE
+	// (print help) and Args validator (groupUnknownSubcommand) so a typo'd
+	// subcommand fails loudly instead of cobra silently discarding it — see
+	// that constructor's doc comment. That makes every group Runnable too,
+	// even though its RunE does nothing but dispatch to children. The
+	// distinguishing fact is not "does it run" but "does it hold
+	// subcommands": every node in this tree with children is a pure
+	// container (verified when this predicate was fixed — no command mixes
+	// its own business logic with child commands), so HasSubCommands() is
+	// the correct group/leaf split. If that ever stops being true — a
+	// command gains both real behavior of its own AND subcommands — this
+	// predicate must change to emit a card for that command's own behavior
+	// while still not treating its children as absent.
+	if !c.HasSubCommands() && c.Runnable() && !c.Hidden {
 		d.Commands = append(d.Commands, command(c, path))
 	}
 

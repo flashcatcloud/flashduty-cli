@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -58,5 +59,100 @@ func TestCommandAlertListNoStatusFilterOmitsIsActive(t *testing.T) {
 	}
 	if _, ok := stub.lastBody["ever_muted"]; ok {
 		t.Errorf("ever_muted should be omitted without --muted, got %#v", stub.lastBody["ever_muted"])
+	}
+}
+
+// TestCommandAlertMergeCommentFileReachesWireByteForByte guards the same
+// shell-interpolation fix applied to incident comment (see
+// TestCommandIncidentCommentPreservesShellMetacharactersByteForByte): alert
+// merge's comment must come from --comment-file, never an inline shell
+// argument, so backticks, $(...), and quotes inside an LLM-authored comment
+// reach the API exactly as written.
+func TestCommandAlertMergeCommentFileReachesWireByteForByte(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	malicious := "Root cause: restart via `kubectl rollout restart deploy/api`.\n" +
+		"Then ran $(rm -rf /tmp/scratch) to clean up staging state.\n" +
+		"Quotes: \"double\" and 'single' and it's mine.\n"
+	commentFile := writeCommentFile(t, malicious)
+
+	out, err := execCommand("alert", "merge", "alert-1", "alert-2",
+		"--incident-id", "inc-1", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[alert-merge-comment-file] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/alert/merge" {
+		t.Fatalf("[alert-merge-comment-file] expected /alert/merge, got %q", stub.lastPath)
+	}
+	if stub.lastBody["comment"] != malicious {
+		t.Fatalf("[alert-merge-comment-file] comment reached the API mangled:\nwant: %q\n got: %q", malicious, stub.lastBody["comment"])
+	}
+	if got, want := strings.Join(stringsField(stub.lastBody, "alert_ids"), ","), "alert-1,alert-2"; got != want {
+		t.Fatalf("[alert-merge-comment-file] expected alert_ids %q, got %q", want, got)
+	}
+	if stub.lastBody["incident_id"] != "inc-1" {
+		t.Fatalf("[alert-merge-comment-file] expected incident_id %q, got %#v", "inc-1", stub.lastBody["incident_id"])
+	}
+	if !strings.Contains(out, "OK: POST /alert/merge") {
+		t.Fatalf("[alert-merge-comment-file] unexpected output:\n%s", out)
+	}
+}
+
+// TestCommandAlertMergeWithoutCommentFileOmitsComment guards that the merge
+// comment stays optional now that it is sourced from a file: not passing
+// --comment-file must not send an empty "comment" field.
+func TestCommandAlertMergeWithoutCommentFileOmitsComment(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("alert", "merge", "alert-1", "--incident-id", "inc-1"); err != nil {
+		t.Fatalf("[alert-merge-no-comment] unexpected error: %v", err)
+	}
+	if _, ok := stub.lastBody["comment"]; ok {
+		t.Fatalf("[alert-merge-no-comment] comment should be omitted, got %#v", stub.lastBody["comment"])
+	}
+}
+
+// TestCommandAlertMergeEmptyCommentFileGivesCleanError guards routing alert
+// merge's optional --comment-file through the same resolveCommentFile helper
+// incident comment uses: an explicit but empty --comment-file value must fail
+// with resolveCommentFile's clean "must not be empty" message, not the raw
+// os.ReadFile("") error.
+func TestCommandAlertMergeEmptyCommentFileGivesCleanError(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand("alert", "merge", "alert-1", "--incident-id", "inc-1", "--comment-file", "")
+	if err == nil {
+		t.Fatal("[alert-merge-empty-comment-file] expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "--comment-file must not be empty") {
+		t.Fatalf("[alert-merge-empty-comment-file] expected the clean resolveCommentFile message, got: %v", err)
+	}
+}
+
+// TestCommandAlertMergeDataAndCommentFileBothStdinErrors guards against a
+// silent-data-loss regression: --data and --comment-file can each read "-"
+// for stdin, but stdin is a single stream that only one of them can actually
+// drain. genAssembleBody resolves --data before --comment-file, so --data
+// claims stdin first; --comment-file must then get a clear, named error
+// instead of silently reading EOF and sending an empty comment (which the
+// SDK's omitempty tag would then drop from the wire entirely, making the
+// command falsely report success).
+func TestCommandAlertMergeDataAndCommentFileBothStdinErrors(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	stdinReader = strings.NewReader("{}")
+
+	_, err := execCommand("alert", "merge", "alert-1", "--incident-id", "inc-1",
+		"--data", "-", "--comment-file", "-")
+	if err == nil {
+		t.Fatal("[alert-merge-double-stdin] expected an error, got nil")
+	}
+	const want = `only one flag can read from stdin: --data and --comment-file were both set to "-"`
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("[alert-merge-double-stdin] expected the double-stdin-read error naming both flags, got: %v", err)
 	}
 }

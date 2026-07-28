@@ -119,6 +119,7 @@ Create an Automation
 - `--schedule-enabled` bool
 - `--team-id` int64
 - `--weekday` string
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 ### delete <rule_id>
 Delete an Automation
@@ -131,6 +132,7 @@ Fire an Automation HTTP POST trigger
 
 ### get <rule_id>
 Get an Automation
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 ### list
 List visible Automations
@@ -140,6 +142,7 @@ List visible Automations
 - `--page` int
 - `--scope` string
 - `--team-ids` int64Slice
+- response: single object (`data` unwrapped to the top level) — fields: rules (array<object>); total (integer)
 
 ### runs <rule_id>
 List Automation runs
@@ -149,10 +152,12 @@ List Automation runs
 - `--status` string
 - `--trigger-kind` string
 - `--until` string
+- response: single object (`data` unwrapped to the top level) — fields: runs (array<object>); total (integer)
 
 ### templates
 List Automation templates
 - `--locale` string
+- response: single object (`data` unwrapped to the top level) — fields: templates (array<object>)
 
 ### update <rule_id>
 Update an Automation
@@ -172,6 +177,7 @@ Update an Automation
 - `--rotate-http-post-token` bool
 - `--schedule` string
 - `--weekday` string
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (integer); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (integer); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (integer)
 
 <!-- GENERATED:automation END -->
 

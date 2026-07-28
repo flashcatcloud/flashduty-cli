@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -96,4 +97,65 @@ func (ctx *RunContext) WriteResultJSON(data any, humanMessage string) error {
 	}
 	_, _ = fmt.Fprintln(ctx.Writer, string(out))
 	return nil
+}
+
+// groupUnknownSubcommand is the Args validator every command-group node gets
+// from newGroupCmd. A group is a command whose only job is to hold
+// subcommands (e.g. "incident", "oncall schedule") — it has no handler of its
+// own.
+//
+// Cobra's built-in "unknown command" detection (legacyArgs, in
+// github.com/spf13/cobra's args.go) only raises an error for the ROOT
+// command: legacyArgs returns nil whenever cmd.HasParent() is true. So when a
+// group is left as a bare &cobra.Command{Use, Short} literal, a typo'd
+// subcommand (e.g. "incident list-alerts") walks straight through Find()
+// with no error, execute() then finds the group has no RunE, decides it
+// isn't Runnable, and returns flag.ErrHelp — which ExecuteC always turns into
+// "print help, exit 0", no matter what SilenceErrors/SilenceUsage say. The
+// wrong verb looks exactly like a successful run.
+//
+// Pairing this validator with a real RunE (below) makes the group Runnable,
+// so cobra actually calls ValidateArgs with the leftover token and this
+// function gets a chance to reject it instead of it being silently dropped.
+func groupUnknownSubcommand(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	// Mirrors cobra's own default (see (*Command).findSuggestions): a group
+	// built via newGroupCmd never sets this itself, so the zero value would
+	// otherwise disable the Levenshtein half of SuggestionsFor.
+	if cmd.SuggestionsMinimumDistance <= 0 {
+		cmd.SuggestionsMinimumDistance = 2
+	}
+	suggestion := ""
+	if names := cmd.SuggestionsFor(args[0]); len(names) > 0 {
+		var b strings.Builder
+		b.WriteString("\n\nDid you mean this?\n")
+		for _, name := range names {
+			fmt.Fprintf(&b, "\t%s\n", name)
+		}
+		suggestion = b.String()
+	}
+	return fmt.Errorf("unknown command %q for %q%s", args[0], cmd.CommandPath(), suggestion)
+}
+
+// newGroupCmd creates a command-group node: Use/Short (with Long/Example
+// optionally set by the caller on the returned value) and no behavior of its
+// own beyond dispatching to its subcommands.
+//
+// Every group in the command tree — curated (alert, incident, oncall
+// schedule, ...) and generated (genGroup, in gen_support.go) — must be built
+// through this constructor rather than a bare &cobra.Command{Use, Short}
+// literal, so a mistyped subcommand fails loudly instead of silently exiting
+// 0 (see groupUnknownSubcommand). Running the group with no subcommand at
+// all still prints help and exits 0, unchanged.
+func newGroupCmd(use, short string) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  groupUnknownSubcommand,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
+	}
 }

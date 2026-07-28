@@ -158,6 +158,153 @@ func TestRunGenAll_FillsEveryCardAndSkipsCardless(t *testing.T) {
 	}
 }
 
+// independentlyClassifyResponse re-derives a command's response envelope
+// shape ("object" | "array" | "wrapped") and its top-level (or, for the
+// wrapped shape, per-row) field names straight from its raw Long text, using
+// logic deliberately NOT shared with skilldoc's own responseShapeLine
+// extractor (internal/skilldoc/generate.go) — a from-scratch re-read of the
+// same ground truth, not a call into the code under test. ok is false when
+// Long documents no Response fields block, or the block yields zero fields
+// at the target depth (skilldoc's own extractor also emits nothing for that
+// case — nothing to cross-check).
+func independentlyClassifyResponse(long string) (shape string, fields []string, ok bool) {
+	lines := strings.Split(long, "\n")
+	headerLine := -1
+	for i, l := range lines {
+		if strings.HasPrefix(l, "Response fields (") {
+			headerLine = i
+			break
+		}
+	}
+	if headerLine < 0 {
+		return "", nil, false
+	}
+
+	header := lines[headerLine]
+	switch {
+	case strings.Contains(header, "nested under items[]"):
+		shape = "wrapped"
+	case strings.Contains(header, "TOP-LEVEL array"):
+		shape = "array"
+	default:
+		shape = "object"
+	}
+	prefix := "  - "
+	if shape == "wrapped" {
+		prefix = "    - " // one level under the sole top-level "items" row
+	}
+	for _, l := range lines[headerLine+1:] {
+		if strings.TrimSpace(l) == "" {
+			break
+		}
+		if !strings.HasPrefix(l, prefix) {
+			continue
+		}
+		name := strings.TrimPrefix(l, prefix)
+		if sp := strings.IndexAny(name, " ("); sp >= 0 {
+			name = name[:sp]
+		}
+		fields = append(fields, name)
+	}
+	return shape, fields, len(fields) > 0
+}
+
+// isCligenWrapperWireName mirrors (independently — not by import) the three
+// wire names cligen's own listEnvelope (internal/cmd/cligen/main.go) treats
+// as a paginated-list envelope field.
+func isCligenWrapperWireName(name string) bool {
+	return name == "items" || name == "docs" || name == "list"
+}
+
+// responseLineOf returns the "- response: ..." bullet inside a rendered fence
+// section, and whether one was present.
+func responseLineOf(section string) (string, bool) {
+	for _, l := range strings.Split(section, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "- response: ") {
+			return l, true
+		}
+	}
+	return "", false
+}
+
+// TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands is the
+// coverage-complete ground-truth cross-check: for every real command whose
+// live Long (built from the actual CLI tree, not a fixture) documents a
+// Response fields block, independently reclassify its envelope shape and
+// field names (independentlyClassifyResponse, above — separate logic from
+// the generator) and assert the fence GenerateFence renders for that verb
+// agrees. A single hand-picked example (`schedule list`) proved the
+// mechanism works but only ever covered one of ~200 documented commands;
+// this walks the whole real dump, so a classification drift ANYWHERE in the
+// generator fails the build, not just for the one verb someone happened to
+// write a test against.
+func TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands(t *testing.T) {
+	d := dump()
+
+	checked := 0
+	for _, c := range d.Commands {
+		wantShape, wantFields, hasBlock := independentlyClassifyResponse(c.Long)
+		if !hasBlock {
+			continue
+		}
+		checked++
+
+		// Render this ONE command in isolation (a single-command dump filtered
+		// to its own group) rather than slicing a section out of the whole
+		// group's fence: several real groups (e.g. "incident") flatten
+		// same-named leaves from different subgroups — "incident get" and
+		// "incident war-room get" both render as a "### get" heading — so a
+		// substring/heading search across the full group fence can grab the
+		// wrong command's section. A single-command fence has exactly one
+		// response line, unambiguously.
+		fence := skilldoc.GenerateFence(skilldoc.Dump{Commands: []skilldoc.Command{c}}, c.Group)
+		gotLine, hasLine := responseLineOf(fence)
+
+		// Mirrors the wrapper-drift guard in responseShapeLine: a response
+		// this classifier reads as a top-level object whose sole field is one
+		// of cligen's own list-envelope wire names (items/docs/list, array
+		// type) is a case the generator deliberately suppresses rather than
+		// assert a possibly-wrong shape. No real command hits this today
+		// (cligen's own header would already say "wrapped" for it), but nothing
+		// here should hard-fail if drift ever makes one — that is the guard
+		// working as designed, not a bug.
+		if wantShape == "object" && len(wantFields) == 1 && isCligenWrapperWireName(wantFields[0]) {
+			if hasLine {
+				t.Errorf("%s: expected the wrapper-drift guard to suppress this line (sole field %q looks like a list envelope), got:\n%s", c.Path, wantFields[0], gotLine)
+			}
+			continue
+		}
+
+		if !hasLine {
+			t.Errorf("%s: generated fence has no response line for a documented Response fields block", c.Path)
+			continue
+		}
+		switch wantShape {
+		case "wrapped":
+			if !strings.Contains(gotLine, "page wrapper") || !strings.Contains(gotLine, "jq '.items[]'") {
+				t.Errorf("%s: want items[] page wrapper, got:\n%s", c.Path, gotLine)
+			}
+		case "array":
+			if !strings.Contains(gotLine, "TOP-LEVEL array") {
+				t.Errorf("%s: want TOP-LEVEL array, got:\n%s", c.Path, gotLine)
+			}
+		default: // "object"
+			if !strings.Contains(gotLine, "single object") {
+				t.Errorf("%s: want single object, got:\n%s", c.Path, gotLine)
+			}
+		}
+		for _, f := range wantFields {
+			if !strings.Contains(gotLine, f+" (") {
+				t.Errorf("%s: missing real field %q (from live Long) in generated line:\n%s", c.Path, f, gotLine)
+			}
+		}
+	}
+	if checked < 100 {
+		t.Fatalf("only cross-checked %d commands — expected on the order of 200; did Response-fields detection break, or has the real CLI shrunk?", checked)
+	}
+	t.Logf("cross-checked response shape/fields for %d real commands", checked)
+}
+
 func TestRunGen_FillsFence(t *testing.T) {
 	dir := t.TempDir()
 	d := fixtureDump()
