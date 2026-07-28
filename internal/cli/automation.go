@@ -13,7 +13,7 @@ import (
 )
 
 const automationHTTPPostOnlyCron = "0 0 * * *"
-const automationUTCNote = "Convert local wall-clock requests to UTC before passing --at or --cron-expr."
+const automationTimezoneNote = "The rule's timezone defaults to the caller's member timezone, then the account timezone; pass the user's local wall-clock time here, do not convert it to UTC."
 
 func newAutomationCmd() *cobra.Command {
 	cmd := newGroupCmd("automation", "Manage AI SRE Automations")
@@ -60,9 +60,11 @@ By default the rule is enabled. Use --disabled only when the user explicitly
 asks to create it disabled. team_id=0 means personal scope; --team-id >0 creates
 the rule under that team. The scope is immutable after creation.
 
-	Schedule helpers build a 5-field UTC cron expression. --at and --cron-expr are
-	interpreted in UTC, not the caller's local timezone. Convert local wall-clock
-	requests to UTC before passing --at or --cron-expr.
+	Schedule helpers build a 5-field cron expression evaluated in the rule's
+	timezone, which defaults to the caller's member timezone, then the account
+	timezone. Pass the user's local wall-clock time to --at or --cron-expr;
+	do not convert it to UTC first. This command has no --timezone flag; use
+	safari automation-rule-create --timezone to pin a different one.
 
 	For HTTP POST-only rules, pass --http-post-trigger without a schedule; the CLI
 	sends a valid placeholder cron and disables the schedule trigger.`, "Automations", "RuleWriteCreate"),
@@ -111,10 +113,10 @@ the rule under that team. The scope is immutable after creation.
 
 	cmd.Flags().StringVar(&name, "name", "", "Automation name")
 	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Scope team ID; 0 means personal scope")
-	cmd.Flags().StringVar(&schedule, "schedule", "", "UTC schedule helper: hourly, daily, weekly, or cron")
-	cmd.Flags().StringVar(&at, "at", "", "UTC time in HH:MM; for hourly schedules, only the minute is used. "+automationUTCNote)
+	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
+	cmd.Flags().StringVar(&at, "at", "", "Local time in HH:MM (rule's timezone); for hourly schedules, only the minute is used. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field UTC cron expression; overrides --schedule helpers. "+automationUTCNote)
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression in the rule's timezone; overrides --schedule helpers. "+automationTimezoneNote)
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "Create the Automation disabled")
 	cmd.Flags().BoolVar(&scheduleEnabled, "schedule-enabled", true, "Whether the schedule trigger is enabled")
 	cmd.Flags().BoolVar(&httpPostTrigger, "http-post-trigger", false, "Create and enable an HTTP POST trigger")
@@ -221,9 +223,11 @@ func newAutomationUpdateCmd() *cobra.Command {
 	The personal/team scope is intentionally not exposed here. Scope is immutable
 	after creation; create a new Automation if the target person/team scope needs to change.
 
-	Schedule helpers build a 5-field UTC cron expression. --at and --cron-expr are
-	interpreted in UTC, not the caller's local timezone. Convert local wall-clock
-	requests to UTC before passing --at or --cron-expr.`, "Automations", "RuleWriteUpdate"),
+	Schedule helpers build a 5-field cron expression evaluated in the rule's
+	timezone, set at creation from the caller's member timezone, then the account
+	timezone. Pass the user's local wall-clock time to --at or --cron-expr;
+	do not convert it to UTC first. This command has no --timezone flag; the
+	rule's timezone cannot be changed after creation.`, "Automations", "RuleWriteUpdate"),
 		Example: `  flashduty automation update auto_123 --name "Daily brief v2" --cron-expr "15 1 * * *"
   flashduty automation update auto_123 --disable
   flashduty automation update auto_123 --enable-http-post-trigger --rotate-http-post-token`,
@@ -315,10 +319,10 @@ func newAutomationUpdateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "New Automation name")
-	cmd.Flags().StringVar(&schedule, "schedule", "", "UTC schedule helper: hourly, daily, weekly, or cron")
-	cmd.Flags().StringVar(&at, "at", "", "UTC time in HH:MM; for hourly schedules, only the minute is used. "+automationUTCNote)
+	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
+	cmd.Flags().StringVar(&at, "at", "", "Local time in HH:MM (rule's timezone); for hourly schedules, only the minute is used. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field UTC cron expression; overrides --schedule helpers. "+automationUTCNote)
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression in the rule's timezone; overrides --schedule helpers. "+automationTimezoneNote)
 	cmd.Flags().BoolVar(&enableRule, "enable", false, "Enable the Automation")
 	cmd.Flags().BoolVar(&disableRule, "disable", false, "Disable the Automation")
 	cmd.Flags().BoolVar(&enableSchedule, "enable-schedule", false, "Enable the schedule trigger")
