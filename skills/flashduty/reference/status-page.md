@@ -247,7 +247,7 @@ Update status page
 
 ## Gotchas
 
-- **`page_id` is POSITIONAL on some verbs, a `--page-id` flag on others — follow the fence heading.** Where the heading reads `### <verb> <page-id>` (change-create, change-active-list, change-list, subscriber-export/import/list, migrate-structure), pass the id as the first bare argument: `change-create <page_id> …`. Passing `--page-id` there fails with `missing page_id`. Verbs that need *both* `page-id` and `change-id` (change-info, change-delete, change-timeline-*, change-update) take both as flags. The fence heading is authoritative.
+- **`page_id` can be passed positionally or via `--page-id` — both work.** Verbs whose fence heading reads `### <verb> <page-id>` (change-create, change-active-list, change-list, subscriber-export/import/list) accept it either way — positional is shorter: `change-create <page_id> …` or `change-create --page-id <page_id> …`; if both are given, the flag wins. Verbs that need *both* `page-id` and `change-id` (change-info, change-delete, change-timeline-*, change-update) take both as flags only — neither has a positional form. `migrate-structure`'s positional/flag is a different field, `source-page-id` (the Atlassian source page ID), not `page-id`.
 - **`page_id` (int) ≠ `change_id` (int)** — page is the status page; change is one incident/maintenance within it. Don't cross them.
 - **`updates` is required on `change-create`** and goes via `--data` (it nests `component_changes[]`, which can't be flat flags). `--description` is also required by the server even though it's not flagged required. Typed scalar flags (`--title`, `--status`…) override matching `--data` keys.
 - **`--notify-subscribers` emails + pushes every subscriber immediately** — set it only once scope is confirmed.

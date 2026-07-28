@@ -1,6 +1,6 @@
 # fduty member — command card
 
-Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 per call). `delete` is **irreversible** — it removes the member from the organization; default safety check rejects deletes when the member is referenced by escalation rules or schedules (pass `--is-force` to bypass). `role-update` **replaces** all role assignments atomically; `role-grant`/`role-revoke` are additive/subtractive.
+Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 per call). `delete` is **irreversible** — it removes the member from the organization. Default safety check rejects deletes when the member is referenced by escalation rules, schedules, team membership, etc. (pass `--is-force` to bypass). A member provisioned via SSO cannot be deleted at all, even with `--is-force` — disable SSO management for them first. `role-update` **replaces** all role assignments atomically; `role-grant`/`role-revoke` are additive/subtractive.
 
 ## Route here when
 
@@ -124,10 +124,10 @@ Update member roles
 
 - **Resolving a `person_id` → name: use `fduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `fduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
 - **`invite` members array is body-only — use `--data`.** Individual members cannot be passed as flat flags; the `members` array (with nested `role_ids`, `email`, `phone`, etc.) lives only in the JSON body. Up to 20 members per call.
-- **`info-reset <member-id>` is POSITIONAL.** Pass the member ID as the first bare argument, not `--member-id`: `fduty member info-reset <member_id> --member-name "New Name"`. The `--member-id` flag exists but the positional form is required per the `use` field.
-- **`role-grant / role-revoke / role-update` — role IDs are POSITIONAL.** All three verbs take role IDs as positional args: `fduty member role-grant <role_id> [<role_id2>...] --member-id <member_id>`. The `--role-ids` flag also exists but the positional form is authoritative.
+- **`info-reset <member-id>` can be passed positionally or via `--member-id`** — both work: `fduty member info-reset <member_id> --member-name "New Name"` or `fduty member info-reset --member-id <member_id> --member-name "New Name"`. If both are given, the flag wins.
+- **`role-grant` / `role-revoke` / `role-update` — role IDs can be passed positionally or via `--role-ids`.** Positional is shorter: `fduty member role-grant <role_id> [<role_id2>...] --member-id <member_id>`, or pass `--role-ids <role_id>,<role_id2>` instead. If both are given, the flag wins.
 - **`role-update` is a full replacement.** List current roles with `member list` first; omitting a role removes it.
-- **`delete` default is safe** (checks escalation rules / schedules). If it rejects with a reference error, review those references before using `--is-force`.
+- **`delete` default is safe** (checks escalation rules / schedules / team membership). If it rejects with a reference error, review those references before using `--is-force`. An SSO-provisioned member rejects unconditionally — `--is-force` does not override that check.
 - **Empty `member list` result is authoritative** — if `--query` returns nothing the member does not exist; do not widen the query.
 
 ## Worked example

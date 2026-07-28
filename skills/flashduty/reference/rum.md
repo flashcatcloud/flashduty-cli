@@ -19,6 +19,13 @@ Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `applicatio
 | list front-end error issues (with time window) | `issue-list` |
 | full detail of one error issue | `issue-info` |
 | mark issue resolved / label cause | `issue-update` |
+| run raw SQL-style queries over RUM data | `data-query` |
+| top values for one facet field, by occurrence count | `facet-count` |
+| browse facet-enabled RUM fields | `facet-list` |
+| browse all RUM field definitions | `field-list` |
+| send a test alert to an app's webhook | `application-webhook-test` |
+| session replay metadata (app/device/views for a session) | `session-replay-metadata` |
+| page through a session's replay segments | `session-replay-segments` |
 
 ## Hot flow — triage front-end errors
 
@@ -190,7 +197,7 @@ List session replay segments
 
 **`--type` (application-create / update) — closed enum:**
 `browser` · `ios` · `android` · `react-native` · `flutter` · `kotlin-multiplatform` · `roku` · `unity`
-No `miniprogram` / `wechat` — unsupported, do not guess a value.
+No `miniprogram` / `wechat` — you cannot create an application with these; do not guess a value. (Session/view `source` on `session-replay-metadata` does include `miniprogram` — that enum describes what recorded the data, not what you can create.)
 
 **Issue `--status` (issue-update / issue-list `--statuses`):**
 `for_review` → `reviewed` → `ignored` | `resolved`
@@ -205,7 +212,7 @@ Regression: a `resolved` issue that recurs gets a `regression{}` object on its r
 
 - **`issue-list` time flags are MILLISECOND epoch, both required.** Use `--start-time` / `--end-time` (NOT `--since`/`--until`, NOT seconds). Max range 183 days. Example: `$(date +%s)000` converts a seconds epoch to ms.
 - **`application_id` ≠ `issue_id`.** `issue_id` comes from `issue-list` — never pass an `application_id` where `issue_id` is expected.
-- **`application-create` positional:** `use` is `application-create <team-id>` — pass the team id as the first bare arg, NOT `--team-id`. Same pattern: `application-delete`, `application-info`, `application-infos`, `application-update`, `issue-info`, `issue-update` all take their primary id as positional. `application-list` and `issue-list` are all-flags.
+- **`application-create <team-id>` can be passed positionally or via `--team-id`** — both work; positional is shorter. Same pattern on `application-delete`, `application-info`, `application-update`, `issue-info`, `issue-update`: each takes its primary id either as the bare positional shown in the fence heading, or via the matching `--application-id`/`--issue-id` flag. `application-infos` only has the plural `--application-ids` as its flag alternative (comma-separated, vs space-separated positionals). If both positional and flag are given, the flag wins. `application-list` and `issue-list` are all-flags.
 - **`alerting` and `tracing` are nested objects** — configure them via `--data '{"alerting":{...},"tracing":{...}}'`; there are no flat flags for their sub-fields. Scalar flags (`--application-name`, `--type`, …) override matching `--data` keys.
 - **Application records hold CONFIG only** — no traffic volume, error-rate, or session-count fields. For trend data, query `monit` RUM series.
 - **Empty `issue-list` is authoritative** — a filter returning no items means no matching issues, not a missing feature. Do not widen the query or guess.

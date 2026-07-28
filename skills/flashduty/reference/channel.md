@@ -296,7 +296,7 @@ Update channel
 ## Key concepts
 
 - **`--auto-resolve-mode`** enum: `trigger` (timer resets on each new alert trigger) | `update` (timer resets on any alert update).
-- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":300}}'` on `create`/`update`.
+- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. **`group.time_window` is in minutes** (default cap 1440 = 24h; extended accounts may allow up to 43200 = 30 days). Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":30}}'` on `create`/`update`.
 - **Rule status**: `enabled` | `disabled` — apply to escalation, inhibit, silence, and drop rules alike.
 - **Inhibit `--equals`**: label keys that must be **equal** between the source (high-priority) and target (suppressed) alert to form a pair (e.g. `--equals service,env`).
 - **Silence time windows**: `time_filter` (one-off, unix seconds, mutually exclusive) vs `time_filters` (recurring weekly HH:MM windows). Pass via `--data`.
@@ -304,10 +304,9 @@ Update channel
 
 ## Gotchas
 
-- **Positional trap**: `channel-id` is **positional** on `info`, `infos`, `update`, `delete`, `disable`, `enable`, `escalate-rule-list`, `inhibit-rule-create`, `inhibit-rule-list`, `silence-rule-create`, `silence-rule-list`, `unsubscribe-rule-create`, `unsubscribe-rule-list`. It is a **flag** (`--channel-id`) on all `escalate-rule-*`, `inhibit-rule-update/delete/enable/disable`, `silence-rule-update/delete/enable/disable`, `unsubscribe-rule-update/delete/enable/disable`. When in doubt, the fence heading `### verb <channel-id>` = positional; heading without `<…>` = flag.
+- **`channel-id` can be passed positionally or via `--channel-id` — both work.** On `info`, `infos`, `update`, `delete`, `disable`, `enable`, `escalate-rule-list`, `inhibit-rule-create`, `inhibit-rule-list`, `silence-rule-create`, `silence-rule-list`, `unsubscribe-rule-create`, `unsubscribe-rule-list`, the fence heading `### verb <channel-id>` shows the shorter positional form, but the matching `--channel-id` flag is accepted too. On all `escalate-rule-*` (except `-list`), `inhibit-rule-update/delete/enable/disable`, `silence-rule-update/delete/enable/disable`, `unsubscribe-rule-update/delete/enable/disable` there is no positional — `--channel-id` is the only way in. If both positional and flag are given anywhere, the flag value wins.
 - **`escalate-rule-create` needs `layers` via `--data`** — it is required and cannot be expressed as a flat flag. Omitting it returns a validation error.
 - **`rule-id` is a MongoDB ObjectID string**, not an integer. Retrieve it from `escalate-rule-list`, `inhibit-rule-list`, `silence-rule-list`, or `unsubscribe-rule-list` before any update/delete/enable/disable.
-- **`channel create` requires `--channel-name` and `--team-id`** even though they are not marked `required` in the flag list — the server rejects the request without them.
 - **`delete` on a channel is irreversible** — all rules within it are also removed. Confirm the `channel-id` against `list` before proceeding.
 - **Empty rule list is authoritative** — if `escalate-rule-list` / `silence-rule-list` / etc. returns no rows, no rules exist; do not widen the query.
 

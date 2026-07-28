@@ -45,13 +45,14 @@ func TestValidate_UnknownCommandAndFlag(t *testing.T) {
 	}
 }
 
-// A field cligen folded into a required positional is still a registered flag,
-// but passing it as `--flag` fails the binary's Args check. The validator must
-// catch this misuse (kind "positional-as-flag") — the exact error that only a
-// live run surfaced before Use was threaded into the oracle. Passing the field
-// positionally must stay clean, and the same flag name on a command where it is
-// NOT folded (two required ids) must remain valid.
-func TestValidate_FoldedPositionalAsFlag(t *testing.T) {
+// A field cligen folds into a required positional keeps a same-named flag
+// registered as a genuine alternative source: every generated command with
+// such a fold uses requireBodyFieldOrExactArg/requireBodyFieldOrArgs
+// (internal/cli/args.go), which explicitly accepts the flag alone. So passing
+// that flag — with or without the positional also present — must validate
+// clean; only a flag that is not registered on the command at all is an
+// actual defect.
+func TestValidate_FoldedFlagIsValidAlternative(t *testing.T) {
 	d := Dump{Commands: []Command{
 		{ // single required id → cligen folds page-id into a positional
 			Path:  "status-page change-active-list",
@@ -67,22 +68,26 @@ func TestValidate_FoldedPositionalAsFlag(t *testing.T) {
 		},
 	}}
 	docs := []Doc{
-		{Path: "bad", Body: "```bash\nfduty status-page change-active-list --page-id 5\n```\n"},
-		{Path: "good", Body: "```bash\nfduty status-page change-active-list 5 --type incident\n```\n"},
+		{Path: "flag-alone", Body: "```bash\nfduty status-page change-active-list --page-id 5 --type incident\n```\n"},
+		{Path: "positional", Body: "```bash\nfduty status-page change-active-list 5 --type incident\n```\n"},
 		{Path: "twoid", Body: "```bash\nfduty status-page change-timeline-create --page-id 5 --change-id 9\n```\n"},
+		{Path: "unknown-on-folder", Body: "```bash\nfduty status-page change-active-list --page-id 5 --bogus x\n```\n"},
 	}
 	byDoc := map[string][]Issue{}
 	for _, is := range Validate(d, docs) {
 		byDoc[is.Doc] = append(byDoc[is.Doc], is)
 	}
-	if n := len(byDoc["bad"]); n != 1 || byDoc["bad"][0].Kind != "positional-as-flag" {
-		t.Errorf("bad: want 1 positional-as-flag, got %+v", byDoc["bad"])
+	if n := len(byDoc["flag-alone"]); n != 0 {
+		t.Errorf("flag-alone: folded flag used without the positional want 0 issues, got %+v", byDoc["flag-alone"])
 	}
-	if n := len(byDoc["good"]); n != 0 {
-		t.Errorf("good: positional usage want 0 issues, got %+v", byDoc["good"])
+	if n := len(byDoc["positional"]); n != 0 {
+		t.Errorf("positional: positional usage want 0 issues, got %+v", byDoc["positional"])
 	}
 	if n := len(byDoc["twoid"]); n != 0 {
 		t.Errorf("twoid: --page-id on non-folding command want 0 issues, got %+v", byDoc["twoid"])
+	}
+	if n := len(byDoc["unknown-on-folder"]); n != 1 || byDoc["unknown-on-folder"][0].Kind != "unknown-flag" {
+		t.Errorf("unknown-on-folder: want 1 unknown-flag, got %+v", byDoc["unknown-on-folder"])
 	}
 }
 

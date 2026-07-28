@@ -181,7 +181,7 @@ Update schedule
 
 ## Gotchas
 
-- **`info`, `infos`, `delete` take positional `<schedule-id>` — NOT `--schedule-id`.** Pass the ID bare: `fduty schedule info 123 --start now --end +7d`. Using `--schedule-id` on these verbs fails.
+- **`info` takes `<schedule-id>` positionally or via `--schedule-id`** — both work: `fduty schedule info 123 --start now --end +7d` or `fduty schedule info --schedule-id 123 --start now --end +7d`. If both are given, the flag wins. **`infos` and `delete` have no singular `--schedule-id` flag** — only the plural `--schedule-ids` (comma-separated), which folds the same way as the positional list; passing `--schedule-id` there is an unknown-flag error, not a rejected alternative.
 - **`create` / `update` / `preview` take all inputs as flags** (no positional). `update` requires `--schedule-id` as a flag to identify the target.
 - **`layers` is body-only.** There is no per-layer typed flag — you must pass the entire `layers` array via `--data`. Scalar top-level flags (`--schedule-name`, `--team-id`) override matching `--data` keys.
 - **`list` without `--start`/`--end` omits computed shifts** — only schedule metadata is returned. Pass both flags (≤45 day span) to get rotation slots in the list response.

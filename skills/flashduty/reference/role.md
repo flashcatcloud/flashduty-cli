@@ -121,8 +121,8 @@ Create or update a role
 
 ## Gotchas
 
-- **`delete`, `disable`, `enable`, `info` take `<role-id>` as a POSITIONAL arg**, not `--role-id`: `fduty role delete <role-id>`. The flag form is silently ignored.
-- **`member-grant` / `member-revoke`: `<member-id>` is POSITIONAL (one or more space-separated); `--role-id` is a flag** — easy to flip. Example: `fduty role member-grant 123 456 --role-id 7`.
+- **`delete`, `disable`, `enable`, `info` take `<role-id>` positionally or via `--role-id`** — both work: `fduty role delete <role-id>` or `fduty role delete --role-id <role-id>`. If both are given, the flag wins.
+- **`member-grant` / `member-revoke`: `<member-id>` is POSITIONAL (one or more space-separated); `--role-id` is a flag** — easy to flip. Example: `fduty role member-grant 123 456 --role-id 7`. Member IDs can also be passed via `--member-ids` instead of the positional (same fold-then-override rule).
 - **`upsert --permission-ids` replaces the full set** on update — omitting it clears all permissions. Always read `permission-list --role-ids <id> --with-all` first to get the current set before modifying.
 - **`upsert` with no `--role-id` (or `--role-id 0`) creates; with `--role-id N` updates** — the verb doubles as create and update; check for an existing role with `list` to avoid accidental duplicates.
 - **`delete` is irreversible** — members who had this role lose its permissions immediately. Prefer `disable` to park a role without destroying it.
