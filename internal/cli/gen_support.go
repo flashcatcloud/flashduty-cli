@@ -138,8 +138,10 @@ func genFoldPositional(args []string, body map[string]any, wire, kind string) er
 	return nil
 }
 
-// genBindBody marshals the assembled body map into the typed request struct so
-// the call benefits from the SDK's wire encoding (nullable pointers, etc.).
+// genBindBody validates and marshals the assembled body map into the typed
+// request struct. SDK request tags without omitempty/omitzero represent required
+// OpenAPI fields; checking their presence before unmarshalling distinguishes an
+// omitted field from an explicitly supplied zero value.
 //
 // POST request structs tag fields with `json`, so json.Unmarshal binds them.
 // GET query structs tag fields with `url` and carry NO json tag, so the
@@ -148,6 +150,53 @@ func genFoldPositional(args []string, body map[string]any, wire, kind string) er
 // field from the body by its url wire-name. For POST structs the url pass is a
 // no-op, so existing behavior is unchanged.
 func genBindBody(body map[string]any, req any) error {
+	var missing []string
+	var inspect func(reflect.Type)
+	inspect = func(rt reflect.Type) {
+		for rt.Kind() == reflect.Ptr {
+			rt = rt.Elem()
+		}
+		if rt.Kind() != reflect.Struct {
+			return
+		}
+		for i := 0; i < rt.NumField(); i++ {
+			field := rt.Field(i)
+			if field.PkgPath != "" {
+				continue
+			}
+			if field.Anonymous {
+				inspect(field.Type)
+				continue
+			}
+
+			tag := field.Tag.Get("json")
+			if tag == "" {
+				tag = field.Tag.Get("url")
+			}
+			parts := strings.Split(tag, ",")
+			if parts[0] == "" || parts[0] == "-" {
+				continue
+			}
+			optional := false
+			for _, option := range parts[1:] {
+				if option == "omitempty" || option == "omitzero" {
+					optional = true
+					break
+				}
+			}
+			if !optional {
+				value, ok := body[parts[0]]
+				if !ok || (value == nil && field.Type.Kind() != reflect.Ptr) {
+					missing = append(missing, parts[0])
+				}
+			}
+		}
+	}
+	inspect(reflect.TypeOf(req))
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required request fields: %s", strings.Join(missing, ", "))
+	}
+
 	b, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to encode request: %w", err)

@@ -235,6 +235,13 @@ Update post-mortem basics
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
 - `--responder-ids` intSlice — Responder member IDs to store on the report.
 
+### post-mortem-content-reset <post-mortem-id>
+Reset post-mortem content
+- `--expected-revision` int64 (required) — Current content revision expected by the caller. (min 0)
+- `--idempotency-key` string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
+- `--markdown` string (required) — Replacement Markdown content. Limited to 4 MiB.
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID to reset.
+
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.

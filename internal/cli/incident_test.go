@@ -60,3 +60,70 @@ func TestCommandIncidentListHelpSurfacesInsightIncidentExport(t *testing.T) {
 		t.Fatalf("help output missing incident export discovery hint:\n%s", out)
 	}
 }
+
+func TestCommandIncidentPostMortemContentResetRejectsMissingRequiredFields(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "missing expected revision",
+			args: []string{
+				"incident", "post-mortem-content-reset", "postmortem-1",
+				"--idempotency-key", "retry-1",
+				"--markdown", "# Test",
+			},
+		},
+		{
+			name: "empty data object",
+			args: []string{
+				"incident", "post-mortem-content-reset",
+				"--data", "{}",
+			},
+		},
+		{
+			name: "null expected revision",
+			args: []string{
+				"incident", "post-mortem-content-reset",
+				"--data", `{"expected_revision":null,"idempotency_key":"retry-1","markdown":"# Test","post_mortem_id":"postmortem-1"}`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			_, err := execCommand(tt.args...)
+			if err == nil || !strings.Contains(err.Error(), "missing required request field") {
+				t.Fatalf("error = %v, want missing required request field", err)
+			}
+			if stub.lastPath != "" {
+				t.Fatalf("request reached %q despite missing required request fields", stub.lastPath)
+			}
+		})
+	}
+}
+
+func TestCommandIncidentPostMortemContentResetAcceptsExplicitZeroRevision(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"incident", "post-mortem-content-reset", "postmortem-1",
+		"--expected-revision", "0",
+		"--idempotency-key", "retry-1",
+		"--markdown", "# Test",
+	)
+	if err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if stub.lastPath != "/incident/post-mortem/content/reset" {
+		t.Fatalf("path = %q, want /incident/post-mortem/content/reset", stub.lastPath)
+	}
+	got, ok := stub.lastBody["expected_revision"]
+	if !ok || got != float64(0) {
+		t.Fatalf("expected_revision = %#v (present=%v), want explicit 0", got, ok)
+	}
+}

@@ -8,6 +8,81 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genIncidentsPostMortemWriteResetContentCmd() *cobra.Command {
+	var dataJSON string
+	var fExpectedRevision int64
+	var fIdempotencyKey string
+	var fMarkdown string
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "post-mortem-content-reset <post-mortem-id>",
+		Short: "Reset post-mortem content",
+		Long: `Reset post-mortem content.
+
+Replace the body of a drafting post-mortem report with Markdown.
+
+API: POST /incident/post-mortem/content/reset (incident-post-mortem-write-reset-content)
+
+Request fields:
+  --expected-revision int (required) — Current content revision expected by the caller. (min 0)
+  --idempotency-key string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
+  --markdown string (required) — Replacement Markdown content. Limited to 4 MiB.
+  --post-mortem-id string (required) — Post-mortem ID to reset.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - generation (integer) (required) — New collaboration document generation after the reset.
+  - markdown_bytes (integer) (required) — UTF-8 byte length of the accepted Markdown content.
+  - markdown_sha256 (string) (required) — SHA-256 hex digest of the accepted Markdown content.
+  - post_mortem_id (string) (required) — ID of the reset post-mortem report.
+  - previous_generation (integer) (required) — Collaboration document generation before the reset.
+  - previous_revision (integer) (required) — Content revision before the reset.
+  - revision (integer) (required) — New content revision after the reset.
+`,
+		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
+		Example: `  flashduty incident post-mortem-content-reset --data '{"expected_revision":11,"idempotency_key":"postmortem-reset-8104935102-11","markdown":"# Database saturation incident\n\nThe database pool was exhausted; added saturation alert.","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "post_mortem_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("expected-revision") {
+						body["expected_revision"] = fExpectedRevision
+					}
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("markdown") {
+						body["markdown"] = fMarkdown
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetPostMortemContentRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.PostMortemWriteResetContent(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current content revision expected by the caller. (required) (min 0)")
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Non-blank key for safely retrying this exact reset request. (required) (1-128 chars)")
+	cmd.Flags().StringVar(&fMarkdown, "markdown", "", "Replacement Markdown content. Limited to 4 MiB. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID to reset. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIncidentsReadGetWarRoomDefaultObserversCmd() *cobra.Command {
 	var dataJSON string
 	var fIncidentID string
@@ -3654,6 +3729,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func registerGeneratedIncidents(root *cobra.Command) {
 	gIncident := genGroup(root, "incident", "On-call/Incidents API")
+	genAddLeaf(gIncident, genIncidentsPostMortemWriteResetContentCmd())
 	genAddLeaf(gIncident, genIncidentsReadGetWarRoomDefaultObserversCmd())
 	genAddLeaf(gIncident, genIncidentsServiceDeskPlusRequestReadListCmd())
 	genAddLeaf(gIncident, genIncidentsWriteAddWarRoomMemberCmd())
