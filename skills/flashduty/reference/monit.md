@@ -19,6 +19,7 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on monitors �
 | count rules per top-level folder (subtree totals) | `rule-counter-status` |
 | full rule config | `rule-info` |
 | create / update a rule | `rule-create` / `rule-update` |
+| preview a query before saving it into a rule | `preview-sync` |
 | delete one or many rules | `rule-delete` / `rule-delete-batch` |
 | move rules to another folder | `rule-move` |
 | toggle enabled/channels in bulk | `rule-update-fields` |
@@ -387,7 +388,7 @@ Invoke target tools
 - **`tools-catalog` / `tools-invoke` `--target-locator` is required and not guessable.** If the user has not provided a host or IP, ask — do not invent one. Tool names in `invoke` must come from the `tools-catalog` response — never hallucinate them.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
-- **`rule-list-basic` needs a REAL `--folder-id` and returns only that folder's *direct* rules.** `--folder-id 0` / omitting it 400s "Folder not found" — the generated `--folder-id` help below ("0 to list all accessible rules") is a known SDK/OpenAPI bug; ignore it. Enumerate by walking the tree (`rule-counter-status` → `rule-status` → `rule-list-basic`); past the server cap the counters 400 "too many rules" and full enumeration isn't possible from the CLI — report that limit, never substitute fired alerts (see the enumerate hot flow).
+- **`rule-list-basic` and `rule-status` both need a REAL `--folder-id`; neither accepts `0`.** `--folder-id 0` / omitting it 400s "Folder not found" on either verb — the generated `--folder-id` help text below ("0 to list all accessible rules" on `rule-list-basic`, "0 for all" on `rule-status`) is a known SDK/OpenAPI bug on both; ignore it. `rule-list-basic` returns only that folder's *direct* rules; `rule-status` returns trigger counts for that folder and its descendants. Enumerate by walking the tree (`rule-counter-status` → `rule-status` → `rule-list-basic`); past the server cap the counters 400 "too many rules" and full enumeration isn't possible from the CLI — report that limit, never substitute fired alerts (see the enumerate hot flow).
 
 ## Worked example — inspect a firing rule then batch-disable it
 

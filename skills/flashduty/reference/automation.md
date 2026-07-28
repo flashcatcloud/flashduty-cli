@@ -18,6 +18,7 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 | list run history | `runs <rule-id>` |
 | list preset templates | `templates` |
 | test/fire an HTTP POST trigger | `fire <trigger-id>` |
+| run a rule immediately, outside its schedule | `safari automation-rule-run <rule-id>` (the friendly group has no run verb; `fire` is not a substitute — it needs a configured HTTP POST trigger + token) |
 
 ## Scope and visibility
 
@@ -74,7 +75,7 @@ fduty automation update <rule-id> --rotate-http-post-token --output-format toon
 ```bash
 fduty automation create \
   --name "Weekday 08:05 review" \
-  --cron-expr "5 0 * * 1-5" \
+  --cron-expr "5 8 * * 1-5" \
   --prompt "Review open incidents and alert noise before the workday." \
   --output-format toon
 ```

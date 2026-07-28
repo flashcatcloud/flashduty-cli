@@ -23,6 +23,8 @@ Prereq: `SKILL.md` read. This is the **AI-SRE platform self-management** group: 
 | list / create / update an A2A agent | `a2a-agent-list` / `a2a-agent-create` / `a2a-agent-update` |
 | enable / disable / delete an A2A agent | `a2a-agent-enable` / `a2a-agent-disable` / `a2a-agent-delete` |
 | list / get / export / delete a session | `session-list` / `session-get` / `session-export` / `session-delete` |
+| run an Automation rule immediately, outside its schedule | `automation-rule-run <rule-id>` |
+| manage Automation rules directly (create/update/delete/list/runs/…) | `automation-rule-*` / `automation-run-list` / `automation-template-list` — see **`reference/automation.md`** for the primary router |
 
 ## Hot flow — install an MCP server
 
