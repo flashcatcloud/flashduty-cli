@@ -43,15 +43,10 @@ func TestCommandUnknownSubcommandFailsLoudly(t *testing.T) {
 	}
 }
 
-// TestCommandUnknownSubcommandReportedFromAudit reproduces the exact repro
-// from the production audit: an AI-SRE session guessed "incident
-// list-alerts" instead of the real "incident alerts" subcommand. The typo is
-// too far (by both edit-distance and prefix) from any real subcommand name
-// for cobra's SuggestionsFor to produce a match, so this only asserts the
-// core fix — non-zero exit, clearly-labeled unknown command — not a
-// suggestion. See TestCommandUnknownSubcommandFailsLoudly for the
-// suggestion-bearing case.
-func TestCommandUnknownSubcommandReportedFromAudit(t *testing.T) {
+// TestCommandUnknownSubcommandWithoutSuggestionFails verifies that an unknown
+// subcommand still returns an error when it is too far from every real
+// subcommand for cobra to suggest a match.
+func TestCommandUnknownSubcommandWithoutSuggestionFails(t *testing.T) {
 	saveAndResetGlobals(t)
 
 	_, err := execCommand("incident", "list-alerts")
