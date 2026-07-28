@@ -117,7 +117,7 @@ Create or update a team
 ## Key concepts
 
 - **`status`** on `team list` rows: `enabled` | `disabled`. A disabled team still exists but is excluded from most operational contexts.
-- **`infos <team-id> [<id2>...]`** — takes team IDs as **positional args** (space-separated), not `--team-ids`.
+- **`infos <team-id> [<id2>...]`** — takes team IDs as space-separated positional args, or comma-separated via `--team-ids`; both work.
 - **`upsert` lookup key** — matched by `--team-id` (if non-zero) or by `--team-name` (name collision). Pass `--reset-if-name-exist` to overwrite membership on a name match; omit it to leave the existing members untouched.
 
 ## Gotchas
@@ -125,7 +125,7 @@ Create or update a team
 - **`--person-ids` on `update` / `create` / `upsert` is a full replacement**, not an append. Read the current list with `get --id` first, or you will silently remove members.
 - **`get` vs `info`** — both fetch a single team; `get` accepts `--id`/`--name`/`--ref-id`; `get [<id>]` also allows the ID as a positional arg. `info` uses `--team-id`/`--team-name`/`--ref-id` flags only. Prefer `get` for interactive lookup.
 - **`delete` is irreversible** and requires confirmation unless `--force` is set. Always confirm the correct `--id` (not `--name`) in scripts to avoid name-collision accidents.
-- **`infos` positional trap** — the `use` is `infos <team-id> [<id2>...]`; IDs are space-separated positional args, not a flag. `fduty team infos 101 102 103`, not `--team-ids 101,102,103`.
+- **`infos` accepts IDs either way** — space-separated positional args or comma-separated `--team-ids`: `fduty team infos 101 102 103` or `fduty team infos --team-ids 101,102,103`. If both are given, the flag wins.
 - **`upsert` requires `--team-name`** even when updating by `--team-id`; omitting it returns a validation error.
 
 ## Worked example

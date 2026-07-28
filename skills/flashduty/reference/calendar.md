@@ -121,7 +121,7 @@ Update calendar
 
 ## Key concepts
 
-- **`is-off` (bool, required on event-upsert):** `true` = mark as non-working day (holiday/closure); `false` = override to working day (make-up workday / 補班). This is the only enum-like field — it must be explicit; the server rejects a missing value.
+- **`is-off` (bool, required on event-upsert):** `true` = mark as non-working day (holiday/closure); `false` = override to working day (make-up workday / 補班). This is the only enum-like field — it must be explicit; the CLI rejects a missing value before any request is sent.
 - **`end-at` is exclusive:** a single-day event on 2026-01-17 needs `--start-at 2026-01-17 --end-at 2026-01-18`.
 - **`workdays` integers:** 0 = Sunday, 1 = Monday … 6 = Saturday. Standard Mon–Fri = `1,2,3,4,5`.
 - **Calendar kinds:** `personal` (editable, default filter) vs `region.official.holiday` (read-only, browsable). The returned `kind` field can also be `religion.holiday`.

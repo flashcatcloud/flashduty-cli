@@ -91,7 +91,7 @@ Update field
 
 ## Gotchas
 
-- **`delete`, `info`, `update` take `<field-id>` as a POSITIONAL first argument**, not `--field-id`. Example: `fduty field delete <field-id>`, not `--field-id <field-id>`.
+- **`delete`, `info`, `update` take `<field-id>` positionally or via `--field-id`** — both work, e.g. `fduty field delete <field-id>` or `fduty field delete --field-id <field-id>`. If both are given, the flag wins.
 - **`--options` replaces the whole list on `update`** — omitting it leaves options unchanged, but a partial list silently drops the missing values. Always pass the full desired set.
 - **`--field-name` is the machine key** (`[a-zA-Z0-9_]`, starts with letter/underscore, ≤40 chars). It is the stable identifier for downstream enrichment rules — choose it carefully; it cannot be renamed.
 - **`delete` is permanent and cascades** — any enrichment rules that reference the field by `field_name` will lose their target. Confirm the name against `field list` before deleting.
