@@ -29,7 +29,7 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ## Scheduling
 
 - Default create behavior: enabled immediately. Use `--disabled` only if the user asks for a disabled Automation.
-- `create`/`update` expose no `--timezone` flag. The cron expression runs in the rule's timezone, which the server resolves from the caller's member timezone, then the account timezone, falling back to UTC only when neither is set.
+- `create`/`update` expose no `--timezone` flag. The cron expression runs in the rule's timezone, which the server resolves from the caller's member timezone, then the account timezone (a server-side default applies when neither is set).
 - Pass the user's local wall-clock time directly to `--at` or `--cron-expr` — do not convert it to UTC first. The rule already runs in the caller's own resolved timezone, so a manual UTC conversion shifts the schedule by the account's UTC offset.
 - Helper schedules (times are in the rule's resolved timezone, not UTC):
   - `--schedule hourly --at 00:15` -> minute 15 of every hour.
