@@ -41,6 +41,7 @@ func newIncidentCmd() *cobra.Command {
 	cmd.AddCommand(newIncidentWarRoomCmd())
 	cmd.AddCommand(newIncidentFeedCmd())
 	cmd.AddCommand(newIncidentDetailCmd())
+	cmd.AddCommand(newIncidentPostMortemContentResetCmd())
 	return cmd
 }
 

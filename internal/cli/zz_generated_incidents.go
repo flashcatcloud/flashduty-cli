@@ -24,7 +24,7 @@ Replace the body of a drafting post-mortem report with Markdown.
 API: POST /incident/post-mortem/content/reset (incident-post-mortem-write-reset-content)
 
 Request fields:
-  --expected-revision int (required) — Current content revision expected by the caller. (min 0)
+  --expected-revision int (required) — Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (min 0)
   --idempotency-key string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
   --markdown string (required) — Replacement Markdown content. Limited to 4 MiB.
   --post-mortem-id string (required) — Post-mortem ID to reset.
@@ -75,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current content revision expected by the caller. (required) (min 0)")
+	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (required) (min 0)")
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Non-blank key for safely retrying this exact reset request. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&fMarkdown, "markdown", "", "Replacement Markdown content. Limited to 4 MiB. (required)")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID to reset. (required)")
@@ -2183,10 +2183,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
     - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
     - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Report status. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.
@@ -2266,10 +2268,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
     - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
     - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Report status. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.
@@ -3331,10 +3335,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
     - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
     - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Report status. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.

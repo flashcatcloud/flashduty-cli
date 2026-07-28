@@ -245,11 +245,10 @@ Update post-mortem basics
 - `--responder-ids` intSlice — Responder member IDs to store on the report.
 
 ### post-mortem-content-reset <post-mortem-id>
-Reset post-mortem content
-- `--expected-revision` int64 (required) — Current content revision expected by the caller. (min 0)
-- `--idempotency-key` string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
-- `--markdown` string (required) — Replacement Markdown content. Limited to 4 MiB.
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID to reset.
+Reset post-mortem Markdown content
+- `--expected-revision` int64
+- `--idempotency-key` string
+- `--markdown-file` string
 - response: single object (`data` unwrapped to the top level) — fields: generation (integer); markdown_bytes (integer); markdown_sha256 (string); post_mortem_id (string); previous_generation (integer); previous_revision (integer); revision (integer)
 
 ### post-mortem-delete <post-mortem-id>
@@ -284,7 +283,7 @@ List post-mortems
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
 
 ### post-mortem-status-reset <post-mortem-id>
 Update post-mortem status
