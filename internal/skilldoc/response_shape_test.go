@@ -48,6 +48,24 @@ Request fields:
   --schedule-id int (required) — Schedule ID.
 `
 
+// itemsWrappedWithPaginationSiblingsShapeLong reproduces the real shape of
+// `fduty insight incident-list` (internal/cli/zz_generated_analytics.go): a
+// page-wrapper response whose top level carries "items" ALONGSIDE scalar
+// pagination metadata — has_next_page, search_after_ctx, total — not just
+// "items" alone. cligen's listEnvelope requires every non-"items" top-level
+// field here to be a scalar, so these three are always pagination metadata,
+// never more row data.
+const itemsWrappedWithPaginationSiblingsShapeLong = `List insight incidents.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean)
+  - items (array<object>)
+    - incident_id (string)
+    - title (string)
+  - search_after_ctx (string) — Cursor token to fetch the next page. Pass it back in the next request's 'search_after_ctx'.
+  - total (integer) — Total matching incidents.
+`
+
 // driftedWrapperHeaderLong simulates a future cligen wording change to the
 // items[]-wrapper header that no longer contains the literal substring
 // "nested under items[]" this parser keys on (e.g. cligen's header text was
@@ -142,6 +160,48 @@ func TestResponseShapeLine_ItemsWrapped(t *testing.T) {
 	}
 	if strings.Contains(got, "group_name") {
 		t.Errorf("field nested two levels deep (cur_oncall.group_name) must NOT appear:\n%s", got)
+	}
+}
+
+// TestResponseShapeLine_ItemsWrappedNamesPaginationSiblings covers the real
+// `insight incident-list` shape: the wrapper's top level carries "items"
+// ALONGSIDE scalar pagination metadata (has_next_page, search_after_ctx,
+// total). Those siblings must be named in the wrapper descriptor itself —
+// an agent told to paginate via `--search-after-ctx` needs to know the
+// returned cursor lives at `.search_after_ctx` next to `.items`, not silently
+// dropped because the parser only ever looked one level under "items".
+func TestResponseShapeLine_ItemsWrappedNamesPaginationSiblings(t *testing.T) {
+	got := responseShapeLine(itemsWrappedWithPaginationSiblingsShapeLong)
+	if !strings.Contains(got, "items: [...]") || !strings.Contains(got, "page wrapper") {
+		t.Errorf("items[] wrapper shape not detected:\n%s", got)
+	}
+	// The siblings are named inside the wrapper descriptor, in the order
+	// cligen documented them (source order, already alphabetical here).
+	if !strings.Contains(got, "{items: [...], has_next_page, search_after_ctx, total}") {
+		t.Errorf("wrapper descriptor must name the pagination siblings:\n%s", got)
+	}
+	// The row fields (nested under items) are still named, under a label that
+	// disambiguates them from the siblings just named above.
+	if !strings.Contains(got, "items fields: incident_id (string); title (string)") {
+		t.Errorf("row fields must still be listed under an unambiguous label:\n%s", got)
+	}
+	// The siblings must not ALSO appear duplicated in the row-field list.
+	fieldsPart := strings.SplitN(got, "items fields:", 2)[1]
+	for _, sib := range []string{"has_next_page", "search_after_ctx", "total"} {
+		if strings.Contains(fieldsPart, sib) {
+			t.Errorf("pagination sibling %q must not be duplicated in the row-field list:\n%s", sib, got)
+		}
+	}
+}
+
+// TestResponseShapeLine_ItemsWrappedNoSiblingsUnchanged proves the sibling
+// feature is additive: a wrapper with no pagination siblings beyond "items"
+// (itemsWrappedShapeLong) renders the exact same wrapper descriptor as
+// before — no trailing ", " artifact from an empty sibling list.
+func TestResponseShapeLine_ItemsWrappedNoSiblingsUnchanged(t *testing.T) {
+	got := responseShapeLine(itemsWrappedShapeLong)
+	if !strings.Contains(got, "`{items: [...]}` page wrapper") {
+		t.Errorf("wrapper with no siblings must render the bare descriptor, got:\n%s", got)
 	}
 }
 

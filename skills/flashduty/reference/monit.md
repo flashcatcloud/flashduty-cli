@@ -339,7 +339,7 @@ List monitored targets
 - `--cursor` string — Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.
 - `--keyword` string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
 - `--limit` int64 — Page size. Default 50, max 200. (max 200)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: agent_version (string); cluster_name (string); edge_ipport (string); target_kind (string); target_locator (string); updated_at (integer)
+- response: `{items: [...], next_cursor, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_version (string); cluster_name (string); edge_ipport (string); target_kind (string); target_locator (string); updated_at (integer)
 
 ### tools-catalog
 List target tool catalog

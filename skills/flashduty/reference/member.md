@@ -82,7 +82,7 @@ Reset member info
 Invite members
 - `--from` string — Invite source context
 - body-only (`--data`): members (array<object>) (required)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: member_id (integer); member_name (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: member_id (integer); member_name (string)
 
 ### list
 List members
@@ -93,7 +93,7 @@ List members
 - `--query` string — Search keyword
 - `--role-id` int64 — Filter by role ID
 - `--search-after-ctx` string
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (integer); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (integer)
+- response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (integer); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (integer)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member

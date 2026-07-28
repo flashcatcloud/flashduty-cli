@@ -124,7 +124,7 @@ Get schedule info
 ### infos <schedule-id> [<id2>...]
 Batch get schedules
 - `<schedule-ids>` (positional, required) intSlice — Schedule ID list.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### list
 List schedules
@@ -137,7 +137,7 @@ List schedules
 - `--search-after-ctx` string
 - `--start` string — When set together with end, computed layer schedules are returned. Span must be less than 45 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs.
-- response: same shape as `infos <schedule-id> [<id2>...]` above
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (integer); create_by (integer); cur_oncall (object); description (any); disabled (any); end (integer); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (integer); status (any); team_id (any); update_at (integer); update_by (integer)
 
 ### preview
 Preview schedule

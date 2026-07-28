@@ -373,13 +373,21 @@ type respField struct{ name, typ string }
 //   - top-level object: the block's own fields are the response.
 //   - top-level array: `--json` is a bare array of these row objects — pipe
 //     `jq '.[]'`, never `.items[]`.
-//   - `{items: [...]}` page wrapper: the block's sole top-level field is
-//     `items`; the row fields are nested one level (2 spaces) deeper under it.
+//   - `{items: [...]}` page wrapper: the block's top-level array field is
+//     `items` (row fields nested one level deeper under it), alongside
+//     scalar pagination siblings — `total`, `has_next_page`,
+//     `search_after_ctx`, … (cligen's listEnvelope requires every
+//     non-`items` top-level field to be a scalar, so these are always
+//     pagination metadata, never more row data).
 //
 // Field names (with their documented type) are read from whichever indent
 // depth holds the actual row/object fields for the detected shape, so the
 // summary always names the fields an agent would pipe `jq` at — not the
-// wrapper key.
+// wrapper key. For the wrapper shape, the pagination siblings are named too
+// (by name only — their type is implied by cligen's scalar-sibling
+// invariant), since an agent told to paginate via `--search-after-ctx` still
+// needs to know the returned cursor lives at `.search_after_ctx` next to
+// `.items`, not buried in a field list it never sees.
 func responseShapeLine(long string) string {
 	lines := strings.Split(long, "\n")
 	headerIdx, header := -1, ""
@@ -396,19 +404,31 @@ func responseShapeLine(long string) string {
 	wrapped := strings.Contains(header, "nested under items[]")
 	fieldIndent := "  "
 	if wrapped {
-		fieldIndent = "    " // one level under the sole top-level "items" row
+		fieldIndent = "    " // one level under the top-level "items" row
 	}
 
-	var fields []respField
+	// fields holds the row-level fields the summary's "fields:" list names
+	// (top-level for object/array shapes, one level under "items" for the
+	// wrapper shape). siblings holds the wrapper shape's OTHER top-level
+	// fields — pagination metadata alongside "items" (total, has_next_page,
+	// search_after_ctx, …) — collected only when wrapped, since the
+	// unwrapped shapes have no such siblings to speak of.
+	var fields, siblings []respField
 	for _, line := range lines[headerIdx+1:] {
 		if strings.TrimSpace(line) == "" {
 			break
 		}
 		m := responseFieldRe.FindStringSubmatch(line)
-		if m == nil || m[1] != fieldIndent {
+		if m == nil {
 			continue
 		}
-		fields = append(fields, respField{m[2], m[3]})
+		indent, name, typ := m[1], m[2], m[3]
+		switch {
+		case indent == fieldIndent:
+			fields = append(fields, respField{name, typ})
+		case wrapped && indent == "  " && !wrapperWireNames[name]:
+			siblings = append(siblings, respField{name, typ})
+		}
 	}
 	if len(fields) == 0 {
 		return ""
@@ -430,18 +450,37 @@ func responseShapeLine(long string) string {
 		return ""
 	}
 
-	var shape string
+	var shape, fieldsLabel string
 	switch {
 	case wrapped:
-		shape = "`{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)"
+		shape = fmt.Sprintf("`{items: [...]%s}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)", siblingSuffix(siblings))
+		fieldsLabel = "items fields" // disambiguates row fields from the wrapper's own pagination siblings named above
 	case strings.Contains(header, "TOP-LEVEL array"):
 		shape = "TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`)"
+		fieldsLabel = "fields"
 	default:
 		shape = "single object (`data` unwrapped to the top level)"
+		fieldsLabel = "fields"
 	}
 	names := make([]string, len(fields))
 	for i, f := range fields {
 		names[i] = f.name + " (" + f.typ + ")"
 	}
-	return fmt.Sprintf("- response: %s — fields: %s\n", shape, strings.Join(names, "; "))
+	return fmt.Sprintf("- response: %s — %s: %s\n", shape, fieldsLabel, strings.Join(names, "; "))
+}
+
+// siblingSuffix renders a wrapped response's top-level pagination-metadata
+// siblings — e.g. ", total, has_next_page, search_after_ctx" — appended
+// inside the `{items: [...]}` wrapper descriptor, in the order cligen
+// documented them. Empty when the envelope carries no siblings beyond the
+// row array itself.
+func siblingSuffix(siblings []respField) string {
+	if len(siblings) == 0 {
+		return ""
+	}
+	names := make([]string, len(siblings))
+	for i, s := range siblings {
+		names[i] = s.name
+	}
+	return ", " + strings.Join(names, ", ")
 }

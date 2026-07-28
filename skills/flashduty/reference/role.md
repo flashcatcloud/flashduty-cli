@@ -81,7 +81,7 @@ Get role detail
 List roles
 - `--asc` bool — Ascending sort order.
 - `--orderby` string — Sort field. · enum: created_at | updated_at
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members
@@ -102,7 +102,7 @@ List permission factors
 List permissions
 - `--role-ids` intSlice — Filter to permissions granted to these roles.
 - `--with-all` bool — If true, return all permissions with is_granted set to indicate which are granted.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); status (string)
 
 ### upsert
 Create or update a role

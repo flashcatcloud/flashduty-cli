@@ -78,7 +78,7 @@ Get team detail
 ### infos <team-id> [<id2>...]
 Batch get teams
 - `<team-ids>` (positional, required) intSlice — List of team IDs to look up. Max 100.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: person_ids (array<integer>); team_id (integer); team_name (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_ids (array<integer>); team_id (integer); team_name (string)
 
 ### list
 List teams

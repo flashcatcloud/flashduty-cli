@@ -77,7 +77,7 @@ Get application detail
 ### application-infos <application-id> [<id2>...]
 Batch get applications
 - `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-list
 List applications
@@ -89,7 +89,7 @@ List applications
 - `--query` string — Search query to filter by application name.
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID.
-- response: same shape as `application-infos <application-id> [<id2>...]` above
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-update <application-id>
 Update application
@@ -124,13 +124,13 @@ Count facet value distribution
 - `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
 - body-only (`--data`): facet_value (any)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: count (integer); facet_value (any)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: count (integer); facet_value (any)
 
 ### facet-list
 List RUM facet fields
 - `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
 - `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 
 ### field-list
 List RUM fields
@@ -160,7 +160,7 @@ List issues
 - `--statuses` stringSlice — Filter by statuses. · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected causes.
 - `--team-ids` intSlice — Filter by team IDs.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
 ### issue-update <issue-id>
 Update issue
