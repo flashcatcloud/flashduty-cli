@@ -296,7 +296,7 @@ Update channel
 ## Key concepts
 
 - **`--auto-resolve-mode`** enum: `trigger` (timer resets on each new alert trigger) | `update` (timer resets on any alert update).
-- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":300}}'` on `create`/`update`.
+- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. **`group.time_window` is in minutes** (default cap 1440 = 24h; extended accounts may allow up to 43200 = 30 days). Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":30}}'` on `create`/`update`.
 - **Rule status**: `enabled` | `disabled` — apply to escalation, inhibit, silence, and drop rules alike.
 - **Inhibit `--equals`**: label keys that must be **equal** between the source (high-priority) and target (suppressed) alert to form a pair (e.g. `--equals service,env`).
 - **Silence time windows**: `time_filter` (one-off, unix seconds, mutually exclusive) vs `time_filters` (recurring weekly HH:MM windows). Pass via `--data`.
