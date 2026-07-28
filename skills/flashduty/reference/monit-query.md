@@ -22,7 +22,7 @@ fduty monit datasource-list --output-format toon
 fduty monit-query rows --ds-name <name> --ds-type <type> --expr "rate(http_requests_total[5m])"
 # 2b. or get pre-clustered RCA over a window
 fduty monit-query diagnose --ds-name <name> --ds-type <type> \
-  --operation log_patterns --time-start -1h --time-end now
+  --operation log_patterns --input-query '{app="my-app"} |= "error"' --time-start -1h --time-end now
 ```
 
 <!-- GENERATED:monit-query START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -61,10 +61,13 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 - **A 5xx or HTML-body error is TRANSIENT** — retry the same call ≤3×. Do NOT fall back to SSH, `monit-agent`, or incident search on a transient datasource error.
 - `rows` has **no time flags** — putting `--time-start` on `rows` is wrong; embed the range in `--expr`.
 - Empty results = the query genuinely matched nothing in that window — report it, don't widen blindly.
+- **`diagnose` rejects windows wider than 6 hours outright.** `--time-start`/`--time-end` span is capped at 6h server-side; the default window is the last 15 minutes (`--time-start 15m`, `--time-end now`). Widen within the cap, don't retry past it.
+- **`--ds-type` on `diagnose` only accepts `prometheus`, `victorialogs`, `loki`, `mysql`.** `monit datasource-list` can return other types (e.g. `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`) — those are not supported here.
+- **Tunables and their caps**: `--max-logs` (default 10000, cap 50000), `--max-patterns` (default 20, cap 50), `--timeout-seconds` (default 25, cap 30).
 
 ## Worked example — log-pattern evidence in the last hour
 
 ```bash
 fduty monit-query diagnose --ds-name prod-loki --ds-type loki \
-  --operation log_patterns --time-start -1h --time-end now --output-format toon
+  --operation log_patterns --input-query '{app="payment"} |= "error"' --time-start -1h --time-end now --output-format toon
 ```

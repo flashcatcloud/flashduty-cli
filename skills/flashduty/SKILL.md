@@ -37,7 +37,7 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 The hot path: **read the domain card** (index below) for the exact verb + flags. Command groups are hyphenated (`status-page`, `alert-event`), not concatenated (`statuspage`) — guessing the wrong form costs a failed call. For a command outside the cards, derive it from its API path: **group = first path segment, verb = the rest joined by `-`** (`POST /status-page/change/create` → `fduty status-page change-create`), then confirm with `fduty <group> <verb> --help`. Pass nested-object / array fields as JSON via `--data '{...}'`; typed scalar flags override matching `--data` keys.
 
-**Positional arguments.** A card heading like `### change-create <page-id>` means that id is **positional** — pass it as the first bare argument (`change-create 5759… --type incident`), not as `--page-id`. A heading with no `<…>` takes all inputs as flags. Cards mark each positional with a `(positional, required)` row; trust the heading over your instinct to use a flag.
+**Positional arguments.** A card heading like `### change-create <page-id>` means that id can always be passed **positionally**, as the first bare argument (`change-create 5759… --type incident`). On generated/raw-passthrough commands the matching `--<field>` flag (e.g. `--page-id`) is an equally valid alternative — if both are given, the flag wins. A few curated commands (`incident detail`, `automation get`) are positional-only, with no matching flag at all. A heading with no `<…>` takes all inputs as flags. `--help` settles any doubt.
 
 ## fduty answers directly — don't grep or browse
 
