@@ -148,8 +148,9 @@ Create status page
 - body-only (`--data`): custom_links (array<object>); subscription (object)
 - response: single object (`data` unwrapped to the top level) — fields: page_id (integer); page_name (string); page_url_name (string)
 
-### delete
+### delete <page-id>
 Delete status page
+- `<page-id>` (positional, required) int64 — Status page ID.
 
 ### info <page-id>
 Get status page detail
@@ -230,8 +231,24 @@ Upsert status page template
 - body-only (`--data`): template (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: template_id (string)
 
-### update
+### update <page-id>
 Update status page
+- `--contact-info` string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
+- `--custom-domain` string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
+- `--dark-logo` string — Dark-mode logo image of the status page. Omit to keep the existing value.
+- `--date-view` string — How event dates are displayed. Omit to keep the existing value. · enum: calendar | list
+- `--display-uptime-mode` string — How uptime is displayed. Omit to keep the existing value. · enum: chart_and_percentage | chart | none
+- `--favicon` string — Favicon of the status page. Omit to keep the existing value.
+- `--logo` string — Logo image of the status page. Omit to keep the existing value.
+- `--logo-url` string — URL opened when the logo is clicked. Omit to keep the existing value.
+- `--name` string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
+- `--page-footer` string — Footer content shown on the status page. Omit to keep the existing value.
+- `--page-header` string — Header content shown on the status page. Omit to keep the existing value.
+- `<page-id>` (positional, required) int64 — Status page ID.
+- `--page-title` string — Browser title shown for the status page. Omit to keep the existing value.
+- `--template-preference` string — Preferred change-event template type. Omit to keep the existing value.
+- `--url-name` string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)
+- body-only (`--data`): custom_links (array<object>); subscription (object)
 
 <!-- GENERATED:status-page END -->
 

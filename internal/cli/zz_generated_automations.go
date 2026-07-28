@@ -237,7 +237,7 @@ Request fields:
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
   --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
-  --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then UTC when omitted.
+  --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -339,7 +339,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)")
-	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then UTC when omitted.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
