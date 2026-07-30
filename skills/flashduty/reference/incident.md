@@ -375,8 +375,10 @@ Get ServiceDeskPlus linked incidents
 - `--page` int64 — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
 - `--request-id` string — ServiceDeskPlus request ID. (≤64 chars)
 - `--search-after-ctx` string — Cursor returned by the previous page.
+- `--since` string
 - `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string — Synchronization status filter. · enum: success | failed
+- `--until` string
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: channel_id (integer); channel_name (string); created_at (integer); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
 
 ### similar <id>

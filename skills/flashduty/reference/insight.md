@@ -79,10 +79,12 @@ Get account-level insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (integer)
 
@@ -107,10 +109,12 @@ Get top-K alerts grouped by check or resource
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: hours (string); label (string); total_alert_cnt (integer); total_alert_event_cnt (integer)
 
@@ -133,10 +137,12 @@ Get channel insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
 
@@ -159,10 +165,12 @@ Export channel insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 
 ### incident-export
@@ -209,9 +217,11 @@ List insight incidents
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgements (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (integer); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (integer); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
@@ -242,10 +252,12 @@ Get responder insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (integer)
 
@@ -268,10 +280,12 @@ Export responder insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 
 ### team
@@ -293,10 +307,12 @@ Get team insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
 
@@ -319,10 +335,12 @@ Export team insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
+- `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--until` string
 - body-only (`--data`): fields (object); labels (object)
 
 ### top-alerts
