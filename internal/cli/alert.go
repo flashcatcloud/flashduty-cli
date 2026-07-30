@@ -123,7 +123,10 @@ func newAlertGetCmd() *cobra.Command {
 		Use:   "get <alert_id>",
 		Short: "Get alert detail",
 		Long:  curatedLong("Get the full detail of a single alert by ID.", "Alerts", "ReadInfo"),
-		Args:  requireArgs("alert_id"),
+		// incident exposes the same lookup as both "get" and "detail"; accept the
+		// "detail" spelling here too so the two resources behave identically.
+		Aliases: []string{"detail"},
+		Args:    requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				result, _, err := ctx.Client.Alerts.ReadInfo(cmdContext(ctx.Cmd), &flashduty.AlertInfoRequest{
