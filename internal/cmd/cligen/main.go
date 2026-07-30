@@ -842,6 +842,16 @@ var optionalPositional = map[string]bool{
 	"incidentInfo": true,
 }
 
+// opAliases maps an operationId to extra cobra aliases its generated command
+// should accept, keyed like positionalOverride. Generated verbs are path-derived
+// (channelInfo → "info"), which diverges from the get/detail spelling curated
+// commands use for the same single-record read (incident get/detail, alert
+// get). Aliases let the generated command answer both spellings so a slip
+// (`channel get <id>`) succeeds instead of erroring.
+var opAliases = map[string][]string{
+	"channelInfo": {"get", "detail"},
+}
+
 // positional describes the positional argument a generated command exposes.
 type positional struct {
 	Wire     string // request-body wire key the positional folds into
@@ -1042,6 +1052,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	fmt.Fprintf(&b, "\t\tUse:   %q,\n", use)
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
+	if aliases := opAliases[o.OpID]; len(aliases) > 0 {
+		quoted := make([]string, len(aliases))
+		for i, a := range aliases {
+			quoted[i] = fmt.Sprintf("%q", a)
+		}
+		fmt.Fprintf(&b, "\t\tAliases: []string{%s},\n", strings.Join(quoted, ", "))
+	}
 	if hasPos {
 		// Required positionals use body-aware validators: the body field can come
 		// from a positional, its typed flag, or --data. Scalar positionals still

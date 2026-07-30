@@ -913,6 +913,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
   - updated_at (integer) — Last update timestamp (unix seconds).
 `,
+		Aliases: []string{"get", "detail"},
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel info --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
