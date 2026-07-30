@@ -35,6 +35,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
   - feishu_app_card_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+  - incident_card_hidden_fields (object) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -129,6 +130,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
     - feishu_app_card_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+    - incident_card_hidden_fields (object) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -225,7 +227,7 @@ Request fields:
   --content string (required) — Template content to render.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine.
-  incident_card_hidden_fields (object, via --data) — Fields to hide by IM app when previewing an incident card. Only supported IM app types and field names are accepted.
+  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content (string) — Rendered template output, present when success is true.
@@ -320,6 +322,7 @@ Request fields:
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
+  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — Newly created template ID.
@@ -524,6 +527,7 @@ Request fields:
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
+  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
