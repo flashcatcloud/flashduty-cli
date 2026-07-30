@@ -1001,6 +1001,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			isTime[sf.Wire] = true
 		}
 	}
+	// Every relative-time --start-time/--end-time flag also gets the curated
+	// dialect's --since/--until spelling as an alias for the SAME value (parsed
+	// at runtime by genParseTimeFlagAlias).
+	timeAlias, aliasCollision := timeFlagAliases(scalars, isTime)
+	if aliasCollision != "" {
+		fmt.Fprintf(os.Stderr, "cligen: WARN %s.%s (%s) defines its own --%s flag; skipping --since/--until aliasing\n", s.Name, o.Method, o.OpID, aliasCollision)
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "func %s() *cobra.Command {\n", fn)
@@ -1013,6 +1020,9 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			typ = "string"
 		}
 		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), typ)
+		if alias, ok := timeAlias[sf.Wire]; ok {
+			fmt.Fprintf(&b, "\tvar %s string\n", flagVar(alias))
+		}
 	}
 
 	// Command literal. The leaf verb must match the name registered in
@@ -1085,8 +1095,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		if !isTime[sf.Wire] {
 			continue
 		}
-		fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
-			parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
+		if alias, ok := timeAlias[sf.Wire]; ok {
+			fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlagAlias(cmd, %q, %q, %s, %s)\n",
+				parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), alias, flagVar(sf.Wire), flagVar(alias))
+		} else {
+			fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
+				parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
+		}
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 	}
 	// body assembly. The positional argument folds in first (after --data, before
@@ -1142,6 +1157,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	for _, sf := range scalars {
 		usage := flagUsage(specByWire[sf.Wire])
 		if isTime[sf.Wire] {
+			if alias, ok := timeAlias[sf.Wire]; ok {
+				fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
+					flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint+" (alias: --"+alias+")")
+				fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
+					flagVar(alias), alias, "Alias for --"+flagName(sf.Wire)+"."+relativeTimeHint)
+				continue
+			}
 			fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
 				flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint)
 			continue
@@ -1460,6 +1482,45 @@ func flagVar(wire string) string { return "f" + pascal(tokens(wire)) }
 // into (the unix-seconds value and whether the flag was set).
 func parsedTimeVar(wire string) string { return "v" + pascal(tokens(wire)) }
 func okTimeVar(wire string) string     { return "ok" + pascal(tokens(wire)) }
+
+// timeFlagAliases computes the --since/--until alias spelling for each
+// relative-time flag whose emitted name is exactly --start-time/--end-time,
+// returning wire → alias ("since"/"until"). The alias is a second StringVar
+// bound beside the canonical flag, merged at parse time by
+// genParseTimeFlagAlias, so both spellings accept the identical
+// duration/date/Unix-seconds forms the curated --since/--until flags do.
+// Only the relative-time (StringVar) sites qualify: a plain-int millisecond
+// --start-time has no duration parsing to alias identically, and a
+// millisecond-valued --since would fracture the very dialect the alias unifies.
+//
+// Collision guard: if the command's spec defines its own literal since/until
+// param, aliasing is skipped for the WHOLE command (nil map) and the colliding
+// flag name is returned so the caller can log it — an alias must never
+// silently shadow a real spec flag.
+func timeFlagAliases(scalars []scalarField, isTime map[string]bool) (aliases map[string]string, collision string) {
+	aliases = map[string]string{}
+	for _, sf := range scalars {
+		if !isTime[sf.Wire] {
+			continue
+		}
+		switch flagName(sf.Wire) {
+		case "start-time":
+			aliases[sf.Wire] = "since"
+		case "end-time":
+			aliases[sf.Wire] = "until"
+		}
+	}
+	if len(aliases) == 0 {
+		return nil, ""
+	}
+	for _, sf := range scalars {
+		switch name := flagName(sf.Wire); name {
+		case "since", "until":
+			return nil, name
+		}
+	}
+	return aliases, ""
+}
 
 // isUnixSecondsField reports whether an integer request field is a unix-SECONDS
 // timestamp — the only kind for which a relative-time flag ("7d"/"now"/date)

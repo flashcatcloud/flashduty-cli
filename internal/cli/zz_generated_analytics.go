@@ -15,6 +15,7 @@ func genAnalyticsByAccountCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -29,6 +30,7 @@ func genAnalyticsByAccountCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -101,11 +103,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight account --data '{"aggregate_unit":"day","end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -194,7 +196,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -208,7 +211,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -222,6 +226,7 @@ func genAnalyticsByChannelCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -236,6 +241,7 @@ func genAnalyticsByChannelCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -308,11 +314,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight channel --data '{"aggregate_unit":"day","channel_ids":[4321322010131],"end_time":1712604800,"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -401,7 +407,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -415,7 +422,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -429,6 +437,7 @@ func genAnalyticsByResponderCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -443,6 +452,7 @@ func genAnalyticsByResponderCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -506,11 +516,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight responder --data '{"aggregate_unit":"day","end_time":1712604800,"responder_ids":[3790925372131],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -599,7 +609,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -613,7 +624,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -627,6 +639,7 @@ func genAnalyticsByTeamCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -641,6 +654,7 @@ func genAnalyticsByTeamCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -713,11 +727,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight team --data '{"aggregate_unit":"day","end_time":1712604800,"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -806,7 +820,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -820,7 +835,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -834,6 +850,7 @@ func genAnalyticsChannelExportCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -848,6 +865,7 @@ func genAnalyticsChannelExportCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -887,11 +905,11 @@ Request fields:
 		Example: `  flashduty insight channel-export --data '{"channel_ids":[4321322010131],"end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -984,7 +1002,8 @@ Request fields:
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -998,7 +1017,8 @@ Request fields:
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1172,6 +1192,7 @@ func genAnalyticsIncidentListCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -1185,6 +1206,7 @@ func genAnalyticsIncidentListCmd() *cobra.Command {
 	var fSecondsToCloseTo int64
 	var fSeverities []string
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -1274,11 +1296,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight incident-list --data '{"end_time":1712604800,"limit":20,"p":1,"severities":["Critical"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -1372,7 +1394,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -1385,7 +1408,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds.")
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1399,6 +1423,7 @@ func genAnalyticsResponderExportCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -1413,6 +1438,7 @@ func genAnalyticsResponderExportCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -1452,11 +1478,11 @@ Request fields:
 		Example: `  flashduty insight responder-export --data '{"end_time":1712604800,"responder_ids":[3790925372131],"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -1549,7 +1575,8 @@ Request fields:
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -1563,7 +1590,8 @@ Request fields:
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1577,6 +1605,7 @@ func genAnalyticsTeamExportCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -1591,6 +1620,7 @@ func genAnalyticsTeamExportCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -1630,11 +1660,11 @@ Request fields:
 		Example: `  flashduty insight team-export --data '{"end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -1727,7 +1757,8 @@ Request fields:
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -1741,7 +1772,8 @@ Request fields:
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1755,6 +1787,7 @@ func genAnalyticsTopkAlertsByLabelCmd() *cobra.Command {
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
 	var fEndTime string
+	var fUntil string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -1771,6 +1804,7 @@ func genAnalyticsTopkAlertsByLabelCmd() *cobra.Command {
 	var fSeverities []string
 	var fSplitHours bool
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	var fTimeZone string
 	cmd := &cobra.Command{
@@ -1819,11 +1853,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty insight alert-topk-by-label --data '{"end_time":1712604800,"k":10,"label":"check","orderby":"total_alert_cnt","start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -1918,7 +1952,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. [incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, seconds_to_ack, seconds_to_close, closed_by, engaged_seconds, hours, notifications, interruptions, acknowledgements, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, responders, description, labels, fields, creator_id, creator_name]")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
@@ -1934,7 +1969,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

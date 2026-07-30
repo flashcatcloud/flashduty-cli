@@ -58,3 +58,46 @@ func TestTimeVarNames(t *testing.T) {
 		t.Errorf("okTimeVar = %q, want okStartTime", got)
 	}
 }
+
+func TestTimeFlagAliases(t *testing.T) {
+	withTime := map[string]bool{"start_time": true, "end_time": true}
+
+	// The canonical pair gets the curated dialect's spellings.
+	aliases, collision := timeFlagAliases([]scalarField{
+		{Wire: "start_time", Kind: "int"},
+		{Wire: "end_time", Kind: "int"},
+		{Wire: "limit", Kind: "int"},
+	}, withTime)
+	if collision != "" || aliases["start_time"] != "since" || aliases["end_time"] != "until" {
+		t.Errorf("canonical pair: got aliases=%v collision=%q", aliases, collision)
+	}
+
+	// A millisecond start_time (isTime false) is NOT aliased: it has no
+	// duration/date parsing for the alias to share.
+	aliases, collision = timeFlagAliases([]scalarField{{Wire: "start_time", Kind: "int"}}, map[string]bool{})
+	if collision != "" || len(aliases) != 0 {
+		t.Errorf("non-relative-time start_time: got aliases=%v collision=%q", aliases, collision)
+	}
+
+	// Other time-flag names (start/end, *_at_seconds) are not start-time/end-time.
+	aliases, collision = timeFlagAliases([]scalarField{
+		{Wire: "start", Kind: "int"},
+		{Wire: "close_at_seconds", Kind: "int"},
+	}, map[string]bool{"start": true, "close_at_seconds": true})
+	if collision != "" || len(aliases) != 0 {
+		t.Errorf("other time flags: got aliases=%v collision=%q", aliases, collision)
+	}
+
+	// Collision guard: a spec-defined since/until param suppresses aliasing for
+	// the whole command rather than shadowing the real flag.
+	for _, name := range []string{"since", "until"} {
+		aliases, collision = timeFlagAliases([]scalarField{
+			{Wire: "start_time", Kind: "int"},
+			{Wire: "end_time", Kind: "int"},
+			{Wire: name, Kind: "string"},
+		}, withTime)
+		if collision != name || aliases != nil {
+			t.Errorf("collision on %q: got aliases=%v collision=%q", name, aliases, collision)
+		}
+	}
+}
