@@ -152,10 +152,12 @@ func genIncidentsServiceDeskPlusRequestReadListCmd() *cobra.Command {
 	var fAsc bool
 	var fChannelIDs []int
 	var fEndTime string
+	var fUntil string
 	var fIncidentID string
 	var fIntegrationID int64
 	var fRequestID string
 	var fStartTime string
+	var fSince string
 	var fStatus string
 	cmd := &cobra.Command{
 		Use:   "sdp-request-list",
@@ -198,11 +200,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident sdp-request-list --data '{"channel_ids":[12345],"end_time":1779600000,"limit":20,"start_time":1779513600,"status":"success"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -262,11 +264,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor returned by the previous page.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "When 'true', sort by internal record ID ascending; otherwise descending.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ServiceDeskPlus integration ID. (min 0)")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "ServiceDeskPlus request ID. (≤64 chars)")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Synchronization status filter. [success, failed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1274,6 +1278,7 @@ func genIncidentsListCmd() *cobra.Command {
 	var fCloserIDs []int
 	var fCreatorIDs []int
 	var fEndTime string
+	var fUntil string
 	var fEverMuted bool
 	var fIncidentIDs []string
 	var fIncidentSeverity string
@@ -1286,6 +1291,7 @@ func genIncidentsListCmd() *cobra.Command {
 	var fQuery string
 	var fResponderIDs []int
 	var fStartTime string
+	var fSince string
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -1480,11 +1486,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident list --data '{"channel_ids":[2551105804131],"end_time":1712000000,"incident_severity":"Critical,Warning","limit":20,"p":1,"progress":"Triggered,Processing","start_time":1711900800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -1580,7 +1586,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by. Use 0 for standalone (global) incidents.")
 	cmd.Flags().IntSliceVar(&fCloserIDs, "closer-ids", nil, "Closer member IDs. Use 0 for automatically closed incidents.")
 	cmd.Flags().IntSliceVar(&fCreatorIDs, "creator-ids", nil, "Creator member IDs. Use 0 for automatically created incidents.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "When true, include only incidents that were ever silenced.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Restrict to the given incident IDs.")
 	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Comma-separated list of severities ('Critical,Warning,Info').")
@@ -1592,7 +1599,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated list of progress states to match (e.g. 'Triggered,Processing').")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text search query.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs; resolved to channels via channel ownership.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

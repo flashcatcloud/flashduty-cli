@@ -16,11 +16,13 @@ func genChangesListCmd() *cobra.Command {
 	var fAsc bool
 	var fChannelIDs []int
 	var fEndTime string
+	var fUntil string
 	var fIncludeEvents bool
 	var fIntegrationIDs []int
 	var fOrderby string
 	var fQuery string
 	var fStartTime string
+	var fSince string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List changes",
@@ -82,11 +84,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty change list --data '{"asc":false,"end_time":1717046400,"include_events":false,"integration_ids":[362],"limit":10,"orderby":"start_time","p":1,"start_time":1716960000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
 				if err != nil {
 					return err
 				}
@@ -146,12 +148,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort in ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by collaboration channel IDs.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "Include the underlying change events for each change when true.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by reporting integration IDs.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the result by. [start_time, last_time]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text or regular-expression search over change fields.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Unix timestamp in seconds for the start of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Unix timestamp in seconds for the start of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
