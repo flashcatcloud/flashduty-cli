@@ -608,6 +608,7 @@ Request fields:
 func genIncidentsCommentCmd() *cobra.Command {
 	var dataJSON string
 	var fComment string
+	var fCommentTypeID string
 	var fIncidentIDs []string
 	var fMuteReply bool
 	cmd := &cobra.Command{
@@ -620,12 +621,13 @@ Add a text comment to the incident timeline.
 API: POST /incident/comment (incidentComment)
 
 Request fields:
-  --comment string — Comment body. (≤1024 chars)
+  --comment string — Comment body. Leading and trailing whitespace is trimmed; the comment must be non-empty after trimming and at most 1024 characters (counted after @mention normalization). (≤1024 chars)
+  --comment-type-id string — Optional ID of an account-level comment type to attach to the comment (MongoDB ObjectID). An invalid or all-zero ID is rejected with 400.
   --incident-ids []string (required) — Incident IDs to comment on. At most 100 per call.
   --mute-reply bool — When true, do not trigger webhook reply actions for this comment.
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
-		Example: `  flashduty incident comment --data '{"comment":"Identified the root cause. Rolling back the deployment now.","incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
+		Example: `  flashduty incident comment --data '{"comment":"Root cause identified. [@Jane Doe](flashduty://ref/member/2476444212131) please verify the fix.","comment_type_id":"6a5895d672a064bc2d3ddfc2","incident_ids":["69da451ef77b1b51f40e83ee"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -634,6 +636,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("comment") {
 						body["comment"] = fComment
+					}
+					if cmd.Flags().Changed("comment-type-id") {
+						body["comment_type_id"] = fCommentTypeID
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
@@ -662,9 +667,286 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fComment, "comment", "", "Comment body. (≤1024 chars)")
+	cmd.Flags().StringVar(&fComment, "comment", "", "Comment body. Leading and trailing whitespace is trimmed; the comment must be non-empty after trimming and at most 1024 characters (counted after @mention normalization). (≤1024 chars)")
+	cmd.Flags().StringVar(&fCommentTypeID, "comment-type-id", "", "Optional ID of an account-level comment type to attach to the comment (MongoDB ObjectID). An invalid or all-zero ID is rejected with 400.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to comment on. At most 100 per call. (required)")
 	cmd.Flags().BoolVar(&fMuteReply, "mute-reply", false, "When true, do not trigger webhook reply actions for this comment.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsCommentTypeCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fColor string
+	var fName string
+	cmd := &cobra.Command{
+		Use:   "comment-type-create",
+		Short: "Create a comment type",
+		Long: `Create a comment type.
+
+Create a comment type that can be attached to incident comments.
+
+API: POST /incident/comment-type/create (incidentCommentTypeCreate)
+
+Request fields:
+  --color string (required) — Label color as a hex value in #RRGGBB format. Normalized to uppercase.
+  --name string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - comment_type_id (string) — ID of the created comment type (24-character hex ObjectID).
+  - item (object) — An account-level comment type that can be attached to incident comments.
+    - account_id (integer) — Account ID that owns the comment type.
+    - color (string) — Label color as a hex value in #RRGGBB format (stored uppercase).
+    - comment_type_id (string) — Comment type ID (24-character hex ObjectID).
+    - created_at (integer) — Creation time as a Unix timestamp in seconds.
+    - creator_id (integer) — ID of the user who created the comment type.
+    - name (string) — Display name of the comment type. Unique within the account (case-insensitive, trimmed). (≤40 chars)
+    - position (integer) — 1-based display position of the comment type.
+    - updated_at (integer) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) — ID of the user who last updated the comment type.
+`,
+		Example: `  flashduty incident comment-type-create --data '{"color":"#30A46C","name":"Key finding"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("color") {
+						body["color"] = fColor
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CreateIncidentCommentTypeRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.CommentTypeCreate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fColor, "color", "", "Label color as a hex value in #RRGGBB format. Normalized to uppercase. (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (required) (≤40 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsCommentTypeDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fCommentTypeID string
+	cmd := &cobra.Command{
+		Use:   "comment-type-delete <comment-type-id>",
+		Short: "Delete a comment type",
+		Long: `Delete a comment type.
+
+Delete a comment type. Comments that used it keep their text but lose the type label.
+
+API: POST /incident/comment-type/delete (incidentCommentTypeDelete)
+
+Request fields:
+  --comment-type-id string (required) — ID of the comment type to delete (24-character hex ObjectID).
+`,
+		Args:    requireBodyFieldOrExactArg("comment_type_id", "comment-type-id"),
+		Example: `  flashduty incident comment-type-delete --data '{"comment_type_id":"6a5895b572a064bc2d3ddfc0"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "comment_type_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("comment-type-id") {
+						body["comment_type_id"] = fCommentTypeID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeleteIncidentCommentTypeRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.CommentTypeDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/comment-type/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fCommentTypeID, "comment-type-id", "", "ID of the comment type to delete (24-character hex ObjectID). (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsCommentTypeListCmd() *cobra.Command {
+	var dataJSON string
+	cmd := &cobra.Command{
+		Use:   "comment-type-list",
+		Short: "List comment types",
+		Long: `List comment types.
+
+Retrieve all comment types of the account, ordered by their display position.
+
+API: POST /incident/comment-type/list (incidentCommentTypeList)
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - items (array<object>) — All comment types of the account, ordered by position.
+    - account_id (integer) — Account ID that owns the comment type.
+    - color (string) — Label color as a hex value in #RRGGBB format (stored uppercase).
+    - comment_type_id (string) — Comment type ID (24-character hex ObjectID).
+    - created_at (integer) — Creation time as a Unix timestamp in seconds.
+    - creator_id (integer) — ID of the user who created the comment type.
+    - name (string) — Display name of the comment type. Unique within the account (case-insensitive, trimmed). (≤40 chars)
+    - position (integer) — 1-based display position of the comment type.
+    - updated_at (integer) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) — ID of the user who last updated the comment type.
+`,
+		Example: `  flashduty incident comment-type-list --data '{}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				_ = body
+				out, _, err := ctx.Client.Incidents.CommentTypeList(cmdContext(ctx.Cmd))
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsCommentTypeReorderCmd() *cobra.Command {
+	var dataJSON string
+	var fCommentTypeIDs []string
+	cmd := &cobra.Command{
+		Use:   "comment-type-reorder <comment-type-id> [<id2>...]",
+		Short: "Reorder comment types",
+		Long: `Reorder comment types.
+
+Set the display order of all comment types by passing every type ID in the desired order.
+
+API: POST /incident/comment-type/reorder (incidentCommentTypeReorder)
+
+Request fields:
+  --comment-type-ids []string (required) — IDs of every comment type of the account in the desired order (24-character hex ObjectIDs).
+`,
+		Args:    requireBodyFieldOrArgs("comment_type_ids", "comment-type-ids"),
+		Example: `  flashduty incident comment-type-reorder --data '{"comment_type_ids":["6a5895b572a064bc2d3ddfc0","6a5895d672a064bc2d3ddfc2"]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "comment_type_ids", "slice"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("comment-type-ids") {
+						body["comment_type_ids"] = fCommentTypeIDs
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ReorderIncidentCommentTypesRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.CommentTypeReorder(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/comment-type/reorder")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringSliceVar(&fCommentTypeIDs, "comment-type-ids", nil, "IDs of every comment type of the account in the desired order (24-character hex ObjectIDs). (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsCommentTypeUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fColor string
+	var fCommentTypeID string
+	var fName string
+	cmd := &cobra.Command{
+		Use:   "comment-type-update <comment-type-id>",
+		Short: "Update a comment type",
+		Long: `Update a comment type.
+
+Update the name and/or color of an existing account comment type.
+
+API: POST /incident/comment-type/update (incidentCommentTypeUpdate)
+
+Request fields:
+  --color string — New label color as a hex value in #RRGGBB format. Normalized to uppercase.
+  --comment-type-id string (required) — ID of the comment type to update (24-character hex ObjectID).
+  --name string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+`,
+		Args:    requireBodyFieldOrExactArg("comment_type_id", "comment-type-id"),
+		Example: `  flashduty incident comment-type-update --data '{"color":"#B7791F","comment_type_id":"6a5895b572a064bc2d3ddfc0"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "comment_type_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("color") {
+						body["color"] = fColor
+					}
+					if cmd.Flags().Changed("comment-type-id") {
+						body["comment_type_id"] = fCommentTypeID
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpdateIncidentCommentTypeRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.CommentTypeUpdate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/comment-type/update")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fColor, "color", "", "New label color as a hex value in #RRGGBB format. Normalized to uppercase.")
+	cmd.Flags().StringVar(&fCommentTypeID, "comment-type-id", "", "ID of the comment type to update (24-character hex ObjectID). (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -874,7 +1156,7 @@ Request fields:
   --search-after-ctx string
   --asc bool — Ascending chronological order when true.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --types []string — Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
+  --types []string — Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more entries are available.
@@ -884,7 +1166,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
     - deleted_at (integer) — Soft-delete timestamp (ms). Zero if not deleted.
     - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+      - added_assignee_ids (array<integer>) — Member IDs added as assignees.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
+      - assignee_ids (array<integer>) — Assignee member IDs.
       - by (string) — Delivery channel or method label.
       - chat_id (string) — Chat group identifier.
       - chat_name (string) — Chat group display name.
@@ -894,16 +1178,27 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - data_source_id (integer) — Integration data source ID used to send the notification.
         - failed_reason (string) — Failure reason if delivery did not succeed.
       - comment (string) — Comment body.
+      - comment_type (object) — Resolved display of an account-level comment type, populated at read time from the current type definition.
+        - color (string) (required) — Badge color in #RRGGBB format.
+        - id (string) (required) — Comment type ID (MongoDB ObjectID).
+        - name (string) (required) — Display name of the comment type. (≤40 chars)
+      - comment_type_id (string) — ObjectID of the account-level comment type attached to the comment.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
       - escalate_rule_name (string) — Escalation rule display name, filled by the server.
       - field_name (string) — Name of the custom field that was updated.
       - fire_type (string) — Whether this is the first fire or a refire. [fire, refire]
       - from (string) — Source that triggered the resolve action. [voice, console, card, wcard, event, autorslv, autorefresh, escalation]
+      - from_description (string) — Description before the update.
+      - from_priority (string) — Priority label before the update.
+      - from_status (string) — Status label before the update.
+      - from_title (string) — Title before the update.
+      - from_type (string) — Work item type before the conversion. [action, follow_up]
       - id (string) — Opaque assignment ID generated by the server.
       - in_mins (integer) — Window length in minutes.
       - integration_id (integer) — Integration ID that executed the action.
       - integration_name (string) — Integration display name.
+      - item_type (string) — Work item type. [action, follow_up]
       - layer_idx (integer) — Current level index within the escalation rule.
       - max_changes (integer) — Maximum state changes allowed within the window.
       - minutes (integer) — Snooze duration in minutes.
@@ -916,9 +1211,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - failed_reason (string) — Failure reason if delivery did not succeed.
         - person_id (integer) — Recipient member ID.
       - plugin_type (string) — Chat integration plugin type.
+      - post_mortem_id (string) — ID of the post-mortem the work item is bound to.
       - progress (string) — Progress note entered at acknowledgement.
       - reason (string) — Reason why the incident was reopened.
       - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
+      - removed_assignee_ids (array<integer>) — Member IDs removed from assignees.
       - reporter_email (string) — Email of the reporter when the incident was created externally.
       - rid (string) — Notification record ID.
       - robots (array<object>) — Per-robot delivery records.
@@ -933,6 +1230,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
         - title (string) — Incident title.
       - source_responders (array<integer>) — Responder member IDs carried over from the source incidents.
+      - status (string) — Work item status label (e.g. 'open', 'done').
       - target_incident (object) — Brief incident reference embedded in an alert.
         - incident_id (string) — Incident ID (ObjectID hex string).
         - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
@@ -940,9 +1238,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - threshold (integer) — Storm threshold that was reached.
       - title (string) — Initial incident title.
       - to (array<integer>) — Member IDs that received the assignment.
+      - to_description (string) — Description after the update.
+      - to_priority (string) — Priority label after the update.
+      - to_status (string) — Status label after the update.
+      - to_type (string) — Work item type after the conversion. [action, follow_up]
       - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+      - work_item_id (string) — Work item ID.
     - ref_id (string) (required) — ObjectID of the source alert or incident this entry references.
-    - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]
+    - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'i_wi_created' | Work Item Created: An Action or Follow-up was created. | | 'i_wi_updated' | Work Item Updated: Title, description, status, or priority was changed. | | 'i_wi_assignees' | Work Item Assignees Changed: Assignees were updated. | | 'i_wi_completed' | Work Item Completed: An assignee marked the work item complete. | | 'i_wi_converted' | Work Item Converted: An Action was converted to a Follow-up. | | 'i_wi_bound' | Work Item Bound: A converted Follow-up was bound to a post-mortem. | | 'i_wi_deleted' | Work Item Deleted: An Action or Follow-up was soft-deleted. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]
     - updated_at (integer) (required) — Last update timestamp in milliseconds.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
@@ -993,7 +1296,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending chronological order when true.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, a_merge]")
+	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3111,6 +3414,727 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genIncidentsWorkItemBindPostMortemCmd() *cobra.Command {
+	var dataJSON string
+	var fIdempotencyKey string
+	var fIncidentID string
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-post-mortem-bind",
+		Short: "Bind work items to a post-mortem",
+		Long: `Bind work items to a post-mortem.
+
+Bulk-bind an incident's converted-but-unbound follow-ups to a post-mortem.
+
+API: POST /incident/work-item/post-mortem/bind (incidentWorkItemBindPostMortem)
+
+Request fields:
+  --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+  --incident-id string (required) — Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound.
+  --post-mortem-id string (required) — Post-mortem ID (32-character hex string) to bind the follow-ups to.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_more (boolean) (required) — True when more results are available.
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - items (array<object>) (required) — Work items for the current page.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - next_cursor (string) — Cursor for the next page. Pass it as 'cursor'; absent when there are no more results.
+`,
+		Example: `  flashduty incident work-item-post-mortem-bind --data '{"idempotency_key":"bind-wi-20260731-0001","incident_id":"6a5f1e28807515413b384bce","post_mortem_id":"51d65cd9525c369379ba471b5512df63"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("incident-id") {
+						body["incident_id"] = fIncidentID
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.BindWorkItemPostMortemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemBindPostMortem(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string) to bind the follow-ups to. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemCompleteCmd() *cobra.Command {
+	var dataJSON string
+	var fIdempotencyKey string
+	var fTargetStatus string
+	var fVersion int64
+	var fWorkItemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-complete <work-item-id>",
+		Short: "Complete a work item",
+		Long: `Complete a work item.
+
+Mark a work item as completed by setting a client-defined target status.
+
+API: POST /incident/work-item/complete (incidentWorkItemComplete)
+
+Request fields:
+  --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+  --target-status string (required) — Client-defined status to set (max 64 characters). There is no fixed state machine. (≤64 chars)
+  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+`,
+		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
+		Example: `  flashduty incident work-item-complete --data '{"idempotency_key":"complete-wi-20260731-0001","target_status":"done","version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "work_item_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("target-status") {
+						body["target_status"] = fTargetStatus
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					if cmd.Flags().Changed("work-item-id") {
+						body["work_item_id"] = fWorkItemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CompleteWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemComplete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Client-defined status to set (max 64 characters). There is no fixed state machine. (required) (≤64 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemConvertCmd() *cobra.Command {
+	var dataJSON string
+	var fIdempotencyKey string
+	var fTargetStatus string
+	var fVersion int64
+	var fWorkItemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-convert <work-item-id>",
+		Short: "Convert a work item to a follow-up",
+		Long: `Convert a work item to a follow-up.
+
+Convert an incident action item into a post-mortem follow-up in place.
+
+API: POST /incident/work-item/convert (incidentWorkItemConvert)
+
+Request fields:
+  --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+  --target-status string — Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)
+  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+`,
+		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
+		Example: `  flashduty incident work-item-convert --data '{"idempotency_key":"convert-wi-20260731-0001","target_status":"open","version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "work_item_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("target-status") {
+						body["target_status"] = fTargetStatus
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					if cmd.Flags().Changed("work-item-id") {
+						body["work_item_id"] = fWorkItemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ConvertWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemConvert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fAssigneeIDs []int
+	var fDescription string
+	var fIdempotencyKey string
+	var fIncidentID string
+	var fItemType string
+	var fPostMortemID string
+	var fPriority string
+	var fStatus string
+	var fTitle string
+	cmd := &cobra.Command{
+		Use:   "work-item-create <incident-id>",
+		Short: "Create a work item",
+		Long: `Create a work item.
+
+Create an action on an active incident or a follow-up on one of its post-mortems.
+
+API: POST /incident/work-item/create (incidentWorkItemCreate)
+
+Request fields:
+  --assignee-ids []int — Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.
+  --description string — Optional longer description (max 65,535 characters). (≤65535 chars)
+  --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+  --incident-id string (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+  --item-type string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. [action, follow_up]
+  --post-mortem-id string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
+  --priority string — Optional client-defined priority (max 64 characters). (≤64 chars)
+  --status string — Optional client-defined initial status (max 64 characters). (≤64 chars)
+  --title string (required) — Item title (max 512 characters). (≤512 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key and no new item was created.
+  - item (object) (required) — A structured incident work item (action or post-mortem follow-up) with its assignees.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+`,
+		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
+		Example: `  flashduty incident work-item-create --data '{"assignee_ids":[3790925372131],"description":"CPU saturation started right after the v2.14 rollout; roll back and watch the error rate.","idempotency_key":"create-wi-20260731-0001","incident_id":"6a5f1e28807515413b384bce","item_type":"action","priority":"high","status":"open","title":"Roll back the v2.14 deployment on web-server-01"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "incident_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("assignee-ids") {
+						body["assignee_ids"] = fAssigneeIDs
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("idempotency-key") {
+						body["idempotency_key"] = fIdempotencyKey
+					}
+					if cmd.Flags().Changed("incident-id") {
+						body["incident_id"] = fIncidentID
+					}
+					if cmd.Flags().Changed("item-type") {
+						body["item_type"] = fItemType
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					if cmd.Flags().Changed("priority") {
+						body["priority"] = fPriority
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CreateWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemCreate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Optional longer description (max 65,535 characters). (≤65535 chars)")
+	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) the item is anchored to. (required)")
+	cmd.Flags().StringVar(&fItemType, "item-type", "", "'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. (required) [action, follow_up]")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.")
+	cmd.Flags().StringVar(&fPriority, "priority", "", "Optional client-defined priority (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Optional client-defined initial status (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Item title (max 512 characters). (required) (≤512 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fVersion int64
+	var fWorkItemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-delete <work-item-id>",
+		Short: "Delete a work item",
+		Long: `Delete a work item.
+
+Soft-delete a work item.
+
+API: POST /incident/work-item/delete (incidentWorkItemDelete)
+
+Request fields:
+  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+`,
+		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
+		Example: `  flashduty incident work-item-delete --data '{"version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "work_item_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					if cmd.Flags().Changed("work-item-id") {
+						body["work_item_id"] = fWorkItemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DeleteWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Incidents.WorkItemDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /incident/work-item/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemListCmd() *cobra.Command {
+	var dataJSON string
+	var fAssigneeID int64
+	var fCursor string
+	var fIncidentID string
+	var fItemType string
+	var fLimit int64
+	var fPostMortemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-list",
+		Short: "List work items",
+		Long: `List work items.
+
+List incident work items (actions and post-mortem follow-ups) with cursor pagination.
+
+API: POST /incident/work-item/list (incidentWorkItemList)
+
+Request fields:
+  --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
+  --cursor string — Pagination cursor from a previous response's 'next_cursor'.
+  --incident-id string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
+  --item-type string — Restrict results to one item type. [action, follow_up]
+  --limit int — Page size, at most 200. Defaults to 50. (1-200)
+  --post-mortem-id string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_more (boolean) (required) — True when more results are available.
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - items (array<object>) (required) — Work items for the current page.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - next_cursor (string) — Cursor for the next page. Pass it as 'cursor'; absent when there are no more results.
+`,
+		Example: `  flashduty incident work-item-list --data '{"incident_id":"6a5f1e28807515413b384bce","limit":50}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("assignee-id") {
+						body["assignee_id"] = fAssigneeID
+					}
+					if cmd.Flags().Changed("cursor") {
+						body["cursor"] = fCursor
+					}
+					if cmd.Flags().Changed("incident-id") {
+						body["incident_id"] = fIncidentID
+					}
+					if cmd.Flags().Changed("item-type") {
+						body["item_type"] = fItemType
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("post-mortem-id") {
+						body["post_mortem_id"] = fPostMortemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.")
+	cmd.Flags().StringVar(&fCursor, "cursor", "", "Pagination cursor from a previous response's 'next_cursor'.")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.")
+	cmd.Flags().StringVar(&fItemType, "item-type", "", "Restrict results to one item type. [action, follow_up]")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 200. Defaults to 50. (1-200)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemResetAssigneesCmd() *cobra.Command {
+	var dataJSON string
+	var fAssigneeIDs []int
+	var fVersion int64
+	var fWorkItemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-assignees-reset <work-item-id>",
+		Short: "Reset work item assignees",
+		Long: `Reset work item assignees.
+
+Replace a work item's entire assignee set.
+
+API: POST /incident/work-item/assignees/reset (incidentWorkItemResetAssignees)
+
+Request fields:
+  --assignee-ids []int — New assignee member IDs, replacing the current set. An empty array clears all assignees.
+  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+`,
+		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
+		Example: `  flashduty incident work-item-assignees-reset --data '{"assignee_ids":[3790925372131,5068740052131],"version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "work_item_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("assignee-ids") {
+						body["assignee_ids"] = fAssigneeIDs
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					if cmd.Flags().Changed("work-item-id") {
+						body["work_item_id"] = fWorkItemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ResetWorkItemAssigneesRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemResetAssignees(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "New assignee member IDs, replacing the current set. An empty array clears all assignees.")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIncidentsWorkItemUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fDescription string
+	var fPriority string
+	var fStatus string
+	var fTitle string
+	var fVersion int64
+	var fWorkItemID string
+	cmd := &cobra.Command{
+		Use:   "work-item-update <work-item-id>",
+		Short: "Update a work item",
+		Long: `Update a work item.
+
+Partially update a work item's title, description, status, or priority.
+
+API: POST /incident/work-item/update (incidentWorkItemUpdate)
+
+Request fields:
+  --description string — New description (max 65,535 characters). (≤65535 chars)
+  --priority string — New client-defined priority (max 64 characters). (≤64 chars)
+  --status string — New client-defined status (max 64 characters). (≤64 chars)
+  --title string — New title (max 512 characters). (≤512 chars)
+  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
+  - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
+    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
+    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_by (integer) (required) — Member ID of the creator.
+    - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
+    - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
+    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
+    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
+    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - title (string) (required) — Item title (max 512 characters). (≤512 chars)
+    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_by (integer) (required) — Member ID of the last updater.
+    - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
+    - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+`,
+		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
+		Example: `  flashduty incident work-item-update --data '{"status":"in_progress","title":"Roll back the v2.14 deployment on web-server-01 and web-server-02","version":1,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "work_item_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("priority") {
+						body["priority"] = fPriority
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					if cmd.Flags().Changed("work-item-id") {
+						body["work_item_id"] = fWorkItemID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpdateWorkItemRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Incidents.WorkItemUpdate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description (max 65,535 characters). (≤65535 chars)")
+	cmd.Flags().StringVar(&fPriority, "priority", "", "New client-defined priority (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New client-defined status (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New title (max 512 characters). (≤512 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIncidentsPostmortemReadListTemplatesCmd() *cobra.Command {
 	var dataJSON string
 	var fP int64
@@ -3751,6 +4775,11 @@ func registerGeneratedIncidents(root *cobra.Command) {
 	genAddLeaf(gIncident, genIncidentsAlertListCmd())
 	genAddLeaf(gIncident, genIncidentsAssignCmd())
 	genAddLeaf(gIncident, genIncidentsCommentCmd())
+	genAddLeaf(gIncident, genIncidentsCommentTypeCreateCmd())
+	genAddLeaf(gIncident, genIncidentsCommentTypeDeleteCmd())
+	genAddLeaf(gIncident, genIncidentsCommentTypeListCmd())
+	genAddLeaf(gIncident, genIncidentsCommentTypeReorderCmd())
+	genAddLeaf(gIncident, genIncidentsCommentTypeUpdateCmd())
 	genAddLeaf(gIncident, genIncidentsCreateCmd())
 	genAddLeaf(gIncident, genIncidentsCustomActionDoCmd())
 	genAddLeaf(gIncident, genIncidentsDisableMergeCmd())
@@ -3776,6 +4805,14 @@ func registerGeneratedIncidents(root *cobra.Command) {
 	genAddLeaf(gIncident, genIncidentsWarRoomDeleteCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomDetailCmd())
 	genAddLeaf(gIncident, genIncidentsWarRoomListCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemBindPostMortemCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemCompleteCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemConvertCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemCreateCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemDeleteCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemListCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemResetAssigneesCmd())
+	genAddLeaf(gIncident, genIncidentsWorkItemUpdateCmd())
 	genAddLeaf(gIncident, genIncidentsPostmortemReadListTemplatesCmd())
 	genAddLeaf(gIncident, genIncidentsPostmortemReadTemplateInfoCmd())
 	genAddLeaf(gIncident, genIncidentsPostmortemWriteDeleteTemplateCmd())
