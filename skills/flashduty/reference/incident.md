@@ -164,6 +164,30 @@ Add a comment to incident timelines
 - `--comment-file` string
 - `--mute-reply` bool
 
+### comment-type-create
+Create a comment type
+- `--color` string (required) — Label color as a hex value in #RRGGBB format. Normalized to uppercase.
+- `--name` string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+- response: single object (`data` unwrapped to the top level) — fields: comment_type_id (string); item (object)
+
+### comment-type-delete <comment-type-id>
+Delete a comment type
+- `<comment-type-id>` (positional, required) string — ID of the comment type to delete (24-character hex ObjectID).
+
+### comment-type-list
+List comment types
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); color (string); comment_type_id (string); created_at (integer); creator_id (integer); name (string); position (integer); updated_at (integer); updated_by (integer)
+
+### comment-type-reorder <comment-type-id> [<id2>...]
+Reorder comment types
+- `<comment-type-ids>` (positional, required) stringSlice — IDs of every comment type of the account in the desired order (24-character hex ObjectIDs).
+
+### comment-type-update <comment-type-id>
+Update a comment type
+- `--color` string — New label color as a hex value in #RRGGBB format. Normalized to uppercase.
+- `<comment-type-id>` (positional, required) string — ID of the comment type to update (24-character hex ObjectID).
+- `--name` string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+
 ### create
 Create a new incident
 - `--assign` intSlice
@@ -475,6 +499,74 @@ List war rooms
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 — Optional filter: only return war rooms for this IM integration.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); created_at (integer); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+
+### work-item-assignees-reset <work-item-id>
+Reset work item assignees
+- `--assignee-ids` intSlice — New assignee member IDs, replacing the current set. An empty array clears all assignees.
+- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object); removed_assignee_ids (array<integer>)
+
+### work-item-complete <work-item-id>
+Complete a work item
+- `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+- `--target-status` string (required) — Client-defined status to set (max 64 characters). There is no fixed state machine. (≤64 chars)
+- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- response: same shape as `work-item-assignees-reset <work-item-id>` above
+
+### work-item-convert <work-item-id>
+Convert a work item to a follow-up
+- `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+- `--target-status` string — Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)
+- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- response: same shape as `work-item-assignees-reset <work-item-id>` above
+
+### work-item-create <incident-id>
+Create a work item
+- `--assignee-ids` intSlice — Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.
+- `--description` string — Optional longer description (max 65,535 characters). (≤65535 chars)
+- `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+- `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID) the item is anchored to.
+- `--item-type` string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. · enum: action | follow_up
+- `--post-mortem-id` string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
+- `--priority` string — Optional client-defined priority (max 64 characters). (≤64 chars)
+- `--status` string — Optional client-defined initial status (max 64 characters). (≤64 chars)
+- `--title` string (required) — Item title (max 512 characters). (≤512 chars)
+- response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object)
+
+### work-item-delete <work-item-id>
+Delete a work item
+- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+
+### work-item-list
+List work items
+- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
+- `--cursor` string — Pagination cursor from a previous response's 'next_cursor'.
+- `--incident-id` string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
+- `--item-type` string — Restrict results to one item type. · enum: action | follow_up
+- `--limit` int64 — Page size, at most 200. Defaults to 50. (1-200)
+- `--post-mortem-id` string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
+- response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: assignee_ids (array<integer>); converted_at_seconds (integer); converted_by (integer); created_at_seconds (integer); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (integer); updated_by (integer); version (integer); work_item_id (string)
+
+### work-item-post-mortem-bind
+Bind work items to a post-mortem
+- `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
+- `--incident-id` string (required) — Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound.
+- `--post-mortem-id` string (required) — Post-mortem ID (32-character hex string) to bind the follow-ups to.
+- response: same shape as `work-item-list` above
+
+### work-item-update <work-item-id>
+Update a work item
+- `--description` string — New description (max 65,535 characters). (≤65535 chars)
+- `--priority` string — New client-defined priority (max 64 characters). (≤64 chars)
+- `--status` string — New client-defined status (max 64 characters). (≤64 chars)
+- `--title` string — New title (max 512 characters). (≤512 chars)
+- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- response: same shape as `work-item-assignees-reset <work-item-id>` above
 
 <!-- GENERATED:incident END -->
 
