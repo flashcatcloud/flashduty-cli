@@ -2,6 +2,8 @@
 
 Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on status pages — no `--help` needed.** Read verbs are free; any `change-*` create/update with `--notify-subscribers` pages subscribers immediately — confirm scope first.
 
+Structure mutations (`component-upsert` / `component-delete` / `section-upsert` / `section-delete` / `update` / `delete`) on a **public** page change what visitors see immediately, though none of them notify subscribers (only `change-*` with `--notify-subscribers` does). If the task was advisory (「推荐 / 建议 / 看一下」), the user endorsing your proposed structure approves the design, not the write — confirm once before the first mutation. After mutating, report the public page URL, what you verified, and the exact undo (`component-delete` / `section-delete` with the returned IDs).
+
 ## Route here when
 
 "公开事件 / 公开时间线 / 状态页 / 维护窗口 / 订阅者 / 状态页迁移" → **status-page**, NOT `incident` (incident = the internal alert graph; status-page = the public-facing page). You need two IDs, both from `status-page list`: **`page_id` (int)** and **`component_id` (ULID string)**.
