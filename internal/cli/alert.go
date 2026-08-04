@@ -24,7 +24,7 @@ func newAlertCmd() *cobra.Command {
 }
 
 func newAlertListCmd() *cobra.Command {
-	var severity, channel, since, until, fields string
+	var severity, channel, integration, since, until, fields string
 	var active, recovered, muted bool
 	var limit, page int
 
@@ -75,6 +75,14 @@ func newAlertListCmd() *cobra.Command {
 					req.ChannelIDs = channelIDs
 				}
 
+				if integration != "" {
+					integrationIDs, err := parseIntSlice(integration)
+					if err != nil {
+						return fmt.Errorf("invalid --integration: %w", err)
+					}
+					req.IntegrationIDs = integrationIDs
+				}
+
 				result, _, err := ctx.Client.Alerts.ReadList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
@@ -108,6 +116,7 @@ func newAlertListCmd() *cobra.Command {
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().BoolVar(&recovered, "recovered", false, "Show recovered only")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")

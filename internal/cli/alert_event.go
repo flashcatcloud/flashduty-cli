@@ -18,7 +18,7 @@ func newAlertEventCmd() *cobra.Command {
 }
 
 func newAlertEventListCmd() *cobra.Command {
-	var severity, channel, integrationType, since, until, fields string
+	var severity, channel, integration, integrationType, since, until, fields string
 	var limit, page int
 
 	cmd := &cobra.Command{
@@ -58,6 +58,14 @@ func newAlertEventListCmd() *cobra.Command {
 						return fmt.Errorf("invalid --channel: %w", err)
 					}
 					input.ChannelIDs = channelIDs
+				}
+
+				if integration != "" {
+					integrationIDs, err := parseIntSlice(integration)
+					if err != nil {
+						return fmt.Errorf("invalid --integration: %w", err)
+					}
+					input.IntegrationIDs = integrationIDs
 				}
 
 				if integrationType != "" {
@@ -101,7 +109,8 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info (comma-separated)")
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
 	registerEnumFlag(cmd, "severity", severityEnum...)
-	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types")
+	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
+	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types (plugin keys, e.g. AliCloud,Prometheus) — not integration IDs; use --integration for that")
 	cmd.Flags().StringVar(&since, "since", "1h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
