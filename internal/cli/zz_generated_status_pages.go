@@ -1127,6 +1127,43 @@ API: GET /status-page/info (statusPageInfo)
 
 Request fields:
   --page-id string (required) — Status page ID
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - components (array<object>) — Components tracked on the status page.
+    - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+    - component_id (string) — Component ID.
+    - description (string) — Component description.
+    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
+    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+    - name (string) (required) — Component display name.
+    - order_id (integer) — Display order within its section.
+    - section_id (string) — Parent section ID.
+  - contact_info (string) — Get-in-touch contact, a mailto or website URL.
+  - custom_domain (string) — Custom domain pointing to the status page.
+  - custom_links (array<object>) — Custom navigation links shown on the status page.
+  - dark_logo (string) — Dark-mode logo image of the status page.
+  - date_view (string) — How the timeline is displayed. [calendar, list]
+  - display_uptime_mode (string) — How uptime is displayed. [chart_and_percentage, chart, none]
+  - favicon (string) — Favicon of the status page.
+  - logo (string) — Logo image of the status page.
+  - logo_url (string) — URL opened when the logo is clicked.
+  - name (string) — Display name of the status page.
+  - page_footer (string) — Footer content of the status page.
+  - page_header (string) — Header content of the status page.
+  - page_id (integer) — Status page ID.
+  - sections (array<object>) — Sections grouping the components.
+    - description (string) — Section description.
+    - hide_all (boolean) — Whether the section and its components are hidden from summary endpoints.
+    - hide_uptime (boolean) — Whether uptime data is hidden from summary responses.
+    - name (string) — Section name.
+    - order_id (integer) — Display order of the section.
+    - section_id (string) — Section ID.
+  - subscription (object)
+    - email (boolean) — Whether email subscription is enabled.
+    - im (boolean) — Whether IM subscription is enabled.
+  - template_preference (string) — Preferred change-event template type.
+  - type (string) — Visibility type of the status page. [public, internal]
+  - url_name (string) — URL-safe slug, unique per account.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1147,15 +1184,11 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				resp, err := ctx.Client.StatusPages.Info(cmdContext(ctx.Cmd), req)
+				out, _, err := ctx.Client.StatusPages.Info(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: GET /status-page/info")
-				return nil
+				return printGenericResult(ctx, out)
 			})
 		},
 	}

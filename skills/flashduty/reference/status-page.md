@@ -157,6 +157,7 @@ Delete status page
 ### info <page-id>
 Get status page detail
 - `<page-id>` (positional, required) string — Status page ID
+- response: single object (`data` unwrapped to the top level) — fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
 
 ### list
 List status pages
