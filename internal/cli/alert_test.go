@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -59,6 +60,63 @@ func TestCommandAlertListNoStatusFilterOmitsIsActive(t *testing.T) {
 	}
 	if _, ok := stub.lastBody["ever_muted"]; ok {
 		t.Errorf("ever_muted should be omitted without --muted, got %#v", stub.lastBody["ever_muted"])
+	}
+}
+
+// TestCommandAlertListIntegrationFlagReachesWire guards --integration on
+// `alert list`: a comma-separated value must parse via the shared
+// parseIntSlice helper (same as --channel) and forward as integration_ids on
+// /alert/list.
+func TestCommandAlertListIntegrationFlagReachesWire(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("alert", "list", "--integration", "10001,10002"); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if stub.lastPath != "/alert/list" {
+		t.Fatalf("expected /alert/list, got %q", stub.lastPath)
+	}
+	if got, want := fmt.Sprint(stub.lastBody["integration_ids"]), "[10001 10002]"; got != want {
+		t.Fatalf("expected integration_ids %q, got %q", want, got)
+	}
+}
+
+// TestCommandAlertListIntegrationFlagInvalidValue guards the error path: a
+// non-numeric --integration value must fail with a named error instead of
+// silently dropping the filter.
+func TestCommandAlertListIntegrationFlagInvalidValue(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand("alert", "list", "--integration", "abc")
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid --integration") {
+		t.Fatalf("expected an \"invalid --integration\" error, got: %v", err)
+	}
+}
+
+// TestCommandAlertEventListIntegrationFlagReachesWire guards --integration on
+// `alert-event list`: it must forward as integration_ids on /alert-event/list,
+// distinct from --integration-type which forwards as integration_types.
+func TestCommandAlertEventListIntegrationFlagReachesWire(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("alert-event", "list",
+		"--integration", "10001,10002", "--integration-type", "AliCloud"); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if stub.lastPath != "/alert-event/list" {
+		t.Fatalf("expected /alert-event/list, got %q", stub.lastPath)
+	}
+	if got, want := fmt.Sprint(stub.lastBody["integration_ids"]), "[10001 10002]"; got != want {
+		t.Fatalf("expected integration_ids %q, got %q", want, got)
+	}
+	if got, want := fmt.Sprint(stub.lastBody["integration_types"]), "[AliCloud]"; got != want {
+		t.Fatalf("expected integration_types %q, got %q", want, got)
 	}
 }
 

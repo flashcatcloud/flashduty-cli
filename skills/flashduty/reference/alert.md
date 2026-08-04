@@ -90,6 +90,7 @@ List alerts
 - `--active` bool
 - `--channel` string
 - `--fields` string
+- `--integration` string
 - `--limit` int
 - `--muted` bool
 - `--page` int
