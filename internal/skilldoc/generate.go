@@ -391,7 +391,11 @@ var responseHeaderRe = regexp.MustCompile(`^Response fields \((.*)\):$`)
 // responseFieldRe matches one Response-fields bullet row at any indent depth,
 // e.g. "  - account_id (integer) (required) — ..." or, one level deeper,
 // "    - person_ids (array<integer>) ...". Capture groups: indent, name, type.
-var responseFieldRe = regexp.MustCompile(`^( *)- ([a-zA-Z0-9_]+) \(([^)]*)\)`)
+//
+// A dot is part of the name, not a nesting separator: some responses carry
+// flat wire names that contain one (e.g. session_measure.used_cnt, view.days).
+// Excluding it silently dropped every such field from the rendered line.
+var responseFieldRe = regexp.MustCompile(`^( *)- ([a-zA-Z0-9_.]+) \(([^)]*)\)`)
 
 // wrapperWireNames are the exact wire names cligen's own listEnvelope
 // (internal/cmd/cligen/main.go) treats as a paginated-list envelope field:

@@ -340,3 +340,23 @@ func TestGenerateFence_ResponseShapeDedupIsPerGroupNotGlobal(t *testing.T) {
 		t.Errorf("gadget's create must render its own full field list, not reference widget's card:\n%s", gadgetSec)
 	}
 }
+
+// dottedWireNameLong mirrors a response whose wire names contain a dot — the
+// RUM resource record reports usage as session_measure.used_cnt rather than a
+// nested object. The dot is part of the key, not an indent level.
+const dottedWireNameLong = `Read the account's RUM resource record.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account ID.
+  - session_measure.used_cnt (integer) (required) — Measure sessions used.
+  - view.days (integer) (required) — View retention in days.
+`
+
+func TestResponseShapeLine_KeepsDottedWireNames(t *testing.T) {
+	got := responseShapeLine(dottedWireNameLong)
+	for _, want := range []string{"account_id (integer)", "session_measure.used_cnt (integer)", "view.days (integer)"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing field %q:\n%s", want, got)
+		}
+	}
+}
