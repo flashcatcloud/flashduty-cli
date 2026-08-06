@@ -399,3 +399,43 @@ func TestRunGen_TopologyViolationFails(t *testing.T) {
 		t.Fatalf("want topology error mentioning the missing catch-all, got %v", err)
 	}
 }
+
+// TestRunGen_TwoFencesInOneFile pins the sequential splice loop: a single card
+// carrying both a subset fence and the catch-all fence of the same group must
+// have both rewritten in one pass (offsets are re-resolved by marker text
+// after each splice, so the first replacement must not derail the second).
+func TestRunGen_TwoFencesInOneFile(t *testing.T) {
+	dir := t.TempDir()
+	mk := func(verb string) skilldoc.Command {
+		return skilldoc.Command{Path: "svc " + verb, Group: "svc", Short: "S " + verb, Use: verb}
+	}
+	d := skilldoc.Dump{Commands: []skilldoc.Command{mk("list"), mk("rule-create"), mk("rule-delete")}}
+
+	card := filepath.Join(dir, "reference", "svc.md")
+	writeFile(t, card, "# svc\n\nrules first\n\n"+
+		skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n\nthen the rest\n\n"+
+		skilldoc.FenceStart("svc")+"\n"+skilldoc.FenceEnd("svc")+"\n")
+
+	if err := runGen(d, dir, "svc"); err != nil {
+		t.Fatalf("runGen: %v", err)
+	}
+
+	body, err := os.ReadFile(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(body)
+	ruleAt := strings.Index(got, "### rule-create")
+	listAt := strings.Index(got, "### list")
+	if ruleAt < 0 || listAt < 0 || ruleAt > listAt {
+		t.Fatalf("both fences must be filled, subset before catch-all:\n%s", got)
+	}
+	if !strings.Contains(got, "rules first") || !strings.Contains(got, "then the rest") {
+		t.Errorf("gen clobbered hand-written content between fences:\n%s", got)
+	}
+
+	var out bytes.Buffer
+	if n, _ := runCheck(d, dir, &out); n != 0 {
+		t.Errorf("after gen, check should be clean; got %d:\n%s", n, out.String())
+	}
+}

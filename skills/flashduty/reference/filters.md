@@ -36,7 +36,9 @@ the rule fires when ANY group matches; each inner array holds
 ## Keys — use the canonical names only
 
 Common to every rule family: `severity`, `status`, `title`, `description`,
-`data_source_id`, and `labels.<name>` for any custom label. Per family:
+`data_source_id` / `integration_id` (interchangeable — the server accepts
+both and they always carry the same value), and `labels.<name>` for any
+custom label. Per family:
 
 | rule family | matched against | extra keys | keys that DO NOT exist here |
 |---|---|---|---|
@@ -47,13 +49,13 @@ A key outside the family's vocabulary (e.g. `dedup_key` in a silence rule)
 produces a rule that never matches while looking configured — check the table
 before creating, and prefer server-rejected over silently-dead if unsure.
 
-**Legacy aliases — never use them.** `event_severity`, `alert_severity`,
-`incident_severity`, `alert_status`, `incident_status`, and `integration_id`
-are stored aliases that always carry the SAME value as the canonical
-`severity` / `status` / `data_source_id` on their surface. Spelling them adds
-no precision and invites wrong reads — on escalation rules `alert_severity`
-is an alias of the *incident's* severity, not of any alert's. Always write
-the canonical key.
+**Legacy severity/status aliases — never use them.** `event_severity`,
+`alert_severity`, `incident_severity`, `alert_status`, and `incident_status`
+are stored aliases that, at rule-evaluation time, always carry the SAME
+value as the canonical `severity` / `status` on their surface. Spelling them
+adds no precision and invites wrong reads — on escalation rules
+`alert_severity` is an alias of the *incident's* severity, not of any
+alert's. Always write the canonical key.
 
 ## Building filters from incident labels (scoping a rule to one incident)
 

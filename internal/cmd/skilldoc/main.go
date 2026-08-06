@@ -130,8 +130,11 @@ func runGen(d skilldoc.Dump, base, group string) error {
 		for _, id := range perDoc[p] {
 			start, end := skilldoc.FenceStart(id), skilldoc.FenceEnd(id)
 			si := strings.Index(body, start)
+			if si < 0 {
+				return fmt.Errorf("%s: unterminated GENERATED:%s fence", p, id)
+			}
 			ei := strings.Index(body[si:], end)
-			if si < 0 || ei < 0 {
+			if ei < 0 {
 				return fmt.Errorf("%s: unterminated GENERATED:%s fence", p, id)
 			}
 			body = body[:si] + rendered[id] + body[si+ei+len(end):]
