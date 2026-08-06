@@ -111,7 +111,7 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. alert_id,title,alert_severity,created_at); ignored in table mode. Use to avoid dumping the full nested record.")
 

@@ -138,7 +138,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&since, "since", "7d", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
