@@ -143,7 +143,7 @@ View alert timeline
 
 ## Pipeline rule kinds
 
-`pipeline-upsert` replaces the whole pipeline; `rules[].kind` values: `title_reset` · `description_reset` · `severity_reset` · `alert_drop` · `alert_inhibit`. The `rules` array has no typed flag — pass it via `--data '{"rules":[...]}'`. The call is idempotent (upsert), so re-running with the same body is safe.
+`pipeline-upsert` replaces the whole pipeline; `rules[].kind` values: `title_reset` · `description_reset` · `severity_reset` · `alert_drop` · `alert_inhibit`. The `rules` array has no typed flag — pass it via `--data '{"rules":[...]}'`. The call is idempotent (upsert), so re-running with the same body is safe. `rules[].if` and `alert_inhibit`'s `source_filters` are OR-of-AND condition trees — read `reference/filters.md` before composing them.
 
 ## Gotchas
 
