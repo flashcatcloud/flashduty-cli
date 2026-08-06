@@ -373,6 +373,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
       - args (object)
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
+  - timezone (string) — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
 `,
 		Example: `  flashduty monit rule-export --data '{"ids":[50001]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -425,7 +426,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) (required)
   - creator_id (integer) (required)
   - creator_name (string) (required)
-  - cron_pattern (string) (required) — 5-field cron schedule.
+  - cron_pattern (string) (required) — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) (required)
   - delay_seconds (integer) (required)
   - description (string)
@@ -483,6 +484,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - args (object)
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
+  - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - updated_at (integer) (required)
   - updater_id (integer) (required)
   - updater_name (string) (required)
@@ -536,7 +538,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - created_at (integer) (required)
   - creator_id (integer) (required)
   - creator_name (string) (required)
-  - cron_pattern (string) (required) — 5-field cron schedule, e.g. '* * * * *'.
+  - cron_pattern (string) (required) — 5-field cron schedule, e.g. '* * * * *'. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) (required) — Whether debug logging is enabled.
   - delay_seconds (integer) (required) — Evaluation delay in seconds.
   - ds_type (string) (required) — Data source type, e.g. 'prometheus'.
@@ -545,6 +547,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - id (integer) (required) — Unique rule ID.
   - labels (object) — Custom labels.
   - name (string) (required) — Rule name.
+  - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - triggered (boolean) (required) — True if the rule currently has active alerts.
   - updated_at (integer) (required)
   - updater_id (integer) (required)
@@ -600,6 +603,7 @@ func genAlertRulesWriteCreateCmd() *cobra.Command {
 	var fName string
 	var fRepeatInterval int64
 	var fRepeatTotal int64
+	var fTimezone string
 	var fUpdatedAt int64
 	var fUpdaterID int64
 	var fUpdaterName string
@@ -618,7 +622,7 @@ Request fields:
   --created-at int
   --creator-id int
   --creator-name string
-  --cron-pattern string — 5-field cron schedule.
+  --cron-pattern string — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   --debug-log-enabled bool
   --delay-seconds int
   --description string
@@ -632,6 +636,7 @@ Request fields:
   --name string — Rule name.
   --repeat-interval int — Notification repeat interval in seconds.
   --repeat-total int — Max number of repeat notifications.
+  --timezone string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   --updated-at int
   --updater-id int
   --updater-name string
@@ -688,7 +693,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer)
   - creator_id (integer)
   - creator_name (string)
-  - cron_pattern (string) — 5-field cron schedule.
+  - cron_pattern (string) — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean)
   - delay_seconds (integer)
   - description (string)
@@ -746,6 +751,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - args (object)
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
+  - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - updated_at (integer)
   - updater_id (integer)
   - updater_name (string)
@@ -811,6 +817,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("repeat-total") {
 						body["repeat_total"] = fRepeatTotal
 					}
+					if cmd.Flags().Changed("timezone") {
+						body["timezone"] = fTimezone
+					}
 					if cmd.Flags().Changed("updated-at") {
 						body["updated_at"] = fUpdatedAt
 					}
@@ -842,7 +851,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fCreatedAt, "created-at", 0, "Request field created_at")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Request field creator_id")
 	cmd.Flags().StringVar(&fCreatorName, "creator-name", "", "Request field creator_name")
-	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "5-field cron schedule.")
+	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.")
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Request field debug_log_enabled")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Request field delay_seconds")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Request field description")
@@ -856,6 +865,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fName, "name", "", "Rule name.")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Notification repeat interval in seconds.")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Max number of repeat notifications.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.")
 	cmd.Flags().Int64Var(&fUpdatedAt, "updated-at", 0, "Request field updated_at")
 	cmd.Flags().Int64Var(&fUpdaterID, "updater-id", 0, "Request field updater_id")
 	cmd.Flags().StringVar(&fUpdaterName, "updater-name", "", "Request field updater_name")
@@ -974,6 +984,7 @@ func genAlertRulesWriteFieldsUpdateCmd() *cobra.Command {
 	var fIDs []int
 	var fRepeatInterval int64
 	var fRepeatTotal int64
+	var fTimezone string
 	cmd := &cobra.Command{
 		Use:   "rule-update-fields",
 		Short: "Batch update rule fields",
@@ -997,6 +1008,7 @@ Request fields:
   --ids []int (required) — Rule IDs to update.
   --repeat-interval int
   --repeat-total int
+  --timezone string — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
   annotations (object, via --data)
   enabled_times (array<object>, via --data)
     - days (array<integer>) — Days of week, 0 = Sunday.
@@ -1051,6 +1063,9 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					if cmd.Flags().Changed("repeat-total") {
 						body["repeat_total"] = fRepeatTotal
 					}
+					if cmd.Flags().Changed("timezone") {
+						body["timezone"] = fTimezone
+					}
 					return nil
 				})
 				if err != nil {
@@ -1081,6 +1096,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs to update. (required)")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Request field repeat_interval")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Request field repeat_total")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1250,6 +1266,7 @@ func genAlertRulesWriteUpdateCmd() *cobra.Command {
 	var fName string
 	var fRepeatInterval int64
 	var fRepeatTotal int64
+	var fTimezone string
 	var fUpdatedAt int64
 	var fUpdaterID int64
 	var fUpdaterName string
@@ -1268,7 +1285,7 @@ Request fields:
   --created-at int
   --creator-id int
   --creator-name string
-  --cron-pattern string — 5-field cron schedule.
+  --cron-pattern string — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   --debug-log-enabled bool
   --delay-seconds int
   --description string
@@ -1282,6 +1299,7 @@ Request fields:
   --name string — Rule name.
   --repeat-interval int — Notification repeat interval in seconds.
   --repeat-total int — Max number of repeat notifications.
+  --timezone string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   --updated-at int
   --updater-id int
   --updater-name string
@@ -1338,7 +1356,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer)
   - creator_id (integer)
   - creator_name (string)
-  - cron_pattern (string) — 5-field cron schedule.
+  - cron_pattern (string) — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean)
   - delay_seconds (integer)
   - description (string)
@@ -1396,6 +1414,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - args (object)
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
+  - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - updated_at (integer)
   - updater_id (integer)
   - updater_name (string)
@@ -1461,6 +1480,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("repeat-total") {
 						body["repeat_total"] = fRepeatTotal
 					}
+					if cmd.Flags().Changed("timezone") {
+						body["timezone"] = fTimezone
+					}
 					if cmd.Flags().Changed("updated-at") {
 						body["updated_at"] = fUpdatedAt
 					}
@@ -1492,7 +1514,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fCreatedAt, "created-at", 0, "Request field created_at")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Request field creator_id")
 	cmd.Flags().StringVar(&fCreatorName, "creator-name", "", "Request field creator_name")
-	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "5-field cron schedule.")
+	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.")
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Request field debug_log_enabled")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Request field delay_seconds")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Request field description")
@@ -1506,6 +1528,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fName, "name", "", "Rule name.")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Notification repeat interval in seconds.")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Max number of repeat notifications.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.")
 	cmd.Flags().Int64Var(&fUpdatedAt, "updated-at", 0, "Request field updated_at")
 	cmd.Flags().Int64Var(&fUpdaterID, "updater-id", 0, "Request field updater_id")
 	cmd.Flags().StringVar(&fUpdaterName, "updater-name", "", "Request field updater_name")

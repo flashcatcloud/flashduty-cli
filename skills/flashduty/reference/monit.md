@@ -197,7 +197,7 @@ Create alert rule
 - `--created-at` int64
 - `--creator-id` int64
 - `--creator-name` string
-- `--cron-pattern` string — 5-field cron schedule.
+- `--cron-pattern` string — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
 - `--debug-log-enabled` bool
 - `--delay-seconds` int64
 - `--description` string
@@ -211,11 +211,12 @@ Create alert rule
 - `--name` string — Rule name.
 - `--repeat-interval` int64 — Notification repeat interval in seconds.
 - `--repeat-total` int64 — Max number of repeat notifications.
+- `--timezone` string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
 - `--updated-at` int64
 - `--updater-id` int64
 - `--updater-name` string
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object); rule_configs (object)
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); updated_at (integer); updater_id (integer); updater_name (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); timezone (string); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-delete
 Delete alert rule
@@ -232,7 +233,7 @@ List available datasource types
 ### rule-export
 Export alert rules
 - `--ids` intSlice (required) — Rule IDs.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: annotations (object); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: annotations (object); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); timezone (string)
 
 ### rule-import
 Import alert rules
@@ -246,7 +247,7 @@ Get alert rule detail
 ### rule-list-basic
 List alert rules
 - `--folder-id` int64 — Folder ID. 0 to list all accessible rules.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); triggered (boolean); updated_at (integer); updater_id (integer); updater_name (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); timezone (string); triggered (boolean); updated_at (integer); updater_id (integer); updater_name (string)
 
 ### rule-move
 Move alert rules to folder
@@ -266,7 +267,7 @@ Update alert rule
 - `--created-at` int64
 - `--creator-id` int64
 - `--creator-name` string
-- `--cron-pattern` string — 5-field cron schedule.
+- `--cron-pattern` string — 5-field cron schedule. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
 - `--debug-log-enabled` bool
 - `--delay-seconds` int64
 - `--description` string
@@ -280,6 +281,7 @@ Update alert rule
 - `--name` string — Rule name.
 - `--repeat-interval` int64 — Notification repeat interval in seconds.
 - `--repeat-total` int64 — Max number of repeat notifications.
+- `--timezone` string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
 - `--updated-at` int64
 - `--updater-id` int64
 - `--updater-name` string
@@ -301,8 +303,55 @@ Batch update rule fields
 - `--ids` intSlice (required) — Rule IDs to update.
 - `--repeat-interval` int64
 - `--repeat-total` int64
+- `--timezone` string — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
 - body-only (`--data`): annotations (object); enabled_times (array<object>); labels (object)
 - response: same shape as `rule-import` above
+
+### servicemap-fleet
+Browse service map fleet hosts
+- `--agent-versions` stringSlice — Filter to hosts on any of these exact agent versions. Up to 20 values.
+- `--capture-modes` stringSlice — Filter to hosts using any of these capture modes. 'unknown' matches hosts that have not reported a capture mode yet. · enum: ebpf | polling | unknown
+- `--cursor` string — Opaque pagination cursor. Pass back the exact value from a previous response's 'next_cursor'; omit for the first page.
+- `--edge-clusters` stringSlice — Filter to hosts in any of these exact edge cluster names. Up to 20 values.
+- `--limit` int64 — Maximum number of matching hosts to return in this page. Default 50, range 1-100. (1-100)
+- `--scan-limit` int64 — Maximum number of candidate hosts to examine while filling this page. Default 1000, range 'limit'-2000. (max 2000)
+- `--statuses` stringSlice — Filter to hosts currently in any of these statuses. Up to 20 values. · enum: active | degraded | stale | initializing | disabled | unsupported | no_data
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (integer); items (array<object>); next_cursor (string); partial (boolean); truncated (boolean); truncation_reasons (array<string>)
+
+### servicemap-fleet-summary
+Get service map fleet summary
+- `--agent-versions` stringSlice — Filter to hosts on any of these exact agent versions. Up to 20 values.
+- `--capture-modes` stringSlice — Filter to hosts using any of these capture modes. 'unknown' matches hosts that have not reported a capture mode yet. · enum: ebpf | polling | unknown
+- `--edge-clusters` stringSlice — Filter to hosts in any of these exact edge cluster names. Up to 20 values.
+- `--scan-limit` int64 — Maximum number of candidate hosts to scan. Default 2000, range 1-5000. (1-5000)
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (integer); partial (boolean); scan_limit (integer); truncated (boolean); truncation_reasons (array<string>)
+
+### servicemap-status
+Get service map status
+- `--fleet` bool — When 'true', ignore 'host_id'/'host_ids' and instead sample up to 'limit' fleet candidate hosts for the account. Default 'false'.
+- `--host-id` string — A single host ID to check. Combine with 'host_ids' to check several; mutually exclusive with 'fleet=true'. (≤128 chars)
+- `--host-ids` stringSlice — Multiple host IDs to check in one call, up to 200 combined with 'host_id'. Mutually exclusive with 'fleet=true'.
+- `--limit` int64 — In 'fleet' mode, the number of candidate hosts to sample. Ignored otherwise. Default 100, range 1-200. (1-200)
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); fleet (boolean); generated_at_ms (integer); items (array<object>); partial (boolean)
+
+### servicemap-summary
+Get service map summary
+- `--network-scope-id` string — Optional integrity check: if set, must match the network scope already associated with 'anchor.host_id', or the request is rejected with 'InvalidParameter'.
+- body-only (`--data`): anchor (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); authoritative (boolean); context_ref_detail (string); coverage (object); freshness (object); graph_role (string); latest_collection_authoritative (boolean); latest_health_at_ms (integer); neighbors (array<object>); network_scope_id (string); observed_at_ms (integer); received_at_ms (integer); resolution_counts (object); status (string); truncated (boolean); truncation_reasons (array<string>)
+
+### servicemap-topology
+Get service map topology
+- `--at` string — Time selector for the query. Only 'now' is currently supported; omitting the field behaves the same. · enum: now
+- `--depth` int64 — Maximum traversal depth from the anchor. Default 1, maximum 3. (max 3)
+- `--direction` string — Traversal direction. Only 'outbound' is currently supported; omitting the field behaves the same. · enum: outbound
+- `--include-metrics` bool — Whether to include the raw per-edge 'metrics' payload in the response. Default 'false'.
+- `--max-edges` int64 — Maximum number of edges to examine before truncating. Default 200, maximum 1000. (max 1000)
+- `--max-nodes` int64 — Maximum number of nodes to return before truncating. Default 100, maximum 500. (max 500)
+- `--network-scope-id` string — Optional integrity check: if set, must match the network scope already associated with 'anchor.host_id', or the request is rejected with 'InvalidParameter'.
+- `--unresolved-mode` string — How unresolved edges are projected. 'full' (default) includes them in 'edges' and 'unresolved_endpoints'; 'summary' omits them from 'edges' and returns only a bounded sample in 'unresolved_endpoints'. · enum: summary | full
+- body-only (`--data`): anchor (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); coverage (object); edges (array<object>); freshness (object); network_scope_id (string); nodes (array<object>); observed_at_ms (integer); resolution_counts (object); truncated (boolean); truncation_reasons (array<string>); unresolved_endpoints (array<object>); unresolved_projection (object)
 
 ### store-ruleset-create
 Create ruleset

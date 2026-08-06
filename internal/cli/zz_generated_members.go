@@ -368,52 +368,53 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genMembersMemberResetInfoCmd() *cobra.Command {
 	var dataJSON string
-	var fAvatar string
 	var fCountryCode string
 	var fEmail string
-	var fLocale string
+	var fFrom string
 	var fMemberID int64
 	var fMemberName string
 	var fPhone string
-	var fTimeZone string
+	var fRefID string
 	cmd := &cobra.Command{
-		Use:   "info-reset <member-id>",
+		Use:   "info-reset",
 		Short: "Reset member info",
 		Long: `Reset member info.
 
-Batch-update multiple profile fields of the current member.
+Identify a member and reset the specified profile fields.
 
 API: POST /member/info/reset (memberResetInfo)
 
 Request fields:
-  --avatar string — Avatar URL
-  --country-code string — Country code
-  --email string — Email address
-  --locale string — Locale [zh-CN, en-US]
-  --member-id int (required) — Member ID of the member to update
-  --member-name string — Display name (2-39 chars)
-  --phone string — Phone number
-  --time-zone string — Time zone
+  --country-code string — Country or region code used to parse phone.
+  --email string — Email address used to identify the member.
+  --from string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
+  --member-id int — Member ID used to identify the member.
+  --member-name string — Member name used to identify the member.
+  --phone string — Phone number used to identify the member. Include country_code when the number is not in E.164 format.
+  --ref-id string — External reference ID used to identify the member.
+  updates (object, via --data) (required) — Member profile fields to write. Omitted fields remain unchanged.
+    - avatar (string) — New avatar URL. (≤499 chars)
+    - country_code (string) — Country or region code for the new phone number.
+    - email (string) — New email address.
+    - locale (string) — New locale preference. [zh-CN, en-US]
+    - member_name (string) — New display name. (2-39 chars)
+    - password (string) — New login password in the encrypted format accepted by the backend.
+    - phone (string) — New phone number. Include country_code when the number is not in E.164 format.
+    - ref_id (string) — New external reference ID.
+    - time_zone (string) — New IANA time zone name, such as Asia/Shanghai.
 `,
-		Args:    requireBodyFieldOrExactArg("member_id", "member-id"),
-		Example: `  flashduty member info-reset --data '{"locale":"zh-CN","member_id":2476444212131,"member_name":"Alice","time_zone":"Asia/Shanghai"}'`,
+		Example: `  flashduty member info-reset --data '{"member_id":2476444212131,"updates":{"locale":"zh-CN","member_name":"Alice Chen","time_zone":"Asia/Shanghai"}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if err := genFoldPositional(args, body, "member_id", "int"); err != nil {
-						return err
-					}
-					if cmd.Flags().Changed("avatar") {
-						body["avatar"] = fAvatar
-					}
 					if cmd.Flags().Changed("country-code") {
 						body["country_code"] = fCountryCode
 					}
 					if cmd.Flags().Changed("email") {
 						body["email"] = fEmail
 					}
-					if cmd.Flags().Changed("locale") {
-						body["locale"] = fLocale
+					if cmd.Flags().Changed("from") {
+						body["from"] = fFrom
 					}
 					if cmd.Flags().Changed("member-id") {
 						body["member_id"] = fMemberID
@@ -424,8 +425,8 @@ Request fields:
 					if cmd.Flags().Changed("phone") {
 						body["phone"] = fPhone
 					}
-					if cmd.Flags().Changed("time-zone") {
-						body["time_zone"] = fTimeZone
+					if cmd.Flags().Changed("ref-id") {
+						body["ref_id"] = fRefID
 					}
 					return nil
 				})
@@ -448,14 +449,13 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAvatar, "avatar", "", "Avatar URL")
-	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Country code")
-	cmd.Flags().StringVar(&fEmail, "email", "", "Email address")
-	cmd.Flags().StringVar(&fLocale, "locale", "", "Locale [zh-CN, en-US]")
-	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID of the member to update (required)")
-	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Display name (2-39 chars)")
-	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Time zone")
+	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Country or region code used to parse phone.")
+	cmd.Flags().StringVar(&fEmail, "email", "", "Email address used to identify the member.")
+	cmd.Flags().StringVar(&fFrom, "from", "", "Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID used to identify the member.")
+	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name used to identify the member.")
+	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number used to identify the member. Include country_code when the number is not in E.164 format.")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID used to identify the member.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
