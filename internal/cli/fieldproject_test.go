@@ -118,12 +118,15 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 		stub := newGFStub(t)
 		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
 
-		out, err := execCommand("incident", "list", "--output-format", "json")
+		out, stderrText, err := execCommandSplit("incident", "list", "--output-format", "json")
 		if err != nil {
-			t.Fatalf("execCommand: %v", err)
+			t.Fatalf("execCommandSplit: %v", err)
 		}
 
 		assertProjectedJSONFields(t, out, []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"})
+		if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+			t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
+		}
 	})
 
 	t.Run("toon default", func(t *testing.T) {
@@ -394,12 +397,15 @@ func TestIncidentSimilarStructuredProjection(t *testing.T) {
 	}
 	stub.data = map[string]any{"items": items, "total": len(items)}
 
-	out, err := execCommand("incident", "similar", "inc-1", "--limit", "20", "--output-format", "json")
+	out, stderrText, err := execCommandSplit("incident", "similar", "inc-1", "--limit", "20", "--output-format", "json")
 	if err != nil {
-		t.Fatalf("execCommand: %v", err)
+		t.Fatalf("execCommandSplit: %v", err)
 	}
 	if len(out) >= 16*1024 {
 		t.Fatalf("compact similar output is %d bytes, want <16 KiB", len(out))
+	}
+	if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+		t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
 	}
 
 	var rows []map[string]json.RawMessage
@@ -482,12 +488,15 @@ func TestAlertEventListStructuredProjection(t *testing.T) {
 	}
 	stub.data = map[string]any{"items": items, "total": len(items)}
 
-	out, err := execCommand("alert-event", "list", "--limit", "30", "--output-format", "json")
+	out, stderrText, err := execCommandSplit("alert-event", "list", "--limit", "30", "--output-format", "json")
 	if err != nil {
-		t.Fatalf("execCommand: %v", err)
+		t.Fatalf("execCommandSplit: %v", err)
 	}
 	if len(out) >= 16*1024 {
 		t.Fatalf("compact alert-event output is %d bytes, want <16 KiB", len(out))
+	}
+	if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+		t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
 	}
 	var rows []map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
