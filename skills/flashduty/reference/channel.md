@@ -1,10 +1,12 @@
 # fduty channel — command card
 
-Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on channels — no `--help` needed.** Read verbs are free; `create`, `update`, `delete`, `escalate-rule-create/update/delete`, `inhibit-rule-*`, `silence-rule-*`, `unsubscribe-rule-*` all mutate state — confirm before acting. `delete` is **irreversible**.
+Prereq: `SKILL.md` read. Read verbs are free; `create`, `update`, `delete`, `disable`, `enable` mutate state — confirm before acting. `delete` is **irreversible**.
 
 ## Route here when
 
-"协作空间 / 频道 / 渠道 / 告警分组 / 降噪 / 静默 / 抑制 / 丢弃 / 升级策略 / 告警收敛 / channel / collaboration space / escalation rule / silence / inhibit / drop rule" → **channel**, NOT `incident` (incidents live _inside_ a channel) or `alert` (alerts are routed _into_ a channel). **`协作空间` (collaboration space) IS the `channel` API noun** — a naive translation would be "频道", but Flashduty's product surfaces it as 协作空间. Key IDs: **`channel-id` (int)** from `channel list`; **`rule-id` (MongoDB ObjectID string)** from `escalate-rule-list`, `inhibit-rule-list`, `silence-rule-list`, `unsubscribe-rule-list`.
+"协作空间 / 频道 / 渠道 / 告警分组 / channel / collaboration space / alert grouping / flapping" → **channel**, NOT `incident` (incidents live _inside_ a channel) or `alert` (alerts are routed _into_ a channel). **`协作空间` (collaboration space) IS the `channel` API noun** — a naive translation would be "频道", but Flashduty's product surfaces it as 协作空间. Key ID: **`channel-id` (int)** from `channel list`.
+
+Rules INSIDE a channel have their own cards: escalation / 分派策略 → `reference/escalation.md`; silence / inhibit / drop (静默 / 抑制 / 丢弃 / 降噪) → `reference/noise.md`.
 
 **Flashcat workspace exception.** When the user asks whether a "空间" is healthy, red/green, or specifically mentions **灭火图 / firemap**, do not assume they mean a Flashduty channel. In that context, "空间" may be a **Flashcat workspace**, and the answer must come from the Flashcat/firemap surface rather than channel incident stats. If you first resolved a name as a Flashduty `channel-id` and later resolve the same visible name as a Flashcat `workspace-id`, **do not silently switch** — tell the user these are different objects and state which ID/surface each conclusion uses.
 
@@ -19,17 +21,10 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on channels �
 | rename / reconfigure a channel | `update <channel-id>` |
 | disable / re-enable a channel | `disable <channel-id>` / `enable <channel-id>` |
 | delete a channel | `delete <channel-id>` |
-| list escalation rules | `escalate-rule-list <channel-id>` |
-| escalation rule detail | `escalate-rule-info` |
-| add escalation rule | `escalate-rule-create` |
-| edit escalation rule | `escalate-rule-update` |
-| toggle escalation rule | `escalate-rule-enable` / `escalate-rule-disable` |
-| remove escalation rule | `escalate-rule-delete` |
-| list / create / update / toggle / delete inhibit rules | `inhibit-rule-list <channel-id>` / `inhibit-rule-create <channel-id>` / `inhibit-rule-update` / `inhibit-rule-enable` / `inhibit-rule-disable` / `inhibit-rule-delete` |
-| list / create / update / toggle / delete silence rules | `silence-rule-list <channel-id>` / `silence-rule-create <channel-id>` / `silence-rule-update` / `silence-rule-enable` / `silence-rule-disable` / `silence-rule-delete` |
-| list / create / update / toggle / delete drop (unsubscribe) rules | `unsubscribe-rule-list <channel-id>` / `unsubscribe-rule-create <channel-id>` / `unsubscribe-rule-update` / `unsubscribe-rule-enable` / `unsubscribe-rule-disable` / `unsubscribe-rule-delete` |
+| escalation rules (分派策略) | `reference/escalation.md` |
+| silence / inhibit / drop rules (降噪) | `reference/noise.md` |
 
-## Hot flow — create channel + add escalation rule
+## Hot flow — create a channel
 
 ```bash
 # 1. find owning team-id (from `fduty team list --output-format toon`)
@@ -37,38 +32,8 @@ fduty channel list --output-format toon
 # 2. create the channel (no positional; --channel-name and --team-id are required)
 fduty channel create --channel-name "production-api" --team-id <team-id> \
   --auto-resolve-timeout 3600 --auto-resolve-mode trigger
-# → returns channel_id; use it below
-
-# 3. add an escalation rule (all flags; layers is required via --data)
-# API field `person_ids` expects member IDs from `fduty member list`.
-fduty channel escalate-rule-create \
-  --channel-id <channel-id> --rule-name "P1 on-call" --template-id <template-id> \
-  --data '{"layers":[{"target":{"person_ids":[<member-id>],"by":{"critical":["voice","sms"],"warning":["feishu"]}},"notify_step":5,"max_times":3,"escalate_window":30}]}'
-```
-
-## Hot flow — add a silence rule during maintenance
-
-A silence rule needs BOTH a time window (`time_filter` or `time_filters`) AND
-`filters` naming which alerts the window applies to — a `time_filter`-only
-rule matches nothing and the server rejects it. Build `filters` from the
-target incident's own labels (see "Building `filters` from incident labels"
-below for the general rule).
-
-```bash
-# 1. inspect the incident to silence around — pulls incident_severity + labels
-fduty incident detail <incident-id> --output-format toon
-
-# 2. channel-id is POSITIONAL on silence-rule-create (see use: "silence-rule-create <channel-id>")
-# filters is one AND group: a severity condition plus one labels.<key> condition
-# per distinguishing label — id-shaped/long/date-shaped/noise-key label values are
-# dropped, not passed through (see "Building filters from incident labels" below).
-fduty channel silence-rule-create <channel-id> \
-  --rule-name "planned-maintenance-2026-07-01" \
-  --is-auto-delete \
-  --data '{"time_filter":{"start_time":1751328000,"end_time":1751371200},"filters":[[{"key":"alert_severity","oper":"IN","vals":["Critical"]},{"key":"labels.service","oper":"IN","vals":["payments-api"]},{"key":"labels.env","oper":"IN","vals":["prod"]}]]}'
-
-# 3. verify — read back `filters` to confirm the conditions round-tripped
-fduty channel silence-rule-list <channel-id> --output-format toon
+# → returns channel_id; next, add an escalation rule so incidents page someone:
+#   see reference/escalation.md
 ```
 
 <!-- GENERATED:channel START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -101,54 +66,6 @@ Disable channel
 Enable channel
 - `<channel-id>` (positional, required) int64 — Channel ID.
 
-### escalate-rule-create
-Create escalation rule
-- `--aggr-window` int64 — Delay window in seconds. 0 disables delay. (0-3600)
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
-- body-only (`--data`): filters (array<array<object>>); layers (array<object>) (required); time_filters (array<object>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
-
-### escalate-rule-delete
-Delete escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### escalate-rule-disable
-Disable escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### escalate-rule-enable
-Enable escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### escalate-rule-info
-Get escalation rule detail
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
-
-### escalate-rule-list <channel-id>
-List escalation rules
-- `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
-
-### escalate-rule-update
-Update escalation rule
-- `--aggr-window` int64 — Delay window in seconds. 0 disables delay.
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-id` string (required) — Escalation rule ID (MongoDB ObjectID).
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
-- body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
-
 ### info <channel-id>
 Get channel detail
 - `<channel-id>` (positional, required) int64 — Channel ID to fetch.
@@ -159,134 +76,11 @@ Batch get channels
 - `<channel-ids>` (positional, required) intSlice — Channel IDs to look up. Up to 1000.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: channel_id (integer); channel_name (string); status (string)
 
-### inhibit-rule-create <channel-id>
-Create inhibit rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
-- `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): source_filters (array<array<object>>); target_filters (array<array<object>>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
-
-### inhibit-rule-delete
-Delete inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### inhibit-rule-disable
-Disable inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### inhibit-rule-enable
-Enable inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### inhibit-rule-list <channel-id>
-List inhibit rules
-- `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); equals (array<string>); is_directly_discard (boolean); priority (integer); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (integer); updated_by (integer)
-
-### inhibit-rule-update
-Update inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
-- `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-id` string (required) — Inhibit rule ID (MongoDB ObjectID).
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): source_filters (object); target_filters (object)
-
 ### list
 List channels
 - `--name` string
 - `--team-ids` int64Slice
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
-
-### silence-rule-create <channel-id>
-Create silence rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--from-incident-id` string — Source incident ID when the silence was created from an incident.
-- `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-- `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (array<array<object>>); time_filter (object); time_filters (array<object>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
-
-### silence-rule-delete
-Delete silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### silence-rule-disable
-Disable silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### silence-rule-enable
-Enable silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### silence-rule-list <channel-id>
-List silence rules
-- `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); priority (integer); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (integer); updated_by (integer)
-
-### silence-rule-update
-Update silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-- `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-id` string (required) — Silence rule ID (MongoDB ObjectID).
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (object); time_filter (object); time_filters (array<object>)
-
-### unsubscribe-rule-create <channel-id>
-Create drop rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (array<array<object>>)
-- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
-
-### unsubscribe-rule-delete
-Delete drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### unsubscribe-rule-disable
-Disable drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### unsubscribe-rule-enable
-Enable drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-
-### unsubscribe-rule-list <channel-id>
-List drop rules
-- `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — fields: account_id (integer); channel_id (integer); created_at (integer); deleted_at (integer); description (string); filters (object); priority (integer); rule_id (string); rule_name (string); status (string); updated_at (integer); updated_by (integer)
-
-### unsubscribe-rule-update
-Update drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
-- `--rule-id` string (required) — Drop rule ID (MongoDB ObjectID).
-- `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (object)
 
 ### update <channel-id>
 Update channel
@@ -310,58 +104,9 @@ Update channel
 
 - **`--auto-resolve-mode`** enum: `trigger` (timer resets on each new alert trigger) | `update` (timer resets on any alert update).
 - **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":300}}'` on `create`/`update`.
-- **Rule status**: `enabled` | `disabled` — apply to escalation, inhibit, silence, and drop rules alike.
-- **Inhibit `--equals`**: label keys that must be **equal** between the source (high-priority) and target (suppressed) alert to form a pair (e.g. `--equals service,env`).
-- **Silence time windows**: `time_filter` (one-off, unix seconds, mutually exclusive) vs `time_filters` (recurring weekly HH:MM windows). Pass via `--data`.
-- **Escalation `layers`** (required via `--data` on create/update): each layer needs `target` (with `person_ids`/`team_ids`/`schedule_to_role_ids`/`emails` + `by` OR `webhooks`) and optionally `notify_step`, `max_times`, `escalate_window`, `force_escalate`.
-
-### Building `filters` from incident labels
-
-`filters` (silence-rule, inhibit-rule's `source_filters`/`target_filters`,
-unsubscribe-rule) is an OR-of-AND condition tree: the outer array holds AND
-groups, each inner array holds `{key, oper, vals}` conditions that must ALL
-match. To scope a rule to one incident's blast radius, build a single AND
-group from that incident's own data (`fduty incident detail <incident-id>`):
-
-1. Start the group with a severity condition:
-   `{"key":"alert_severity","oper":"IN","vals":["<incident_severity>"]}`.
-2. For each entry in the incident's `labels` object, add one more condition
-   `{"key":"labels.<label-key>","oper":"IN","vals":["<label-value>"]}` — but
-   only when the label is actually distinguishing. Drop a label if its value
-   is:
-   - purely numeric (any kind of ID — `instance_id`, `pod_id`, …),
-   - longer than 256 characters (embedded JSON, stack traces, long text),
-   - a date/time value (`2026-07-01T10:00:00Z`, unix timestamps, …), or
-   - under a generically noisy key regardless of value — e.g. `trigger_value`,
-     `prom_ql`, `detail_url`, any `*_url` key, `first_trigger_time`, other
-     `*timestamp*` keys, `rule_config`.
-3. `oper` is `IN` (value must match one of `vals`) or `NOTIN` (must not match
-   any); `vals` entries also accept `/regex/` patterns. The valid `key` set is
-   any `labels.<name>` for a custom label, or one of the fixed built-in names:
-   `severity`, `event_severity`, `alert_severity`, `status`, `title`,
-   `title_rule`, `description`, `alert_key`, `data_source_id`,
-   `integration_id`. A `key` outside this set (e.g. `dedup_key`) is not
-   rejected at create time — it silently produces a rule that never matches
-   anything, so check the `key` against this list before creating.
-4. After creating the rule, confirm it with the matching `*-rule-list`
-   command and read back its `filters` to make sure the conditions
-   round-tripped as intended.
 
 ## Gotchas
 
-- **Positional trap**: `channel-id` is **positional** on `info`, `infos`, `update`, `delete`, `disable`, `enable`, `escalate-rule-list`, `inhibit-rule-create`, `inhibit-rule-list`, `silence-rule-create`, `silence-rule-list`, `unsubscribe-rule-create`, `unsubscribe-rule-list`. It is a **flag** (`--channel-id`) on all `escalate-rule-*`, `inhibit-rule-update/delete/enable/disable`, `silence-rule-update/delete/enable/disable`, `unsubscribe-rule-update/delete/enable/disable`. When in doubt, the fence heading `### verb <channel-id>` = positional; heading without `<…>` = flag.
-- **`escalate-rule-create` needs `layers` via `--data`** — it is required and cannot be expressed as a flat flag. Omitting it returns a validation error.
-- **`rule-id` is a MongoDB ObjectID string**, not an integer. Retrieve it from `escalate-rule-list`, `inhibit-rule-list`, `silence-rule-list`, or `unsubscribe-rule-list` before any update/delete/enable/disable.
+- **`channel-id` is positional** on every verb of this card (`info`, `infos`, `update`, `delete`, `disable`, `enable`).
 - **`channel create` requires `--channel-name` and `--team-id`** even though they are not marked `required` in the flag list — the server rejects the request without them.
-- **`delete` on a channel is irreversible** — all rules within it are also removed. Confirm the `channel-id` against `list` before proceeding.
-- **Empty rule list is authoritative** — if `escalate-rule-list` / `silence-rule-list` / etc. returns no rows, no rules exist; do not widen the query.
-
-## Worked example — look up a channel and inspect its escalation policy
-
-```bash
-fduty channel list --name "payments" --output-format toon
-# → find channel_id (e.g. 4201)
-fduty channel escalate-rule-list 4201 --output-format toon
-# → find rule_id (MongoDB ObjectID string, e.g. "6643abc123def456789012aa")
-fduty channel escalate-rule-info --channel-id 4201 --rule-id "6643abc123def456789012aa" --output-format toon
-```
+- **`delete` on a channel is irreversible** — all rules within it (escalation, silence, inhibit, drop) are also removed. Confirm the `channel-id` against `list` before proceeding.
