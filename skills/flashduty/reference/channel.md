@@ -48,13 +48,26 @@ fduty channel escalate-rule-create \
 
 ## Hot flow — add a silence rule during maintenance
 
+A silence rule needs BOTH a time window (`time_filter` or `time_filters`) AND
+`filters` naming which alerts the window applies to — a `time_filter`-only
+rule matches nothing and the server rejects it. Build `filters` from the
+target incident's own labels (see "Building `filters` from incident labels"
+below for the general rule).
+
 ```bash
-# channel-id is POSITIONAL on silence-rule-create (see use: "silence-rule-create <channel-id>")
+# 1. inspect the incident to silence around — pulls incident_severity + labels
+fduty incident detail <incident-id> --output-format toon
+
+# 2. channel-id is POSITIONAL on silence-rule-create (see use: "silence-rule-create <channel-id>")
+# filters is one AND group: a severity condition plus one labels.<key> condition
+# per distinguishing label — id-shaped/long/date-shaped/noise-key label values are
+# dropped, not passed through (see "Building filters from incident labels" below).
 fduty channel silence-rule-create <channel-id> \
   --rule-name "planned-maintenance-2026-07-01" \
   --is-auto-delete \
-  --data '{"time_filter":{"start_time":1751328000,"end_time":1751371200}}'
-# verify
+  --data '{"time_filter":{"start_time":1751328000,"end_time":1751371200},"filters":[[{"key":"alert_severity","oper":"IN","vals":["Critical"]},{"key":"labels.service","oper":"IN","vals":["payments-api"]},{"key":"labels.env","oper":"IN","vals":["prod"]}]]}'
+
+# 3. verify — read back `filters` to confirm the conditions round-tripped
 fduty channel silence-rule-list <channel-id> --output-format toon
 ```
 
@@ -96,7 +109,7 @@ Create escalation rule
 - `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
-- body-only (`--data`): filters (array<array>); layers (array<object>) (required); time_filters (array<object>)
+- body-only (`--data`): filters (array<array<object>>); layers (array<object>) (required); time_filters (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### escalate-rule-delete
@@ -154,7 +167,7 @@ Create inhibit rule
 - `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): source_filters (array<array>); target_filters (array<array>)
+- body-only (`--data`): source_filters (array<array<object>>); target_filters (array<array<object>>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### inhibit-rule-delete
@@ -203,7 +216,7 @@ Create silence rule
 - `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (array<array>); time_filter (object); time_filters (array<object>)
+- body-only (`--data`): filters (array<array<object>>); time_filter (object); time_filters (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### silence-rule-delete
@@ -243,7 +256,7 @@ Create drop rule
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- body-only (`--data`): filters (array<array>)
+- body-only (`--data`): filters (array<array<object>>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### unsubscribe-rule-delete
@@ -301,6 +314,38 @@ Update channel
 - **Inhibit `--equals`**: label keys that must be **equal** between the source (high-priority) and target (suppressed) alert to form a pair (e.g. `--equals service,env`).
 - **Silence time windows**: `time_filter` (one-off, unix seconds, mutually exclusive) vs `time_filters` (recurring weekly HH:MM windows). Pass via `--data`.
 - **Escalation `layers`** (required via `--data` on create/update): each layer needs `target` (with `person_ids`/`team_ids`/`schedule_to_role_ids`/`emails` + `by` OR `webhooks`) and optionally `notify_step`, `max_times`, `escalate_window`, `force_escalate`.
+
+### Building `filters` from incident labels
+
+`filters` (silence-rule, inhibit-rule's `source_filters`/`target_filters`,
+unsubscribe-rule) is an OR-of-AND condition tree: the outer array holds AND
+groups, each inner array holds `{key, oper, vals}` conditions that must ALL
+match. To scope a rule to one incident's blast radius, build a single AND
+group from that incident's own data (`fduty incident detail <incident-id>`):
+
+1. Start the group with a severity condition:
+   `{"key":"alert_severity","oper":"IN","vals":["<incident_severity>"]}`.
+2. For each entry in the incident's `labels` object, add one more condition
+   `{"key":"labels.<label-key>","oper":"IN","vals":["<label-value>"]}` — but
+   only when the label is actually distinguishing. Drop a label if its value
+   is:
+   - purely numeric (any kind of ID — `instance_id`, `pod_id`, …),
+   - longer than 256 characters (embedded JSON, stack traces, long text),
+   - a date/time value (`2026-07-01T10:00:00Z`, unix timestamps, …), or
+   - under a generically noisy key regardless of value — e.g. `trigger_value`,
+     `prom_ql`, `detail_url`, any `*_url` key, `first_trigger_time`, other
+     `*timestamp*` keys, `rule_config`.
+3. `oper` is `IN` (value must match one of `vals`) or `NOTIN` (must not match
+   any); `vals` entries also accept `/regex/` patterns. The valid `key` set is
+   any `labels.<name>` for a custom label, or one of the fixed built-in names:
+   `severity`, `event_severity`, `alert_severity`, `status`, `title`,
+   `title_rule`, `description`, `alert_key`, `data_source_id`,
+   `integration_id`. A `key` outside this set (e.g. `dedup_key`) is not
+   rejected at create time — it silently produces a rule that never matches
+   anything, so check the `key` against this list before creating.
+4. After creating the rule, confirm it with the matching `*-rule-list`
+   command and read back its `filters` to make sure the conditions
+   round-tripped as intended.
 
 ## Gotchas
 

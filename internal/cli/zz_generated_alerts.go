@@ -786,13 +786,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) — Member ID who created the pipeline.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
-    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+    - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+      - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+      - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+      - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
       - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - title (string) — New title template. Supports Golang template syntax referencing alert fields.
   - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
   - updated_at (integer) — Last update timestamp, Unix epoch seconds.
@@ -852,13 +858,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) — Member ID who created the pipeline.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
-      - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+      - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
         - description (string) — New description template.
         - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
         - severity (string) — Target severity level. [Critical, Warning, Info]
-        - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+        - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
         - title (string) — New title template. Supports Golang template syntax referencing alert fields.
     - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
     - updated_at (integer) — Last update timestamp, Unix epoch seconds.
@@ -988,13 +997,19 @@ API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 Request fields:
   --integration-id int (required) — Integration ID to configure.
   rules (array<object>, via --data) (required) — Rules to apply. Max 50.
-    - if (array<array>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+    - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+      - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+      - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+      - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
     - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
       - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<array>) — Filter that identifies the source alerts to inhibit.
+      - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - title (string) — New title template. Supports Golang template syntax referencing alert fields.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),

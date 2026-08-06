@@ -481,19 +481,14 @@ func (w *specWalker) enumOf(s map[string]any) []string {
 	return nil
 }
 
-// schemaType renders a compact type label for a (deref'd) property schema.
+// schemaType renders a compact type label for a (deref'd) property schema,
+// recursing through nested array `items` so an "Or-of-AND" filter tree
+// (array<array<object>>) renders its true element type instead of collapsing
+// to the uninformative "array<array>" one level down.
 func schemaType(s map[string]any) string {
 	switch t := str(s, "type"); t {
 	case "array":
-		it := asMap(s["items"])
-		et := str(it, "type")
-		if et == "" && (it["properties"] != nil || it["allOf"] != nil || it["$ref"] != nil) {
-			et = "object"
-		}
-		if et == "" {
-			et = "any"
-		}
-		return "array<" + et + ">"
+		return "array<" + schemaType(asMap(s["items"])) + ">"
 	case "":
 		if s["properties"] != nil || s["allOf"] != nil || s["$ref"] != nil {
 			return "object"
@@ -552,8 +547,24 @@ func numStr(v any) (string, bool) {
 // maxSchemaDepth bounds how deep request/response trees are expanded in --help.
 const maxSchemaDepth = 3
 
+// arrayLeafSchema unwraps an array schema's `items` (deref'ing $ref at each
+// level) through any number of nested array layers — e.g. the "Or-of-AND"
+// filter trees (`array<array<FilterCondition>>`) — until it reaches the first
+// non-array element schema. A plain `array<object>` schema returns its object
+// items unchanged (zero unwraps), so tree()'s array case handles any nesting
+// depth the same way it always handled one level. Bounded by maxSchemaDepth as
+// a defensive stop against a cyclic schema.
+func (w *specWalker) arrayLeafSchema(s map[string]any) map[string]any {
+	it := w.deref(asMap(s["items"]))
+	for levels := 0; str(it, "type") == "array" && levels < maxSchemaDepth; levels++ {
+		it = w.deref(asMap(it["items"]))
+	}
+	return it
+}
+
 // tree walks an object schema (resolving $ref/allOf) into a sorted field tree,
-// recursing into nested objects and array-element objects up to maxSchemaDepth.
+// recursing into nested objects and array-element objects (through any depth
+// of nested arrays, see arrayLeafSchema) up to maxSchemaDepth.
 func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
 	if depth > maxSchemaDepth {
 		return nil
@@ -576,11 +587,11 @@ func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
 			f.Type = "object"
 			f.Children = w.tree(pv, depth+1)
 		case str(pv, "type") == "array":
-			it := w.deref(asMap(pv["items"]))
+			it := w.arrayLeafSchema(pv)
 			if w.isObjectSchema(it) {
 				f.Children = w.tree(it, depth+1)
 			} else if len(f.Enum) == 0 {
-				f.Enum = enumStrings(it) // array of constrained scalars
+				f.Enum = enumStrings(it) // array (possibly nested) of constrained scalars
 			}
 		}
 		out = append(out, f)
