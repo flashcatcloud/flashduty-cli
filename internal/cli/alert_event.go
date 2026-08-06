@@ -82,6 +82,8 @@ func newAlertEventListCmd() *cobra.Command {
 					fieldNames := []string{"event_id", "alert_id", "event_severity", "event_status", "event_time", "title"}
 					if fields != "" {
 						fieldNames = parseStringSlice(fields)
+					} else {
+						noteDefaultProjection(cmd.ErrOrStderr(), fieldNames)
 					}
 					proj, err := projectFields(result.Items, fieldNames)
 					if err != nil {

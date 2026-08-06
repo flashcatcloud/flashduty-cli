@@ -38,7 +38,7 @@ fduty alert feed <alert-id> --output-format toon
 fduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
-Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened.
+Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened. In json/toon mode rows default to the compact projection `event_id,alert_id,event_severity,event_status,event_time,title` (a stderr note says so when it applies); any other response field is one `--fields` away — a key missing from the output means it wasn't selected, not that the server omits it.
 
 ## Hot flow — merge noisy alerts into an existing incident
 

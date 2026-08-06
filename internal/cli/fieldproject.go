@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"strings"
@@ -67,6 +68,16 @@ func projectFields(items any, fields []string) ([]map[string]any, error) {
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// noteDefaultProjection announces on stderr that structured rows were reduced
+// to the command's compact default projection. Without it, a reader piping
+// stdout to jq sees an unselected key (labels, description, …) as null on
+// every row and can conclude the server never returns it, when it is one
+// --fields away. stderr keeps stdout byte-identical for jq/toon pipelines.
+func noteDefaultProjection(w io.Writer, fields []string) {
+	_, _ = fmt.Fprintf(w, "note: rows projected to default compact fields (%s); other response fields are available via --fields\n",
+		strings.Join(fields, ","))
 }
 
 // boundProjectedOutput keeps the new agent-oriented projections below their
