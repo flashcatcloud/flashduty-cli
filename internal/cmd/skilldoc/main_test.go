@@ -337,3 +337,65 @@ func TestRunGen_FillsFence(t *testing.T) {
 		t.Errorf("gen clobbered hand-written content:\n%s", updated)
 	}
 }
+
+// TestRunGen_SplitAcrossCards is the split-card path: one group whose subset
+// fence and catch-all fence live in different files. gen must fill both from
+// one group-wide render, and check must then be clean.
+func TestRunGen_SplitAcrossCards(t *testing.T) {
+	dir := t.TempDir()
+	mk := func(verb string) skilldoc.Command {
+		return skilldoc.Command{Path: "svc " + verb, Group: "svc", Short: "S " + verb, Use: verb}
+	}
+	d := skilldoc.Dump{Commands: []skilldoc.Command{mk("list"), mk("rule-create"), mk("rule-delete")}}
+
+	rules := filepath.Join(dir, "reference", "rules.md")
+	svc := filepath.Join(dir, "reference", "svc.md")
+	writeFile(t, rules, "# rules\n\n"+skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n")
+	writeFile(t, svc, "# svc\n\nintro\n\n"+skilldoc.FenceStart("svc")+"\n"+skilldoc.FenceEnd("svc")+"\n")
+
+	if err := runGen(d, dir, "svc"); err != nil {
+		t.Fatalf("runGen: %v", err)
+	}
+
+	rulesBody, err := os.ReadFile(rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svcBody, err := os.ReadFile(svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rulesBody), "### rule-create") || strings.Contains(string(rulesBody), "### list") {
+		t.Errorf("rules card should carry exactly the claimed verbs:\n%s", rulesBody)
+	}
+	if !strings.Contains(string(svcBody), "### list") || strings.Contains(string(svcBody), "### rule-create") {
+		t.Errorf("svc card should carry exactly the unclaimed remainder:\n%s", svcBody)
+	}
+	if !strings.Contains(string(svcBody), "intro") {
+		t.Errorf("gen clobbered hand-written content:\n%s", svcBody)
+	}
+
+	var out bytes.Buffer
+	if n, _ := runCheck(d, dir, &out); n != 0 {
+		t.Errorf("after gen, check should be clean; got %d:\n%s", n, out.String())
+	}
+}
+
+// TestRunGen_TopologyViolationFails asserts gen refuses to write anything when
+// the group's fences do not partition its verbs.
+func TestRunGen_TopologyViolationFails(t *testing.T) {
+	dir := t.TempDir()
+	mk := func(verb string) skilldoc.Command {
+		return skilldoc.Command{Path: "svc " + verb, Group: "svc", Short: "S " + verb, Use: verb}
+	}
+	d := skilldoc.Dump{Commands: []skilldoc.Command{mk("list"), mk("rule-create")}}
+
+	// Subset fence only — "list" has no home.
+	writeFile(t, filepath.Join(dir, "reference", "rules.md"),
+		"# rules\n\n"+skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n")
+
+	err := runGen(d, dir, "svc")
+	if err == nil || !strings.Contains(err.Error(), "no catch-all") {
+		t.Fatalf("want topology error mentioning the missing catch-all, got %v", err)
+	}
+}

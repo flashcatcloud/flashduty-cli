@@ -10,9 +10,9 @@ func TestCheckFences_DetectsStale(t *testing.T) {
 	fresh := GenerateFence(d, "status-page")
 
 	freshDoc := "# Status page\n\nintro\n\n" + fresh + "\n\nfooter\n"
-	staleDoc := "# Status page\n\n" +
-		FenceStart("status-page") + "\n\n### change-create\nWRONG STALE CONTENT\n\n" +
-		FenceEnd("status-page") + "\n"
+	staleDoc := "# Incident\n\n" +
+		FenceStart("incident") + "\n\n### detail\nWRONG STALE CONTENT\n\n" +
+		FenceEnd("incident") + "\n"
 	noFenceDoc := "# Status page\n\nJust prose, no generated fence at all.\n"
 
 	docs := []Doc{
