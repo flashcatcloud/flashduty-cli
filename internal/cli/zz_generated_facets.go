@@ -94,74 +94,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
-func genFacetsFacetListCmd() *cobra.Command {
-	var dataJSON string
-	var fIsFacet bool
-	var fScopes []string
-	cmd := &cobra.Command{
-		Use:   "facet-list",
-		Short: "List RUM facet fields",
-		Long: `List RUM facet fields.
-
-Return all available RUM field definitions, optionally filtered by scope and facet status.
-
-API: POST /rum/facet/list (rum-read-facet-list)
-
-Request fields:
-  --is-facet bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
-  --scopes []string — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
-
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
-    - account_id (integer) (required) — Account ID. 0 for built-in fields.
-    - description (string) (required) — Description of what this field captures.
-    - edit_able (boolean) (required) — True if this is a custom field that can be edited by the user.
-    - enum_values (array<any>) (required) — Predefined enumerable values for this field. Element type matches the field's 'value_type': string for 'string', number for 'number', boolean for 'boolean'. Empty when the field has no fixed set of values.
-    - field_key (string) (required) — Unique field key, e.g. 'error.type'.
-    - field_name (string) (required) — Human-readable field name.
-    - group (string) (required) — Display group for this field.
-    - is_facet (boolean) (required) — True if value distribution counting is supported for this field.
-    - queryable (boolean) (required) — True if this field can be used in DQL/SQL queries.
-    - scopes (array<string>) (required) — RUM scopes this field appears in.
-    - show_type (string) (required) — Display type in the analytics UI. [list, range]
-    - status (string) (required) — Field status, e.g. 'active'.
-    - unit_family (string) (required) — Measurement unit family, e.g. 'time', 'bytes'. Empty for dimensionless fields.
-    - unit_name (string) (required) — Specific measurement unit, e.g. 'millisecond', 'byte'.
-    - value_type (string) (required) — Data type of the field value. [string, number, boolean, array<string>, array<number>, array<boolean>]
-`,
-		Example: `  flashduty rum facet-list --data '{"is_facet":true,"scopes":["error"]}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("is-facet") {
-						body["is_facet"] = fIsFacet
-					}
-					if cmd.Flags().Changed("scopes") {
-						body["scopes"] = fScopes
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.RUMFacetListRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.Facets.FacetList(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().BoolVar(&fIsFacet, "is-facet", false, "When true, return only facet-enabled fields. When false or omitted, return all fields.")
-	cmd.Flags().StringSliceVar(&fScopes, "scopes", nil, "Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genFacetsFieldListCmd() *cobra.Command {
 	var dataJSON string
 	var fIsFacet bool
@@ -233,6 +165,5 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func registerGeneratedFacets(root *cobra.Command) {
 	gRUM := genGroup(root, "rum", "RUM API")
 	genAddLeaf(gRUM, genFacetsFacetCountCmd())
-	genAddLeaf(gRUM, genFacetsFacetListCmd())
 	genAddLeaf(gRUM, genFacetsFieldListCmd())
 }

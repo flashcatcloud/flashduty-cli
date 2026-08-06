@@ -67,16 +67,16 @@ Delete member
 Get current member info
 - response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); status (string); time_zone (string)
 
-### info-reset <member-id>
+### info-reset
 Reset member info
-- `--avatar` string — Avatar URL
-- `--country-code` string — Country code
-- `--email` string — Email address
-- `--locale` string — Locale · enum: zh-CN | en-US
-- `<member-id>` (positional, required) int64 — Member ID of the member to update
-- `--member-name` string — Display name (2-39 chars)
-- `--phone` string — Phone number
-- `--time-zone` string — Time zone
+- `--country-code` string — Country or region code used to parse phone.
+- `--email` string — Email address used to identify the member.
+- `--from` string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
+- `--member-id` int64 — Member ID used to identify the member.
+- `--member-name` string — Member name used to identify the member.
+- `--phone` string — Phone number used to identify the member. Include country_code when the number is not in E.164 format.
+- `--ref-id` string — External reference ID used to identify the member.
+- body-only (`--data`): updates (object) (required)
 
 ### invite
 Invite members

@@ -121,6 +121,57 @@ Query RUM data
 - `--start-time` int64 (required) — Start of the query window, Unix epoch milliseconds.
 - body-only (`--data`): queries (array<object>) (required)
 
+### error-ingestion-rules-create <application-id>
+Create an error ingestion rule
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--description` string — Rule description, up to 512 characters. (≤512 chars)
+- `--rule-name` string (required) — Rule name, 1-128 characters. (1-128 chars)
+- body-only (`--data`): filters (array<array>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
+
+### error-ingestion-rules-delete
+Delete an error ingestion rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### error-ingestion-rules-disable
+Disable an error ingestion rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### error-ingestion-rules-enable
+Enable an error ingestion rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### error-ingestion-rules-history-list <application-id>
+List error ingestion rule history
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--asc` bool — Sort ascending instead of the default descending order.
+- `--limit` int64 — Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)
+- `--orderby` string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
+- `--page` int64 — Zero-based page number. Default 0. (min 0)
+- `--search-after-ctx` string
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: rules (array<object>); updated_at (integer); updated_by (integer); updated_by_name (string); version (integer)
+
+### error-ingestion-rules-history-revert <application-id>
+Revert error ingestion rules to a history version
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--version` int64 (required) — History version number to revert to. (min 1)
+
+### error-ingestion-rules-list <application-id>
+List error ingestion rules
+- `<application-id>` (positional, required) string — RUM application ID.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array>); rule_id (string); rule_name (string); status (string); updated_at (integer)
+
+### error-ingestion-rules-update
+Update an error ingestion rule
+- `--application-id` string (required) — RUM application ID.
+- `--description` string — New rule description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
+- `--rule-id` string (required) — Rule ID to update.
+- `--rule-name` string — New rule name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
+- body-only (`--data`): filters (array<array>)
+
 ### facet-count
 Count facet value distribution
 - `--dql` string — RUM DQL filter expression applied before counting.
@@ -133,17 +184,11 @@ Count facet value distribution
 - body-only (`--data`): facet_value (any)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: count (integer); facet_value (any)
 
-### facet-list
-List RUM facet fields
-- `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
-- `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
-
 ### field-list
 List RUM fields
 - `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
 - `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
-- response: same shape as `facet-list` above
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 
 ### issue-info <issue-id>
 Get issue detail
@@ -169,11 +214,75 @@ List issues
 - `--team-ids` intSlice — Filter by team IDs.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
+### issue-preset-severity-rules-create <application-id>
+Create preset severity rule
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--description` string — Optional description, up to 512 characters. (≤512 chars)
+- `--rule-name` string (required) — Rule display name, 1-128 characters. (1-128 chars)
+- `--severity` string (required) — Severity to assign to errors matching this rule. · enum: Critical | Warning | Info
+- body-only (`--data`): filters (array<array>) (required)
+- response: single object (`data` unwrapped to the top level) — fields: priority (integer); rule_id (string); rule_name (string)
+
+### issue-preset-severity-rules-delete
+Delete preset severity rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### issue-preset-severity-rules-disable
+Disable preset severity rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### issue-preset-severity-rules-enable
+Enable preset severity rule
+- `--application-id` string (required) — RUM application ID.
+- `--rule-id` string (required) — Rule ID.
+
+### issue-preset-severity-rules-history-list <application-id>
+List preset severity rule history
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--asc` bool — Sort ascending when true; results are descending by default.
+- `--limit` int64 — Page size. Values <= 0 default to 20; values above 100 are capped at 100. (max 100)
+- `--orderby` string — Sort column. Any other value (including omitted) falls back to 'updated_at'. · enum: updated_at | version
+- `--page` int64 — Zero-based page number. (min 0)
+- `--search-after-ctx` string
+- response: same shape as `error-ingestion-rules-history-list <application-id>` above
+
+### issue-preset-severity-rules-history-revert <application-id>
+Revert preset severity rules to a history snapshot
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--version` int64 (required) — Version number of the snapshot to revert to. (min 1)
+
+### issue-preset-severity-rules-list <application-id>
+List preset severity rules
+- `<application-id>` (positional, required) string — RUM application ID.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array>); priority (integer); rule_id (string); rule_name (string); severity (string); status (string); updated_at (integer)
+
+### issue-preset-severity-rules-reorder
+Reorder preset severity rule
+- `--application-id` string (required) — RUM application ID.
+- `--drag-rule-id` string (required) — ID of the rule being moved.
+- `--target-rule-id` string (required) — ID of the rule whose evaluation position 'drag_rule_id' moves to.
+
+### issue-preset-severity-rules-update
+Update preset severity rule
+- `--application-id` string (required) — RUM application ID.
+- `--description` string — New description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
+- `--rule-id` string (required) — Rule ID to update.
+- `--rule-name` string — New display name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
+- `--severity` string — New severity. Omit to leave unchanged. · enum: Critical | Warning | Info
+- body-only (`--data`): filters (array<array>)
+
 ### issue-update <issue-id>
 Update issue
 - `<issue-id>` (positional, required) string — Issue ID to update.
 - `--status` string — New status. · enum: for_review | reviewed | ignored | resolved
 - `--suspected-cause` string — Suspected cause. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+
+### resource-info
+Get RUM resource info
+- `--no-cache` bool — Bypass the short-lived cache of the resource record (plan version, quotas, status) and read it from source. Does not refresh the usage counts. Default 'false'.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action.days (integer); created_at (integer); error.days (integer); expired_at (integer); long_task.days (integer); offering_id (integer); order_id (string); product (string); resource.days (integer); resource_id (string); resource_name (string); session.days (integer); session_investigate.free_cnt (integer); session_investigate.used_cnt (integer); session_limit_reached (boolean); session_measure.free_cnt (integer); session_measure.used_cnt (integer); session_replay.free_cnt (integer); session_replay.used_cnt (integer); status (string); updated_at (integer); version (string); view.days (integer); window_end_time (integer); window_start_time (integer)
 
 ### session-replay-metadata <session-id>
 Get session replay metadata
