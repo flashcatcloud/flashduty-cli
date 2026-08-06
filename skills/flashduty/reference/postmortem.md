@@ -52,7 +52,7 @@ fduty incident post-mortem-follow-ups-reset <post-mortem-id> --follow-ups "Add a
 fduty incident post-mortem-status-reset <post-mortem-id> --status published
 ```
 
-<!-- GENERATED:incident[post-mortem-] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:incident[post-mortem] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### post-mortem-basics-reset <post-mortem-id>
 Update post-mortem basics
@@ -142,7 +142,7 @@ Update post-mortem title
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID.
 - `--title` string (required) — New report title.
 
-<!-- GENERATED:incident[post-mortem-] END -->
+<!-- GENERATED:incident[post-mortem] END -->
 
 ## Gotchas
 

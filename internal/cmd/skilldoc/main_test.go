@@ -350,7 +350,7 @@ func TestRunGen_SplitAcrossCards(t *testing.T) {
 
 	rules := filepath.Join(dir, "reference", "rules.md")
 	svc := filepath.Join(dir, "reference", "svc.md")
-	writeFile(t, rules, "# rules\n\n"+skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n")
+	writeFile(t, rules, "# rules\n\n"+skilldoc.FenceStart("svc[rule]")+"\n"+skilldoc.FenceEnd("svc[rule]")+"\n")
 	writeFile(t, svc, "# svc\n\nintro\n\n"+skilldoc.FenceStart("svc")+"\n"+skilldoc.FenceEnd("svc")+"\n")
 
 	if err := runGen(d, dir, "svc"); err != nil {
@@ -392,7 +392,7 @@ func TestRunGen_TopologyViolationFails(t *testing.T) {
 
 	// Subset fence only — "list" has no home.
 	writeFile(t, filepath.Join(dir, "reference", "rules.md"),
-		"# rules\n\n"+skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n")
+		"# rules\n\n"+skilldoc.FenceStart("svc[rule]")+"\n"+skilldoc.FenceEnd("svc[rule]")+"\n")
 
 	err := runGen(d, dir, "svc")
 	if err == nil || !strings.Contains(err.Error(), "no catch-all") {
@@ -413,7 +413,7 @@ func TestRunGen_TwoFencesInOneFile(t *testing.T) {
 
 	card := filepath.Join(dir, "reference", "svc.md")
 	writeFile(t, card, "# svc\n\nrules first\n\n"+
-		skilldoc.FenceStart("svc[rule-]")+"\n"+skilldoc.FenceEnd("svc[rule-]")+"\n\nthen the rest\n\n"+
+		skilldoc.FenceStart("svc[rule]")+"\n"+skilldoc.FenceEnd("svc[rule]")+"\n\nthen the rest\n\n"+
 		skilldoc.FenceStart("svc")+"\n"+skilldoc.FenceEnd("svc")+"\n")
 
 	if err := runGen(d, dir, "svc"); err != nil {

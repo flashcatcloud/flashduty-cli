@@ -68,6 +68,31 @@ func FenceLocs(body string) []FenceLoc {
 	return locs
 }
 
+// FindFence locates the full fenced block for id in body: start is the byte
+// offset of the start marker, end is the offset just past the end marker.
+// ok is false when either marker is missing.
+func FindFence(body, id string) (start, end int, ok bool) {
+	si := strings.Index(body, FenceStart(id))
+	if si < 0 {
+		return 0, 0, false
+	}
+	endMarker := FenceEnd(id)
+	ei := strings.Index(body[si:], endMarker)
+	if ei < 0 {
+		return 0, 0, false
+	}
+	return si, si + ei + len(endMarker), true
+}
+
+// matchesPrefix reports whether verb falls under the claim prefix p: the verb
+// IS p, or continues past it at a hyphen boundary — so "rule" claims
+// "rule-create" but never "rule2-list". An unbounded prefix match would let a
+// near-miss verb join the wrong card with a clean single-owner partition that
+// no topology check could flag.
+func matchesPrefix(verb, p string) bool {
+	return verb == p || strings.HasPrefix(verb, p+"-")
+}
+
 // RenderGroupFences renders the fenced block for every fence of one command
 // group. ids must be the complete set of fence ids that exist for the group
 // across all cards — the catch-all fence renders whatever its sibling subset
@@ -99,12 +124,9 @@ func RenderGroupFences(d Dump, group string, ids []string) (map[string]string, [
 
 	byID := make(map[string][]Command, len(specs))
 	catchAll := ""
-	hasCatchAll := false
 	for _, s := range specs {
-		byID[s.ID()] = nil
 		if len(s.Prefixes) == 0 {
 			catchAll = s.ID()
-			hasCatchAll = true
 		}
 	}
 
@@ -119,7 +141,7 @@ func RenderGroupFences(d Dump, group string, ids []string) (map[string]string, [
 		for _, s := range specs {
 			matched := false
 			for _, p := range s.Prefixes {
-				if strings.HasPrefix(verb, p) {
+				if matchesPrefix(verb, p) {
 					prefixHit[s.ID()+"\x00"+p] = true
 					matched = true
 				}
@@ -133,7 +155,7 @@ func RenderGroupFences(d Dump, group string, ids []string) (map[string]string, [
 			violations = append(violations, fmt.Sprintf("verb %q claimed by %s", verb, strings.Join(owners, " and ")))
 		case len(owners) == 1:
 			byID[owners[0]] = append(byID[owners[0]], c)
-		case hasCatchAll:
+		case catchAll != "":
 			byID[catchAll] = append(byID[catchAll], c)
 		default:
 			unclaimed = append(unclaimed, verb)

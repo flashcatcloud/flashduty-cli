@@ -81,91 +81,89 @@ func checkCmd() *cobra.Command {
 // dump builds the command-tree dump from the live CLI root, in-process.
 func dump() skilldoc.Dump { return skilldoc.Build(cli.RootForDump()) }
 
-// runGen regenerates every GENERATED fence of group across the cards under
-// <base>, leaving hand-written content outside the fences untouched. A group
-// may split its fences across cards (subset fences claiming verb prefixes,
-// plus the catch-all for the rest — see skilldoc.RenderGroupFences), so the
-// fresh render is computed for the group as a whole, then spliced per card.
-func runGen(d skilldoc.Dump, base, group string) error {
-	docs, err := loadDocs(base)
-	if err != nil {
-		return err
-	}
-
+// genGroup regenerates every GENERATED fence of group across the already-
+// loaded docs, leaving hand-written content outside the fences untouched. A
+// group may split its fences across cards (subset fences claiming verb
+// prefixes, plus the catch-all for the rest — see skilldoc.RenderGroupFences),
+// so the fresh render is computed for the group as a whole, then spliced per
+// card. Rewritten bodies are written to disk AND updated in docs, so a caller
+// looping over groups keeps seeing current content. found is false when no
+// fence of the group exists anywhere.
+func genGroup(d skilldoc.Dump, base string, docs []skilldoc.Doc, group string) (found bool, err error) {
 	var ids []string
 	perDoc := map[string][]string{}
-	var docOrder []string
 	for _, doc := range docs {
 		for _, fl := range skilldoc.FenceLocs(doc.Body) {
 			spec, err := skilldoc.ParseFenceID(fl.ID)
 			if err != nil {
-				return fmt.Errorf("%s: %w", doc.Path, err)
+				return false, fmt.Errorf("%s: %w", doc.Path, err)
 			}
 			if spec.Group != group {
 				continue
-			}
-			if len(perDoc[doc.Path]) == 0 {
-				docOrder = append(docOrder, doc.Path)
 			}
 			perDoc[doc.Path] = append(perDoc[doc.Path], fl.ID)
 			ids = append(ids, fl.ID)
 		}
 	}
 	if len(ids) == 0 {
-		return fmt.Errorf("no GENERATED:%s fence found under %s (add the start/end markers first)", group, base)
+		return false, nil
 	}
 
 	rendered, violations := skilldoc.RenderGroupFences(d, group, ids)
 	if len(violations) > 0 {
-		return fmt.Errorf("group %s fence topology: %s", group, strings.Join(violations, "; "))
+		return true, fmt.Errorf("group %s fence topology: %s", group, strings.Join(violations, "; "))
 	}
 
-	byPath := map[string]skilldoc.Doc{}
-	for _, doc := range docs {
-		byPath[doc.Path] = doc
-	}
-	for _, p := range docOrder {
-		doc := byPath[p]
+	for i, doc := range docs {
+		docIDs := perDoc[doc.Path]
+		if len(docIDs) == 0 {
+			continue
+		}
 		body := doc.Body
-		for _, id := range perDoc[p] {
-			start, end := skilldoc.FenceStart(id), skilldoc.FenceEnd(id)
-			si := strings.Index(body, start)
-			if si < 0 {
-				return fmt.Errorf("%s: unterminated GENERATED:%s fence", p, id)
+		for _, id := range docIDs {
+			start, end, ok := skilldoc.FindFence(body, id)
+			if !ok {
+				return true, fmt.Errorf("%s: unterminated GENERATED:%s fence", doc.Path, id)
 			}
-			ei := strings.Index(body[si:], end)
-			if ei < 0 {
-				return fmt.Errorf("%s: unterminated GENERATED:%s fence", p, id)
-			}
-			body = body[:si] + rendered[id] + body[si+ei+len(end):]
+			body = body[:start] + rendered[id] + body[end:]
 		}
 		if body == doc.Body {
 			continue // already fresh
 		}
-		if err := os.WriteFile(filepath.Join(base, p), []byte(body), 0o644); err != nil {
-			return fmt.Errorf("write card: %w", err)
+		if err := os.WriteFile(filepath.Join(base, doc.Path), []byte(body), 0o644); err != nil {
+			return true, fmt.Errorf("write card: %w", err)
 		}
+		docs[i].Body = body
+	}
+	return true, nil
+}
+
+// runGen regenerates one group's fences.
+func runGen(d skilldoc.Dump, base, group string) error {
+	docs, err := loadDocs(base)
+	if err != nil {
+		return err
+	}
+	found, err := genGroup(d, base, docs, group)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("no GENERATED:%s fence found under %s (add the start/end markers first)", group, base)
 	}
 	return nil
 }
 
 // runGenAll regenerates the fences of every dump group that has at least one
 // GENERATED marker in a card under <base>. The group set is derived from the
-// dump (intersected with the fences that actually exist), so it stays correct
-// as domains are added or renamed — no hardcoded list. Groups without any
-// fence (e.g. webhook) are skipped.
+// dump (intersected with the fences that actually exist, which genGroup
+// reports via found), so it stays correct as domains are added or renamed —
+// no hardcoded list. Groups without any fence (e.g. webhook) are skipped.
+// The corpus is loaded once and threaded through every group.
 func runGenAll(d skilldoc.Dump, base string) error {
 	docs, err := loadDocs(base)
 	if err != nil {
 		return err
-	}
-	withFence := map[string]bool{}
-	for _, doc := range docs {
-		for _, fl := range skilldoc.FenceLocs(doc.Body) {
-			if spec, err := skilldoc.ParseFenceID(fl.ID); err == nil {
-				withFence[spec.Group] = true
-			}
-		}
 	}
 
 	seen := map[string]bool{}
@@ -178,10 +176,7 @@ func runGenAll(d skilldoc.Dump, base string) error {
 	}
 	sort.Strings(groups)
 	for _, g := range groups {
-		if !withFence[g] {
-			continue
-		}
-		if err := runGen(d, base, g); err != nil {
+		if _, err := genGroup(d, base, docs, g); err != nil {
 			return fmt.Errorf("gen %s: %w", g, err)
 		}
 	}

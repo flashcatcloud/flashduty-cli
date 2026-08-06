@@ -92,14 +92,12 @@ func CheckFences(d Dump, docs []Doc) []Issue {
 		}
 	}
 
-	groupOrder := make([]string, 0, len(byGroup))
-	for g := range byGroup {
-		groupOrder = append(groupOrder, g)
-	}
-	sort.Strings(groupOrder)
-
-	for _, group := range groupOrder {
-		locs := byGroup[group]
+	// groups(d) is already sorted; every byGroup key is a member of it.
+	for _, group := range groups(d) {
+		locs, present := byGroup[group]
+		if !present {
+			continue
+		}
 		ids := make([]string, len(locs))
 		for i, l := range locs {
 			ids[i] = l.id
@@ -114,9 +112,8 @@ func CheckFences(d Dump, docs []Doc) []Issue {
 			})
 		}
 		for _, l := range locs {
-			end := FenceEnd(l.id)
-			ei := strings.Index(l.body[l.off:], end)
-			if ei < 0 {
+			start, end, ok := FindFence(l.body, l.id)
+			if !ok {
 				issues = append(issues, Issue{
 					Doc:    l.doc,
 					Line:   lineOf(l.body, l.off),
@@ -125,8 +122,7 @@ func CheckFences(d Dump, docs []Doc) []Issue {
 				})
 				continue
 			}
-			block := l.body[l.off : l.off+ei+len(end)]
-			if fresh, ok := rendered[l.id]; ok && block != fresh {
+			if fresh, rok := rendered[l.id]; rok && l.body[start:end] != fresh {
 				issues = append(issues, Issue{
 					Doc:    l.doc,
 					Line:   lineOf(l.body, l.off),

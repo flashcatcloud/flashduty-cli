@@ -45,10 +45,10 @@ func TestParseFenceID_Shapes(t *testing.T) {
 
 func TestFenceLocs_FindsStartsOnly(t *testing.T) {
 	body := "intro\n" +
-		FenceStart("svc[rule-]") + "\ncontent\n" + FenceEnd("svc[rule-]") + "\n\nmore prose\n" +
+		FenceStart("svc[rule]") + "\ncontent\n" + FenceEnd("svc[rule]") + "\n\nmore prose\n" +
 		FenceStart("svc") + "\ncontent\n" + FenceEnd("svc") + "\n"
 	locs := FenceLocs(body)
-	if len(locs) != 2 || locs[0].ID != "svc[rule-]" || locs[1].ID != "svc" {
+	if len(locs) != 2 || locs[0].ID != "svc[rule]" || locs[1].ID != "svc" {
 		t.Fatalf("FenceLocs = %+v, want the two start markers in order", locs)
 	}
 	if locs[0].Offset >= locs[1].Offset {
@@ -67,11 +67,11 @@ func partitionDump() Dump {
 
 func TestRenderGroupFences_SubsetPlusCatchAll(t *testing.T) {
 	d := partitionDump()
-	out, violations := RenderGroupFences(d, "svc", []string{"svc[rule-]", "svc"})
+	out, violations := RenderGroupFences(d, "svc", []string{"svc[rule]", "svc"})
 	if len(violations) != 0 {
 		t.Fatalf("unexpected violations: %v", violations)
 	}
-	subset, catchAll := out["svc[rule-]"], out["svc"]
+	subset, catchAll := out["svc[rule]"], out["svc"]
 	if !strings.Contains(subset, "### rule-create") || !strings.Contains(subset, "### rule-delete") {
 		t.Errorf("subset fence should carry the rule verbs:\n%s", subset)
 	}
@@ -84,7 +84,7 @@ func TestRenderGroupFences_SubsetPlusCatchAll(t *testing.T) {
 	if strings.Contains(catchAll, "### rule-create") {
 		t.Errorf("catch-all fence must not repeat claimed verbs:\n%s", catchAll)
 	}
-	if !strings.HasPrefix(subset, FenceStart("svc[rule-]")) || !strings.HasSuffix(subset, FenceEnd("svc[rule-]")) {
+	if !strings.HasPrefix(subset, FenceStart("svc[rule]")) || !strings.HasSuffix(subset, FenceEnd("svc[rule]")) {
 		t.Errorf("subset fence markers must carry the full fence id:\n%s", subset)
 	}
 }
@@ -96,9 +96,9 @@ func TestRenderGroupFences_Violations(t *testing.T) {
 		ids  []string
 		want string // substring of some violation
 	}{
-		{name: "double claim", ids: []string{"svc[rule-]", "svc[rule-create]", "svc"}, want: `verb "rule-create" claimed by`},
+		{name: "double claim", ids: []string{"svc[rule]", "svc[rule-create]", "svc"}, want: `verb "rule-create" claimed by`},
 		{name: "dead prefix", ids: []string{"svc[nope]", "svc"}, want: `prefix "nope" claims no verb`},
-		{name: "no catch-all", ids: []string{"svc[rule-]"}, want: "no catch-all fence for unclaimed verbs: create, list"},
+		{name: "no catch-all", ids: []string{"svc[rule]"}, want: "no catch-all fence for unclaimed verbs: create, list"},
 		{name: "duplicate id", ids: []string{"svc", "svc"}, want: `fence "svc" appears more than once`},
 		{name: "foreign group", ids: []string{"other", "svc"}, want: `fence "other" does not belong to group "svc"`},
 	}
@@ -118,13 +118,13 @@ func TestRenderGroupFences_Violations(t *testing.T) {
 
 func TestCheckFences_SplitAcrossDocs(t *testing.T) {
 	d := partitionDump()
-	fresh, violations := RenderGroupFences(d, "svc", []string{"svc[rule-]", "svc"})
+	fresh, violations := RenderGroupFences(d, "svc", []string{"svc[rule]", "svc"})
 	if len(violations) != 0 {
 		t.Fatalf("unexpected violations: %v", violations)
 	}
 
 	docs := []Doc{
-		{Path: "rules", Body: "# Rules\n\n" + fresh["svc[rule-]"] + "\n"},
+		{Path: "rules", Body: "# Rules\n\n" + fresh["svc[rule]"] + "\n"},
 		{Path: "svc", Body: "# Svc\n\n" + fresh["svc"] + "\n"},
 	}
 	if issues := CheckFences(d, docs); len(issues) != 0 {
@@ -132,7 +132,7 @@ func TestCheckFences_SplitAcrossDocs(t *testing.T) {
 	}
 
 	stale := []Doc{
-		{Path: "rules", Body: "# Rules\n\n" + FenceStart("svc[rule-]") + "\n\nWRONG\n\n" + FenceEnd("svc[rule-]") + "\n"},
+		{Path: "rules", Body: "# Rules\n\n" + FenceStart("svc[rule]") + "\n\nWRONG\n\n" + FenceEnd("svc[rule]") + "\n"},
 		{Path: "svc", Body: "# Svc\n\n" + fresh["svc"] + "\n"},
 	}
 	issues := CheckFences(d, stale)
@@ -145,8 +145,8 @@ func TestCheckFences_TopologyIssues(t *testing.T) {
 	d := partitionDump()
 	// A subset fence with no catch-all anywhere: the group's remaining verbs
 	// have no home.
-	fresh, _ := RenderGroupFences(d, "svc", []string{"svc[rule-]", "svc"})
-	docs := []Doc{{Path: "rules", Body: "# Rules\n\n" + fresh["svc[rule-]"] + "\n"}}
+	fresh, _ := RenderGroupFences(d, "svc", []string{"svc[rule]", "svc"})
+	docs := []Doc{{Path: "rules", Body: "# Rules\n\n" + fresh["svc[rule]"] + "\n"}}
 	issues := CheckFences(d, docs)
 	if len(issues) != 1 || issues[0].Kind != "fence-topology" {
 		t.Fatalf("want 1 fence-topology issue, got %+v", issues)
@@ -160,5 +160,30 @@ func TestCheckFences_TopologyIssues(t *testing.T) {
 	issues = CheckFences(d, ghost)
 	if len(issues) != 1 || issues[0].Kind != "fence-topology" || !strings.Contains(issues[0].Detail, "unknown command group") {
 		t.Errorf("unknown group marker should be flagged: %+v", issues)
+	}
+}
+
+// TestRenderGroupFences_PrefixIsSegmentBounded pins the hyphen-boundary claim
+// semantics: "rule" claims "rule-create" but must NOT claim "rule2-list" — an
+// unbounded prefix match would misroute it with a clean single-owner
+// partition that no topology check could flag.
+func TestRenderGroupFences_PrefixIsSegmentBounded(t *testing.T) {
+	mk := func(verb string) Command {
+		return Command{Path: "svc " + verb, Group: "svc", Short: "S " + verb, Use: verb}
+	}
+	d := Dump{Commands: []Command{mk("rule-create"), mk("rule2-list"), mk("rule")}}
+	out, violations := RenderGroupFences(d, "svc", []string{"svc[rule]", "svc"})
+	if len(violations) != 0 {
+		t.Fatalf("unexpected violations: %v", violations)
+	}
+	subset, catchAll := out["svc[rule]"], out["svc"]
+	if !strings.Contains(subset, "### rule-create") || !strings.Contains(subset, "### rule\n") {
+		t.Errorf("subset must claim the exact verb and its hyphen extensions:\n%s", subset)
+	}
+	if strings.Contains(subset, "### rule2-list") {
+		t.Errorf("subset must not claim the near-miss verb:\n%s", subset)
+	}
+	if !strings.Contains(catchAll, "### rule2-list") {
+		t.Errorf("near-miss verb must land in the catch-all:\n%s", catchAll)
 	}
 }
