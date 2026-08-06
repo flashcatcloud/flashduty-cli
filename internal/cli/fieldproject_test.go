@@ -134,15 +134,20 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 		stub := newGFStub(t)
 		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
 
-		out, err := execCommand("incident", "list", "--output-format", "toon")
+		out, stderrText, err := execCommandSplit("incident", "list", "--output-format", "toon")
 		if err != nil {
-			t.Fatalf("execCommand: %v", err)
+			t.Fatalf("execCommandSplit: %v", err)
 		}
 
+		// Positive keys must come from stdout alone: the stderr note embeds the
+		// same field names, so a merged capture would satisfy this vacuously.
 		for _, key := range []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"} {
 			if !strings.Contains(out, key) {
 				t.Errorf("default toon output missing compact key %q, got:\n%s", key, out)
 			}
+		}
+		if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+			t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
 		}
 		for _, key := range []string{"responders", "labels", "description"} {
 			if strings.Contains(out, key) {
