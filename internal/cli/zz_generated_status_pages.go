@@ -196,16 +196,16 @@ Request fields:
   --is-retrospective bool — Mark this event as a retrospective (historical) one.
   --linked-changes []string — Linked change IDs (related incidents, deployments, etc.).
   --notify-subscribers bool — Notify subscribers about this event and all its updates.
-  --page-id int (required) — Status page ID.
-  --responders []int — Member IDs responsible for this event.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --responders []int — Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.
   --start-at-seconds string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --status string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   --title string (required) — Event title, up to 255 characters. (≤255 chars)
-  --type string (required) — Event type. [incident, maintenance]
+  --type string (required) — Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
   updates (array<object>, via --data) (required) — Timeline updates. Immediate events normally pass one update; retrospective events must pass all historical updates.
     - at_seconds (integer) — Update timestamp in unix seconds.
     - component_changes (array<object>) — Component status transitions applied by this update.
-      - component_id (string) (required) — Component ID.
+      - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
       - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - description (string) — Update description (Markdown).
     - status (string) — Change status after this update. Omit if the overall status does not change. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
@@ -290,12 +290,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsRetrospective, "is-retrospective", false, "Mark this event as a retrospective (historical) one.")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked change IDs (related incidents, deployments, etc.).")
 	cmd.Flags().BoolVar(&fNotifySubscribers, "notify-subscribers", false, "Notify subscribers about this event and all its updates.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event.")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.")
 	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
-	cmd.Flags().StringVar(&fType, "type", "", "Event type. (required) [incident, maintenance]")
+	cmd.Flags().StringVar(&fType, "type", "", "Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -314,8 +314,8 @@ Delete a status page event.
 API: POST /status-page/change/delete (statusPageChangeDelete)
 
 Request fields:
-  --change-id int (required) — Target event ID.
-  --page-id int (required) — Status page ID.
+  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
 `,
 		Example: `  flashduty status-page change-delete --data '{"change_id":5821693893131,"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -348,8 +348,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -569,12 +569,12 @@ API: POST /status-page/change/timeline/create (statusPageChangeTimelineCreate)
 
 Request fields:
   --at-seconds string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --change-id int (required) — Target event ID.
+  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
   --description string — Update description (Markdown). Required.
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   --status string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   component_changes (array<object>, via --data) — Component status transitions applied by this update. Component IDs must be unique.
-    - component_id (string) (required) — Component ID.
+    - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
     - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -621,9 +621,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -644,9 +644,9 @@ Delete a timeline entry from a status page event.
 API: POST /status-page/change/timeline/delete (statusPageChangeTimelineDelete)
 
 Request fields:
-  --change-id int (required) — Parent event ID.
-  --page-id int (required) — Status page ID.
-  --update-id string (required) — Timeline update ID to delete.
+  --change-id int (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --update-id string (required) — Timeline update ID to delete; obtain it from 'POST /status-page/change/info'.
 `,
 		Example: `  flashduty status-page change-timeline-delete --data '{"change_id":5821693893131,"page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -682,9 +682,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'POST /status-page/change/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete; obtain it from 'POST /status-page/change/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -707,10 +707,10 @@ API: POST /status-page/change/timeline/update (statusPageChangeTimelineUpdate)
 
 Request fields:
   --at-seconds string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --change-id int (required) — Parent event ID.
+  --change-id int (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
   --description string — New update description (Markdown).
-  --page-id int (required) — Status page ID.
-  --update-id string (required) — Target timeline update ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --update-id string (required) — Target timeline update ID; obtain it from 'POST /status-page/change/info'.
 `,
 		Example: `  flashduty status-page change-timeline-update --data '{"at_seconds":1712003600,"change_id":5821693893131,"description":"Corrected description: root cause identified in database layer.","page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -757,10 +757,10 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Parent event ID. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'POST /status-page/change/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New update description (Markdown).")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID; obtain it from 'POST /status-page/change/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -782,9 +782,9 @@ Update an existing status page event.
 API: POST /status-page/change/update (statusPageChangeUpdate)
 
 Request fields:
-  --change-id int (required) — Target event ID.
+  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
   --linked-changes []string — Linked event IDs. Pass the full replacement list.
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   --responders []int — Member IDs responsible for this event. Pass the full replacement list.
   --title string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 `,
@@ -828,9 +828,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target event ID. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked event IDs. Pass the full replacement list.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event. Pass the full replacement list.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -851,8 +851,8 @@ Delete a service component from a status page.
 API: POST /status-page/component/delete (statusPageComponentDelete)
 
 Request fields:
-  --component-ids []string (required) — IDs of components to delete.
-  --page-id int (required) — Status page ID.
+  --component-ids []string (required) — Component IDs to delete; obtain them from 'POST /status-page/info'.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
 `,
 		Args:    requireBodyFieldOrArgs("component_ids", "component-ids"),
 		Example: `  flashduty status-page component-delete --data '{"component_ids":["01KP032KMN9YFBMPWANJMFZFG1"],"page_id":5750613685214}'`,
@@ -889,8 +889,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "IDs of components to delete. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Component IDs to delete; obtain them from 'POST /status-page/info'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -908,7 +908,7 @@ Create or update a service component on a status page.
 API: POST /status-page/component/upsert (statusPageComponentUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   components (array<object>, via --data) (required) — Components to create or update.
     - component_id (string) — Component ID. Omit to create a new component; supply to update an existing one.
     - description (string) — Component description.
@@ -949,7 +949,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -978,16 +978,16 @@ API: POST /status-page/create (statusPageCreate)
 Request fields:
   --contact-info string — Get-in-touch contact, such as a mailto or website URL.
   --custom-domain string — Custom domain for a public status page. (≤255 chars)
-  --date-view string (required) — How event dates are displayed. [calendar, list]
-  --display-uptime-mode string (required) — How uptime is displayed. [chart_and_percentage, chart, none]
+  --date-view string (required) — How change dates are displayed: 'calendar' calendar view, 'list' list view. [calendar, list]
+  --display-uptime-mode string (required) — Uptime display mode: 'chart_and_percentage' chart plus percentage, 'chart' chart only, 'none' hidden. [chart_and_percentage, chart, none]
   --name string (required) — Display name of the status page. (≤255 chars)
   --page-footer string — Footer content shown on the status page.
   --page-header string — Header content shown on the status page.
   --page-title string — Browser title shown for the status page.
-  --type string (required) — Visibility type of the status page. [public, internal]
+  --type string (required) — Visibility type: 'public' accessible to anyone, 'internal' restricted to logged-in members of this account. [public, internal]
   --url-name string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
   custom_links (array<object>, via --data) — Custom navigation links shown on the status page.
-  subscription (object, via --data)
+  subscription (object, via --data) — Subscription channel toggles.
     - email (boolean) — Whether email subscription is enabled.
     - im (boolean) — Whether IM subscription is enabled.
 
@@ -1049,13 +1049,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL.")
 	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. (≤255 chars)")
-	cmd.Flags().StringVar(&fDateView, "date-view", "", "How event dates are displayed. (required) [calendar, list]")
-	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. (required) [chart_and_percentage, chart, none]")
+	cmd.Flags().StringVar(&fDateView, "date-view", "", "How change dates are displayed: 'calendar' calendar view, 'list' list view. (required) [calendar, list]")
+	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "Uptime display mode: 'chart_and_percentage' chart plus percentage, 'chart' chart only, 'none' hidden. (required) [chart_and_percentage, chart, none]")
 	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page.")
 	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page.")
 	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page.")
-	cmd.Flags().StringVar(&fType, "type", "", "Visibility type of the status page. (required) [public, internal]")
+	cmd.Flags().StringVar(&fType, "type", "", "Visibility type: 'public' accessible to anyone, 'internal' restricted to logged-in members of this account. (required) [public, internal]")
 	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1074,7 +1074,7 @@ Delete a status page.
 API: POST /status-page/delete (statusPageDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page delete --data '{"page_id":5750613685214}'`,
@@ -1108,7 +1108,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1332,7 +1332,7 @@ Cancel an in-progress status page migration job. Only jobs currently in the 'run
 API: POST /status-page/migration/cancel (statusPageMigrationCancel)
 
 Request fields:
-  --job-id string (required) — Migration job ID.
+  --job-id string (required) — Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'.
 `,
 		Args:    requireBodyFieldOrExactArg("job_id", "job-id"),
 		Example: `  flashduty status-page migration-cancel --data '{"job_id":"01KP0311872NVYFRRQ82FW0001"}'`,
@@ -1366,7 +1366,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID. (required)")
+	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1454,8 +1454,8 @@ Delete a section from a status page.
 API: POST /status-page/section/delete (statusPageSectionDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID.
-  --section-ids []string (required) — IDs of sections to delete.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --section-ids []string (required) — Section IDs to delete; obtain them from 'POST /status-page/info'.
 `,
 		Args:    requireBodyFieldOrArgs("section_ids", "section-ids"),
 		Example: `  flashduty status-page section-delete --data '{"page_id":5750613685214,"section_ids":["01KP032J1FV2H8DDGN0QSJ1CAR"]}'`,
@@ -1492,8 +1492,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringSliceVar(&fSectionIDs, "section-ids", nil, "IDs of sections to delete. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().StringSliceVar(&fSectionIDs, "section-ids", nil, "Section IDs to delete; obtain them from 'POST /status-page/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1511,7 +1511,7 @@ Create or update a section on a status page.
 API: POST /status-page/section/upsert (statusPageSectionUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   sections (array<object>, via --data) (required) — Sections to create or update.
     - description (string) — Section description.
     - hide_all (boolean) — When true, the entire section is hidden from summary endpoints.
@@ -1551,7 +1551,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1571,7 +1571,7 @@ API: POST /status-page/subscriber/export (statusPageSubscriberExport)
 
 Request fields:
   --component-ids []string — Optional component IDs to filter subscribers by.
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page subscriber-export --data '{"page_id":5750613685214}'`,
@@ -1605,7 +1605,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Optional component IDs to filter subscribers by.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1625,7 +1625,7 @@ API: POST /status-page/subscriber/import (statusPageSubscriberImport)
 
 Request fields:
   --method string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. [email, im]
-  --page-id int (required) — Target status page ID.
+  --page-id int (required) — Target status page ID; obtain it from 'POST /status-page/list'.
   subscribers (array<object>, via --data) — Subscribers to import.
     - all (boolean) — When true, the subscriber receives notifications for all components. Must be true when 'component_ids' and 'change_ids' are both empty.
     - change_ids (array<integer>) — Specific event IDs the subscriber should receive notifications for.
@@ -1669,7 +1669,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1772,9 +1772,9 @@ Delete an event template from a status page.
 API: POST /status-page/template/delete (statusPageTemplateDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID.
-  --template-id string (required) — Template ID to delete.
-  --type string (required) — Template category. [pre_defined, message]
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --template-id string (required) — ID of the template to delete; obtain it from 'POST /status-page/template/list'.
+  --type string (required) — Template kind: 'pre_defined' predefined template, 'message' message template. [pre_defined, message]
 `,
 		Example: `  flashduty status-page template-delete --data '{"page_id":5720156736380,"template_id":"01KP0339G5XDEPM4R86T2B23EP","type":"pre_defined"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1810,9 +1810,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID to delete. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Template category. (required) [pre_defined, message]")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "ID of the template to delete; obtain it from 'POST /status-page/template/list'. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Template kind: 'pre_defined' predefined template, 'message' message template. (required) [pre_defined, message]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1888,12 +1888,12 @@ Create or update an event template for a status page.
 API: POST /status-page/template/upsert (statusPageTemplateUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   --type string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. [pre_defined, message]
   template (object, via --data) (required) — Template content.
     - description (string) — Template body text (Markdown).
-    - event_type (string) (required) — Event type this template applies to. [incident, maintenance]
-    - status (string) (required) — Event status this template represents. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - event_type (string) (required) — Change type this template applies to: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
+    - status (string) (required) — Change status this template maps to. Incidents use 'investigating'/'identified'/'monitoring'/'resolved'; maintenances use 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - template_id (string) — Template ID. Omit to create; supply to update.
     - title (string) (required) — Template title.
 
@@ -1931,7 +1931,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. (required) [pre_defined, message]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1975,12 +1975,12 @@ Request fields:
   --name string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
   --page-footer string — Footer content shown on the status page. Omit to keep the existing value.
   --page-header string — Header content shown on the status page. Omit to keep the existing value.
-  --page-id int (required) — Status page ID.
+  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
   --page-title string — Browser title shown for the status page. Omit to keep the existing value.
   --template-preference string — Preferred change-event template type. Omit to keep the existing value.
   --url-name string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)
   custom_links (array<object>, via --data) — Custom navigation links shown on the status page. Omit to keep the existing value.
-  subscription (object, via --data)
+  subscription (object, via --data) — Subscription channel toggles.
     - email (boolean) — Whether email subscription is enabled.
     - im (boolean) — Whether IM subscription is enabled.
 `,
@@ -2069,7 +2069,7 @@ Request fields:
 	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page. Omit to keep the existing value.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
 	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fTemplatePreference, "template-preference", "", "Preferred change-event template type. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)")

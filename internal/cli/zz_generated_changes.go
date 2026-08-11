@@ -37,7 +37,7 @@ Request fields:
   --limit int — Number of items per page. (1-100)
   --search-after-ctx string
   --asc bool — Sort in ascending order when true.
-  --channel-ids []int — Filter by collaboration channel IDs.
+  --channel-ids []int — Filter by channel IDs.
   --end-time string — Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --include-events bool — Include the underlying change events for each change when true.
   --integration-ids []int — Filter by reporting integration IDs.
@@ -147,7 +147,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of items per page. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort in ascending order when true.")
-	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by collaboration channel IDs.")
+	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "Include the underlying change events for each change when true.")

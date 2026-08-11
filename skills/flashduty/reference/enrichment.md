@@ -88,7 +88,7 @@ Create mapping API
 - `--description` string — Optional description.
 - `--insecure-skip-verify` bool — Skip TLS certificate verification. Default 'false'.
 - `--retry-count` int64 — Number of retries on failure (0–1). Default 0.
-- `--team-id` int64 — Owning team ID.
+- `--team-id` int64 — Owning team ID; obtain it from 'POST /team/list'.
 - `--timeout` int64 — Request timeout in seconds (1–3). Default 2.
 - `--url` string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
 - body-only (`--data`): headers (object)
@@ -114,7 +114,7 @@ Update mapping API
 - `--description` string — New description.
 - `--insecure-skip-verify` bool — New TLS skip-verify setting.
 - `--retry-count` int64 — New retry count.
-- `--team-id` int64 — New owning team ID.
+- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
 - `--timeout` int64 — New timeout in seconds.
 - `--url` string — New endpoint URL (max 500 chars). (≤500 chars)
 - body-only (`--data`): headers (object)
@@ -146,7 +146,7 @@ Truncate mapping data
 ### mapping-data-upload
 Upload mapping data via CSV
 - `--file` string — CSV file to upload.
-- `--schema-id` string — Mapping schema ID (query parameter).
+- `--schema-id` string — Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.
 
 ### mapping-data-upsert <schema-id>
 Upsert mapping data rows

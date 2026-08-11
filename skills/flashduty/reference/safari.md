@@ -64,26 +64,26 @@ Create A2A agent
 
 ### a2a-agent-delete <agent-id>
 Delete A2A agent
-- `<agent-id>` (positional, required) string — Target agent ID.
+- `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 
 ### a2a-agent-disable <agent-id>
 Disable A2A agent
-- `<agent-id>` (positional, required) string — Target agent ID.
+- `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 
 ### a2a-agent-enable <agent-id>
 Enable A2A agent
-- `<agent-id>` (positional, required) string — Target agent ID.
+- `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 
 ### a2a-agent-get <agent-id>
 Get A2A agent detail
-- `<agent-id>` (positional, required) string — Target agent ID.
+- `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (integer); created_by (integer); environment_id (string); environment_kind (string); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (integer)
 
 ### a2a-agent-list
 List A2A agents
 - `--include-account` bool — Include account-scoped (team_id=0) rows. Defaults to true.
 - `--limit` int64 — Page size.
-- `--offset` int64 — Row offset for pagination.
+- `--offset` int64 — Pagination offset — number of rows to skip, starting from 0.
 - `--query` string — Case-insensitive substring search across agent name, instructions, card URL, agent ID, and the resolved card name. (≤128 chars)
 - `--scope` string — Visibility scope: 'all' (account-scope plus the caller's visible teams), 'account' (account-scope only), or 'team' (team-scoped rows across the caller's visible teams). · enum: all | account | team
 - `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
@@ -91,7 +91,7 @@ List A2A agents
 
 ### a2a-agent-update <agent-id>
 Update A2A agent
-- `<agent-id>` (positional, required) string — Target agent ID.
+- `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 - `--agent-name` string — New display name. Omit to leave unchanged. (≤128 chars)
 - `--allow-insecure-oauth-http` bool — Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.
 - `--allow-insecure-tls-skip-verify` bool — Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.
@@ -126,16 +126,16 @@ Create Automation rule
 
 ### automation-rule-delete <rule-id>
 Delete Automation rule
-- `<rule-id>` (positional, required) string — Rule ID.
+- `<rule-id>` (positional, required) string — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 
 ### automation-rule-get <rule-id>
 Get Automation rule
-- `<rule-id>` (positional, required) string — Rule ID.
+- `<rule-id>` (positional, required) string — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - response: same shape as `automation-rule-create` above
 
 ### automation-rule-list
 List Automation rules
-- `--enabled` bool — Filter by enabled status.
+- `--enabled` bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
 - `--include-person` bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
 - `--keyword` string — Filter by name keyword. (≤64 chars)
 - `--limit` int64 — Page size. (max 100)
@@ -147,7 +147,7 @@ List Automation rules
 
 ### automation-rule-run <rule-id>
 Run Automation rule
-- `<rule-id>` (positional, required) string — Rule ID.
+- `<rule-id>` (positional, required) string — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - response: single object (`data` unwrapped to the top level) — fields: preflight (object); rule_id (string); run (object); trigger_kind (string)
 
 ### automation-rule-update <rule-id>
@@ -163,7 +163,7 @@ Update Automation rule
 - `--oncall-incident-trigger-enabled` bool — Whether the On-call incident trigger is enabled.
 - `--prompt` string — New task prompt.
 - `--rotate-http-post-trigger-token` bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
-- `<rule-id>` (positional, required) string — Target rule ID.
+- `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
 - `--team-id` int64 — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
 - response: same shape as `automation-rule-create` above
@@ -172,12 +172,12 @@ Update Automation rule
 List Automation runs
 - `--limit` int64 — Page size. (max 100)
 - `--page` int64 — Page number, 1-based.
-- `<rule-id>` (positional, required) string — Target rule ID.
+- `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--search-after-ctx` string
 - `--started-after-ms` int64 — Start-time lower bound, Unix milliseconds.
 - `--started-before-ms` int64 — Start-time upper bound, Unix milliseconds.
-- `--status` string — Run status filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned
-- `--trigger-kind` string — Trigger kind filter. · enum: schedule | debug | manual | http_post | oncall_incident
+- `--status` string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned
+- `--trigger-kind` string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. · enum: schedule | debug | manual | http_post | oncall_incident
 - response: single object (`data` unwrapped to the top level) — fields: runs (array<object>); total (integer)
 
 ### automation-template-list
@@ -189,6 +189,68 @@ List Automation templates
 Fire an Automation HTTP POST trigger
 - `--text` string
 - `--token` string
+
+### knowledge-file-delete
+Delete knowledge file
+- `--force` bool — Delete even when other pack files reference this file; the referrers are then returned as warnings instead of blocking the delete.
+- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
+- `--rel-path` string (required) — Path of the file relative to the pack root.
+- response: single object (`data` unwrapped to the top level) — fields: warnings (array<object>)
+
+### knowledge-file-get
+Get knowledge file
+- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
+- `--rel-path` string (required) — Path of the file relative to the pack root.
+- response: single object (`data` unwrapped to the top level) — fields: content_b64 (string); file (object)
+
+### knowledge-file-list
+List knowledge files
+- `--limit` int64 — Page size.
+- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
+- `--page` int64 — Page number, 1-based.
+- `--search-after-ctx` string
+- response: single object (`data` unwrapped to the top level) — fields: files (array<object>); total (integer)
+
+### knowledge-file-put
+Upload knowledge file
+- `--content-b64` string — Base64-encoded file content; must decode to valid UTF-8 text.
+- `--content-type` string — MIME type; inferred from the file extension when omitted.
+- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
+- `--rel-path` string (required) — Destination path relative to the pack root; existing files are overwritten.
+- response: single object (`data` unwrapped to the top level) — fields: file (object); warnings (array<object>)
+
+### knowledge-get
+Get account knowledge pack
+- response: single object (`data` unwrapped to the top level) — fields: files (array<object>); pack (object)
+
+### knowledge-pack-delete <pack-id>
+Delete knowledge pack
+- `<pack-id>` (positional, required) string — Knowledge pack ID to delete.
+- response: single object (`data` unwrapped to the top level) — fields: ok (boolean)
+
+### knowledge-pack-ensure
+Ensure knowledge pack
+- `--scope` string (required) — Scope of the pack to ensure. · enum: account | team
+- `--scope-id` int64 — Team ID; required for 'team' scope, ignored for 'account' scope.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at_ms (integer); created_by (integer); file_count (integer); pack_id (string); scope (string); scope_id (integer); team_name (string); total_bytes (integer); updated_at_ms (integer); version (integer)
+
+### knowledge-pack-list
+List knowledge packs
+- `--include-account` bool — Include the account-scope pack; defaults to true.
+- `--limit` int64 — Page size.
+- `--page` int64 — Page number, 1-based; returns all results when both 'p' and 'limit' are unset.
+- `--query` string — Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)
+- `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. · enum: all | account | team
+- `--search-after-ctx` string
+- `--team-ids` intSlice — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
+- response: single object (`data` unwrapped to the top level) — fields: packs (array<object>); total (integer)
+
+### knowledge-pack-update <pack-id>
+Update knowledge pack
+- `<pack-id>` (positional, required) string — Knowledge pack ID to update.
+- `--scope` string — Destination scope; omit for a no-op that returns the current pack. · enum: account | team
+- `--scope-id` int64 — Destination team ID; required when 'scope' is 'team', set automatically for 'account'.
+- response: same shape as `knowledge-pack-ensure` above
 
 ### mcp-server-create
 Create MCP server
@@ -206,28 +268,28 @@ Create MCP server
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
 - `--server-name` string (required) — MCP server name, unique within the account. (1-255 chars)
 - `--source-template-name` string — Marketplace template name when created from a connector template.
-- `--status` string — Initial status. · enum: enabled | disabled
+- `--status` string — Initial status: 'enabled' (default) or 'disabled' (created but kept off). · enum: enabled | disabled
 - `--team-id` int64 — Team scope: 0 = account-wide; >0 = team.
-- `--transport` string (required) — Transport protocol. · enum: stdio | sse | streamable-http
+- `--transport` string (required) — Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. · enum: stdio | sse | streamable-http
 - `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (integer); created_by (integer); description (string); env (object); environment_id (string); environment_kind (string); headers (object); list_error (string); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); tool_count (integer); tools (array<object>); transport (string); updated_at (integer); url (string)
 
 ### mcp-server-delete <server-id>
 Delete MCP server
-- `<server-id>` (positional, required) string — Target MCP server ID.
+- `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 
 ### mcp-server-disable <server-id>
 Disable MCP server
-- `<server-id>` (positional, required) string — Target MCP server ID.
+- `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 
 ### mcp-server-enable <server-id>
 Enable MCP server
-- `<server-id>` (positional, required) string — Target MCP server ID.
+- `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 
 ### mcp-server-get <server-id>
 Get MCP server detail
-- `<server-id>` (positional, required) string — Target MCP server ID.
+- `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 - response: same shape as `mcp-server-create` above
 
 ### mcp-server-list
@@ -245,27 +307,27 @@ List MCP servers
 Update MCP server
 - `--allow-insecure-oauth-http` bool — Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.
 - `--allow-insecure-tls-skip-verify` bool — Skip TLS certificate verification. Omit to leave unchanged.
-- `--args` stringSlice — Command arguments (stdio transport).
+- `--args` stringSlice — Command arguments ('stdio' transport); replaces the whole list — pass '[]' to clear, omit to leave unchanged.
 - `--auth-mode` string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
 - `--call-timeout` int64 — Tool-call timeout in seconds. 0 = default (60s).
 - `--command` string — Executable command (stdio transport).
 - `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
-- `--description` string — New description. (1-1024 chars)
+- `--description` string — New description; omitted or empty leaves it unchanged. (1-1024 chars)
 - `--environment-id` string — Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.
 - `--environment-kind` string — Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.
 - `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
-- `<server-id>` (positional, required) string — Target MCP server ID.
-- `--server-name` string — New name. (1-255 chars)
+- `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
+- `--server-name` string — New name; omitted or empty leaves it unchanged. (1-255 chars)
 - `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
-- `--transport` string — Transport protocol. · enum: stdio | sse | streamable-http
+- `--transport` string — Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. · enum: stdio | sse | streamable-http
 - `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
 - response: same shape as `mcp-server-create` above
 
 ### session-delete <session-id>
 Delete session
-- `<session-id>` (positional, required) string — Target session ID. (≥1 chars)
+- `<session-id>` (positional, required) string — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
 
 ### session-export <session_id>
 Stream a session's full event transcript as NDJSON
@@ -276,19 +338,19 @@ Get session detail
 - `--limit` int64 — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
 - `--num-recent-events` int64 — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
 - `--search-after-ctx` string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
-- `<session-id>` (positional, required) string — Target session ID. (≥1 chars)
+- `<session-id>` (positional, required) string — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
 - `--share-token` string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
 - response: single object (`data` unwrapped to the top level) — fields: events (array<object>); has_more_older (boolean); search_after_ctx (string); session (object); suggest_init (boolean)
 
 ### session-list
 List sessions
 - `--app-name` string (required) — Agent app whose sessions to list. · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant | swe
-- `--asc` bool — Ascending order when true; applies only when 'orderby' is set.
+- `--asc` bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
 - `--entry-kinds` stringSlice — Restrict to sessions produced by these surfaces; empty returns every kind. · enum: web | im | api | automation
 - `--include-subagent-sessions` bool — Include subagent-dispatched sessions in the list.
 - `--keyword` string — Filter by session-name keyword. (≤64 chars)
 - `--limit` int64 — Page size, 1–100. (1-100)
-- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--orderby` string — Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. · enum: created_at | updated_at
 - `--page` int64 — Page number, 1-based. (min 1)
 - `--scope` string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. · enum: all | personal | team
 - `--search-after-ctx` string
@@ -298,19 +360,19 @@ List sessions
 
 ### skill-delete <skill-id>
 Delete skill
-- `<skill-id>` (positional, required) string — Target skill ID.
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 
 ### skill-disable <skill-id>
 Disable skill
-- `<skill-id>` (positional, required) string — Target skill ID.
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 
 ### skill-enable <skill-id>
 Enable skill
-- `<skill-id>` (positional, required) string — Target skill ID.
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 
 ### skill-get <skill-id>
 Get skill detail
-- `<skill-id>` (positional, required) string — Target skill ID.
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (integer); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (integer); version (string)
 
 ### skill-list
@@ -328,7 +390,7 @@ List skills
 Update skill
 - `--description` string — New description. Cannot contain '<' or '>'. Sending an empty string leaves the current value unchanged — there is no way to clear it via this field. (≤1024 chars)
 - `--description-en` string — New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)
-- `<skill-id>` (positional, required) string — Target skill ID.
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 - `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 - response: same shape as `skill-get <skill-id>` above
 

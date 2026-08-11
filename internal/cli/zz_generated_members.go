@@ -28,12 +28,12 @@ API: POST /member/delete (memberDelete)
 
 Request fields:
   --country-code string — Phone country code, used with phone
-  --email string — Email address
+  --email string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
   --is-force bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
-  --member-id int — Member ID
-  --member-name string — Member name
-  --phone string — Phone number
-  --ref-id string — External reference ID
+  --member-id int — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
+  --member-name string — Member name. Only used when 'member_id' is not provided
+  --phone string — Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent
+  --ref-id string — External reference ID. Only used when all other lookup fields are absent
 `,
 		Example: `  flashduty member delete --data '{"member_id":5068740052131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -82,12 +82,12 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Phone country code, used with phone")
-	cmd.Flags().StringVar(&fEmail, "email", "", "Email address")
+	cmd.Flags().StringVar(&fEmail, "email", "", "Email address. Only used when neither 'member_id' nor 'member_name' is provided")
 	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately")
-	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID")
-	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name")
-	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number")
-	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'")
+	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name. Only used when 'member_id' is not provided")
+	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID. Only used when all other lookup fields are absent")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -218,7 +218,7 @@ Batch invite new members to the organization by email or phone.
 API: POST /member/invite (memberInvite)
 
 Request fields:
-  --from string — Invite source context
+  --from string — Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow
   members (array<object>, via --data) (required) — Members to invite (max 20)
     - country_code (string) — Country code
     - email (string) — Email address
@@ -258,7 +258,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fFrom, "from", "", "Invite source context")
+	cmd.Flags().StringVar(&fFrom, "from", "", "Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -282,13 +282,13 @@ Return a paginated list of organization members.
 API: POST /member/list (memberList)
 
 Request fields:
-  --page int — Page number (min 1)
-  --limit int — Page size (1-100)
+  --page int — Page number, 1-based (min 1)
+  --limit int — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
   --search-after-ctx string
-  --asc bool — Ascending order
-  --orderby string — Sort field [created_at, updated_at]
-  --query string — Search keyword
-  --role-id int — Filter by role ID
+  --asc bool — Ascending order. Default: false (descending)
+  --orderby string — Sort field. Default: 'updated_at' [created_at, updated_at]
+  --query string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
+  --role-id int — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Member items
@@ -355,13 +355,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (min 1)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100 on the server when omitted or 0 (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Search keyword")
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order. Default: false (descending)")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at' [created_at, updated_at]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -392,7 +392,7 @@ Request fields:
   --member-name string — Member name used to identify the member.
   --phone string — Phone number used to identify the member. Include country_code when the number is not in E.164 format.
   --ref-id string — External reference ID used to identify the member.
-  updates (object, via --data) (required) — Member profile fields to write. Omitted fields remain unchanged.
+  updates (object, via --data) (required) — New profile values to write. Must include at least one field.
     - avatar (string) — New avatar URL. (≤499 chars)
     - country_code (string) — Country or region code for the new phone number.
     - email (string) — New email address.
@@ -533,7 +533,7 @@ API: POST /member/role/update (memberUpdateRole)
 
 Request fields:
   --member-id int (required) — Member ID
-  --role-ids []int (required) — New set of role IDs
+  --role-ids []int (required) — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
 `,
 		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
 		Example: `  flashduty member role-update --data '{"member_id":5068740052131,"role_ids":[2,6]}'`,
@@ -571,7 +571,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
-	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New set of role IDs (required)")
+	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8) (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -589,7 +589,7 @@ Return profile information for a batch of person IDs (members or accounts).
 API: POST /person/infos (personInfos)
 
 Request fields:
-  --person-ids []int (required) — List of person IDs
+  --person-ids []int (required) — Person IDs to look up — these are member IDs (get them from 'POST /member/list'). Passing the account ID returns the account principal; unknown IDs are ignored
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Person profiles
@@ -634,7 +634,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "List of person IDs (required)")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Person IDs to look up — these are member IDs (get them from 'POST /member/list'). Passing the account ID returns the account principal; unknown IDs are ignored (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

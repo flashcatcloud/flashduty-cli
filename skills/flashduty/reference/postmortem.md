@@ -60,7 +60,7 @@ Update post-mortem basics
 - `--incidents-highest-severity` string (required) — Highest severity among linked incidents.
 - `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 - `--responder-ids` intSlice — Responder member IDs to store on the report.
 
 ### post-mortem-content-reset <post-mortem-id>
@@ -72,12 +72,12 @@ Reset post-mortem Markdown content
 
 ### post-mortem-delete <post-mortem-id>
 Delete post-mortem
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `<post-mortem-id>` (positional, required) string — Post-mortem report ID; obtain it from 'POST /incident/post-mortem/list'.
 
 ### post-mortem-follow-ups-reset <post-mortem-id>
 Update post-mortem follow-ups
 - `--follow-ups` string — Follow-up action items as free text.
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 
 ### post-mortem-info <post-mortem-id>
 Get post-mortem
@@ -94,8 +94,8 @@ Initialize post-mortem
 List post-mortems
 - `--asc` bool — Ascending order when true.
 - `--channel-ids` intSlice — Channel IDs to restrict the query to.
-- `--created-at-end-seconds` string — Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--created-at-start-seconds` string — Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--created-at-end-seconds` string — Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--created-at-start-seconds` string — Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--limit` int64 — Page size, at most 100. (0-100)
 - `--order-by` string — Field used to order results. · enum: created_at_seconds | updated_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
@@ -106,12 +106,12 @@ List post-mortems
 
 ### post-mortem-status-reset <post-mortem-id>
 Update post-mortem status
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-- `--status` string (required) — Target report status. · enum: drafting | published
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
+- `--status` string (required) — Target report status: 'drafting' draft, 'published' published. · enum: drafting | published
 
 ### post-mortem-template-delete <template-id>
 Delete post-mortem template
-- `<template-id>` (positional, required) string — Template ID.
+- `<template-id>` (positional, required) string — Template ID; obtain it from 'POST /incident/post-mortem/template/list'.
 
 ### post-mortem-template-info <template-id>
 Get post-mortem template detail
@@ -139,7 +139,7 @@ Create or update post-mortem template
 
 ### post-mortem-title-reset <post-mortem-id>
 Update post-mortem title
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 - `--title` string (required) — New report title.
 
 <!-- GENERATED:incident[post-mortem] END -->

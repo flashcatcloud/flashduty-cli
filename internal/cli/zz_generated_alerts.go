@@ -35,13 +35,13 @@ API: POST /alert-event/list (alert-event-read-list)
 Request fields:
   --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
   --limit int — Page size, max 100, default 20.
-  --search-after-ctx string — Opaque cursor for the next page.
+  --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — Sort ascending when 'true'.
   --channel-ids []int — Filter by channel IDs. Max 100.
   --end-time string — End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --integration-ids []int — Filter by integration IDs.
   --integration-types []string — Filter by integration types (plugin keys).
-  --orderby string — Sort field (ES field name). [event_time]
+  --orderby string — Sort field; only 'event_time' is supported. [event_time]
   --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'.
   --start-time string — Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
@@ -137,14 +137,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor for the next page.")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. Max 100.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field (ES field name). [event_time]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; only 'event_time' is supported. [event_time]")
 	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
@@ -273,9 +273,9 @@ Request fields:
   --page int — Page number, starting at 1.
   --limit int — Page size, max 100, default 20.
   --search-after-ctx string
-  --alert-id string (required) — Alert ID.
+  --alert-id string (required) — Alert ID; obtain it from 'POST /alert/list'.
   --asc bool — Sort ascending.
-  --types []string — Filter by feed types.
+  --types []string — Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
@@ -337,9 +337,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID. (required)")
+	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID; obtain it from 'POST /alert/list'. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending.")
-	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Filter by feed types.")
+	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -931,10 +931,10 @@ Associate one or more alerts with an existing incident. If a source alert previo
 API: POST /alert/merge (alert-write-merge)
 
 Request fields:
-  --alert-ids []string (required) — Alert IDs to merge.
+  --alert-ids []string (required) — Alert IDs to merge; obtain them from 'POST /alert/list'.
   --comment string — Optional comment on the merge action.
-  --incident-id string (required) — Target incident ID.
-  --owner-id int — Optional new owner for the target incident.
+  --incident-id string (required) — Target incident ID; obtain it from 'POST /incident/list'.
+  --owner-id int — Member ID of the new owner for the target incident; obtain it from 'POST /member/list'.
   --title string — Optional new title for the target incident.
 `,
 		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
@@ -981,10 +981,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs to merge. (required)")
+	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs to merge; obtain them from 'POST /alert/list'. (required)")
 	cmd.Flags().StringVar(&fComment, "comment", "", "Optional comment on the merge action.")
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Target incident ID. (required)")
-	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Optional new owner for the target incident.")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Target incident ID; obtain it from 'POST /incident/list'. (required)")
+	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Member ID of the new owner for the target incident; obtain it from 'POST /member/list'.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

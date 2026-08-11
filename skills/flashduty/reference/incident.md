@@ -153,7 +153,7 @@ View incident alerts
 ### assign
 Assign incident
 - `--incident-id` string — Single incident ID. Ignored when 'incident_ids' is also provided.
-- `--incident-ids` stringSlice — Batch incident IDs.
+- `--incident-ids` stringSlice — Incident IDs to assign in bulk; obtain them from 'POST /incident/list'.
 - body-only (`--data`): assigned_to (object) (required)
 
 ### close <id> [<id2> ...]
@@ -249,7 +249,7 @@ List incidents
 
 ### list-by-ids <incident-id> [<id2>...]
 List incidents by IDs
-- `<incident-ids>` (positional, required) stringSlice — Incident IDs to fetch.
+- `<incident-ids>` (positional, required) stringSlice — Incident IDs to query; obtain them from 'POST /incident/list'.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
 
 ### merge <target_id>
@@ -280,7 +280,7 @@ Update incident fields
 - `--description` string — New description. (3-6144 chars)
 - `--impact` string — New impact description. (3-6144 chars)
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
-- `--incident-severity` string — New severity. · enum: Info | Warning | Critical
+- `--incident-severity` string — New severity: 'Info', 'Warning' or 'Critical' (most severe). · enum: Info | Warning | Critical
 - `--resolution` string — New resolution notes. (3-6144 chars)
 - `--root-cause` string — New root cause analysis. (3-6144 chars)
 - `--title` string — New incident title. (3-200 chars)
@@ -310,10 +310,10 @@ Get ServiceDeskPlus linked incidents
 - `--limit` int64 — Page size. Defaults to 20; maximum 100. (0-100)
 - `--page` int64 — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
 - `--request-id` string — ServiceDeskPlus request ID. (≤64 chars)
-- `--search-after-ctx` string — Cursor returned by the previous page.
+- `--search-after-ctx` string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
 - `--since` string
 - `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--status` string — Synchronization status filter. · enum: success | failed
+- `--status` string — Filter by sync status: 'success' or 'failed'. · enum: success | failed
 - `--until` string
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: channel_id (integer); channel_name (string); created_at (integer); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
 
@@ -379,7 +379,7 @@ List incident war rooms
 ### war-room-add-member <chat-id>
 Add war-room member
 - `<chat-id>` (positional, required) string — Chat ID of the war room within the IM platform.
-- `--integration-id` int64 (required) — IM integration that hosts the war room.
+- `--integration-id` int64 (required) — ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 - `--member-ids` intSlice (required) — Person IDs to add to the war room.
 
 ### war-room-create
@@ -398,11 +398,11 @@ Get war-room default observers
 ### war-room-delete
 Delete war room
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `--integration-id` int64 (required) — IM integration ID.
+- `--integration-id` int64 (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 
 ### war-room-detail <chat-id>
 Get war room detail
-- `<chat-id>` (positional, required) string — Chat/group ID on the IM side.
+- `<chat-id>` (positional, required) string — Chat ID of the IM group hosting the war room; obtain it from 'POST /incident/war-room/list'.
 - `--integration-id` int64 (required) — IM integration ID that hosts the war room.
 - response: same shape as `get <chat_id>` above
 
@@ -458,7 +458,7 @@ List work items
 - `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
 - `--cursor` string — Pagination cursor from a previous response's 'next_cursor'.
 - `--incident-id` string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
-- `--item-type` string — Restrict results to one item type. · enum: action | follow_up
+- `--item-type` string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. · enum: action | follow_up
 - `--limit` int64 — Page size, at most 200. Defaults to 50. (1-200)
 - `--post-mortem-id` string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
 - response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: assignee_ids (array<integer>); converted_at_seconds (integer); converted_by (integer); created_at_seconds (integer); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (integer); updated_by (integer); version (integer); work_item_id (string)

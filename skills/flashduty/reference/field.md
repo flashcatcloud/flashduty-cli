@@ -46,7 +46,7 @@ Create field
 - `--description` string — Optional free-text description. (≤499 chars)
 - `--display-name` string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
 - `--field-name` string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
-- `--field-type` string (required) — Field input type. Immutable after creation. · enum: checkbox | multi_select | single_select | text
+- `--field-type` string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. · enum: checkbox | multi_select | single_select | text
 - `--options` stringSlice — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
 - `--value-type` string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. · enum: string | bool | float
 - body-only (`--data`): default_value (any)

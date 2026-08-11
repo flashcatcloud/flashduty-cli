@@ -68,12 +68,12 @@ List alert events
 
 ### feed <alert-id>
 List alert activity feed
-- `<alert-id>` (positional, required) string — Alert ID.
+- `<alert-id>` (positional, required) string — Alert ID; obtain it from 'POST /alert/list'.
 - `--asc` bool — Sort ascending.
 - `--limit` int64 — Page size, max 100, default 20.
 - `--page` int64 — Page number, starting at 1.
 - `--search-after-ctx` string
-- `--types` stringSlice — Filter by feed types.
+- `--types` stringSlice — Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').
 - response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (integer); creator_id (integer); detail (object); ref_id (string); type (string); updated_at (integer)
 
 ### get <alert_id>

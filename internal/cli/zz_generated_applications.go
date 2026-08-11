@@ -21,7 +21,7 @@ Retrieve full details of a single RUM application by 'application_id'.
 API: POST /rum/application/info (rum-application-read-info)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Account ID.
@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -96,7 +96,7 @@ Retrieve details for multiple RUM applications by their IDs in one request.
 API: POST /rum/application/infos (rum-application-read-infos)
 
 Request fields:
-  --application-ids []string (required) — Up to 200 application IDs.
+  --application-ids []string (required) — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>)
@@ -154,7 +154,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. (required)")
+	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. Get IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -184,9 +184,9 @@ Request fields:
   --search-after-ctx string
   --asc bool — Sort ascending if 'true'.
   --is-my-team bool — If 'true', return only applications belonging to the current user's teams.
-  --orderby string — Sort field. [created_at, updated_at]
-  --query string — Search query to filter by application name.
-  --team-id int — Filter by team ID.
+  --orderby string — Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at]
+  --query string — Substring match on the application name.
+  --team-id int — Filter by team ID. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
@@ -268,9 +268,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if 'true'.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If 'true', return only applications belonging to the current user's teams.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Search query to filter by application name.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the application name.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -289,7 +289,7 @@ Send a sample RUM alert event to verify an application's webhook URL.
 API: POST /rum/application/webhook/test (rum-application-webhook-test)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --webhook-url string (required) — Webhook URL to receive the sample alert event.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -328,7 +328,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fWebhookURL, "webhook-url", "", "Webhook URL to receive the sample alert event. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -356,16 +356,16 @@ Request fields:
   --is-private bool — Restrict access to team members only.
   --no-geo bool — Do not infer geographic location.
   --no-ip bool — Do not collect IP addresses.
-  --team-id int (required) — Owning team ID.
-  --type string (required) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
-  alerting (object, via --data) — Alert settings for the application.
+  --team-id int (required) — Owning team ID. Get team IDs via 'POST /team/list'.
+  --type string (required) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  alerting (object, via --data) — Alerting configuration; defaults to disabled ('enabled: false') when omitted.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
     - enabled (boolean) — Whether alerting is enabled.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
-  links (object, via --data) — External link integration settings for the application.
+  links (object, via --data) — Optional external-link integration configuration.
     - enabled (boolean) — Whether external link integration is enabled.
     - systems (any) — External systems whose URL templates can be opened from matching RUM events.
-  tracing (object, via --data) — APM tracing integration settings.
+  tracing (object, via --data) — Optional APM tracing integration configuration.
     - enabled (boolean) — Whether tracing integration is enabled.
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. [popup, tab]
@@ -422,8 +422,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to team members only.")
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "Do not infer geographic location.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Application type. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Application type. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -441,7 +441,7 @@ Delete a RUM application by 'application_id'.
 API: POST /rum/application/delete (rum-application-write-delete)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-delete --data '{"application_id":"qLpu24Dz4CAzWsESPbJYWA"}'`,
@@ -475,7 +475,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -499,21 +499,21 @@ Update an existing RUM application. All fields except 'application_id' are optio
 API: POST /rum/application/update (rum-application-write-update)
 
 Request fields:
-  --application-id string (required) — Application ID to update.
-  --application-name string — New application name.
-  --is-private bool
-  --no-geo bool
-  --no-ip bool
-  --team-id int
-  --type string [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
-  alerting (object, via --data) — Alert settings for the application.
+  --application-id string (required) — Application ID to update. Get application IDs via 'POST /rum/application/list'.
+  --application-name string — New application name, 1–40 characters. Omit to leave unchanged.
+  --is-private bool — Restrict access to members of the owning team. Omit to leave unchanged.
+  --no-geo bool — When 'true', stop inferring geographic location from IP. Omit to leave unchanged.
+  --no-ip bool — When 'true', stop collecting user IP addresses. Omit to leave unchanged.
+  --team-id int — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
+  --type string — Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  alerting (object, via --data) — Alerting configuration. Omit to leave unchanged.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
     - enabled (boolean) — Whether alerting is enabled.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
-  links (object, via --data) — External link integration settings for the application.
+  links (object, via --data) — External-link integration configuration. Omit to leave unchanged.
     - enabled (boolean) — Whether external link integration is enabled.
     - systems (any) — External systems whose URL templates can be opened from matching RUM events.
-  tracing (object, via --data) — APM tracing integration settings.
+  tracing (object, via --data) — APM tracing integration configuration. Omit to leave unchanged.
     - enabled (boolean) — Whether tracing integration is enabled.
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. [popup, tab]
@@ -568,13 +568,13 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "Application ID to update. (required)")
-	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name.")
-	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Request field is_private")
-	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "Request field no_geo")
-	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Request field no_ip")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Request field team_id")
-	cmd.Flags().StringVar(&fType, "type", "", "Request field type [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "Application ID to update. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name, 1–40 characters. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to members of the owning team. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses. Omit to leave unchanged.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

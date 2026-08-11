@@ -21,7 +21,7 @@ Enable a disabled skill so the agent can load it.
 API: POST /safari/skill/enable (skill-read-enable)
 
 Request fields:
-  --skill-id string (required) — Target skill ID.
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-enable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
@@ -51,7 +51,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -69,7 +69,7 @@ Get one skill including its full SKILL.md content.
 API: POST /safari/skill/get (skill-read-get)
 
 Request fields:
-  --skill-id string (required) — Target skill ID.
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
@@ -125,7 +125,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -251,7 +251,7 @@ Delete a skill by ID.
 API: POST /safari/skill/delete (skill-write-delete)
 
 Request fields:
-  --skill-id string (required) — Target skill ID.
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-delete --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
@@ -281,7 +281,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -299,7 +299,7 @@ Disable an enabled skill so the agent stops loading it.
 API: POST /safari/skill/disable (skill-write-disable)
 
 Request fields:
-  --skill-id string (required) — Target skill ID.
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
 		Example: `  flashduty safari skill-disable --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
@@ -329,7 +329,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -352,7 +352,7 @@ API: POST /safari/skill/update (skill-write-update)
 Request fields:
   --description string — New description. Cannot contain '<' or '>'. Sending an empty string leaves the current value unchanged — there is no way to clear it via this field. (≤1024 chars)
   --description-en string — New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)
-  --skill-id string (required) — Target skill ID.
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
   --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -420,7 +420,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Cannot contain '<' or '>'. Sending an empty string leaves the current value unchanged — there is no way to clear it via this field. (≤1024 chars)")
 	cmd.Flags().StringVar(&fDescriptionEn, "description-en", "", "New English description. Cannot contain '<' or '>'. Omit to leave unchanged; send an empty string to explicitly clear it. (≤1024 chars)")
-	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID. (required)")
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

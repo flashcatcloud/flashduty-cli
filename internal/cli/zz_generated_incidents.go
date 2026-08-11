@@ -27,7 +27,7 @@ Request fields:
   --expected-revision int (required) — Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (min 0)
   --idempotency-key string (required) — Non-blank key for safely retrying this exact reset request. (1-128 chars)
   --markdown string (required) — Replacement Markdown content. Limited to 4 MiB.
-  --post-mortem-id string (required) — Post-mortem ID to reset.
+  --post-mortem-id string (required) — ID of the post-mortem to reset; obtain it from 'POST /incident/post-mortem/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - generation (integer) (required) — New collaboration document generation after the reset.
@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current content revision expected by the caller. Pass 0 for the first write to a document that has never been saved. (required) (min 0)")
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Non-blank key for safely retrying this exact reset request. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&fMarkdown, "markdown", "", "Replacement Markdown content. Limited to 4 MiB. (required)")
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID to reset. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "ID of the post-mortem to reset; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -171,7 +171,7 @@ API: POST /incident/sdp/request/list (incident-service-desk-plus-request-read-li
 Request fields:
   --page int — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
   --limit int — Page size. Defaults to 20; maximum 100. (0-100)
-  --search-after-ctx string — Cursor returned by the previous page.
+  --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — When 'true', sort by internal record ID ascending; otherwise descending.
   --channel-ids []int — Channel IDs to filter by.
   --end-time string — Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
@@ -179,7 +179,7 @@ Request fields:
   --integration-id int — ServiceDeskPlus integration ID. (min 0)
   --request-id string — ServiceDeskPlus request ID. (≤64 chars)
   --start-time string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --status string — Synchronization status filter. [success, failed]
+  --status string — Filter by sync status: 'success' or 'failed'. [success, failed]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available.
@@ -261,7 +261,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20; maximum 100. (0-100)")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor returned by the previous page.")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "When 'true', sort by internal record ID ascending; otherwise descending.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
@@ -271,7 +271,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "ServiceDeskPlus request ID. (≤64 chars)")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Synchronization status filter. [success, failed]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by sync status: 'success' or 'failed'. [success, failed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -292,7 +292,7 @@ API: POST /incident/war-room/add-member (incident-write-add-war-room-member)
 
 Request fields:
   --chat-id string (required) — Chat ID of the war room within the IM platform.
-  --integration-id int (required) — IM integration that hosts the war room.
+  --integration-id int (required) — ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'.
   --member-ids []int (required) — Person IDs to add to the war room.
 `,
 		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
@@ -330,7 +330,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room within the IM platform. (required)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration that hosts the war room. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'. (required)")
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs to add to the war room. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -557,8 +557,8 @@ API: POST /incident/assign (incidentAssign)
 
 Request fields:
   --incident-id string — Single incident ID. Ignored when 'incident_ids' is also provided.
-  --incident-ids []string — Batch incident IDs.
-  assigned_to (object, via --data) (required) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
+  --incident-ids []string — Incident IDs to assign in bulk; obtain them from 'POST /incident/list'.
+  assigned_to (object, via --data) (required) — Assign target; at least one of 'person_ids' and 'escalate_rule_id' must be set.
     - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
     - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
@@ -600,7 +600,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Single incident ID. Ignored when 'incident_ids' is also provided.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Batch incident IDs.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to assign in bulk; obtain them from 'POST /incident/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -969,18 +969,18 @@ API: POST /incident/create (incidentCreate)
 Request fields:
   --channel-id int — Channel to file the incident into. Optional; leave unset for a standalone incident.
   --description string — Incident description, up to 1024 characters. (≤1024 chars)
-  --incident-severity string (required) — Incident severity. [Info, Warning, Critical]
+  --incident-severity string (required) — Incident severity: 'Info', 'Warning' or 'Critical' (most severe). [Info, Warning, Critical]
   --title string — Incident title, up to 512 characters. (≤512 chars)
-  assigned_to (object, via --data) — Incident assignment target. Either 'person_ids' or 'escalate_rule_id' must be provided.
-    - emails (array<string>) — Email recipients, used for ServiceNow-style integrations.
-    - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-    - layer_idx (integer) — Starting layer index when using an escalation rule.
+  assigned_to (object, via --data) — Incident assignment target. May be omitted entirely: when unset or empty, the channel's default assignment applies; required when the account's create form is in effect. 'person_ids', 'escalate_rule_id', and 'emails' can be combined — responders are the union.
+    - emails (array<string>) — Recipients to assign by email (1–100): resolved to account members and merged into 'person_ids'; emails with no matching member are ignored.
+    - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID); assigns the people at the rule's 'layer_idx' layer.
+    - layer_idx (integer) — Zero-based starting layer index of the escalation rule (default 0, the first layer); an out-of-range value returns an error. Only takes effect with 'escalate_rule_id'.
     - notify (object) — Override the notification channels used for this assignment.
       - follow_preference (boolean) — When true, fall back to each responder's personal preference.
       - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
       - template_id (string) — Notification template ID (MongoDB ObjectID).
-    - person_ids (array<integer>) — Member IDs to assign directly.
-    - type (string) — Assignment type.
+    - person_ids (array<integer>) — Member IDs to assign directly (1–100). Can be combined with 'escalate_rule_id'.
+    - type (string) — Assignment type, derived by the server — callers should omit it: 'assign' on manual create, 'reassign' on reassignment, 'escalate' when driven by escalation. [assign, reassign, escalate, reopen]
   fields (object, via --data) — Custom field values keyed by field name. When a create form applies, only its visible fields are accepted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -1022,7 +1022,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to file the incident into. Optional; leave unset for a standalone incident.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Incident description, up to 1024 characters. (≤1024 chars)")
-	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Incident severity. (required) [Info, Warning, Critical]")
+	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Incident severity: 'Info', 'Warning' or 'Critical' (most severe). (required) [Info, Warning, Critical]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Incident title, up to 512 characters. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1609,7 +1609,7 @@ Request fields:
   --page int — Page number starting at 1. (min 0)
   --limit int — Page size, at most 100. (0-100)
   --search-after-ctx string — Cursor from a previous response for forward pagination.
-  --acker-ids []int — Acknowledger member IDs.
+  --acker-ids []int — Filter by acker member IDs; obtain member IDs from 'POST /member/list'.
   --asc bool — Ascending order when true.
   --channel-ids []int — Channel IDs to filter by. Use 0 for standalone (global) incidents.
   --closer-ids []int — Closer member IDs. Use 0 for automatically closed incidents.
@@ -1622,11 +1622,11 @@ Request fields:
   --is-my-team bool — When true, restrict to incidents in channels owned by the user's teams.
   --is-rare bool — When true, include only outlier (rare) incidents.
   --is-snoozed bool — When true, include only snoozed incidents.
-  --nums []string — Restrict to the given short display identifiers.
+  --nums []string — Filter by incident short numbers (the numbers shown before incident titles in the console).
   --progress string — Comma-separated list of progress states to match (e.g. 'Triggered,Processing').
   --query string — Full-text search query.
-  --responder-ids []int — Responder member IDs.
-  --start-time string (required) — Window start, Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --responder-ids []int — Filter by responder member IDs; obtain member IDs from 'POST /member/list'.
+  --start-time string (required) — Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Team IDs; resolved to channels via channel ownership.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -1884,7 +1884,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
-	cmd.Flags().IntSliceVar(&fAckerIDs, "acker-ids", nil, "Acknowledger member IDs.")
+	cmd.Flags().IntSliceVar(&fAckerIDs, "acker-ids", nil, "Filter by acker member IDs; obtain member IDs from 'POST /member/list'.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by. Use 0 for standalone (global) incidents.")
 	cmd.Flags().IntSliceVar(&fCloserIDs, "closer-ids", nil, "Closer member IDs. Use 0 for automatically closed incidents.")
@@ -1898,11 +1898,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, restrict to incidents in channels owned by the user's teams.")
 	cmd.Flags().BoolVar(&fIsRare, "is-rare", false, "When true, include only outlier (rare) incidents.")
 	cmd.Flags().BoolVar(&fIsSnoozed, "is-snoozed", false, "When true, include only snoozed incidents.")
-	cmd.Flags().StringSliceVar(&fNums, "nums", nil, "Restrict to the given short display identifiers.")
+	cmd.Flags().StringSliceVar(&fNums, "nums", nil, "Filter by incident short numbers (the numbers shown before incident titles in the console).")
 	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated list of progress states to match (e.g. 'Triggered,Processing').")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text search query.")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs; obtain member IDs from 'POST /member/list'.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs; resolved to channels via channel ownership.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1922,7 +1922,7 @@ Retrieve multiple incidents by their IDs in a single request.
 API: POST /incident/list-by-ids (incidentListByIds)
 
 Request fields:
-  --incident-ids []string (required) — Incident IDs to fetch.
+  --incident-ids []string (required) — Incident IDs to query; obtain them from 'POST /incident/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
@@ -2109,7 +2109,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to fetch. (required)")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to query; obtain them from 'POST /incident/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2136,7 +2136,7 @@ Request fields:
   --owner-id int — Optional new owner member ID for the target incident.
   --remove-source-incidents bool — When true, soft-delete the source incidents after merging instead of closing them.
   --source-incident-ids []string (required) — Source incident IDs. The target incident is removed from this set automatically.
-  --target-incident-id string (required) — Target incident ID that source incidents will be merged into.
+  --target-incident-id string (required) — Target incident ID of the merge; obtain it from 'POST /incident/list'.
   --title string — Optional new title for the target incident. (≤512 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("target_incident_id", "target-incident-id"),
@@ -2190,7 +2190,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Optional new owner member ID for the target incident.")
 	cmd.Flags().BoolVar(&fRemoveSourceIncidents, "remove-source-incidents", false, "When true, soft-delete the source incidents after merging instead of closing them.")
 	cmd.Flags().StringSliceVar(&fSourceIncidentIDs, "source-incident-ids", nil, "Source incident IDs. The target incident is removed from this set automatically. (required)")
-	cmd.Flags().StringVar(&fTargetIncidentID, "target-incident-id", "", "Target incident ID that source incidents will be merged into. (required)")
+	cmd.Flags().StringVar(&fTargetIncidentID, "target-incident-id", "", "Target incident ID of the merge; obtain it from 'POST /incident/list'. (required)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -2418,7 +2418,7 @@ Delete a post-mortem report.
 API: POST /incident/post-mortem/delete (incidentPostMortemDelete)
 
 Request fields:
-  --post-mortem-id string (required) — Post-mortem ID.
+  --post-mortem-id string (required) — Post-mortem report ID; obtain it from 'POST /incident/post-mortem/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-delete --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
@@ -2452,7 +2452,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem report ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2565,8 +2565,8 @@ Request fields:
   --search-after-ctx string — Cursor from a previous response for forward pagination.
   --asc bool — Ascending order when true.
   --channel-ids []int — Channel IDs to restrict the query to.
-  --created-at-end-seconds string — Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --created-at-start-seconds string — Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --created-at-end-seconds string — Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --created-at-start-seconds string — Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --order-by string — Field used to order results. [created_at_seconds, updated_at_seconds]
   --status string — Report status. Defaults to 'published' on the server when omitted. [drafting, published]
   --team-ids []int — Team IDs to restrict the query to.
@@ -2657,8 +2657,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to restrict the query to.")
-	cmd.Flags().StringVar(&fCreatedAtEndSeconds, "created-at-end-seconds", "", "Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fCreatedAtStartSeconds, "created-at-start-seconds", "", "Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fCreatedAtEndSeconds, "created-at-end-seconds", "", "Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fCreatedAtStartSeconds, "created-at-start-seconds", "", "Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds, updated_at_seconds]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Report status. Defaults to 'published' on the server when omitted. [drafting, published]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs to restrict the query to.")
@@ -2798,7 +2798,7 @@ Request fields:
   --description string — New description. (3-6144 chars)
   --impact string — New impact description. (3-6144 chars)
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --incident-severity string — New severity. [Info, Warning, Critical]
+  --incident-severity string — New severity: 'Info', 'Warning' or 'Critical' (most severe). [Info, Warning, Critical]
   --resolution string — New resolution notes. (3-6144 chars)
   --root-cause string — New root cause analysis. (3-6144 chars)
   --title string — New incident title. (3-200 chars)
@@ -2856,7 +2856,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (3-6144 chars)")
 	cmd.Flags().StringVar(&fImpact, "impact", "", "New impact description. (3-6144 chars)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "New severity. [Info, Warning, Critical]")
+	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "New severity: 'Info', 'Warning' or 'Critical' (most severe). [Info, Warning, Critical]")
 	cmd.Flags().StringVar(&fResolution, "resolution", "", "New resolution notes. (3-6144 chars)")
 	cmd.Flags().StringVar(&fRootCause, "root-cause", "", "New root cause analysis. (3-6144 chars)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New incident title. (3-200 chars)")
@@ -3251,7 +3251,7 @@ API: POST /incident/war-room/delete (incidentWarRoomDelete)
 
 Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --integration-id int (required) — IM integration ID.
+  --integration-id int (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 `,
 		Example: `  flashduty incident war-room-delete --data '{"incident_id":"69da451ef77b1b51f40e83ee","integration_id":2490562293131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -3285,7 +3285,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3304,7 +3304,7 @@ Retrieve the war room configuration and members for an incident.
 API: POST /incident/war-room/detail (incidentWarRoomDetail)
 
 Request fields:
-  --chat-id string (required) — Chat/group ID on the IM side.
+  --chat-id string (required) — Chat ID of the IM group hosting the war room; obtain it from 'POST /incident/war-room/list'.
   --integration-id int (required) — IM integration ID that hosts the war room.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -3343,7 +3343,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat/group ID on the IM side. (required)")
+	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the IM group hosting the war room; obtain it from 'POST /incident/war-room/list'. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID that hosts the war room. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -3872,7 +3872,7 @@ Request fields:
   --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
   --cursor string — Pagination cursor from a previous response's 'next_cursor'.
   --incident-id string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
-  --item-type string — Restrict results to one item type. [action, follow_up]
+  --item-type string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]
   --limit int — Page size, at most 200. Defaults to 50. (1-200)
   --post-mortem-id string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
 
@@ -3942,7 +3942,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.")
 	cmd.Flags().StringVar(&fCursor, "cursor", "", "Pagination cursor from a previous response's 'next_cursor'.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.")
-	cmd.Flags().StringVar(&fItemType, "item-type", "", "Restrict results to one item type. [action, follow_up]")
+	cmd.Flags().StringVar(&fItemType, "item-type", "", "Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 200. Defaults to 50. (1-200)")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -4289,7 +4289,7 @@ Delete a custom post-mortem template.
 API: POST /incident/post-mortem/template/delete (postmortem-write-delete-template)
 
 Request fields:
-  --template-id string (required) — Template ID.
+  --template-id string (required) — Template ID; obtain it from 'POST /incident/post-mortem/template/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"post_mortem_custom_tmpl_01"}'`,
@@ -4323,7 +4323,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID; obtain it from 'POST /incident/post-mortem/template/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4438,7 +4438,7 @@ Request fields:
   --incidents-highest-severity string (required) — Highest severity among linked incidents.
   --incidents-latest-close-seconds string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --incidents-total-duration-seconds int — Total incident duration in seconds. (min 0)
-  --post-mortem-id string (required) — Post-mortem ID.
+  --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
   --responder-ids []int — Responder member IDs to store on the report.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
@@ -4500,7 +4500,7 @@ Request fields:
 	cmd.Flags().StringVar(&fIncidentsHighestSeverity, "incidents-highest-severity", "", "Highest severity among linked incidents. (required)")
 	cmd.Flags().StringVar(&fIncidentsLatestCloseSeconds, "incidents-latest-close-seconds", "", "Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fIncidentsTotalDurationSeconds, "incidents-total-duration-seconds", 0, "Total incident duration in seconds. (min 0)")
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs to store on the report.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4521,7 +4521,7 @@ API: POST /incident/post-mortem/follow-ups/reset (postmortem-write-reset-follow-
 
 Request fields:
   --follow-ups string — Follow-up action items as free text.
-  --post-mortem-id string (required) — Post-mortem ID.
+  --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
@@ -4559,7 +4559,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fFollowUps, "follow-ups", "", "Follow-up action items as free text.")
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4578,8 +4578,8 @@ Set a post-mortem report to drafting or published.
 API: POST /incident/post-mortem/status/reset (postmortem-write-reset-status)
 
 Request fields:
-  --post-mortem-id string (required) — Post-mortem ID.
-  --status string (required) — Target report status. [drafting, published]
+  --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
+  --status string (required) — Target report status: 'drafting' draft, 'published' published. [drafting, published]
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","status":"published"}'`,
@@ -4616,8 +4616,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status. (required) [drafting, published]")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status: 'drafting' draft, 'published' published. (required) [drafting, published]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4636,7 +4636,7 @@ Replace the title of a post-mortem report.
 API: POST /incident/post-mortem/title/reset (postmortem-write-reset-title)
 
 Request fields:
-  --post-mortem-id string (required) — Post-mortem ID.
+  --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
   --title string (required) — New report title.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
@@ -4674,7 +4674,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New report title. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

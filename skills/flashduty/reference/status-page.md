@@ -63,19 +63,19 @@ Create status page event
 - `--is-retrospective` bool — Mark this event as a retrospective (historical) one.
 - `--linked-changes` stringSlice — Linked change IDs (related incidents, deployments, etc.).
 - `--notify-subscribers` bool — Notify subscribers about this event and all its updates.
-- `<page-id>` (positional, required) int64 — Status page ID.
-- `--responders` intSlice — Member IDs responsible for this event.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `--responders` intSlice — Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.
 - `--start-at-seconds` string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--title` string (required) — Event title, up to 255 characters. (≤255 chars)
-- `--type` string (required) — Event type. · enum: incident | maintenance
+- `--type` string (required) — Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. · enum: incident | maintenance
 - body-only (`--data`): updates (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: change_id (integer); change_name (string)
 
 ### change-delete
 Delete status page event
-- `--change-id` int64 (required) — Target event ID.
-- `--page-id` int64 (required) — Status page ID.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
 
 ### change-info
 Get status page event detail
@@ -95,43 +95,43 @@ List status page events
 ### change-timeline-create
 Create event timeline entry
 - `--at-seconds` string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--change-id` int64 (required) — Target event ID.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
 - `--description` string — Update description (Markdown). Required.
-- `--page-id` int64 (required) — Status page ID.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
 - `--status` string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - body-only (`--data`): component_changes (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: update_id (string)
 
 ### change-timeline-delete
 Delete event timeline entry
-- `--change-id` int64 (required) — Parent event ID.
-- `--page-id` int64 (required) — Status page ID.
-- `--update-id` string (required) — Timeline update ID to delete.
+- `--change-id` int64 (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `--update-id` string (required) — Timeline update ID to delete; obtain it from 'POST /status-page/change/info'.
 
 ### change-timeline-update
 Update event timeline entry
 - `--at-seconds` string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--change-id` int64 (required) — Parent event ID.
+- `--change-id` int64 (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
 - `--description` string — New update description (Markdown).
-- `--page-id` int64 (required) — Status page ID.
-- `--update-id` string (required) — Target timeline update ID.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `--update-id` string (required) — Target timeline update ID; obtain it from 'POST /status-page/change/info'.
 
 ### change-update
 Update status page event
-- `--change-id` int64 (required) — Target event ID.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
 - `--linked-changes` stringSlice — Linked event IDs. Pass the full replacement list.
-- `--page-id` int64 (required) — Status page ID.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
 - `--responders` intSlice — Member IDs responsible for this event. Pass the full replacement list.
 - `--title` string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 
 ### component-delete <component-id> [<id2>...]
 Delete status page component
-- `<component-ids>` (positional, required) stringSlice — IDs of components to delete.
-- `--page-id` int64 (required) — Status page ID.
+- `<component-ids>` (positional, required) stringSlice — Component IDs to delete; obtain them from 'POST /status-page/info'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
 
 ### component-upsert <page-id>
 Upsert status page component
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 - body-only (`--data`): components (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: component_ids (array<string>)
 
@@ -139,20 +139,20 @@ Upsert status page component
 Create status page
 - `--contact-info` string — Get-in-touch contact, such as a mailto or website URL.
 - `--custom-domain` string — Custom domain for a public status page. (≤255 chars)
-- `--date-view` string (required) — How event dates are displayed. · enum: calendar | list
-- `--display-uptime-mode` string (required) — How uptime is displayed. · enum: chart_and_percentage | chart | none
+- `--date-view` string (required) — How change dates are displayed: 'calendar' calendar view, 'list' list view. · enum: calendar | list
+- `--display-uptime-mode` string (required) — Uptime display mode: 'chart_and_percentage' chart plus percentage, 'chart' chart only, 'none' hidden. · enum: chart_and_percentage | chart | none
 - `--name` string (required) — Display name of the status page. (≤255 chars)
 - `--page-footer` string — Footer content shown on the status page.
 - `--page-header` string — Header content shown on the status page.
 - `--page-title` string — Browser title shown for the status page.
-- `--type` string (required) — Visibility type of the status page. · enum: public | internal
+- `--type` string (required) — Visibility type: 'public' accessible to anyone, 'internal' restricted to logged-in members of this account. · enum: public | internal
 - `--url-name` string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
 - body-only (`--data`): custom_links (array<object>); subscription (object)
 - response: single object (`data` unwrapped to the top level) — fields: page_id (integer); page_name (string); page_url_name (string)
 
 ### delete <page-id>
 Delete status page
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 
 ### info <page-id>
 Get status page detail
@@ -179,7 +179,7 @@ Migrate status page structure
 
 ### migration-cancel <job-id>
 Cancel status page migration
-- `<job-id>` (positional, required) string — Migration job ID.
+- `<job-id>` (positional, required) string — Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'.
 
 ### migration-status <job-id>
 Get migration status
@@ -188,24 +188,24 @@ Get migration status
 
 ### section-delete <section-id> [<id2>...]
 Delete status page section
-- `--page-id` int64 (required) — Status page ID.
-- `<section-ids>` (positional, required) stringSlice — IDs of sections to delete.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `<section-ids>` (positional, required) stringSlice — Section IDs to delete; obtain them from 'POST /status-page/info'.
 
 ### section-upsert <page-id>
 Upsert status page section
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 - body-only (`--data`): sections (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: section_ids (array<string>)
 
 ### subscriber-export <page-id>
 Export subscribers
 - `--component-ids` stringSlice — Optional component IDs to filter subscribers by.
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 
 ### subscriber-import <page-id>
 Import subscribers
 - `--method` string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. · enum: email | im
-- `<page-id>` (positional, required) int64 — Target status page ID.
+- `<page-id>` (positional, required) int64 — Target status page ID; obtain it from 'POST /status-page/list'.
 - body-only (`--data`): subscribers (array<object>)
 
 ### subscriber-list <page-id>
@@ -218,9 +218,9 @@ List status page subscribers
 
 ### template-delete
 Delete status page template
-- `--page-id` int64 (required) — Status page ID.
-- `--template-id` string (required) — Template ID to delete.
-- `--type` string (required) — Template category. · enum: pre_defined | message
+- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `--template-id` string (required) — ID of the template to delete; obtain it from 'POST /status-page/template/list'.
+- `--type` string (required) — Template kind: 'pre_defined' predefined template, 'message' message template. · enum: pre_defined | message
 
 ### template-list <page-id>
 List status page templates
@@ -229,7 +229,7 @@ List status page templates
 
 ### template-upsert <page-id>
 Upsert status page template
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 - `--type` string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. · enum: pre_defined | message
 - body-only (`--data`): template (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: template_id (string)
@@ -247,7 +247,7 @@ Update status page
 - `--name` string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
 - `--page-footer` string — Footer content shown on the status page. Omit to keep the existing value.
 - `--page-header` string — Header content shown on the status page. Omit to keep the existing value.
-- `<page-id>` (positional, required) int64 — Status page ID.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
 - `--page-title` string — Browser title shown for the status page. Omit to keep the existing value.
 - `--template-preference` string — Preferred change-event template type. Omit to keep the existing value.
 - `--url-name` string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)

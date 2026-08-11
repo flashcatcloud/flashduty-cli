@@ -21,7 +21,7 @@ Get one A2A agent by ID.
 API: POST /safari/a2a-agent/get (remote-agent-read-get)
 
 Request fields:
-  --agent-id string (required) — Target agent ID.
+  --agent-id string (required) — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID. (required)")
+	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -103,7 +103,7 @@ API: POST /safari/a2a-agent/list (remote-agent-read-list)
 Request fields:
   --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
   --limit int — Page size.
-  --offset int — Row offset for pagination.
+  --offset int — Pagination offset — number of rows to skip, starting from 0.
   --query string — Case-insensitive substring search across agent name, instructions, card URL, agent ID, and the resolved card name. (≤128 chars)
   --scope string — Visibility scope: 'all' (account-scope plus the caller's visible teams), 'account' (account-scope only), or 'team' (team-scoped rows across the caller's visible teams). [all, account, team]
   --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
@@ -178,7 +178,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
-	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Row offset for pagination.")
+	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset — number of rows to skip, starting from 0.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring search across agent name, instructions, card URL, agent ID, and the resolved card name. (≤128 chars)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: 'all' (account-scope plus the caller's visible teams), 'account' (account-scope only), or 'team' (team-scoped rows across the caller's visible teams). [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
@@ -319,7 +319,7 @@ Soft-delete an A2A agent by ID.
 API: POST /safari/a2a-agent/delete (remote-agent-write-delete)
 
 Request fields:
-  --agent-id string (required) — Target agent ID.
+  --agent-id string (required) — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-delete --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
@@ -349,7 +349,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID. (required)")
+	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -367,7 +367,7 @@ Disable an enabled A2A agent.
 API: POST /safari/a2a-agent/disable (remote-agent-write-disable)
 
 Request fields:
-  --agent-id string (required) — Target agent ID.
+  --agent-id string (required) — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-disable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
@@ -397,7 +397,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID. (required)")
+	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -415,7 +415,7 @@ Enable a disabled A2A agent.
 API: POST /safari/a2a-agent/enable (remote-agent-write-enable)
 
 Request fields:
-  --agent-id string (required) — Target agent ID.
+  --agent-id string (required) — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-enable --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
@@ -445,7 +445,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID. (required)")
+	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -476,7 +476,7 @@ Apply a partial update to an A2A agent. Omit a field to leave it unchanged.
 API: POST /safari/a2a-agent/update (remote-agent-write-update)
 
 Request fields:
-  --agent-id string (required) — Target agent ID.
+  --agent-id string (required) — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
   --agent-name string — New display name. Omit to leave unchanged. (≤128 chars)
   --allow-insecure-oauth-http bool — Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.
   --allow-insecure-tls-skip-verify bool — Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.
@@ -559,7 +559,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID. (required)")
+	cmd.Flags().StringVar(&fAgentID, "agent-id", "", "Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'. (required)")
 	cmd.Flags().StringVar(&fAgentName, "agent-name", "", "New display name. Omit to leave unchanged. (≤128 chars)")
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.")

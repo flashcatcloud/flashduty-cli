@@ -56,7 +56,7 @@ fduty channel silence-rule-list <channel-id> --output-format toon
 
 ### inhibit-rule-create <channel-id>
 Create inhibit rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
+- `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
 - `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
@@ -67,17 +67,17 @@ Create inhibit rule
 
 ### inhibit-rule-delete
 Delete inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### inhibit-rule-disable
 Disable inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### inhibit-rule-enable
 Enable inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### inhibit-rule-list <channel-id>
@@ -87,7 +87,7 @@ List inhibit rules
 
 ### inhibit-rule-update
 Update inhibit rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
 - `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
@@ -98,7 +98,7 @@ Update inhibit rule
 
 ### silence-rule-create <channel-id>
 Create silence rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
+- `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--from-incident-id` string — Source incident ID when the silence was created from an incident.
 - `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
@@ -110,17 +110,17 @@ Create silence rule
 
 ### silence-rule-delete
 Delete silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### silence-rule-disable
 Disable silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### silence-rule-enable
 Enable silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### silence-rule-list <channel-id>
@@ -130,7 +130,7 @@ List silence rules
 
 ### silence-rule-update
 Update silence rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
 - `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
@@ -141,7 +141,7 @@ Update silence rule
 
 ### unsubscribe-rule-create <channel-id>
 Create drop rule
-- `<channel-id>` (positional, required) int64 — Channel the rule belongs to.
+- `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
@@ -150,17 +150,17 @@ Create drop rule
 
 ### unsubscribe-rule-delete
 Delete drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### unsubscribe-rule-disable
 Disable drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### unsubscribe-rule-enable
 Enable drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### unsubscribe-rule-list <channel-id>
@@ -170,7 +170,7 @@ List drop rules
 
 ### unsubscribe-rule-update
 Update drop rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-id` string (required) — Drop rule ID (MongoDB ObjectID).

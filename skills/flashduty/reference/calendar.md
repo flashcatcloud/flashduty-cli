@@ -70,16 +70,16 @@ Create calendar
 
 ### delete <cal-id>
 Delete calendar
-- `<cal-id>` (positional, required) string — Calendar ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 
 ### event-delete
 Delete calendar event
-- `--cal-id` string (required) — Calendar ID.
+- `--cal-id` string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
 - `--event-id` string (required) — Event ID.
 
 ### event-list <cal-id>
 List calendar events
-- `<cal-id>` (positional, required) string — Calendar ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 - `--day` int64 — Day (1-31). 0 means no day filter. (0-31)
 - `--month` int64 — Month (1-12). 0 means no month filter. (0-12)
 - `--year` int64 — Year. Defaults to the current year when omitted. (min 2023)
@@ -87,7 +87,7 @@ List calendar events
 
 ### event-upsert <cal-id>
 Upsert calendar event
-- `<cal-id>` (positional, required) string — Calendar ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 - `--description` string — Event description. (≤499 chars)
 - `--end-at` string (required) — Event end date in YYYY-MM-DD (exclusive).
 - `--event-id` string — Event ID. Omit when creating. (≤63 chars)
@@ -98,7 +98,7 @@ Upsert calendar event
 
 ### info <cal-id>
 Get calendar info
-- `<cal-id>` (positional, required) string — Calendar ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); cal_id (string); cal_name (string); created_at (integer); creator_id (integer); description (string); extra_cal_ids (array<string>); kind (string); status (string); team_id (integer); timezone (string); updated_at (integer); updated_by (integer); workdays (array<integer>)
 
 ### list
@@ -109,11 +109,11 @@ List calendars
 
 ### update <cal-id>
 Update calendar
-- `<cal-id>` (positional, required) string — Calendar ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 - `--cal-name` string — New calendar name. (1-39 chars)
 - `--description` string — New description. (≤499 chars)
 - `--extra-cal-ids` stringSlice — Additional public-holiday calendar IDs to inherit events from.
-- `--team-id` int64 — New owning team ID.
+- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
 - `--timezone` string — New IANA timezone.
 - `--workdays` intSlice — Workday numbers (0 = Sunday, 6 = Saturday).
 

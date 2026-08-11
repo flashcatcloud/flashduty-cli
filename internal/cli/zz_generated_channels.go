@@ -31,7 +31,7 @@ Create a new channel for incident management.
 API: POST /channel/create (channelCreate)
 
 Request fields:
-  --auto-resolve-mode string — Auto-resolve timer reset mode. [trigger, update]
+  --auto-resolve-mode string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]
   --auto-resolve-timeout int — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
   --channel-name string (required) — Channel name. 1 to 59 characters. (1-59 chars)
   --description string — Free-form description. Up to 500 characters. (≤500 chars)
@@ -41,7 +41,7 @@ Request fields:
   --is-private bool — When true, the channel is visible only to its managing teams.
   --managing-team-ids []int — Additional teams that can manage the channel. Up to 3 entries.
   --plugin-ids []int — IDs of plugins (integrations) subscribed to this channel.
-  --team-id int (required) — Owning team ID.
+  --team-id int (required) — Owning team ID; obtain it from 'POST /team/list'.
   escalate_rule (object, via --data) — Default escalation rule applied to the channel. Omit to skip default escalation.
     - aggr_window (integer) — Delay window in seconds. 0 disables delay. (0-3600)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
@@ -51,9 +51,9 @@ Request fields:
         - info (array<string>) — Channels for Info events.
         - warning (array<string>) — Channels for Warning events.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
-      - person_ids (array<integer>) — Member IDs to notify directly.
+      - person_ids (array<integer>) — Member IDs to notify directly; obtain member IDs from 'POST /member/list'.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
-      - team_ids (array<integer>) — Team IDs to notify.
+      - team_ids (array<integer>) — Team IDs to notify; obtain team IDs from 'POST /team/list'.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
         - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
@@ -134,7 +134,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timer reset mode. [trigger, update]")
+	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]")
 	cmd.Flags().Int64Var(&fAutoResolveTimeout, "auto-resolve-timeout", 0, "Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)")
 	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "Channel name. 1 to 59 characters. (required) (1-59 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. (≤500 chars)")
@@ -144,7 +144,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "When true, the channel is visible only to its managing teams.")
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
 	cmd.Flags().IntSliceVar(&fPluginIDs, "plugin-ids", nil, "IDs of plugins (integrations) subscribed to this channel.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -162,7 +162,7 @@ Delete a channel and all associated configuration.
 API: POST /channel/delete (channelDelete)
 
 Request fields:
-  --channel-id int (required) — Channel ID.
+  --channel-id int (required) — Channel ID; obtain it from 'POST /channel/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel delete --data '{"channel_id":3521074710131}'`,
@@ -196,7 +196,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -214,7 +214,7 @@ Disable a channel to stop incident routing without deleting it.
 API: POST /channel/disable (channelDisable)
 
 Request fields:
-  --channel-id int (required) — Channel ID.
+  --channel-id int (required) — Channel ID; obtain it from 'POST /channel/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel disable --data '{"channel_id":3521074710131}'`,
@@ -248,7 +248,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -266,7 +266,7 @@ Enable a disabled channel to resume incident routing.
 API: POST /channel/enable (channelEnable)
 
 Request fields:
-  --channel-id int (required) — Channel ID.
+  --channel-id int (required) — Channel ID; obtain it from 'POST /channel/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel enable --data '{"channel_id":3521074710131}'`,
@@ -300,7 +300,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -324,7 +324,7 @@ API: POST /channel/escalate/rule/create (channelEscalateRuleCreate)
 
 Request fields:
   --aggr-window int — Delay window in seconds. 0 disables delay. (0-3600)
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first. (0-200)
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
@@ -345,9 +345,9 @@ Request fields:
         - info (array<string>) — Channels for Info events.
         - warning (array<string>) — Channels for Warning events.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
-      - person_ids (array<integer>) — Member IDs to notify directly.
+      - person_ids (array<integer>) — Member IDs to notify directly; obtain member IDs from 'POST /member/list'.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
-      - team_ids (array<integer>) — Team IDs to notify.
+      - team_ids (array<integer>) — Team IDs to notify; obtain team IDs from 'POST /team/list'.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
         - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
@@ -402,7 +402,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Delay window in seconds. 0 disables delay. (0-3600)")
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first. (0-200)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
@@ -425,7 +425,7 @@ Delete an escalation rule.
 API: POST /channel/escalate/rule/delete (channelEscalateRuleDelete)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel escalate-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -459,7 +459,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -479,7 +479,7 @@ Disable an escalation rule without deleting it.
 API: POST /channel/escalate/rule/disable (channelEscalateRuleDisable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel escalate-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -513,7 +513,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -533,7 +533,7 @@ Enable a disabled escalation rule.
 API: POST /channel/escalate/rule/enable (channelEscalateRuleEnable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel escalate-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -567,7 +567,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -587,7 +587,7 @@ Retrieve detailed information for a specific escalation rule.
 API: POST /channel/escalate/rule/info (channelEscalateRuleInfo)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -658,7 +658,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -768,13 +768,13 @@ API: POST /channel/escalate/rule/update (channelEscalateRuleUpdate)
 
 Request fields:
   --aggr-window int — Delay window in seconds. 0 disables delay.
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first.
   --rule-id string (required) — Escalation rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   --template-id string (required) — Notification template ID (MongoDB ObjectID).
-  filters (object, via --data)
+  filters (object, via --data) — Match conditions for alerts this rule applies to; omit to apply it to all alerts in the channel.
   layers (array<object>, via --data) (required) — Escalation levels in order. At least one level is required.
     - escalate_window (integer) — Wait before moving to the next level, in minutes. (0-720)
     - force_escalate (boolean) — When true, always escalate regardless of acknowledgement.
@@ -847,7 +847,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fAggrWindow, "aggr-window", 0, "Delay window in seconds. 0 disables delay.")
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Escalation rule ID (MongoDB ObjectID). (required)")
@@ -870,7 +870,7 @@ Retrieve detailed information for a specific channel.
 API: POST /channel/info (channelInfo)
 
 Request fields:
-  --channel-id int (required) — Channel ID to fetch.
+  --channel-id int (required) — ID of the channel to query; obtain it from 'POST /channel/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Owning account ID.
@@ -945,7 +945,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID to fetch. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "ID of the channel to query; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1022,7 +1022,7 @@ Create an inhibit rule to suppress lower-priority alerts when higher-priority on
 API: POST /channel/inhibit/rule/create (channelInhibitRuleCreate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --equals []string (required) — Label keys used to pair source and target alerts.
   --is-directly-discard bool — When true, suppressed target alerts are dropped instead of merged.
@@ -1084,7 +1084,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Label keys used to pair source and target alerts. (required)")
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
@@ -1108,7 +1108,7 @@ Delete an inhibit rule.
 API: POST /channel/inhibit/rule/delete (channelInhibitRuleDelete)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel inhibit-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1142,7 +1142,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1162,7 +1162,7 @@ Disable an inhibit rule without deleting it.
 API: POST /channel/inhibit/rule/disable (channelInhibitRuleDisable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel inhibit-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1196,7 +1196,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1216,7 +1216,7 @@ Enable a disabled inhibit rule.
 API: POST /channel/inhibit/rule/enable (channelInhibitRuleEnable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel inhibit-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1250,7 +1250,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1341,15 +1341,15 @@ Update an existing inhibit rule configuration.
 API: POST /channel/inhibit/rule/update (channelInhibitRuleUpdate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --equals []string (required) — Label keys used to pair source and target alerts.
   --is-directly-discard bool — When true, suppressed target alerts are dropped instead of merged.
   --priority int — Evaluation priority. Lower runs first.
   --rule-id string (required) — Inhibit rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  source_filters (object, via --data)
-  target_filters (object, via --data)
+  source_filters (object, via --data) — Match conditions for source alerts; together with 'equals', determines which target alerts are suppressed.
+  target_filters (object, via --data) — Match conditions for target (suppressed) alerts.
 `,
 		Example: `  flashduty channel inhibit-rule-update --data '{"channel_id":1001,"equals":["labels.cluster"],"rule_id":"6621b23f4a2c5e0012ab34ce","rule_name":"Suppress downstream"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1397,7 +1397,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Label keys used to pair source and target alerts. (required)")
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
@@ -1590,7 +1590,7 @@ Create a silence rule to suppress notifications matching specified conditions.
 API: POST /channel/silence/rule/create (channelSilenceRuleCreate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --from-incident-id string — Source incident ID when the silence was created from an incident.
   --is-auto-delete bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
@@ -1661,7 +1661,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fFromIncidentID, "from-incident-id", "", "Source incident ID when the silence was created from an incident.")
 	cmd.Flags().BoolVar(&fIsAutoDelete, "is-auto-delete", false, "When true, the silence rule is automatically deleted after its time window expires. Defaults to false.")
@@ -1686,7 +1686,7 @@ Delete a silence rule.
 API: POST /channel/silence/rule/delete (channelSilenceRuleDelete)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel silence-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1720,7 +1720,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1740,7 +1740,7 @@ Disable a silence rule without deleting it.
 API: POST /channel/silence/rule/disable (channelSilenceRuleDisable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel silence-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1774,7 +1774,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1794,7 +1794,7 @@ Enable a disabled silence rule.
 API: POST /channel/silence/rule/enable (channelSilenceRuleEnable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel silence-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -1828,7 +1828,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1929,15 +1929,15 @@ Update an existing silence rule configuration.
 API: POST /channel/silence/rule/update (channelSilenceRuleUpdate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --is-auto-delete bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
   --is-directly-discard bool — When true, silenced alerts are dropped instead of suppressed into incidents.
   --priority int — Evaluation priority. Lower runs first.
   --rule-id string (required) — Silence rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (object, via --data)
-  time_filter (object, via --data) — One-off time window defined by unix seconds.
+  filters (object, via --data) — Match conditions for the alerts to silence; required and must not be empty.
+  time_filter (object, via --data) — One-off silence window. Mutually exclusive with 'time_filters'; exactly one of the two must be set.
     - end_time (integer) (required) — Window end (unix seconds). Must be > 0.
     - start_time (integer) (required) — Window start (unix seconds). Must be > 0 and less than 'end_time'.
   time_filters (array<object>, via --data) — Recurring time windows. Mutually exclusive with 'time_filter'.
@@ -1993,7 +1993,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().BoolVar(&fIsAutoDelete, "is-auto-delete", false, "When true, the silence rule is automatically deleted after its time window expires. Defaults to false.")
 	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, silenced alerts are dropped instead of suppressed into incidents.")
@@ -2020,7 +2020,7 @@ Create a drop rule to filter out unwanted alerts before they become incidents.
 API: POST /channel/unsubscribe/rule/create (channelUnsubscribeRuleCreate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
@@ -2070,7 +2070,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
@@ -2092,7 +2092,7 @@ Delete a drop rule.
 API: POST /channel/unsubscribe/rule/delete (channelUnsubscribeRuleDelete)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel unsubscribe-rule-delete --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -2126,7 +2126,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -2146,7 +2146,7 @@ Disable a drop rule without deleting it.
 API: POST /channel/unsubscribe/rule/disable (channelUnsubscribeRuleDisable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel unsubscribe-rule-disable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -2180,7 +2180,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -2200,7 +2200,7 @@ Enable a disabled drop rule.
 API: POST /channel/unsubscribe/rule/enable (channelUnsubscribeRuleEnable)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --rule-id string (required) — Rule ID (MongoDB ObjectID).
 `,
 		Example: `  flashduty channel unsubscribe-rule-enable --data '{"channel_id":3521074710131,"rule_id":"6621b23f4a2c5e0012ab34cd"}'`,
@@ -2234,7 +2234,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -2320,12 +2320,12 @@ Update an existing drop rule configuration.
 API: POST /channel/unsubscribe/rule/update (channelUnsubscribeRuleUpdate)
 
 Request fields:
-  --channel-id int (required) — Channel the rule belongs to.
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first.
   --rule-id string (required) — Drop rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (object, via --data)
+  filters (object, via --data) — Matching alerts are dropped and generate no notification.
 `,
 		Example: `  flashduty channel unsubscribe-rule-update --data '{"channel_id":1001,"filters":[[{"key":"labels.env","oper":"IN","vals":["test"]}]],"rule_id":"6621b23f4a2c5e0012ab34cf","rule_name":"Drop test alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -2367,7 +2367,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel the rule belongs to. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Drop rule ID (MongoDB ObjectID). (required)")
@@ -2399,9 +2399,9 @@ Update an existing channel's configuration and settings.
 API: POST /channel/update (channelUpdate)
 
 Request fields:
-  --auto-resolve-mode string — Auto-resolve timer reset mode. [trigger, update]
+  --auto-resolve-mode string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]
   --auto-resolve-timeout int — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
-  --channel-id int (required) — Channel ID to update.
+  --channel-id int (required) — ID of the channel to update; obtain it from 'POST /channel/list'.
   --channel-name string — New channel name. 1 to 59 characters. (1-59 chars)
   --description string — New description. Up to 500 characters. (≤500 chars)
   --disable-auto-close bool — Disable automatic incident closing.
@@ -2409,7 +2409,7 @@ Request fields:
   --is-external-report-enabled bool — Allow external reporters to file incidents into this channel.
   --is-private bool — When true, the channel is visible only to its managing teams.
   --managing-team-ids []int — Additional teams that can manage the channel. Up to 3 entries.
-  --team-id int — New owning team ID.
+  --team-id int — New owning team ID; obtain it from 'POST /team/list'.
   flapping (object, via --data) — Flapping detection configuration.
     - in_mins (integer) — Observation window in minutes. (1-1440)
     - is_disabled (boolean) — Disable flapping detection.
@@ -2488,9 +2488,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timer reset mode. [trigger, update]")
+	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]")
 	cmd.Flags().Int64Var(&fAutoResolveTimeout, "auto-resolve-timeout", 0, "Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)")
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel ID to update. (required)")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "ID of the channel to update; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "New channel name. 1 to 59 characters. (1-59 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Up to 500 characters. (≤500 chars)")
 	cmd.Flags().BoolVar(&fDisableAutoClose, "disable-auto-close", false, "Disable automatic incident closing.")
@@ -2498,7 +2498,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIsExternalReportEnabled, "is-external-report-enabled", false, "Allow external reporters to file incidents into this channel.")
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "When true, the channel is visible only to its managing teams.")
 	cmd.Flags().IntSliceVar(&fManagingTeamIDs, "managing-team-ids", nil, "Additional teams that can manage the channel. Up to 3 entries.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2673,7 +2673,7 @@ Request fields:
       - vals (array<string>) (required) — Values to compare against. Each value may be a literal string, a wildcard ('*', '?'), a regular expression wrapped in slashes ('/pattern/'), a CIDR ('cidr:10.0.0.0/8'), or a numeric comparison ('num:lt:100').
     - name_mapping_label (string) — Label key whose value is used as the target channel name. Required when 'routing_mode' is 'name_mapping'.
     - routing_mode (string) — Routing mode. 'standard' (default, also used when left empty) routes to the fixed channel IDs; 'name_mapping' resolves channels by reading a label value from the alert event. [standard, name_mapping]
-  default (object, via --data) — Default branch used when no case matches (or all matched cases yield no valid channels).
+  default (object, via --data) — Fallback branch used when no case matches.
     - channel_ids (array<integer>) — Channel IDs to fall back to.
   sections (array<object>, via --data) — Optional sections that group consecutive cases for display.
     - name (string) (required) — Section name. Must be unique within the rule.

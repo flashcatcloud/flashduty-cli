@@ -101,7 +101,7 @@ Get template detail
 ### list
 List templates
 - `--asc` bool — Ascending sort order.
-- `--creator-id` int64 — Filter by creator member ID.
+- `--creator-id` int64 — Filter by creator member ID; obtain member IDs from 'POST /member/list'.
 - `--is-my-team` bool — When true, only return templates scoped to teams the caller belongs to.
 - `--limit` int64 — Page size. Capped at 100. (1-100)
 - `--orderby` string — Sort field. · enum: created_at | updated_at
@@ -134,7 +134,7 @@ Update a template
 - `--team-id` int64 — Team scope. 0 for account-wide.
 - `--teams-app` string — Microsoft Teams app message template source.
 - `--telegram` string — Telegram bot message template source.
-- `<template-id>` (positional, required) string — Target template ID.
+- `<template-id>` (positional, required) string — Target template ID; obtain it from 'POST /template/list'.
 - `--template-name` string (required) — Template name. 1–39 characters. (1-39 chars)
 - `--voice` string — Voice call script template source.
 - `--wecom` string — WeCom robot message template source.

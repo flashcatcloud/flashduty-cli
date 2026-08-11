@@ -28,7 +28,7 @@ Request fields:
   --ds-name string (required) — Data source name configured under the tenant.
   --ds-type string (required) — Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'.
   --operation string — Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. [log_patterns, metric_trends]
-  input (object, via --data) (required)
+  input (object, via --data) (required) — Diagnose input. 'query' is required: LogQL / VictoriaLogs query syntax for 'log_patterns'; PromQL for 'metric_trends'.
     - query (string) (required) — Query expression. LogQL / VictoriaLogs query syntax for 'log_patterns'; PromQL for 'metric_trends'.
   methods (array<object>, via --data) — Diagnostic methods to run. When omitted, 'log_patterns' defaults to 'pattern_snapshot + pattern_compare(previous_window)' and 'metric_trends' defaults to 'single_window_shape + window_compare(previous_window)'.
     - baseline (string) — Only meaningful for compare-style methods. Defaults to 'previous_window'. [previous_window, same_window_yesterday, same_window_last_week]
