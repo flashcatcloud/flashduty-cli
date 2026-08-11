@@ -143,11 +143,17 @@ func boundProjectedDetail(row map[string]any, maxBytes int) error {
 		len(encoded), maxBytes, strings.Join(largest, ", "))
 }
 
-// boundProjectedList shortens a list projection's string values fairly
-// (across all rows) when the compact rows themselves overflow the budget,
-// marking shortened values with "...". If keys and non-string values alone
-// exceed the budget, the command fails with a small error instead of
-// emitting an oversized payload.
+// boundProjectedList shortens a list projection's string values fairly when
+// the compact rows themselves overflow the budget: it finds the largest
+// per-field byte cap that still makes everything fit, then applies that one
+// cap to every string value across every row. A field already shorter than
+// the cap is left completely untouched — only the field(s) actually
+// responsible for the overflow (typically a long title) get shortened, each
+// marked with "...". The cap never drops low enough to make the "..."
+// marker itself disappear, so a shortened value is always distinguishable
+// from a genuinely short one; if no cap at or above that floor fits, the
+// command fails with a small error instead of emitting values that look
+// real but aren't.
 func boundProjectedList(rows []map[string]any, maxBytes int) error {
 	encoded, err := marshalStructured(rows)
 	if err != nil {
@@ -157,40 +163,79 @@ func boundProjectedList(rows []map[string]any, maxBytes int) error {
 		return nil
 	}
 
-	stringCount := 0
+	maxLen := 0
 	for _, row := range rows {
 		for _, value := range row {
-			if _, ok := value.(string); ok {
-				stringCount++
+			if text, ok := value.(string); ok && len(text) > maxLen {
+				maxLen = len(text)
 			}
 		}
 	}
-	if stringCount == 0 {
+	if maxLen == 0 {
 		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
 	}
 
-	fieldLimit := maxBytes / stringCount
-	for {
-		for _, row := range rows {
+	fits := func(limit int) (bool, error) {
+		trial := make([]map[string]any, len(rows))
+		for i, row := range rows {
+			trialRow := make(map[string]any, len(row))
 			for key, value := range row {
 				if text, ok := value.(string); ok {
-					row[key] = truncateUTF8Bytes(text, fieldLimit)
+					trialRow[key] = truncateUTF8Bytes(text, limit)
+				} else {
+					trialRow[key] = value
 				}
 			}
+			trial[i] = trialRow
 		}
+		trialEncoded, err := marshalStructured(trial)
+		if err != nil {
+			return false, err
+		}
+		return len(trialEncoded)+1 < maxBytes, nil
+	}
 
-		encoded, err = marshalStructured(rows)
+	// minMarkedTruncationCap is the smallest cap for which truncateUTF8Bytes
+	// still appends "..." (it needs 3 bytes of headroom beyond the marker
+	// itself); below it a truncated value would be indistinguishable from a
+	// genuinely short one, which is the defect this function must not
+	// reintroduce.
+	const minMarkedTruncationCap = 4
+	if maxLen <= minMarkedTruncationCap {
+		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+	}
+	if ok, err := fits(minMarkedTruncationCap); err != nil {
+		return err
+	} else if !ok {
+		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+	}
+
+	// Binary search for the largest cap that still fits: fits(limit) is true
+	// for small limits (more shortened) and false for large ones (less
+	// shortened, up to and including maxLen, which is the untouched size we
+	// already know overflows), so the boundary is unique.
+	lo, hi := minMarkedTruncationCap, maxLen-1
+	for lo < hi {
+		mid := lo + (hi-lo+1)/2
+		ok, err := fits(mid)
 		if err != nil {
 			return err
 		}
-		if len(encoded)+1 < maxBytes {
-			return nil
+		if ok {
+			lo = mid
+		} else {
+			hi = mid - 1
 		}
-		if fieldLimit == 0 {
-			return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
-		}
-		fieldLimit /= 2
 	}
+
+	for _, row := range rows {
+		for key, value := range row {
+			if text, ok := value.(string); ok {
+				row[key] = truncateUTF8Bytes(text, lo)
+			}
+		}
+	}
+	return nil
 }
 
 func truncateUTF8Bytes(value string, maxBytes int) string {

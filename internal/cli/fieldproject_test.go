@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -195,9 +196,9 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 			row["title"] = strings.Repeat("数据库故障", 5000)
 			stub.data = map[string]any{"items": []any{row}, "total": 1}
 
-			out, err := execCommand("incident", "list", "--output-format", format)
+			out, _, err := execCommandSplit("incident", "list", "--output-format", format)
 			if err != nil {
-				t.Fatalf("execCommand: %v", err)
+				t.Fatalf("execCommandSplit: %v", err)
 			}
 			if len([]byte(out)) >= compactListOutputLimit {
 				t.Fatalf("bounded %s incident list is %d bytes, want <%d", format, len([]byte(out)), compactListOutputLimit)
@@ -654,6 +655,170 @@ func TestAlertEventListStructuredProjection(t *testing.T) {
 		}
 	}
 
+}
+
+// alertEventOutlierFixture builds n alert-event rows with long (Mongo
+// ObjectID-shaped) ids: the first `outliers` rows carry a pathologically long
+// multi-word/CJK title (the field actually responsible for a page overflowing
+// the compact-list budget), the rest carry short, realistic titles. It
+// returns the row list alongside the exact ids and titles a correct
+// projection must preserve or shorten.
+func alertEventOutlierFixture(n, outliers int) (items []any, ids, shortTitles []string) {
+	longTitle := strings.Repeat("K8S pod tcp 接收队列大于2000 / cluster-prod-a / node-17 / namespace kube-system / pod coredns-7db6d8ff4d-abcde ", 40)
+	normalTitles := []string{
+		"ERROR Detected / VMLogs-Prod",
+		"CPU利用率较高 / fc-n9e-plus-18001",
+		"服务器 dev-flasheye-01 连续飘红",
+		"Disk usage high / db-02",
+	}
+
+	items = make([]any, n)
+	ids = make([]string, 0, n*2)
+	for i := range items {
+		eventID := fmt.Sprintf("%024x", i)
+		alertID := fmt.Sprintf("%024x", i+1_000_000)
+		ids = append(ids, eventID, alertID)
+
+		title := normalTitles[i%len(normalTitles)]
+		if i >= outliers {
+			shortTitles = append(shortTitles, title)
+		} else {
+			title = fmt.Sprintf("%s (row %d)", longTitle, i)
+		}
+
+		items[i] = map[string]any{
+			"event_id":       eventID,
+			"alert_id":       alertID,
+			"event_severity": "Warning",
+			"event_status":   "Triggered",
+			"event_time":     1712000000 + i,
+			"title":          title,
+		}
+	}
+	return items, ids, shortTitles
+}
+
+// TestAlertEventListDefaultProjectionPreservesShortFields is the regression
+// guard for the original defect: a minority of pathologically long titles
+// pushing a page over the 16 KiB compact-list budget must never mangle the
+// other rows' long (Mongo ObjectID-shaped) ids, or the short title rows on
+// the same page — the shortening must land entirely on the field(s) actually
+// responsible for the overflow.
+func TestAlertEventListDefaultProjectionPreservesShortFields(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			items, ids, shortTitles := alertEventOutlierFixture(30, 3)
+			stub.data = map[string]any{"items": items, "total": len(items)}
+
+			out, stderrText, err := execCommandSplit("alert-event", "list", "--output-format", format)
+			if err != nil {
+				t.Fatalf("execCommandSplit: %v", err)
+			}
+			if len(out) >= compactListOutputLimit {
+				t.Fatalf("compact alert-event output is %d bytes, want <%d", len(out), compactListOutputLimit)
+			}
+			if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+				t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
+			}
+
+			for _, id := range ids {
+				if !strings.Contains(out, id) {
+					t.Errorf("id %q was shortened; only the oversized outlier titles should shrink, got:\n%s", id, out)
+				}
+			}
+			for _, title := range shortTitles {
+				if !strings.Contains(out, title) {
+					t.Errorf("short title %q was shortened even though it never exceeded the budget on its own, got:\n%s", title, out)
+				}
+			}
+			if !strings.Contains(out, "...") {
+				t.Errorf("expected the outlier titles to be visibly marked with \"...\", got:\n%s", out)
+			}
+		})
+	}
+}
+
+// TestAlertEventListFieldsProjectionUnchanged is the conductor constraint for
+// alert-event list's --fields path: it must keep selecting exactly the named
+// fields, unaffected by the default-projection truncation logic.
+func TestAlertEventListFieldsProjectionUnchanged(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			items, ids, _ := alertEventOutlierFixture(30, 3)
+			stub.data = map[string]any{"items": items, "total": len(items)}
+
+			out, stderrText, err := execCommandSplit("alert-event", "list", "--fields", "event_id,alert_id", "--output-format", format)
+			if err != nil {
+				t.Fatalf("execCommandSplit: %v", err)
+			}
+			if strings.Contains(stderrText, "note: rows projected to default compact fields") {
+				t.Errorf("explicit --fields must not print the default-projection note, got:\n%s", stderrText)
+			}
+			for _, id := range ids {
+				if !strings.Contains(out, id) {
+					t.Errorf("id %q missing from --fields output, got:\n%s", id, out)
+				}
+			}
+			if strings.Contains(out, "event_severity") || strings.Contains(out, "title") {
+				t.Errorf("--fields output should contain only the requested fields, got:\n%s", out)
+			}
+		})
+	}
+}
+
+// TestBoundProjectedListNeverEmitsUnmarkedTruncation is the regression guard
+// for the original defect's silent-corruption half: the old algorithm
+// repeatedly halved a single shared per-field byte cap, and once that cap
+// dropped to 3 bytes or below, truncateUTF8Bytes's no-room-for-a-marker
+// fallback returned raw, unmarked bytes indistinguishable from a genuinely
+// short value. Even under extreme row/field pressure that forces every
+// string field to shrink, every shortened value must carry the "..." marker.
+func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+
+	rows := make([]map[string]any, 100)
+	for i := range rows {
+		rows[i] = map[string]any{
+			"event_id":       fmt.Sprintf("%024x", i),
+			"alert_id":       fmt.Sprintf("%024x", i+1_000_000),
+			"event_severity": "Info",
+			"event_status":   "Ok",
+			"title":          strings.Repeat(fmt.Sprintf("row %d compound alert title with extra detail 详情 ", i), 3),
+		}
+	}
+	originals := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		clone := make(map[string]any, len(row))
+		for k, v := range row {
+			clone[k] = v
+		}
+		originals[i] = clone
+	}
+
+	if err := boundProjectedOutput(rows, compactListOutputLimit); err != nil {
+		t.Fatalf("bound: %v", err)
+	}
+
+	for i, row := range rows {
+		for key, value := range row {
+			text, ok := value.(string)
+			if !ok {
+				continue
+			}
+			original := originals[i][key].(string)
+			if text == original {
+				continue
+			}
+			if !strings.HasSuffix(text, "...") {
+				t.Fatalf("row %d field %q was shortened to %q without the \"...\" marker (original was %d bytes)", i, key, text, len(original))
+			}
+		}
+	}
 }
 
 func TestStructuredFieldsEmptyErrors(t *testing.T) {
