@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -69,6 +70,100 @@ func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
 	err := boundProjectedOutput(rows, 512)
 	if err == nil || !strings.Contains(err.Error(), "request fewer rows or fields") {
 		t.Fatalf("irreducible output error = %v, want bounded guidance", err)
+	}
+}
+
+// TestBoundProjectedOutputDetailWithinBudgetLeavesValuesUnchanged covers the
+// single-object (map[string]any) shape used by `incident detail --fields`:
+// when the projection already fits, every value must come back byte-for-byte
+// identical to what went in.
+func TestBoundProjectedOutputDetailWithinBudgetLeavesValuesUnchanged(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	row := map[string]any{
+		"incident_id": "inc-1",
+		"title":       "Disk full on db-01",
+		"progress":    "Triggered",
+	}
+	want := map[string]any{
+		"incident_id": "inc-1",
+		"title":       "Disk full on db-01",
+		"progress":    "Triggered",
+	}
+
+	if err := boundProjectedOutput(row, compactDetailOutputLimit); err != nil {
+		t.Fatalf("bound projected output: %v", err)
+	}
+	if !reflect.DeepEqual(row, want) {
+		t.Fatalf("in-budget detail projection was modified: got %v, want %v", row, want)
+	}
+}
+
+// TestBoundProjectedOutputDetailOversizedErrorsWithoutMutating is the
+// regression guard for the truncation bug: a single-object projection that
+// doesn't fit the budget must fail loudly instead of silently shipping
+// truncated (and indistinguishable-from-real) values. The input map must
+// come back completely untouched.
+func TestBoundProjectedOutputDetailOversizedErrorsWithoutMutating(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	row := map[string]any{
+		"incident_id": "inc-1",
+		"title":       strings.Repeat("数据库故障", 5000),
+		"root_cause":  strings.Repeat("disk exhaustion details ", 3000),
+	}
+	want := map[string]any{
+		"incident_id": "inc-1",
+		"title":       strings.Repeat("数据库故障", 5000),
+		"root_cause":  strings.Repeat("disk exhaustion details ", 3000),
+	}
+
+	err := boundProjectedOutput(row, 512)
+	if err == nil {
+		t.Fatal("expected an error for an oversized detail projection, got nil")
+	}
+	if !strings.Contains(err.Error(), "512") {
+		t.Errorf("error should name the byte budget (512), got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "title") && !strings.Contains(err.Error(), "root_cause") {
+		t.Errorf("error should name the largest field, got: %v", err)
+	}
+	if !reflect.DeepEqual(row, want) {
+		t.Fatalf("oversized detail projection mutated the input map: got %v, want %v", row, want)
+	}
+}
+
+// TestBoundProjectedOutputDetailErrorIsDeterministic pins the tie-break in the
+// largest-field ranking: with several fields at exactly the same encoded size,
+// Go's randomized map iteration order must not leak into the error text, or the
+// same failing command would name different fields on each run.
+func TestBoundProjectedOutputDetailErrorIsDeterministic(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+
+	first := ""
+	for i := range 20 {
+		row := map[string]any{
+			"alpha":   strings.Repeat("a", 400),
+			"bravo":   strings.Repeat("b", 400),
+			"charlie": strings.Repeat("c", 400),
+			"delta":   strings.Repeat("d", 400),
+			"echo":    strings.Repeat("e", 400),
+		}
+		err := boundProjectedOutput(row, 512)
+		if err == nil {
+			t.Fatal("expected an error for an oversized detail projection, got nil")
+		}
+		if i == 0 {
+			first = err.Error()
+			continue
+		}
+		if err.Error() != first {
+			t.Fatalf("error text varies between runs on equal-sized fields:\n run 0: %s\n run %d: %s", first, i, err.Error())
+		}
+	}
+	if !strings.Contains(first, "alpha") {
+		t.Errorf("equal-sized fields should be ranked by name, expected alpha first, got: %s", first)
 	}
 }
 
@@ -441,11 +536,11 @@ func TestIncidentDetailFieldsProjection(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 	row := incidentRow()
-	row["description"] = strings.Repeat("large description ", 500)
-	row["images"] = []map[string]any{{"src": strings.Repeat("https://example.test/image/", 100)}}
-	row["ai_summary"] = strings.Repeat("long AI summary ", 4000)
-	row["root_cause"] = strings.Repeat("long root cause ", 4000)
-	row["resolution"] = strings.Repeat("long resolution ", 4000)
+	row["description"] = "root volume at 98%, mount point /var/lib/db"
+	row["images"] = []map[string]any{{"src": "https://example.test/image/1.png"}}
+	row["ai_summary"] = "Disk usage crossed 98% on db-01 at 03:14 UTC after log rotation stopped."
+	row["root_cause"] = "Log rotation was disabled by the previous deploy's config change."
+	row["resolution"] = "Re-enabled log rotation and cleared the stale archive files."
 	stub.data = row
 
 	fields := []string{"incident_id", "title", "incident_severity", "progress", "ai_summary", "root_cause", "resolution", "alert_cnt", "start_time", "channel_id"}
@@ -472,6 +567,43 @@ func TestIncidentDetailFieldsProjection(t *testing.T) {
 		t.Errorf("projected detail includes description: %v", detail)
 	}
 
+	// The projected values must come back byte-for-byte identical to the
+	// source row — this command must never truncate a detail value.
+	var gotSummary string
+	if err := json.Unmarshal(detail["ai_summary"], &gotSummary); err != nil {
+		t.Fatalf("unmarshal ai_summary: %v", err)
+	}
+	if gotSummary != row["ai_summary"] {
+		t.Fatalf("ai_summary was altered: got %q, want %q", gotSummary, row["ai_summary"])
+	}
+}
+
+// TestIncidentDetailFieldsProjectionOversizedErrors: when the requested
+// --fields don't fit the 8 KiB detail budget, the command must fail with an
+// actionable error instead of silently shipping truncated values.
+func TestIncidentDetailFieldsProjectionOversizedErrors(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	row := incidentRow()
+	row["ai_summary"] = strings.Repeat("long AI summary ", 4000)
+	row["root_cause"] = strings.Repeat("long root cause ", 4000)
+	row["resolution"] = strings.Repeat("long resolution ", 4000)
+	stub.data = row
+
+	fields := []string{"incident_id", "title", "ai_summary", "root_cause", "resolution"}
+	_, err := execCommand("incident", "detail", "inc-1", "--fields", strings.Join(fields, ","), "--output-format", "json")
+	if err == nil {
+		t.Fatal("expected an error for an oversized detail projection, got nil")
+	}
+	if !strings.Contains(err.Error(), "8192") {
+		t.Errorf("error should name the byte budget (8192), got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "ai_summary") && !strings.Contains(err.Error(), "root_cause") && !strings.Contains(err.Error(), "resolution") {
+		t.Errorf("error should name one of the largest fields, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "--fields") {
+		t.Errorf("error should point at --fields as the remedy, got: %v", err)
+	}
 }
 
 func TestAlertEventListStructuredProjection(t *testing.T) {
