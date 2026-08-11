@@ -74,7 +74,7 @@ fduty incident comment "$ID" --comment-file "$COMMENT_FILE"
 fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
-Projected `similar` lists stay below 16 KiB, and projected `detail --fields` output stays below 8 KiB. A trailing `...` means a long retained string was shortened; omit `--fields` only when the full unbounded detail is explicitly required.
+Projected `similar` lists stay below 16 KiB; a trailing `...` in a list row means a long retained string was shortened. `detail --fields` is different: it never shortens values — the projection must fit within 8 KiB as requested or the command fails and names the largest fields, so drop some fields (or drop `--fields` for the full unbounded detail) and retry.
 
 `comment` never accepts the text as a command-line argument — only `--comment-file <path>` (or `--comment-file -` to read stdin), so backticks/`$()`/quotes inside the comment are inert. The command also reads back every target's timeline after writing and exits non-zero unless it finds an entry matching what it sent, so `Commented on ...` is proof of content fidelity, not just acceptance — no separate manual read-back is needed. Leading and trailing whitespace is stripped before sending (the server strips it too, so this is what gets stored); everything else, including interior blank lines, is preserved exactly.
 
