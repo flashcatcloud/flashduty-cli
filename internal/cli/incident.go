@@ -1587,7 +1587,7 @@ func newIncidentDetailCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. Projected strings are truncated as needed to keep output below 8 KiB; omit --fields for full detail.")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. The projection must fit within 8 KiB or the command fails and names the largest fields; omit --fields for the full, unbounded detail.")
 	return cmd
 }
 

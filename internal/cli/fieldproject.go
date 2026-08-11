@@ -70,23 +70,75 @@ func projectFields(items any, fields []string) ([]map[string]any, error) {
 }
 
 // boundProjectedOutput keeps the new agent-oriented projections below their
-// command budget without changing the selected keys. Short values remain byte
-// identical; when retained strings alone would overflow the actual JSON/TOON
-// encoding, they are shortened fairly and marked with "...". If keys and
-// non-string values alone exceed the budget, the command fails with a small
-// error instead of emitting an oversized payload.
+// command budget without changing the selected keys. List rows (many small
+// records) are shortened fairly when they overflow the budget, with
+// shortened values marked with "...". A single-object detail projection is
+// never modified: a truncated id or status string is indistinguishable from
+// a genuinely short value, so silently shortening it would hand the caller
+// wrong data instead of a compact one. If a detail projection doesn't fit,
+// the command fails with an error instead.
 func boundProjectedOutput(data any, maxBytes int) error {
-	var rows []map[string]any
 	switch value := data.(type) {
 	case map[string]any:
-		rows = []map[string]any{value}
+		return boundProjectedDetail(value, maxBytes)
 	case []map[string]any:
-		rows = value
+		return boundProjectedList(value, maxBytes)
 	default:
 		return fmt.Errorf("internal error: unsupported projected output %T", data)
 	}
+}
 
-	encoded, err := marshalStructured(data)
+// boundProjectedDetail rejects an oversized single-object projection instead
+// of truncating it, naming the largest fields so the caller can fix the
+// request in one pass: drop some of them from --fields, or drop --fields
+// entirely for the full, unbounded detail.
+func boundProjectedDetail(row map[string]any, maxBytes int) error {
+	encoded, err := marshalStructured(row)
+	if err != nil {
+		return err
+	}
+	if len(encoded)+1 < maxBytes {
+		return nil
+	}
+
+	type fieldSize struct {
+		name string
+		size int
+	}
+	sizes := make([]fieldSize, 0, len(row))
+	for key, value := range row {
+		fieldEncoded, err := marshalStructured(map[string]any{key: value})
+		if err != nil {
+			return err
+		}
+		sizes = append(sizes, fieldSize{key, len(fieldEncoded)})
+	}
+	// Ties break on name so the same oversized request always names the same
+	// fields, despite Go's randomized map iteration order.
+	sort.Slice(sizes, func(i, j int) bool {
+		if sizes[i].size != sizes[j].size {
+			return sizes[i].size > sizes[j].size
+		}
+		return sizes[i].name < sizes[j].name
+	})
+	if len(sizes) > 3 {
+		sizes = sizes[:3]
+	}
+	largest := make([]string, len(sizes))
+	for i, f := range sizes {
+		largest[i] = fmt.Sprintf("%s (%d bytes)", f.name, f.size)
+	}
+	return fmt.Errorf("projected detail is %d bytes, exceeds the %d-byte limit; largest fields: %s; request fewer --fields, or omit --fields for the full, unbounded detail",
+		len(encoded), maxBytes, strings.Join(largest, ", "))
+}
+
+// boundProjectedList shortens a list projection's string values fairly
+// (across all rows) when the compact rows themselves overflow the budget,
+// marking shortened values with "...". If keys and non-string values alone
+// exceed the budget, the command fails with a small error instead of
+// emitting an oversized payload.
+func boundProjectedList(rows []map[string]any, maxBytes int) error {
+	encoded, err := marshalStructured(rows)
 	if err != nil {
 		return err
 	}
@@ -116,7 +168,7 @@ func boundProjectedOutput(data any, maxBytes int) error {
 			}
 		}
 
-		encoded, err = marshalStructured(data)
+		encoded, err = marshalStructured(rows)
 		if err != nil {
 			return err
 		}
