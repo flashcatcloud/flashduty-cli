@@ -14,10 +14,19 @@ const (
 	fenceEndFmt   = "<!-- GENERATED:%s END -->"
 )
 
-// GenerateFence renders the factual fenced block for one command group: a
-// section per leaf verb with its short description and a flag table (name,
-// type, required, usage + enum), plus a body-only (--data) note when the
-// command has nested JSON-only fields, plus a one-line response-shape summary
+// GenerateFence renders the fenced block for a group whose only fence is the
+// catch-all — i.e. all of the group's commands in one block. Groups split
+// across several cards must go through RenderGroupFences instead, which knows
+// the sibling subset fences.
+func GenerateFence(d Dump, group string) string {
+	out, _ := RenderGroupFences(d, group, []string{group})
+	return out[group]
+}
+
+// renderFence renders one fenced block: the id's markers around a section per
+// command — each with its short description and a flag list (name, type,
+// required, usage + enum), plus a body-only (--data) note when the command
+// has nested JSON-only fields, plus a one-line response-shape summary
 // (top-level object vs. bare array vs. `{items: [...]}` page wrapper, and the
 // field names at that level) when the command documents one. Required-ness
 // and enums are sourced from the authoritative "Request fields:" text in each
@@ -26,16 +35,15 @@ const (
 // responseShapeLine), not re-derived or hand-curated. The flag list falls
 // back to the dump's Flags when no Request-fields block exists (read-only
 // verbs). Output is deterministic.
-func GenerateFence(d Dump, group string) string {
-	cmds := groupCommands(d, group)
-
+func renderFence(id string, cmds []Command) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, fenceStartFmt+"\n\n", group)
+	fmt.Fprintf(&b, fenceStartFmt+"\n\n", id)
 	// seenShapes maps a verbatim response-shape line to the name of the first
-	// command in THIS group (only — never across cards) that rendered it in
-	// full, so a later command with a byte-identical shape can point back at
-	// it instead of repeating the field list. Scoped to one GenerateFence call,
-	// so cards stay self-contained.
+	// command in THIS fence (only) that rendered it in full, so a later command
+	// with a byte-identical shape can point back at it instead of repeating the
+	// field list. Scoped to one rendered fence, not to the whole group: a group
+	// split into subset fences spans several cards, and a back-reference must
+	// never name a command the reader cannot see on the card in front of them.
 	seenShapes := map[string]string{}
 	for i, c := range cmds {
 		if i > 0 {
@@ -43,14 +51,15 @@ func GenerateFence(d Dump, group string) string {
 		}
 		writeCommand(&b, c, seenShapes)
 	}
-	fmt.Fprintf(&b, "\n"+fenceEndFmt, group)
+	fmt.Fprintf(&b, "\n"+fenceEndFmt, id)
 	return b.String()
 }
 
-// FenceStart / FenceEnd return the literal markers for a group, used by the
-// freshness check to locate fences in docs.
-func FenceStart(group string) string { return fmt.Sprintf(fenceStartFmt, group) }
-func FenceEnd(group string) string   { return fmt.Sprintf(fenceEndFmt, group) }
+// FenceStart / FenceEnd return the literal markers for a fence id (a bare
+// group, or group[prefix,…] — see ParseFenceID), used to locate fences in
+// docs.
+func FenceStart(id string) string { return fmt.Sprintf(fenceStartFmt, id) }
+func FenceEnd(id string) string   { return fmt.Sprintf(fenceEndFmt, id) }
 
 func groupCommands(d Dump, group string) []Command {
 	var cmds []Command

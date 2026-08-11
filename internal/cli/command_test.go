@@ -87,6 +87,28 @@ func execCommand(args ...string) (string, error) {
 	return buf.String(), err
 }
 
+// execCommandSplit is execCommand with stdout and stderr captured separately,
+// for tests that assert machine-readable stdout stays pure while advisory
+// notices (e.g. the default-projection note) land on stderr.
+func execCommandSplit(args ...string) (stdout, stderr string, err error) {
+	resetCommandFlags(rootCmd)
+
+	outBuf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
+	rootCmd.SetOut(outBuf)
+	rootCmd.SetErr(errBuf)
+	rootCmd.SetArgs(args)
+
+	err = rootCmd.Execute()
+
+	rootCmd.SetArgs(nil)
+	rootCmd.SetOut(nil)
+	rootCmd.SetErr(nil)
+	resetCommandFlags(rootCmd)
+
+	return outBuf.String(), errBuf.String(), err
+}
+
 func resetCommandFlags(cmd *cobra.Command) {
 	if cmd == nil {
 		return

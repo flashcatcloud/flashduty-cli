@@ -16,7 +16,7 @@ type Doc struct {
 type Issue struct {
 	Doc    string
 	Line   int
-	Kind   string // "unknown-command" | "unknown-flag" | "stale-fence"
+	Kind   string // "unknown-command" | "unknown-flag" | "stale-fence" | "fence-topology"
 	Detail string
 }
 
@@ -47,37 +47,87 @@ func Validate(d Dump, docs []Doc) []Issue {
 	return issues
 }
 
-// CheckFences asserts every GENERATED:<group> fence embedded in docs matches a
-// fresh render from the dump. A fence whose inner content has drifted, or a
-// start marker with no matching end marker, yields a stale-fence issue. Docs
-// with no generated fence for a group are silently fine.
+// CheckFences asserts every GENERATED fence embedded in docs matches a fresh
+// render from the dump, and that each group's fences form a valid partition
+// of the group's commands (see RenderGroupFences). A drifted fence or a start
+// marker with no matching end marker yields a stale-fence issue; a malformed
+// or unknown-group marker, and any partition violation, yields a
+// fence-topology issue anchored at the group's first fence.
 func CheckFences(d Dump, docs []Doc) []Issue {
+	dumpGroups := map[string]bool{}
+	for _, g := range groups(d) {
+		dumpGroups[g] = true
+	}
+
+	type loc struct {
+		doc  string
+		body string
+		off  int
+		id   string
+	}
 	var issues []Issue
-	for _, group := range groups(d) {
-		fresh := GenerateFence(d, group)
-		start, end := FenceStart(group), FenceEnd(group)
-		for _, doc := range docs {
-			si := strings.Index(doc.Body, start)
-			if si < 0 {
-				continue // no fence for this group in this doc
-			}
-			ei := strings.Index(doc.Body[si:], end)
-			if ei < 0 {
+	byGroup := map[string][]loc{}
+	for _, doc := range docs {
+		for _, fl := range FenceLocs(doc.Body) {
+			spec, err := ParseFenceID(fl.ID)
+			if err != nil {
 				issues = append(issues, Issue{
 					Doc:    doc.Path,
-					Line:   lineOf(doc.Body, si),
-					Kind:   "stale-fence",
-					Detail: "unterminated GENERATED:" + group + " fence",
+					Line:   lineOf(doc.Body, fl.Offset),
+					Kind:   "fence-topology",
+					Detail: err.Error(),
 				})
 				continue
 			}
-			block := doc.Body[si : si+ei+len(end)]
-			if block != fresh {
+			if !dumpGroups[spec.Group] {
 				issues = append(issues, Issue{
 					Doc:    doc.Path,
-					Line:   lineOf(doc.Body, si),
+					Line:   lineOf(doc.Body, fl.Offset),
+					Kind:   "fence-topology",
+					Detail: "GENERATED:" + fl.ID + " names unknown command group " + spec.Group,
+				})
+				continue
+			}
+			byGroup[spec.Group] = append(byGroup[spec.Group], loc{doc: doc.Path, body: doc.Body, off: fl.Offset, id: fl.ID})
+		}
+	}
+
+	// groups(d) is already sorted; every byGroup key is a member of it.
+	for _, group := range groups(d) {
+		locs, present := byGroup[group]
+		if !present {
+			continue
+		}
+		ids := make([]string, len(locs))
+		for i, l := range locs {
+			ids[i] = l.id
+		}
+		rendered, violations := RenderGroupFences(d, group, ids)
+		for _, v := range violations {
+			issues = append(issues, Issue{
+				Doc:    locs[0].doc,
+				Line:   lineOf(locs[0].body, locs[0].off),
+				Kind:   "fence-topology",
+				Detail: v,
+			})
+		}
+		for _, l := range locs {
+			start, end, ok := FindFence(l.body, l.id)
+			if !ok {
+				issues = append(issues, Issue{
+					Doc:    l.doc,
+					Line:   lineOf(l.body, l.off),
 					Kind:   "stale-fence",
-					Detail: "GENERATED:" + group + " fence is out of date — run `make gen-cards`",
+					Detail: "unterminated GENERATED:" + l.id + " fence",
+				})
+				continue
+			}
+			if fresh, rok := rendered[l.id]; rok && l.body[start:end] != fresh {
+				issues = append(issues, Issue{
+					Doc:    l.doc,
+					Line:   lineOf(l.body, l.off),
+					Kind:   "stale-fence",
+					Detail: "GENERATED:" + l.id + " fence is out of date — run `make gen-cards`",
 				})
 			}
 		}

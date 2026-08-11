@@ -66,7 +66,7 @@ Request fields:
   group (object, via --data) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
-    - equals (array<array>) — Groups of label keys whose equality defines a bucket.
+    - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
     - method (string) (required) — Grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
@@ -329,7 +329,10 @@ Request fields:
   --priority int — Evaluation priority. Lower runs first. (0-200)
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   --template-id string (required) — Notification template ID (MongoDB ObjectID).
-  filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+    - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
+    - oper (string) (required) — Filter operator. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match.
   layers (array<object>, via --data) (required) — Escalation levels in order. At least one level is required.
     - escalate_window (integer) — Wait before moving to the next level, in minutes. (0-720)
     - force_escalate (boolean) — When true, always escalate regardless of acknowledgement.
@@ -892,7 +895,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - group (object) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
-    - equals (array<array>) — Groups of label keys whose equality defines a bucket.
+    - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
     - method (string) (required) — Grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
@@ -1025,8 +1028,14 @@ Request fields:
   --is-directly-discard bool — When true, suppressed target alerts are dropped instead of merged.
   --priority int — Evaluation priority. Lower runs first.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  source_filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
-  target_filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  source_filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+    - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
+    - oper (string) (required) — Filter operator. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match.
+  target_filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+    - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
+    - oper (string) (required) — Filter operator. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
@@ -1463,7 +1472,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - group (object) — Alert grouping configuration.
       - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
       - cases (array<object>) — Per-filter grouping overrides.
-      - equals (array<array>) — Groups of label keys whose equality defines a bucket.
+      - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
       - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
       - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
       - method (string) (required) — Grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
@@ -1588,7 +1597,10 @@ Request fields:
   --is-directly-discard bool — When true, silenced alerts are dropped instead of suppressed into incidents.
   --priority int — Evaluation priority. Lower runs first.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+    - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
+    - oper (string) (required) — Filter operator. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match.
   time_filter (object, via --data) — One-off time window defined by unix seconds.
     - end_time (integer) (required) — Window end (unix seconds).
     - start_time (integer) (required) — Window start (unix seconds). Must be less than 'end_time'.
@@ -2012,7 +2024,10 @@ Request fields:
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --priority int — Evaluation priority. Lower runs first.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (array<array>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+    - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
+    - oper (string) (required) — Filter operator. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — Newly created rule ID (MongoDB ObjectID).
@@ -2403,7 +2418,7 @@ Request fields:
   group (object, via --data) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
-    - equals (array<array>) — Groups of label keys whose equality defines a bucket.
+    - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
     - method (string) (required) — Grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
