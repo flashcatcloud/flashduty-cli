@@ -56,12 +56,12 @@ fduty member list --query "alice" --output-format toon
 ### delete
 Delete member
 - `--country-code` string — Phone country code, used with phone
-- `--email` string — Email address
+- `--email` string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
 - `--is-force` bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
-- `--member-id` int64 — Member ID
-- `--member-name` string — Member name
-- `--phone` string — Phone number
-- `--ref-id` string — External reference ID
+- `--member-id` int64 — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
+- `--member-name` string — Member name. Only used when 'member_id' is not provided
+- `--phone` string — Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent
+- `--ref-id` string — External reference ID. Only used when all other lookup fields are absent
 
 ### info
 Get current member info
@@ -80,18 +80,18 @@ Reset member info
 
 ### invite
 Invite members
-- `--from` string — Invite source context
+- `--from` string — Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow
 - body-only (`--data`): members (array<object>) (required)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: member_id (integer); member_name (string)
 
 ### list
 List members
-- `--asc` bool — Ascending order
-- `--limit` int64 — Page size (1-100)
-- `--orderby` string — Sort field · enum: created_at | updated_at
-- `--page` int64 — Page number (min 1)
-- `--query` string — Search keyword
-- `--role-id` int64 — Filter by role ID
+- `--asc` bool — Ascending order. Default: false (descending)
+- `--limit` int64 — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
+- `--orderby` string — Sort field. Default: 'updated_at' · enum: created_at | updated_at
+- `--page` int64 — Page number, 1-based (min 1)
+- `--query` string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
+- `--role-id` int64 — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 - `--search-after-ctx` string
 - response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (integer); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (integer)
 
@@ -108,7 +108,7 @@ Revoke role from member
 ### role-update <role-id> [<id2>...]
 Update member roles
 - `--member-id` int64 (required) — Member ID
-- `<role-ids>` (positional, required) intSlice — New set of role IDs
+- `<role-ids>` (positional, required) intSlice — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
 
 <!-- GENERATED:member END -->
 

@@ -393,7 +393,7 @@ Request fields:
   --description string — Optional free-text description. (≤499 chars)
   --display-name string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
   --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
-  --field-type string (required) — Field input type. Immutable after creation. [checkbox, multi_select, single_select, text]
+  --field-type string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. [checkbox, multi_select, single_select, text]
   --options []string — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
   --value-type string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. [string, bool, float]
   default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
@@ -444,7 +444,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional free-text description. (≤499 chars)")
 	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required) (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (required) (≤39 chars)")
-	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field input type. Immutable after creation. (required) [checkbox, multi_select, single_select, text]")
+	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
 	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. (required) [string, bool, float]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -712,7 +712,7 @@ Request fields:
   --description string — Optional description.
   --insecure-skip-verify bool — Skip TLS certificate verification. Default 'false'.
   --retry-count int — Number of retries on failure (0–1). Default 0.
-  --team-id int — Owning team ID.
+  --team-id int — Owning team ID; obtain it from 'POST /team/list'.
   --timeout int — Request timeout in seconds (1–3). Default 2.
   --url string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
   headers (object, via --data) — Custom HTTP request headers.
@@ -767,7 +767,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description.")
 	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "Skip TLS certificate verification. Default 'false'.")
 	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "Number of retries on failure (0–1). Default 0.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2.")
 	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required) (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -851,7 +851,7 @@ Request fields:
   --description string — New description.
   --insecure-skip-verify bool — New TLS skip-verify setting.
   --retry-count int — New retry count.
-  --team-id int — New owning team ID.
+  --team-id int — New owning team ID; obtain it from 'POST /team/list'.
   --timeout int — New timeout in seconds.
   --url string — New endpoint URL (max 500 chars). (≤500 chars)
   headers (object, via --data) — New headers map (replaces existing).
@@ -914,7 +914,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
 	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "New TLS skip-verify setting.")
 	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "New retry count.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds.")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars). (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1183,7 +1183,7 @@ API: POST /enrichment/mapping/data/upload (mapping-data-write-upload)
 
 Request fields:
   --file string — CSV file to upload.
-  --schema-id string — Mapping schema ID (query parameter).
+  --schema-id string — Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.
 `,
 		Example: `  flashduty enrichment mapping-data-upload --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1217,7 +1217,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fFile, "file", "", "CSV file to upload.")
-	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (query parameter).")
+	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

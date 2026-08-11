@@ -24,11 +24,14 @@ Create a new preset severity rule for a RUM application.
 API: POST /rum/issue/preset-severity/rules/create (rum-issue-preset-severity-rules-create)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --description string — Optional description, up to 512 characters. (≤512 chars)
   --rule-name string (required) — Rule display name, 1-128 characters. (1-128 chars)
   --severity string (required) — Severity to assign to errors matching this rule. [Critical, Warning, Info]
-  filters (array<array>, via --data) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+  filters (array<array<object>>, via --data) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+    - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
+    - oper (string) (required) — Match semantics: 'IN' matches when the field's value matches any of 'vals'; 'NOTIN' matches when it matches none of them (and matches when the field is absent). [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against. Each entry supports exact string match, wildcard ('*'/'?'), regex (wrap in '/.../'), CIDR ('cidr:10.0.0.0/8') for IP-shaped values, or numeric comparison ('num:gt:100', 'num:le:50', etc.).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - priority (integer) (required) — Evaluation order assigned to the new rule (always the current lowest precedence, i.e. current max + 1).
@@ -72,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description, up to 512 characters. (≤512 chars)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule display name, 1-128 characters. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&fSeverity, "severity", "", "Severity to assign to errors matching this rule. (required) [Critical, Warning, Info]")
@@ -94,8 +97,8 @@ Delete a preset severity rule.
 API: POST /rum/issue/preset-severity/rules/delete (rum-issue-preset-severity-rules-delete)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 `,
 		Example: `  flashduty rum issue-preset-severity-rules-delete --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"n8mZQ2VbXk4wPRs6DfC9Ay"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,8 +131,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -148,8 +151,8 @@ Disable a preset severity rule.
 API: POST /rum/issue/preset-severity/rules/disable (rum-issue-preset-severity-rules-disable)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 `,
 		Example: `  flashduty rum issue-preset-severity-rules-disable --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"TAHUYnQmXKzgMS4TFVUKvz"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -182,8 +185,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -202,8 +205,8 @@ Enable a preset severity rule.
 API: POST /rum/issue/preset-severity/rules/enable (rum-issue-preset-severity-rules-enable)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 `,
 		Example: `  flashduty rum issue-preset-severity-rules-enable --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"TAHUYnQmXKzgMS4TFVUKvz"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -236,8 +239,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -263,7 +266,7 @@ Request fields:
   --page int — Zero-based page number. (min 0)
   --limit int — Page size. Values <= 0 default to 20; values above 100 are capped at 100. (max 100)
   --search-after-ctx string
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --asc bool — Sort ascending when true; results are descending by default.
   --orderby string — Sort column. Any other value (including omitted) falls back to 'updated_at'. [updated_at, version]
 
@@ -277,7 +280,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - created_by (integer) (required) — Member ID who originally created the rule.
       - deleted_at (integer) (required) — Unix timestamp in milliseconds the rule was soft-deleted; '0' means not deleted. Always '0' in practice, since deleted rules are excluded before a snapshot is taken.
       - description (string) (required) — Rule description. May be empty.
-      - filters (array<array>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+      - filters (array<array<object>>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+        - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
+        - oper (string) (required) — Match semantics: 'IN' matches when the field's value matches any of 'vals'; 'NOTIN' matches when it matches none of them (and matches when the field is absent). [IN, NOTIN]
+        - vals (array<string>) (required) — Values to match against. Each entry supports exact string match, wildcard ('*'/'?'), regex (wrap in '/.../'), CIDR ('cidr:10.0.0.0/8') for IP-shaped values, or numeric comparison ('num:gt:100', 'num:le:50', etc.).
       - id (integer) (required) — Internal auto-increment row ID. Not stable across a history revert — reverting reinserts rows with new IDs.
       - priority (integer) (required) — Evaluation order at snapshot time; '1' is highest precedence.
       - rule_id (string) (required) — Unique rule ID.
@@ -338,7 +344,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Zero-based page number. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Values <= 0 default to 20; values above 100 are capped at 100. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when true; results are descending by default.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort column. Any other value (including omitted) falls back to 'updated_at'. [updated_at, version]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -359,8 +365,8 @@ Roll back preset severity rules to the state captured in a specific history snap
 API: POST /rum/issue/preset-severity/rules/history/revert (rum-issue-preset-severity-rules-history-revert)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --version int (required) — Version number of the snapshot to revert to. (min 1)
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --version int (required) — Snapshot version number to revert to. Get versions via 'POST /rum/issue/preset-severity/rules/history/list'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum issue-preset-severity-rules-history-revert --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","version":2}'`,
@@ -397,8 +403,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Version number of the snapshot to revert to. (required) (min 1)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Snapshot version number to revert to. Get versions via 'POST /rum/issue/preset-severity/rules/history/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -416,13 +422,16 @@ Return all preset severity rules configured for a RUM application.
 API: POST /rum/issue/preset-severity/rules/list (rum-issue-preset-severity-rules-list)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Rules ordered by evaluation order ('priority' ascending, then 'created_at' ascending).
     - created_at (integer) (required) — Unix timestamp in milliseconds when the rule was created.
     - description (string) (required) — Rule description. May be empty.
-    - filters (array<array>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+    - filters (array<array<object>>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+      - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
+      - oper (string) (required) — Match semantics: 'IN' matches when the field's value matches any of 'vals'; 'NOTIN' matches when it matches none of them (and matches when the field is absent). [IN, NOTIN]
+      - vals (array<string>) (required) — Values to match against. Each entry supports exact string match, wildcard ('*'/'?'), regex (wrap in '/.../'), CIDR ('cidr:10.0.0.0/8') for IP-shaped values, or numeric comparison ('num:gt:100', 'num:le:50', etc.).
     - priority (integer) (required) — Evaluation order among the application's rules. '1' is evaluated first (highest precedence); the first enabled rule whose filters match wins.
     - rule_id (string) (required) — Unique rule ID.
     - rule_name (string) (required) — Rule display name.
@@ -458,7 +467,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -478,8 +487,8 @@ Move one preset severity rule to another rule's position in evaluation order.
 API: POST /rum/issue/preset-severity/rules/reorder (rum-issue-preset-severity-rules-reorder)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --drag-rule-id string (required) — ID of the rule being moved.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --drag-rule-id string (required) — ID of the rule being moved. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
   --target-rule-id string (required) — ID of the rule whose evaluation position 'drag_rule_id' moves to.
 `,
 		Example: `  flashduty rum issue-preset-severity-rules-reorder --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","drag_rule_id":"n8mZQ2VbXk4wPRs6DfC9Ay","target_rule_id":"TAHUYnQmXKzgMS4TFVUKvz"}'`,
@@ -516,8 +525,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fDragRuleID, "drag-rule-id", "", "ID of the rule being moved. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fDragRuleID, "drag-rule-id", "", "ID of the rule being moved. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'. (required)")
 	cmd.Flags().StringVar(&fTargetRuleID, "target-rule-id", "", "ID of the rule whose evaluation position 'drag_rule_id' moves to. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -540,12 +549,15 @@ Update the name, description, filters, or severity of a preset severity rule.
 API: POST /rum/issue/preset-severity/rules/update (rum-issue-preset-severity-rules-update)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --description string — New description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
-  --rule-id string (required) — Rule ID to update.
+  --rule-id string (required) — Rule ID to update. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
   --rule-name string — New display name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
   --severity string — New severity. Omit to leave unchanged. [Critical, Warning, Info]
-  filters (array<array>, via --data) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+  filters (array<array<object>>, via --data) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
+    - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
+    - oper (string) (required) — Match semantics: 'IN' matches when the field's value matches any of 'vals'; 'NOTIN' matches when it matches none of them (and matches when the field is absent). [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against. Each entry supports exact string match, wildcard ('*'/'?'), regex (wrap in '/.../'), CIDR ('cidr:10.0.0.0/8') for IP-shaped values, or numeric comparison ('num:gt:100', 'num:le:50', etc.).
 `,
 		Example: `  flashduty rum issue-preset-severity-rules-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"TAHUYnQmXKzgMS4TFVUKvz","rule_name":"Critical crash spikes (updated)","severity":"Critical"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -587,9 +599,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description, up to 512 characters. Omit to leave unchanged. (≤512 chars)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID to update. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID to update. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'. (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "New display name, 1-128 characters. Omit to leave unchanged. (1-128 chars)")
 	cmd.Flags().StringVar(&fSeverity, "severity", "", "New severity. Omit to leave unchanged. [Critical, Warning, Info]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

@@ -22,7 +22,7 @@ Delete a calendar event by calendar ID and event ID.
 API: POST /calendar/event/delete (calEventDelete)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
   --event-id string (required) — Event ID.
 `,
 		Example: `  flashduty calendar event-delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","event_id":"cale.KyG9XWTCU5CucbwukEVBQ4"}'`,
@@ -56,7 +56,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -78,7 +78,7 @@ Return events for a personal calendar within a year/month/day scope. When month 
 API: POST /calendar/event/list (calEventList)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
   --day int — Day (1-31). 0 means no day filter. (0-31)
   --month int — Month (1-12). 0 means no month filter. (0-12)
   --year int — Year. Defaults to the current year when omitted. (min 2023)
@@ -135,7 +135,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter. (0-31)")
 	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter. (0-12)")
 	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted. (min 2023)")
@@ -162,7 +162,7 @@ Create or update a calendar event (holiday or workday override). Omit event_id t
 API: POST /calendar/event/upsert (calEventUpsert)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
   --description string — Event description. (≤499 chars)
   --end-at string (required) — Event end date in YYYY-MM-DD (exclusive).
   --event-id string — Event ID. Omit when creating. (≤63 chars)
@@ -221,7 +221,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Event description. (≤499 chars)")
 	cmd.Flags().StringVar(&fEndAt, "end-at", "", "Event end date in YYYY-MM-DD (exclusive). (required)")
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. Omit when creating. (≤63 chars)")
@@ -323,7 +323,7 @@ Delete a personal service calendar. The call fails when referenced by escalation
 API: POST /calendar/delete (calendarDelete)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM"}'`,
@@ -357,7 +357,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -375,7 +375,7 @@ Return details of a service calendar.
 API: POST /calendar/info (calendarInfo)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -421,7 +421,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -513,11 +513,11 @@ Update a personal service calendar. Only non-null fields are updated.
 API: POST /calendar/update (calendarUpdate)
 
 Request fields:
-  --cal-id string (required) — Calendar ID.
+  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
   --cal-name string — New calendar name. (1-39 chars)
   --description string — New description. (≤499 chars)
   --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from.
-  --team-id int — New owning team ID.
+  --team-id int — New owning team ID; obtain it from 'POST /team/list'.
   --timezone string — New IANA timezone.
   --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
@@ -571,11 +571,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name. (1-39 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤499 chars)")
 	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

@@ -110,7 +110,7 @@ Request fields:
   --limit int — Page size. Capped at 100. (1-100)
   --search-after-ctx string
   --asc bool — Ascending sort order.
-  --creator-id int — Filter by creator member ID.
+  --creator-id int — Filter by creator member ID; obtain member IDs from 'POST /member/list'.
   --is-my-team bool — When true, only return templates scoped to teams the caller belongs to.
   --orderby string — Sort field. [created_at, updated_at]
   --query string — Regex or substring match on template_name.
@@ -200,7 +200,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Capped at 100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
-	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID.")
+	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID; obtain member IDs from 'POST /member/list'.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, only return templates scoped to teams the caller belongs to.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Regex or substring match on template_name.")
@@ -227,7 +227,7 @@ Request fields:
   --content string (required) — Template content to render.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine.
-  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
+  incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app when previewing.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content (string) — Rendered template output, present when success is true.
@@ -322,7 +322,7 @@ Request fields:
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
-  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
+  incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — Newly created template ID.
@@ -521,13 +521,13 @@ Request fields:
   --team-id int — Team scope. 0 for account-wide.
   --teams-app string — Microsoft Teams app message template source.
   --telegram string — Telegram bot message template source.
-  --template-id string (required) — Target template ID.
+  --template-id string (required) — Target template ID; obtain it from 'POST /template/list'.
   --template-name string (required) — Template name. 1–39 characters. (1-39 chars)
   --voice string — Voice call script template source.
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
   --zoom string — Zoom bot message template source.
-  incident_card_hidden_fields (object, via --data) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
+  incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
@@ -628,7 +628,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
 	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source.")
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID; obtain it from 'POST /template/list'. (required)")
 	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")

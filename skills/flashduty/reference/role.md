@@ -62,36 +62,36 @@ fduty role upsert --role-id <role-id> --role-name "Incident Responder" \
 
 ### delete <role-id>
 Delete a role
-- `<role-id>` (positional, required) int64 — Role ID.
+- `<role-id>` (positional, required) int64 — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 ### disable <role-id>
 Disable a role
-- `<role-id>` (positional, required) int64 — Role ID.
+- `<role-id>` (positional, required) int64 — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 ### enable <role-id>
 Enable a role
-- `<role-id>` (positional, required) int64 — Role ID.
+- `<role-id>` (positional, required) int64 — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 ### info <role-id>
 Get role detail
-- `<role-id>` (positional, required) int64 — Role ID.
+- `<role-id>` (positional, required) int64 — Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 - response: single object (`data` unwrapped to the top level) — fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
 
 ### list
 List roles
-- `--asc` bool — Ascending sort order.
-- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--asc` bool — Ascending sort order. Default: false (descending).
+- `--orderby` string — Sort field. Default: 'updated_at'. · enum: created_at | updated_at
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members
 - `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role. Max 100.
-- `--role-id` int64 (required) — Role ID to grant or revoke.
+- `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### member-revoke <member-id> [<id2>...]
 Revoke role from members
 - `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role. Max 100.
-- `--role-id` int64 (required) — Role ID to grant or revoke.
+- `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### permission-factor-list
 List permission factors

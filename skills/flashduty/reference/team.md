@@ -70,9 +70,9 @@ Get team detail
 
 ### info
 Get team detail
-- `--ref-id` string — External reference ID.
-- `--team-id` int64 — Team ID.
-- `--team-name` string — Team name.
+- `--ref-id` string — External reference ID. When provided, takes precedence over 'team_name' and 'team_id'.
+- `--team-id` int64 — Team ID. At least one of the three lookup fields is required; lowest priority — only used when neither 'ref_id' nor 'team_name' is provided.
+- `--team-name` string — Team name. Only used when 'ref_id' is not provided; takes precedence over 'team_id'.
 - response: same shape as `get [<id>]` above
 
 ### infos <team-id> [<id2>...]
@@ -103,9 +103,9 @@ Update an existing team
 Create or update a team
 - `--country-code` string — Default country code applied to any 'phones' entries that are not in E.164 format.
 - `--description` string — Free-form description. (≤500 chars)
-- `--emails` stringSlice — Email addresses to invite as members.
+- `--emails` stringSlice — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
 - `--person-ids` intSlice — Member IDs to set as team members. Replaces the existing member list.
-- `--phones` stringSlice — Phone numbers to invite as members.
+- `--phones` stringSlice — Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.
 - `--ref-id` string — External reference ID for HR system integration.
 - `--reset-if-name-exist` bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
 - `--team-id` int64 — Team ID. Omit or set to 0 to create a new team.

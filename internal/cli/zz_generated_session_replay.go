@@ -22,7 +22,7 @@ Return the application, device, session bounds, and views recorded for a replaya
 API: POST /rum/session-replay/metadata (rum-session-replay-read-metadata)
 
 Request fields:
-  --session-id string (required) — RUM session ID.
+  --session-id string (required) — RUM session ID (the 'session.id' attribute on RUM events).
   --ts int — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -84,7 +84,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID. (required)")
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID (the 'session.id' attribute on RUM events). (required)")
 	cmd.Flags().Int64Var(&fTS, "ts", 0, "Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -110,7 +110,7 @@ API: POST /rum/session-replay/segments (rum-session-replay-read-segments)
 Request fields:
   --limit int — Maximum number of segments to return. 1-99, default 20. (1-99)
   --search-after-ctx string — Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).
-  --session-id string (required) — RUM session ID.
+  --session-id string (required) — RUM session ID (the 'session.id' attribute on RUM events).
   --ts int — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
   --url-mode bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
   --view-id string — Restrict results to segments belonging to this view. Omit to page through the entire session.
@@ -164,7 +164,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of segments to return. 1-99, default 20. (1-99)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).")
-	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID. (required)")
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID (the 'session.id' attribute on RUM events). (required)")
 	cmd.Flags().Int64Var(&fTS, "ts", 0, "Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.")
 	cmd.Flags().BoolVar(&fURLMode, "url-mode", false, "When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.")
 	cmd.Flags().StringVar(&fViewID, "view-id", "", "Restrict results to segments belonging to this view. Omit to page through the entire session.")

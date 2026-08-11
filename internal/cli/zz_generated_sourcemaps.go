@@ -39,7 +39,7 @@ Request fields:
   --asc bool — Sort ascending. Default false (descending).
   --build-id string — Android only. Filter by Gradle plugin build identifier. Max 200 characters.
   --end-time int (required) — End of upload time range, Unix epoch milliseconds. Maximum window: 365 days.
-  --orderby string — Sort field. [created_at, updated_at]
+  --orderby string — Sort field; defaults to 'created_at' descending when omitted. [created_at, updated_at]
   --query string — Substring match on the minified URL (browser) or build ID (android). Max 200 characters.
   --services []string — Filter by service names. Up to 100 values.
   --start-time int (required) — Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'.
@@ -127,7 +127,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending. Default false (descending).")
 	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android only. Filter by Gradle plugin build identifier. Max 200 characters.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of upload time range, Unix epoch milliseconds. Maximum window: 365 days. (required)")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'created_at' descending when omitted. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the minified URL (browser) or build ID (android). Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fServices, "services", nil, "Filter by service names. Up to 100 values.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'. (required)")

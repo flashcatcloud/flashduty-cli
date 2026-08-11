@@ -28,7 +28,7 @@ Request fields:
   --limit int — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
   --num-recent-events int — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
   --search-after-ctx string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
-  --session-id string (required) — Target session ID. (≥1 chars)
+  --session-id string (required) — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
   --share-token string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -146,7 +146,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)")
 	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)")
-	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID, from the list returned by 'POST /safari/session/list'. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&fShareToken, "share-token", "", "Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -180,11 +180,11 @@ Request fields:
   --limit int — Page size, 1–100. (1-100)
   --search-after-ctx string
   --app-name string (required) — Agent app whose sessions to list. [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
-  --asc bool — Ascending order when true; applies only when 'orderby' is set.
+  --asc bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
   --entry-kinds []string — Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]
   --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
   --keyword string — Filter by session-name keyword. (≤64 chars)
-  --orderby string — Sort field. [created_at, updated_at]
+  --orderby string — Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]
   --scope string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]
   --status string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]
   --team-ids []int — Optional explicit team filter; intersects with 'scope' and never expands access.
@@ -306,11 +306,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true; applies only when 'orderby' is set.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').")
 	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]")
 	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope' and never expands access.")
@@ -331,7 +331,7 @@ Delete a session by ID.
 API: POST /safari/session/delete (session-write-delete)
 
 Request fields:
-  --session-id string (required) — Target session ID. (≥1 chars)
+  --session-id string (required) — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-delete --data '{"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
@@ -361,7 +361,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fSessionID, "session-id", "", "Target session ID, from the list returned by 'POST /safari/session/list'. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

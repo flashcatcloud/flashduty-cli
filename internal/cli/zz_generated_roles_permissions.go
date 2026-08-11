@@ -21,7 +21,7 @@ Return the detail of a single role by its ID.
 API: POST /role/info (role-read-info)
 
 Request fields:
-  --role-id int (required) — Role ID.
+  --role-id int (required) — Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) (required) — Unix epoch seconds the role was created.
@@ -61,7 +61,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -80,8 +80,8 @@ Return all custom and built-in roles for the current account.
 API: POST /role/list (role-read-list)
 
 Request fields:
-  --asc bool — Ascending sort order.
-  --orderby string — Sort field. [created_at, updated_at]
+  --asc bool — Ascending sort order. Default: false (descending).
+  --orderby string — Sort field. Default: 'updated_at'. [created_at, updated_at]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
@@ -122,8 +122,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order. Default: false (descending).")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [created_at, updated_at]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -250,7 +250,7 @@ Permanently delete a custom role and revoke it from all members.
 API: POST /role/delete (role-write-delete)
 
 Request fields:
-  --role-id int (required) — Role ID.
+  --role-id int (required) — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role delete --data '{"role_id":150}'`,
@@ -284,7 +284,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -302,7 +302,7 @@ Disable a custom role to prevent it from granting permissions.
 API: POST /role/disable (role-write-disable)
 
 Request fields:
-  --role-id int (required) — Role ID.
+  --role-id int (required) — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role disable --data '{"role_id":150}'`,
@@ -336,7 +336,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -354,7 +354,7 @@ Re-enable a previously disabled custom role.
 API: POST /role/enable (role-write-enable)
 
 Request fields:
-  --role-id int (required) — Role ID.
+  --role-id int (required) — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role enable --data '{"role_id":150}'`,
@@ -388,7 +388,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -408,7 +408,7 @@ API: POST /role/member/grant (role-write-grant-role)
 
 Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
-  --role-id int (required) — Role ID to grant or revoke.
+  --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
 		Example: `  flashduty role member-grant --data '{"member_ids":[80011,80012],"role_id":150}'`,
@@ -446,7 +446,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -466,7 +466,7 @@ API: POST /role/member/revoke (role-write-revoke-role)
 
 Request fields:
   --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
-  --role-id int (required) — Role ID to grant or revoke.
+  --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
 		Example: `  flashduty role member-revoke --data '{"member_ids":[80011],"role_id":150}'`,
@@ -504,7 +504,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. (required)")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

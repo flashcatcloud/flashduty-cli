@@ -21,7 +21,7 @@ Retrieve full details of a single issue by 'issue_id'.
 API: POST /rum/issue/info (rum-issue-read-info)
 
 Request fields:
-  --issue-id string (required) — Issue ID.
+  --issue-id string (required) — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - age (integer)
@@ -87,7 +87,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID. (required)")
+	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID. Get issue IDs via 'POST /rum/issue/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -119,21 +119,21 @@ Return a paginated list of RUM error tracking issues matching the given filters.
 API: POST /rum/issue/list (rum-issue-read-list)
 
 Request fields:
-  --page int — Page number. Default: 1.
+  --page int — Page number (1-based). Default: 1.
   --limit int — Page size. Range: 1–100. Default: 20.
   --search-after-ctx string
-  --application-ids []string — Filter by application IDs.
-  --asc bool
-  --by-intersection bool
+  --application-ids []string — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
+  --asc bool — Sort ascending when 'true'; descending by default.
+  --by-intersection bool — When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.
   --dql string — DQL query for advanced filtering. Cannot be used with 'sql'.
   --end-time int (required) — End of time range, millisecond timestamp. Maximum range: 183 days.
   --error-required bool — If 'true', only return issues with at least one associated error event.
-  --orderby string [created_at, updated_at, session_count, error_count]
+  --orderby string — Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at, session_count, error_count]
   --sql string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
-  --start-time int (required) — Start of time range, millisecond timestamp.
-  --statuses []string — Filter by statuses. [for_review, reviewed, ignored, resolved]
-  --suspected-causes []string — Filter by suspected causes.
-  --team-ids []int — Filter by team IDs.
+  --start-time int (required) — Start of the time range, Unix epoch milliseconds.
+  --statuses []string — Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. [for_review, reviewed, ignored, resolved]
+  --suspected-causes []string — Filter by suspected cause; see the enum for valid values. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean)
@@ -240,21 +240,21 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number. Default: 1.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Filter by application IDs.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Request field asc")
-	cmd.Flags().BoolVar(&fByIntersection, "by-intersection", false, "Request field by_intersection")
+	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Filter by application IDs. Get IDs via 'POST /rum/application/list'.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; descending by default.")
+	cmd.Flags().BoolVar(&fByIntersection, "by-intersection", false, "When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.")
 	cmd.Flags().StringVar(&fDql, "dql", "", "DQL query for advanced filtering. Cannot be used with 'sql'.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of time range, millisecond timestamp. Maximum range: 183 days. (required)")
 	cmd.Flags().BoolVar(&fErrorRequired, "error-required", false, "If 'true', only return issues with at least one associated error event.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Request field orderby [created_at, updated_at, session_count, error_count]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at, session_count, error_count]")
 	cmd.Flags().StringVar(&fSql, "sql", "", "SQL-style query for advanced filtering. Cannot be used with 'dql'.")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of time range, millisecond timestamp. (required)")
-	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by statuses. [for_review, reviewed, ignored, resolved]")
-	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected causes.")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
+	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
+	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause; see the enum for valid values. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -274,9 +274,9 @@ Update the status or suspected cause of an issue.
 API: POST /rum/issue/update (rum-issue-write-update)
 
 Request fields:
-  --issue-id string (required) — Issue ID to update.
-  --status string — New status. [for_review, reviewed, ignored, resolved]
-  --suspected-cause string — Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  --issue-id string (required) — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
+  --status string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. [for_review, reviewed, ignored, resolved]
+  --suspected-cause string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
 `,
 		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
 		Example: `  flashduty rum issue-update --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9","status":"resolved"}'`,
@@ -316,9 +316,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New status. [for_review, reviewed, ignored, resolved]")
-	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "Suspected cause. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
+	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. Get issue IDs via 'POST /rum/issue/list'. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

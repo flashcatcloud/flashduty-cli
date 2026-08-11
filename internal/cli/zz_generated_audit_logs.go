@@ -74,7 +74,7 @@ Request fields:
   --is-write bool — When true, return only write operations; when false, return only read operations.
   --limit int — Page size. Minimum 0, maximum 99. (0-99)
   --operations []string — Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.
-  --person-id int — Filter by the member who performed the action.
+  --person-id int — Filter by the operator's member ID (get IDs from 'POST /member/list'). Pass the account ID to match actions performed by the account principal itself.
   --request-id string — Filter to a single request by its unique request ID.
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
   --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
@@ -160,7 +160,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fIsWrite, "is-write", false, "When true, return only write operations; when false, return only read operations.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Minimum 0, maximum 99. (0-99)")
 	cmd.Flags().StringSliceVar(&fOperations, "operations", nil, "Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.")
-	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the member who performed the action.")
+	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the operator's member ID (get IDs from 'POST /member/list'). Pass the account ID to match actions performed by the account principal itself.")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")

@@ -23,9 +23,9 @@ Return a single team by ID, name, or external reference ID.
 API: POST /team/info (team-read-info)
 
 Request fields:
-  --ref-id string — External reference ID.
-  --team-id int — Team ID.
-  --team-name string — Team name.
+  --ref-id string — External reference ID. When provided, takes precedence over 'team_name' and 'team_id'.
+  --team-id int — Team ID. At least one of the three lookup fields is required; lowest priority — only used when neither 'ref_id' nor 'team_name' is provided.
+  --team-name string — Team name. Only used when 'ref_id' is not provided; takes precedence over 'team_id'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
@@ -72,9 +72,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
-	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID. When provided, takes precedence over 'team_name' and 'team_id'.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. At least one of the three lookup fields is required; lowest priority — only used when neither 'ref_id' nor 'team_name' is provided.")
+	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name. Only used when 'ref_id' is not provided; takes precedence over 'team_id'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -155,8 +155,8 @@ Request fields:
   --page int — Page number. Default: 1. (min 1)
   --limit int — Page size. Max: 100. Default: 20. (1-100)
   --search-after-ctx string
-  --asc bool — Ascending sort order.
-  --orderby string — Sort field. [created_at, updated_at, team_name]
+  --asc bool — Ascending sort order. Default: false (descending).
+  --orderby string — Sort field. Default: 'updated_at'. [created_at, updated_at, team_name]
   --person-id int — Filter by member ID — return only teams this person belongs to.
   --query string — Substring match on team name.
 
@@ -224,8 +224,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number. Default: 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max: 100. Default: 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at, team_name]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order. Default: false (descending).")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [created_at, updated_at, team_name]")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by member ID — return only teams this person belongs to.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on team name.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -247,9 +247,9 @@ Permanently delete a team by ID, name, or external reference ID.
 API: POST /team/delete (team-write-delete)
 
 Request fields:
-  --ref-id string — External reference ID.
-  --team-id int — Team ID.
-  --team-name string — Team name.
+  --ref-id string — External reference ID. Only used when neither 'team_id' nor 'team_name' is provided.
+  --team-id int — Team ID. At least one of the three lookup fields is required; when several are provided, 'team_id' wins.
+  --team-name string — Team name. Only used when 'team_id' is not provided.
 `,
 		Example: `  flashduty team delete --data '{"team_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -285,9 +285,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID.")
-	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name.")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID. Only used when neither 'team_id' nor 'team_name' is provided.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. At least one of the three lookup fields is required; when several are provided, 'team_id' wins.")
+	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team name. Only used when 'team_id' is not provided.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -315,9 +315,9 @@ API: POST /team/upsert (team-write-upsert)
 Request fields:
   --country-code string — Default country code applied to any 'phones' entries that are not in E.164 format.
   --description string — Free-form description. (≤500 chars)
-  --emails []string — Email addresses to invite as members.
+  --emails []string — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
   --person-ids []int — Member IDs to set as team members. Replaces the existing member list.
-  --phones []string — Phone numbers to invite as members.
+  --phones []string — Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.
   --ref-id string — External reference ID for HR system integration.
   --reset-if-name-exist bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
   --team-id int — Team ID. Omit or set to 0 to create a new team.
@@ -377,9 +377,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Default country code applied to any 'phones' entries that are not in E.164 format.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. (≤500 chars)")
-	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Email addresses to invite as members.")
+	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to set as team members. Replaces the existing member list.")
-	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Phone numbers to invite as members.")
+	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID for HR system integration.")
 	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "If true and a team with the same name already exists, reset its membership to the provided person_ids.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")

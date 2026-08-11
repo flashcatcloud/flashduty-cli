@@ -21,7 +21,7 @@ Get one MCP server and run a live probe of its tool list.
 API: POST /safari/mcp/server/get (mcp-read-server-get)
 
 Request fields:
-  --server-id string (required) — Target MCP server ID.
+  --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
@@ -87,7 +87,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -254,9 +254,9 @@ Request fields:
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --server-name string (required) — MCP server name, unique within the account. (1-255 chars)
   --source-template-name string — Marketplace template name when created from a connector template.
-  --status string — Initial status. [enabled, disabled]
+  --status string — Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]
   --team-id int — Team scope: 0 = account-wide; >0 = team.
-  --transport string (required) — Transport protocol. [stdio, sse, streamable-http]
+  --transport string (required) — Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. [stdio, sse, streamable-http]
   --url string — Server URL (sse / streamable-http transport).
   env (object, via --data) — Environment variables (stdio transport).
   headers (object, via --data) — HTTP headers (sse / streamable-http).
@@ -386,9 +386,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name, unique within the account. (required) (1-255 chars)")
 	cmd.Flags().StringVar(&fSourceTemplateName, "source-template-name", "", "Marketplace template name when created from a connector template.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status. [enabled, disabled]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope: 0 = account-wide; >0 = team.")
-	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol. (required) [stdio, sse, streamable-http]")
+	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. (required) [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -407,7 +407,7 @@ Delete an MCP server by ID.
 API: POST /safari/mcp/server/delete (mcp-write-server-delete)
 
 Request fields:
-  --server-id string (required) — Target MCP server ID.
+  --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-delete --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
@@ -437,7 +437,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -455,7 +455,7 @@ Disable an enabled MCP server.
 API: POST /safari/mcp/server/disable (mcp-write-server-disable)
 
 Request fields:
-  --server-id string (required) — Target MCP server ID.
+  --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-disable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
@@ -485,7 +485,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -503,7 +503,7 @@ Enable a disabled MCP server.
 API: POST /safari/mcp/server/enable (mcp-write-server-enable)
 
 Request fields:
-  --server-id string (required) — Target MCP server ID.
+  --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-enable --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
@@ -533,7 +533,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -569,22 +569,22 @@ API: POST /safari/mcp/server/update (mcp-write-server-update)
 Request fields:
   --allow-insecure-oauth-http bool — Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.
   --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification. Omit to leave unchanged.
-  --args []string — Command arguments (stdio transport).
+  --args []string — Command arguments ('stdio' transport); replaces the whole list — pass '[]' to clear, omit to leave unchanged.
   --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
   --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
   --command string — Executable command (stdio transport).
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
-  --description string — New description. (1-1024 chars)
+  --description string — New description; omitted or empty leaves it unchanged. (1-1024 chars)
   --environment-id string — Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.
   --environment-kind string — Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
-  --server-id string (required) — Target MCP server ID.
-  --server-name string — New name. (1-255 chars)
+  --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
+  --server-name string — New name; omitted or empty leaves it unchanged. (1-255 chars)
   --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
-  --transport string — Transport protocol. [stdio, sse, streamable-http]
+  --transport string — Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. [stdio, sse, streamable-http]
   --url string — Server URL (sse / streamable-http transport).
-  env (object, via --data) — Environment variables (stdio transport).
+  env (object, via --data) — Environment variables ('stdio' transport); replaces the whole map, but masked secret values sent back as-is keep their stored values; omit to leave unchanged.
   headers (object, via --data) — HTTP headers (sse / streamable-http).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -701,20 +701,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification. Omit to leave unchanged.")
-	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
+	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments ('stdio' transport); replaces the whole list — pass '[]' to clear, omit to leave unchanged.")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
 	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (1-1024 chars)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description; omitted or empty leaves it unchanged. (1-1024 chars)")
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.")
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
-	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID. (required)")
-	cmd.Flags().StringVar(&fServerName, "server-name", "", "New name. (1-255 chars)")
+	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
+	cmd.Flags().StringVar(&fServerName, "server-name", "", "New name; omitted or empty leaves it unchanged. (1-255 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol. [stdio, sse, streamable-http]")
+	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

@@ -28,7 +28,7 @@ Request fields:
   --ds-name string (required) — Datasource display name as configured in the account.
   --ds-type string (required) — Datasource type, e.g. 'prometheus', 'loki', 'elasticsearch'.
   --expr string (required) — Query expression. Format depends on 'ds_type' (PromQL for Prometheus, LogQL for Loki, etc.).
-  args (object, via --data) — Additional type-specific query arguments.
+  args (object, via --data) — Additional datasource-type-specific query arguments (string keys and values), e.g. 'sls.project' and 'sls.logstore' for SLS, 'es.type' for Elasticsearch, 'loki.type' and 'loki.limit' for Loki.
 `,
 		Example: `  flashduty monit preview-sync --data '{"delay_seconds":0,"ds_name":"Prometheus Prod","ds_type":"prometheus","expr":"rate(http_requests_total[5m])"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

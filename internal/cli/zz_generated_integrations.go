@@ -21,7 +21,7 @@ Try to automatically link unbound members to their IM accounts for one integrati
 API: POST /datasource/im/person/try-link (datasourceImPersonTryLink)
 
 Request fields:
-  --integration-id int (required) — IM integration ID.
+  --integration-id int (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - new_linked_person_ids (array<integer>) (required) — Person IDs newly linked during this call.
@@ -54,7 +54,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -74,7 +74,7 @@ API: POST /webhook/history/detail (webhookHistoryDetail)
 
 Request fields:
   --event-id string (required) — Event ID returned by 'ListWebhookHistory'.
-  --integration-id int (required) — Integration ID the event belongs to. (min 1)
+  --integration-id int (required) — Integration ID the event belongs to; available in the items returned by 'POST /webhook/history/list'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - attempt (integer) (required) — Attempt sequence number.
@@ -125,7 +125,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by 'ListWebhookHistory'. (required)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to; available in the items returned by 'POST /webhook/history/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -154,14 +154,14 @@ API: POST /webhook/history/list (webhookHistoryList)
 Request fields:
   --asc bool — Ascending order by 'event_time' when true; otherwise descending.
   --end-time int (required) — Window end time in Unix milliseconds. Must be greater than 'start_time'. (1000000000000-9999999999999)
-  --event-types []string — Filter by event type values.
-  --integration-id int — Filter by integration ID. (min 0)
+  --event-types []string — Filter by event type codes (e.g. 'i_new' incident created, 'a_new' alert triggered).
+  --integration-id int — Filter by webhook integration ID. (min 0)
   --limit int (required) — Page size. (1-100)
   --orderby string — Sort field. Currently only 'event_time' is supported. [event_time]
   --ref-id string — Reference ID filter (incident or alert ID). (≤128 chars)
   --search-after-ctx string — Opaque cursor returned by a previous call for fetching the next page.
   --start-time int (required) — Window start time in Unix milliseconds. (1000000000000-9999999999999)
-  --status string — Filter by delivery status. [success, failed]
+  --status string — Filter by delivery status: 'success' or 'failed'. [success, failed]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
@@ -238,14 +238,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order by 'event_time' when true; otherwise descending.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Window end time in Unix milliseconds. Must be greater than 'start_time'. (required) (1000000000000-9999999999999)")
-	cmd.Flags().StringSliceVar(&fEventTypes, "event-types", nil, "Filter by event type values.")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by integration ID. (min 0)")
+	cmd.Flags().StringSliceVar(&fEventTypes, "event-types", nil, "Filter by event type codes (e.g. 'i_new' incident created, 'a_new' alert triggered).")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by webhook integration ID. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (required) (1-100)")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Currently only 'event_time' is supported. [event_time]")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "Reference ID filter (incident or alert ID). (≤128 chars)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required) (1000000000000-9999999999999)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status. [success, failed]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status: 'success' or 'failed'. [success, failed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -21,7 +21,7 @@ Retrieve full details of a single data source by its ID, including the 'payload'
 API: POST /monit/datasource/info (monit-datasource-read-info)
 
 Request fields:
-  --id int (required) — Resource ID.
+  --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -165,7 +165,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -348,10 +348,10 @@ List logstores within an SLS project for the specified SLS datasource.
 API: POST /monit/datasource/sls/logstores (monit-datasource-read-sls-logstores)
 
 Request fields:
-  --id int — SLS datasource ID.
+  --id int — ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'.
   --offset int — Pagination offset.
-  --project string — SLS project name.
-  --size int — Page size.
+  --project string — SLS project name. Obtainable via 'POST /monit/datasource/sls/projects'.
+  --size int — Page size. Defaults to 200 server-side when 0.
 `,
 		Example: `  flashduty monit datasource-sls-logstores --data '{"id":10,"offset":0,"project":"project-a","size":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -386,10 +386,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "SLS datasource ID.")
+	cmd.Flags().Int64Var(&fID, "id", 0, "ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'.")
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset.")
-	cmd.Flags().StringVar(&fProject, "project", "", "SLS project name.")
-	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size.")
+	cmd.Flags().StringVar(&fProject, "project", "", "SLS project name. Obtainable via 'POST /monit/datasource/sls/projects'.")
+	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size. Defaults to 200 server-side when 0.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -410,10 +410,10 @@ List Alibaba Cloud SLS (Simple Log Service) projects available in the specified 
 API: POST /monit/datasource/sls/projects (monit-datasource-read-sls-projects)
 
 Request fields:
-  --id int — SLS datasource ID.
+  --id int — ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'.
   --offset int — Pagination offset.
-  --query string — Name prefix filter.
-  --size int — Page size.
+  --query string — Fuzzy filter on project description (maps to the 'description' parameter of Aliyun SLS ListProject). Leave empty to return all.
+  --size int — Page size. Defaults to 200 server-side when 0.
 `,
 		Example: `  flashduty monit datasource-sls-projects --data '{"id":10,"offset":0,"query":"","size":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -448,10 +448,10 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "SLS datasource ID.")
+	cmd.Flags().Int64Var(&fID, "id", 0, "ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'.")
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset.")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Name prefix filter.")
-	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Fuzzy filter on project description (maps to the 'description' parameter of Aliyun SLS ListProject). Leave empty to return all.")
+	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size. Defaults to 200 server-side when 0.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -477,7 +477,7 @@ Request fields:
   --address string — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name.
+  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
@@ -748,7 +748,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -768,7 +768,7 @@ Delete a data source by ID. Alert rules referencing this datasource must be upda
 API: POST /monit/datasource/delete (monit-datasource-write-delete)
 
 Request fields:
-  --id int (required) — Resource ID.
+  --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 `,
 		Example: `  flashduty monit datasource-delete --data '{"id":10}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -798,7 +798,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -824,7 +824,7 @@ Request fields:
   --address string — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name.
+  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
@@ -1095,7 +1095,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Not required for Elasticsearch cloud deployment.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

@@ -30,10 +30,10 @@ Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
-  --schedule-id int — Schedule ID. Required on update.
+  --schedule-id int — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --team-id int — Owning team ID.
+  --team-id int — Owning team ID; obtain it from 'POST /team/list'.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -72,7 +72,7 @@ Request fields:
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
-  notify (object, via --data) — Notification configuration attached to a schedule.
+  notify (object, via --data) — Rotation notification configuration.
     - advance_in_time (integer) — Advance notification lead time (seconds).
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
@@ -147,10 +147,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
-	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
+	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID, required on update; obtain it from 'POST /schedule/list'.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -168,7 +168,7 @@ Delete one or more on-call schedules by ID.
 API: POST /schedule/delete (scheduleDelete)
 
 Request fields:
-  --schedule-ids []int (required) — Schedule IDs to operate on.
+  --schedule-ids []int (required) — Schedule IDs to operate on; obtain them from 'POST /schedule/list'.
 `,
 		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
 		Example: `  flashduty schedule delete --data '{"schedule_ids":[2001]}'`,
@@ -202,7 +202,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule IDs to operate on. (required)")
+	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule IDs to operate on; obtain them from 'POST /schedule/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -223,7 +223,7 @@ API: POST /schedule/info (scheduleInfo)
 
 Request fields:
   --end string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --schedule-id int (required) — Schedule ID.
+  --schedule-id int (required) — Schedule ID; obtain it from 'POST /schedule/list'.
   --start string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -414,7 +414,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fEnd, "end", "", "Preview end timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. (required)")
+	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID; obtain it from 'POST /schedule/list'. (required)")
 	cmd.Flags().StringVar(&fStart, "start", "", "Preview start timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -433,7 +433,7 @@ Return details of multiple on-call schedules by their IDs.
 API: POST /schedule/infos (scheduleInfos)
 
 Request fields:
-  --schedule-ids []int (required) — Schedule ID list.
+  --schedule-ids []int (required) — Schedule ID list; obtain IDs from 'POST /schedule/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
@@ -582,7 +582,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule ID list. (required)")
+	cmd.Flags().IntSliceVar(&fScheduleIDs, "schedule-ids", nil, "Schedule ID list; obtain IDs from 'POST /schedule/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -829,10 +829,10 @@ Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
-  --schedule-id int — Schedule ID. Required on update.
+  --schedule-id int — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --team-id int — Owning team ID.
+  --team-id int — Owning team ID; obtain it from 'POST /team/list'.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -871,7 +871,7 @@ Request fields:
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
-  notify (object, via --data) — Notification configuration attached to a schedule.
+  notify (object, via --data) — Rotation notification configuration.
     - advance_in_time (integer) — Advance notification lead time (seconds).
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
@@ -1088,10 +1088,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
-	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
+	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID, required on update; obtain it from 'POST /schedule/list'.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1295,10 +1295,10 @@ Request fields:
   --description string — Schedule description. Max 500 characters. (≤500 chars)
   --end string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --name string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
-  --schedule-id int — Schedule ID. Required on update.
+  --schedule-id int — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
   --schedule-name string — Schedule display name. Max 40 characters. (≤40 chars)
   --start string — Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --team-id int — Owning team ID.
+  --team-id int — Owning team ID; obtain it from 'POST /team/list'.
   layers (array<object>, via --data) — Rotation layers.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -1337,7 +1337,7 @@ Request fields:
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
-  notify (object, via --data) — Notification configuration attached to a schedule.
+  notify (object, via --data) — Rotation notification configuration.
     - advance_in_time (integer) — Advance notification lead time (seconds).
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
@@ -1413,10 +1413,10 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "Schedule description. Max 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fEnd, "end", "", "Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fName, "name", "", "Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)")
-	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID. Required on update.")
+	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID, required on update; obtain it from 'POST /schedule/list'.")
 	cmd.Flags().StringVar(&fScheduleName, "schedule-name", "", "Schedule display name. Max 40 characters. (≤40 chars)")
 	cmd.Flags().StringVar(&fStart, "start", "", "Preview window start (Unix seconds, 10 digits). Required for /schedule/preview. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

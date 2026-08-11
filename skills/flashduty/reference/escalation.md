@@ -43,7 +43,7 @@ fduty channel escalate-rule-create \
 ### escalate-rule-create
 Create escalation rule
 - `--aggr-window` int64 — Delay window in seconds. 0 disables delay. (0-3600)
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
@@ -53,22 +53,22 @@ Create escalation rule
 
 ### escalate-rule-delete
 Delete escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### escalate-rule-disable
 Disable escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### escalate-rule-enable
 Enable escalation rule
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 
 ### escalate-rule-info
 Get escalation rule detail
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
 
@@ -80,7 +80,7 @@ List escalation rules
 ### escalate-rule-update
 Update escalation rule
 - `--aggr-window` int64 — Delay window in seconds. 0 disables delay.
-- `--channel-id` int64 (required) — Channel the rule belongs to.
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-id` string (required) — Escalation rule ID (MongoDB ObjectID).

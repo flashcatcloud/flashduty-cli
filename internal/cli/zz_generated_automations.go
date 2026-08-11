@@ -21,7 +21,7 @@ Get one Automation rule by ID.
 API: POST /safari/automation/rule/get (automation-rule-read-get)
 
 Request fields:
-  --rule-id string (required) — Rule ID.
+  --rule-id string (required) — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -79,7 +79,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -107,7 +107,7 @@ Request fields:
   --page int — Page number, 1-based.
   --limit int — Page size. (max 100)
   --search-after-ctx string
-  --enabled bool — Filter by enabled status.
+  --enabled bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
   --include-person bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
   --keyword string — Filter by name keyword. (≤64 chars)
   --scope string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]
@@ -191,7 +191,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled status.")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.")
 	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Compatibility field; when scope is empty and this is false, behaves like team scope.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by name keyword. (≤64 chars)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]")
@@ -357,7 +357,7 @@ Delete an Automation rule.
 API: POST /safari/automation/rule/delete (automation-rule-write-delete)
 
 Request fields:
-  --rule-id string (required) — Rule ID.
+  --rule-id string (required) — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-delete --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
@@ -387,7 +387,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -405,7 +405,7 @@ Manually run an Automation rule immediately, outside its schedule.
 API: POST /safari/automation/rule/run (automation-rule-write-run)
 
 Request fields:
-  --rule-id string (required) — Rule ID.
+  --rule-id string (required) — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - preflight (object) (required) — Readiness checks computed before a manual run is allowed to start.
@@ -450,7 +450,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -481,7 +481,7 @@ Update mutable Automation rule fields, including HTTP POST and On-call incident 
 API: POST /safari/automation/rule/update (automation-rule-write-update)
 
 Request fields:
-  --rule-id string (required) — Target rule ID.
+  --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
   --name string — New rule name. (≤255 chars)
   --team-id int — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
   --enabled bool — Whether the rule is enabled.
@@ -591,7 +591,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&fName, "name", "", "New rule name. (≤255 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Only the current value is accepted; personal/team scope is immutable after creation. (min 0)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
@@ -632,11 +632,11 @@ Request fields:
   --page int — Page number, 1-based.
   --limit int — Page size. (max 100)
   --search-after-ctx string
-  --rule-id string (required) — Target rule ID.
+  --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
   --started-after-ms int — Start-time lower bound, Unix milliseconds.
   --started-before-ms int — Start-time upper bound, Unix milliseconds.
-  --status string — Run status filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
-  --trigger-kind string — Trigger kind filter. [schedule, debug, manual, http_post, oncall_incident]
+  --status string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
+  --trigger-kind string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - runs (array<object>) (required)
@@ -711,11 +711,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().Int64Var(&fStartedAfterMs, "started-after-ms", 0, "Start-time lower bound, Unix milliseconds.")
 	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]")
-	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger kind filter. [schedule, debug, manual, http_post, oncall_incident]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]")
+	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

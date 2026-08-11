@@ -67,23 +67,23 @@ Create application
 - `--is-private` bool — Restrict access to team members only.
 - `--no-geo` bool — Do not infer geographic location.
 - `--no-ip` bool — Do not collect IP addresses.
-- `<team-id>` (positional, required) int64 — Owning team ID.
-- `--type` string (required) — Application type. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
+- `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'.
+- `--type` string (required) — Application type. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 - response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
 
 ### application-delete <application-id>
 Delete application
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 ### application-info <application-id>
 Get application detail
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-infos <application-id> [<id2>...]
 Batch get applications
-- `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs.
+- `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-list
@@ -91,27 +91,27 @@ List applications
 - `--asc` bool — Sort ascending if 'true'.
 - `--is-my-team` bool — If 'true', return only applications belonging to the current user's teams.
 - `--limit` int64 — Page size. Range: 1–100. Default: 20.
-- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. · enum: created_at | updated_at
 - `--page` int64 — Page number (1-based). Default: 1.
-- `--query` string — Search query to filter by application name.
+- `--query` string — Substring match on the application name.
 - `--search-after-ctx` string
-- `--team-id` int64 — Filter by team ID.
+- `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
 
 ### application-update <application-id>
 Update application
-- `<application-id>` (positional, required) string — Application ID to update.
-- `--application-name` string — New application name.
-- `--is-private` bool
-- `--no-geo` bool
-- `--no-ip` bool
-- `--team-id` int64
-- `--type` string — enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity
+- `<application-id>` (positional, required) string — Application ID to update. Get application IDs via 'POST /rum/application/list'.
+- `--application-name` string — New application name, 1–40 characters. Omit to leave unchanged.
+- `--is-private` bool — Restrict access to members of the owning team. Omit to leave unchanged.
+- `--no-geo` bool — When 'true', stop inferring geographic location from IP. Omit to leave unchanged.
+- `--no-ip` bool — When 'true', stop collecting user IP addresses. Omit to leave unchanged.
+- `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
+- `--type` string — Application type. Omit to leave unchanged. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 
 ### application-webhook-test <application-id>
 Test application webhook
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--webhook-url` string (required) — Webhook URL to receive the sample alert event.
 - response: single object (`data` unwrapped to the top level) — fields: message (string); ok (boolean); status_code (integer)
 
@@ -123,30 +123,30 @@ Query RUM data
 
 ### error-ingestion-rules-create <application-id>
 Create an error ingestion rule
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--description` string — Rule description, up to 512 characters. (≤512 chars)
 - `--rule-name` string (required) — Rule name, 1-128 characters. (1-128 chars)
-- body-only (`--data`): filters (array<array>) (required)
+- body-only (`--data`): filters (array<array<object>>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### error-ingestion-rules-delete
 Delete an error ingestion rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 
 ### error-ingestion-rules-disable
 Disable an error ingestion rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 
 ### error-ingestion-rules-enable
 Enable an error ingestion rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 
 ### error-ingestion-rules-history-list <application-id>
 List error ingestion rule history
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--asc` bool — Sort ascending instead of the default descending order.
 - `--limit` int64 — Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)
 - `--orderby` string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
@@ -156,27 +156,27 @@ List error ingestion rule history
 
 ### error-ingestion-rules-history-revert <application-id>
 Revert error ingestion rules to a history version
-- `<application-id>` (positional, required) string — RUM application ID.
-- `--version` int64 (required) — History version number to revert to. (min 1)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--version` int64 (required) — History version number to revert to. Get versions via 'POST /rum/error-ingestion/rules/history/list'. (min 1)
 
 ### error-ingestion-rules-list <application-id>
 List error ingestion rules
-- `<application-id>` (positional, required) string — RUM application ID.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array>); rule_id (string); rule_name (string); status (string); updated_at (integer)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array<object>>); rule_id (string); rule_name (string); status (string); updated_at (integer)
 
 ### error-ingestion-rules-update
 Update an error ingestion rule
-- `--application-id` string (required) — RUM application ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--description` string — New rule description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
-- `--rule-id` string (required) — Rule ID to update.
+- `--rule-id` string (required) — Rule ID to update. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 - `--rule-name` string — New rule name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
-- body-only (`--data`): filters (array<array>)
+- body-only (`--data`): filters (array<array<object>>)
 
 ### facet-count
 Count facet value distribution
 - `--dql` string — RUM DQL filter expression applied before counting.
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
-- `--facet-key` string (required) — The field key to count value distribution for.
+- `--facet-key` string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
 - `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
 - `--scope` string (required) — RUM data scope to query. · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
 - `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
@@ -192,55 +192,55 @@ List RUM fields
 
 ### issue-info <issue-id>
 Get issue detail
-- `<issue-id>` (positional, required) string — Issue ID.
+- `<issue-id>` (positional, required) string — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
 - response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
 ### issue-list
 List issues
-- `--application-ids` stringSlice — Filter by application IDs.
-- `--asc` bool
-- `--by-intersection` bool
+- `--application-ids` stringSlice — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
+- `--asc` bool — Sort ascending when 'true'; descending by default.
+- `--by-intersection` bool — When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.
 - `--dql` string — DQL query for advanced filtering. Cannot be used with 'sql'.
 - `--end-time` int64 (required) — End of time range, millisecond timestamp. Maximum range: 183 days.
 - `--error-required` bool — If 'true', only return issues with at least one associated error event.
 - `--limit` int64 — Page size. Range: 1–100. Default: 20.
-- `--orderby` string — enum: created_at | updated_at | session_count | error_count
-- `--page` int64 — Page number. Default: 1.
+- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. · enum: created_at | updated_at | session_count | error_count
+- `--page` int64 — Page number (1-based). Default: 1.
 - `--search-after-ctx` string
 - `--sql` string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
-- `--start-time` int64 (required) — Start of time range, millisecond timestamp.
-- `--statuses` stringSlice — Filter by statuses. · enum: for_review | reviewed | ignored | resolved
-- `--suspected-causes` stringSlice — Filter by suspected causes.
-- `--team-ids` intSlice — Filter by team IDs.
+- `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- `--statuses` stringSlice — Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. · enum: for_review | reviewed | ignored | resolved
+- `--suspected-causes` stringSlice — Filter by suspected cause; see the enum for valid values. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+- `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
 
 ### issue-preset-severity-rules-create <application-id>
 Create preset severity rule
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--description` string — Optional description, up to 512 characters. (≤512 chars)
 - `--rule-name` string (required) — Rule display name, 1-128 characters. (1-128 chars)
 - `--severity` string (required) — Severity to assign to errors matching this rule. · enum: Critical | Warning | Info
-- body-only (`--data`): filters (array<array>) (required)
+- body-only (`--data`): filters (array<array<object>>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: priority (integer); rule_id (string); rule_name (string)
 
 ### issue-preset-severity-rules-delete
 Delete preset severity rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 
 ### issue-preset-severity-rules-disable
 Disable preset severity rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 
 ### issue-preset-severity-rules-enable
 Enable preset severity rule
-- `--application-id` string (required) — RUM application ID.
-- `--rule-id` string (required) — Rule ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--rule-id` string (required) — Rule ID. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 
 ### issue-preset-severity-rules-history-list <application-id>
 List preset severity rule history
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--asc` bool — Sort ascending when true; results are descending by default.
 - `--limit` int64 — Page size. Values <= 0 default to 20; values above 100 are capped at 100. (max 100)
 - `--orderby` string — Sort column. Any other value (including omitted) falls back to 'updated_at'. · enum: updated_at | version
@@ -250,34 +250,34 @@ List preset severity rule history
 
 ### issue-preset-severity-rules-history-revert <application-id>
 Revert preset severity rules to a history snapshot
-- `<application-id>` (positional, required) string — RUM application ID.
-- `--version` int64 (required) — Version number of the snapshot to revert to. (min 1)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--version` int64 (required) — Snapshot version number to revert to. Get versions via 'POST /rum/issue/preset-severity/rules/history/list'. (min 1)
 
 ### issue-preset-severity-rules-list <application-id>
 List preset severity rules
-- `<application-id>` (positional, required) string — RUM application ID.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array>); priority (integer); rule_id (string); rule_name (string); severity (string); status (string); updated_at (integer)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array<object>>); priority (integer); rule_id (string); rule_name (string); severity (string); status (string); updated_at (integer)
 
 ### issue-preset-severity-rules-reorder
 Reorder preset severity rule
-- `--application-id` string (required) — RUM application ID.
-- `--drag-rule-id` string (required) — ID of the rule being moved.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--drag-rule-id` string (required) — ID of the rule being moved. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 - `--target-rule-id` string (required) — ID of the rule whose evaluation position 'drag_rule_id' moves to.
 
 ### issue-preset-severity-rules-update
 Update preset severity rule
-- `--application-id` string (required) — RUM application ID.
+- `--application-id` string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--description` string — New description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
-- `--rule-id` string (required) — Rule ID to update.
+- `--rule-id` string (required) — Rule ID to update. Get rule IDs via 'POST /rum/issue/preset-severity/rules/list'.
 - `--rule-name` string — New display name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
 - `--severity` string — New severity. Omit to leave unchanged. · enum: Critical | Warning | Info
-- body-only (`--data`): filters (array<array>)
+- body-only (`--data`): filters (array<array<object>>)
 
 ### issue-update <issue-id>
 Update issue
-- `<issue-id>` (positional, required) string — Issue ID to update.
-- `--status` string — New status. · enum: for_review | reviewed | ignored | resolved
-- `--suspected-cause` string — Suspected cause. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+- `<issue-id>` (positional, required) string — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
+- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. · enum: for_review | reviewed | ignored | resolved
+- `--suspected-cause` string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 
 ### resource-info
 Get RUM resource info
@@ -286,7 +286,7 @@ Get RUM resource info
 
 ### session-replay-metadata <session-id>
 Get session replay metadata
-- `<session-id>` (positional, required) string — RUM session ID.
+- `<session-id>` (positional, required) string — RUM session ID (the 'session.id' attribute on RUM events).
 - `--ts` int64 — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
 - response: single object (`data` unwrapped to the top level) — fields: application (object); device (object); foreground_periods (array<object>); session (object); views (array<object>)
 
@@ -294,7 +294,7 @@ Get session replay metadata
 List session replay segments
 - `--limit` int64 — Maximum number of segments to return. 1-99, default 20. (1-99)
 - `--search-after-ctx` string — Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).
-- `<session-id>` (positional, required) string — RUM session ID.
+- `<session-id>` (positional, required) string — RUM session ID (the 'session.id' attribute on RUM events).
 - `--ts` int64 — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
 - `--url-mode` bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
 - `--view-id` string — Restrict results to segments belonging to this view. Omit to page through the entire session.

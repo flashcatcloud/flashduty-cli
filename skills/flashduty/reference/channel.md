@@ -40,7 +40,7 @@ fduty channel create --channel-name "production-api" --team-id <team-id> \
 
 ### create
 Create channel
-- `--auto-resolve-mode` string — Auto-resolve timer reset mode. · enum: trigger | update
+- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. · enum: trigger | update
 - `--auto-resolve-timeout` int64 — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
 - `--channel-name` string (required) — Channel name. 1 to 59 characters. (1-59 chars)
 - `--description` string — Free-form description. Up to 500 characters. (≤500 chars)
@@ -50,25 +50,25 @@ Create channel
 - `--is-private` bool — When true, the channel is visible only to its managing teams.
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
 - `--plugin-ids` intSlice — IDs of plugins (integrations) subscribed to this channel.
-- `--team-id` int64 (required) — Owning team ID.
+- `--team-id` int64 (required) — Owning team ID; obtain it from 'POST /team/list'.
 - body-only (`--data`): escalate_rule (object); flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: channel_id (integer); channel_name (string); external_report_token (string)
 
 ### delete <channel-id>
 Delete channel
-- `<channel-id>` (positional, required) int64 — Channel ID.
+- `<channel-id>` (positional, required) int64 — Channel ID; obtain it from 'POST /channel/list'.
 
 ### disable <channel-id>
 Disable channel
-- `<channel-id>` (positional, required) int64 — Channel ID.
+- `<channel-id>` (positional, required) int64 — Channel ID; obtain it from 'POST /channel/list'.
 
 ### enable <channel-id>
 Enable channel
-- `<channel-id>` (positional, required) int64 — Channel ID.
+- `<channel-id>` (positional, required) int64 — Channel ID; obtain it from 'POST /channel/list'.
 
 ### info <channel-id>
 Get channel detail
-- `<channel-id>` (positional, required) int64 — Channel ID to fetch.
+- `<channel-id>` (positional, required) int64 — ID of the channel to query; obtain it from 'POST /channel/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
 
 ### infos <channel-id> [<id2>...]
@@ -84,9 +84,9 @@ List channels
 
 ### update <channel-id>
 Update channel
-- `--auto-resolve-mode` string — Auto-resolve timer reset mode. · enum: trigger | update
+- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. · enum: trigger | update
 - `--auto-resolve-timeout` int64 — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
-- `<channel-id>` (positional, required) int64 — Channel ID to update.
+- `<channel-id>` (positional, required) int64 — ID of the channel to update; obtain it from 'POST /channel/list'.
 - `--channel-name` string — New channel name. 1 to 59 characters. (1-59 chars)
 - `--description` string — New description. Up to 500 characters. (≤500 chars)
 - `--disable-auto-close` bool — Disable automatic incident closing.
@@ -94,7 +94,7 @@ Update channel
 - `--is-external-report-enabled` bool — Allow external reporters to file incidents into this channel.
 - `--is-private` bool — When true, the channel is visible only to its managing teams.
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
-- `--team-id` int64 — New owning team ID.
+- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
 - body-only (`--data`): flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: external_report_token (string)
 

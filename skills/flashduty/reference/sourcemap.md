@@ -38,7 +38,7 @@ List sourcemaps
 - `--build-id` string — Android only. Filter by Gradle plugin build identifier. Max 200 characters.
 - `--end-time` int64 (required) — End of upload time range, Unix epoch milliseconds. Maximum window: 365 days.
 - `--limit` int64 — Page size. Maximum 100. Default 20. (max 100)
-- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--orderby` string — Sort field; defaults to 'created_at' descending when omitted. · enum: created_at | updated_at
 - `--page` int64 — Page number, starting at 1. (min 1)
 - `--query` string — Substring match on the minified URL (browser) or build ID (android). Max 200 characters.
 - `--search-after-ctx` string

@@ -95,7 +95,7 @@ Delete a ruleset from the rule repository by ID.
 API: POST /monit/store/ruleset/delete (monit-store-ruleset-delete)
 
 Request fields:
-  --id int (required) — Resource ID.
+  --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 `,
 		Example: `  flashduty monit store-ruleset-delete --data '{"id":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -125,7 +125,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -143,7 +143,7 @@ Retrieve the full details of a ruleset including its 'payload' (the alert rule d
 API: POST /monit/store/ruleset/info (monit-store-ruleset-info)
 
 Request fields:
-  --id int (required) — Resource ID.
+  --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
@@ -181,7 +181,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Resource ID. (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

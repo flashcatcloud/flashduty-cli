@@ -29,7 +29,7 @@ API: POST /rum/facet/count (rum-read-facet-count)
 Request fields:
   --dql string — RUM DQL filter expression applied before counting.
   --end-time int (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
-  --facet-key string (required) — The field key to count value distribution for.
+  --facet-key string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
   --limit int — Maximum number of top values to return. Default 100, maximum 100. (max 100)
   --scope string (required) — RUM data scope to query. [session, view, action, error, resource, long_task, vital, issue, sourcemap]
   --sql string — SQL WHERE clause (no SELECT) for additional filtering.
@@ -85,7 +85,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fDql, "dql", "", "RUM DQL filter expression applied before counting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Maximum 31-day span. (required)")
-	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "The field key to count value distribution for. (required)")
+	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'. (required)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of top values to return. Default 100, maximum 100. (max 100)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "RUM data scope to query. (required) [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
 	cmd.Flags().StringVar(&fSql, "sql", "", "SQL WHERE clause (no SELECT) for additional filtering.")

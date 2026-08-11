@@ -23,10 +23,13 @@ Create a new error ingestion rule that filters which errors are stored.
 API: POST /rum/error-ingestion/rules/create (rum-error-ingestion-rules-create)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --description string — Rule description, up to 512 characters. (≤512 chars)
   --rule-name string (required) — Rule name, 1-128 characters. (1-128 chars)
-  filters (array<array>, via --data) (required) — Filter conditions the rule matches errors against.
+  filters (array<array<object>>, via --data) (required) — Filter conditions (OR-of-ANDs) to match errors; matched errors are dropped and not ingested.
+    - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
+    - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — ID assigned to the new rule.
@@ -66,7 +69,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 512 characters. (≤512 chars)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1-128 characters. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -87,8 +90,8 @@ Delete an error ingestion rule from a RUM application.
 API: POST /rum/error-ingestion/rules/delete (rum-error-ingestion-rules-delete)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 `,
 		Example: `  flashduty rum error-ingestion-rules-delete --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -121,8 +124,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -141,8 +144,8 @@ Disable an error ingestion rule without deleting it.
 API: POST /rum/error-ingestion/rules/disable (rum-error-ingestion-rules-disable)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 `,
 		Example: `  flashduty rum error-ingestion-rules-disable --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -175,8 +178,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -195,8 +198,8 @@ Re-enable a previously disabled error ingestion rule.
 API: POST /rum/error-ingestion/rules/enable (rum-error-ingestion-rules-enable)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --rule-id string (required) — Rule ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --rule-id string (required) — Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
 `,
 		Example: `  flashduty rum error-ingestion-rules-enable --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -229,8 +232,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID. Get rule IDs via 'POST /rum/error-ingestion/rules/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -256,7 +259,7 @@ Request fields:
   --page int — Zero-based page number. Default 0. (min 0)
   --limit int — Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)
   --search-after-ctx string
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --asc bool — Sort ascending instead of the default descending order.
   --orderby string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
 
@@ -270,7 +273,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - created_by (integer) (required) — Member ID who created the rule.
       - deleted_at (integer) (required) — Unix timestamp in milliseconds when the row was soft-deleted; '0' when not deleted.
       - description (string) (required) — Rule description.
-      - filters (array<array>) (required) — The rule's filter conditions as of this snapshot version.
+      - filters (array<array<object>>) (required) — The rule's filter conditions as of this snapshot version.
+        - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
+        - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
       - id (integer) (required) — Internal row ID.
       - rule_id (string) (required) — Rule ID.
       - rule_name (string) (required) — Rule name.
@@ -329,7 +335,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Zero-based page number. Default 0. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending instead of the default descending order.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -350,8 +356,8 @@ Restore an application's entire rule set to a prior history version.
 API: POST /rum/error-ingestion/rules/history/revert (rum-error-ingestion-rules-history-revert)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --version int (required) — History version number to revert to. (min 1)
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --version int (required) — History version number to revert to. Get versions via 'POST /rum/error-ingestion/rules/history/list'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum error-ingestion-rules-history-revert --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","version":2}'`,
@@ -388,8 +394,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "History version number to revert to. (required) (min 1)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "History version number to revert to. Get versions via 'POST /rum/error-ingestion/rules/history/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -407,13 +413,16 @@ Return every error ingestion rule configured for a RUM application.
 API: POST /rum/error-ingestion/rules/list (rum-error-ingestion-rules-list)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Rules, newest-created first.
     - created_at (integer) (required) — Unix timestamp in milliseconds when the rule was created.
     - description (string) (required) — Rule description, up to 512 characters.
-    - filters (array<array>) (required) — The rule's filter conditions.
+    - filters (array<array<object>>) (required) — The rule's filter conditions.
+      - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
+      - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
     - rule_id (string) (required) — Rule ID.
     - rule_name (string) (required) — Rule name, 1-128 characters. Not required to be unique within the application.
     - status (string) (required) — Current status of the rule. [enabled, disabled]
@@ -447,7 +456,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -468,11 +477,14 @@ Update the name, description, or filters of an error ingestion rule.
 API: POST /rum/error-ingestion/rules/update (rum-error-ingestion-rules-update)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --description string — New rule description, up to 512 characters. Omit to leave unchanged. (≤512 chars)
-  --rule-id string (required) — Rule ID to update.
+  --rule-id string (required) — Rule ID to update. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
   --rule-name string — New rule name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
-  filters (array<array>, via --data) — New filter conditions. Omit to leave unchanged.
+  filters (array<array<object>>, via --data) — New filter conditions. Omit to leave unchanged.
+    - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
+    - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
 `,
 		Example: `  flashduty rum error-ingestion-rules-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","description":"Now also excludes staging traffic.","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -511,9 +523,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New rule description, up to 512 characters. Omit to leave unchanged. (≤512 chars)")
-	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID to update. (required)")
+	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Rule ID to update. Get rule IDs via 'POST /rum/error-ingestion/rules/list'. (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "New rule name, 1-128 characters. Omit to leave unchanged. (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
