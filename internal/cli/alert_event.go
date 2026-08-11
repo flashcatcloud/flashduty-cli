@@ -90,6 +90,8 @@ func newAlertEventListCmd() *cobra.Command {
 					fieldNames := []string{"event_id", "alert_id", "event_severity", "event_status", "event_time", "title"}
 					if fields != "" {
 						fieldNames = parseStringSlice(fields)
+					} else {
+						noteDefaultProjection(cmd.ErrOrStderr(), fieldNames)
 					}
 					proj, err := projectFields(result.Items, fieldNames)
 					if err != nil {
@@ -113,7 +115,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types (plugin keys, e.g. AliCloud,Prometheus) — not integration IDs; use --integration for that")
 	cmd.Flags().StringVar(&since, "since", "1h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max results")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. Long strings are truncated as needed to keep structured output below 16 KiB.")
 

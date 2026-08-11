@@ -120,6 +120,8 @@ func newIncidentListCmd() *cobra.Command {
 						if len(selectedFields) == 0 {
 							return fmt.Errorf("--fields must name at least one field")
 						}
+					} else {
+						noteDefaultProjection(cmd.ErrOrStderr(), selectedFields)
 					}
 					proj, err := projectFields(result.Items, selectedFields)
 					if err != nil {
@@ -605,6 +607,8 @@ func newIncidentSimilarCmd() *cobra.Command {
 					fieldNames := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score"}
 					if fields != "" {
 						fieldNames = parseStringSlice(fields)
+					} else {
+						noteDefaultProjection(cmd.ErrOrStderr(), fieldNames)
 					}
 					proj, err := projectFields(result.Items, fieldNames)
 					if err != nil {

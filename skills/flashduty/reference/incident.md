@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ## Route here when
 
-"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate / post-mortem" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). You need **`incident_id` (24-char MongoDB ObjectID)** for most verbs — not the 6-char `num` shown in the UI. **`detail` and `get` are the exception and accept either** (a num auto-resolves via a 30-day lookback). For any other verb, if you only have a num, use `incident info --num <num>` first.
+"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). Post-mortem reports (复盘) have their own card: `reference/postmortem.md`. You need **`incident_id` (24-char MongoDB ObjectID)** for most verbs — not the 6-char `num` shown in the UI. **`detail` and `get` are the exception and accept either** (a num auto-resolves via a 30-day lookback). For any other verb, if you only have a num, use `incident info --num <num>` first.
 
 ## Intent → verb
 
@@ -38,7 +38,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | merge duplicates (IRREVERSIBLE) | `merge <target_id>` |
 | stop auto-merging alerts in | `disable-merge <incident-id> [<id2>...]` |
 | permanently delete (IRREVERSIBLE) | `remove <id> [<id2>...]` |
-| post-mortem reports | `post-mortem-list` / `post-mortem-info <post-mortem-id>` / `post-mortem-delete <post-mortem-id>` |
+| post-mortem reports (复盘) | `reference/postmortem.md` |
 | war room (IM chat) | `war-room-list <incident-id>` → `war-room-create <incident-id>` |
 | war room (IM chat), nested subcommand form | `war-room list/create/get/add-member/default-observers/delete <id>` |
 
@@ -78,7 +78,7 @@ Projected `similar` lists stay below 16 KiB; a trailing `...` in a list row mean
 
 `comment` never accepts the text as a command-line argument — only `--comment-file <path>` (or `--comment-file -` to read stdin), so backticks/`$()`/quotes inside the comment are inert. The command also reads back every target's timeline after writing and exits non-zero unless it finds an entry matching what it sent, so `Commented on ...` is proof of content fidelity, not just acceptance — no separate manual read-back is needed. Leading and trailing whitespace is stripped before sending (the server strips it too, so this is what gets stored); everything else, including interior blank lines, is preserved exactly.
 
-> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records.
+> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records. Any list-response field — including `labels` — is selectable this way (a key missing from the output means it wasn't selected, NOT that the server omits it; the command prints a stderr note when the default projection applies). The one exception is `alerts`: neither list nor detail responses ever fill it — use `incident alerts <id>` for an incident's alerts. Wide fields over many rows can exceed the 16 KiB structured-output bound and the command errors with "request fewer rows or fields" — lower `--limit`/page through, or use `insight` aggregates for distributions instead of dumping labels row by row.
 
 ## Hot flow — full fault analysis (read-only summary)
 
@@ -98,7 +98,7 @@ fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progr
 fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
 fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
 fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
-fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel
+fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel (verb card: reference/postmortem.md)
 fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
 ```
 
@@ -261,94 +261,6 @@ List past incidents
 - `<incident-id>` (positional, required) string — Reference incident ID (MongoDB ObjectID).
 - `--limit` int64 — Maximum number of similar incidents to return. (0-100)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (integer); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (integer); closer (object); closer_id (integer); created_at (integer); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (integer); description (string); detail_url (string); end_time (integer); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (integer); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (integer); start_time (integer); title (string); updated_at (integer)
-
-### post-mortem-basics-reset <post-mortem-id>
-Update post-mortem basics
-- `--incidents-earliest-start-seconds` string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--incidents-highest-severity` string (required) — Highest severity among linked incidents.
-- `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-- `--responder-ids` intSlice — Responder member IDs to store on the report.
-
-### post-mortem-content-reset <post-mortem-id>
-Reset post-mortem Markdown content
-- `--expected-revision` int64
-- `--idempotency-key` string
-- `--markdown-file` string
-- response: single object (`data` unwrapped to the top level) — fields: generation (integer); markdown_bytes (integer); markdown_sha256 (string); post_mortem_id (string); previous_generation (integer); previous_revision (integer); revision (integer)
-
-### post-mortem-delete <post-mortem-id>
-Delete post-mortem
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-
-### post-mortem-follow-ups-reset <post-mortem-id>
-Update post-mortem follow-ups
-- `--follow-ups` string — Follow-up action items as free text.
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-
-### post-mortem-info <post-mortem-id>
-Get post-mortem
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
-- response: single object (`data` unwrapped to the top level) — fields: basics (object); content (object); follow_ups (string); meta (object)
-
-### post-mortem-init <incident-id> [<id2>...]
-Initialize post-mortem
-- `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
-- `--template-id` string (required) — Template ID used to initialize the report.
-- response: same shape as `post-mortem-info <post-mortem-id>` above
-
-### post-mortem-list
-List post-mortems
-- `--asc` bool — Ascending order when true.
-- `--channel-ids` intSlice — Channel IDs to restrict the query to.
-- `--created-at-end-seconds` string — Filter by creation time: upper bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--created-at-start-seconds` string — Filter by creation time: lower bound in seconds. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--limit` int64 — Page size, at most 100. (0-100)
-- `--order-by` string — Field used to order results. · enum: created_at_seconds | updated_at_seconds
-- `--page` int64 — Page number starting at 1. (min 0)
-- `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
-- `--team-ids` intSlice — Team IDs to restrict the query to.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
-
-### post-mortem-status-reset <post-mortem-id>
-Update post-mortem status
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-- `--status` string (required) — Target report status. · enum: drafting | published
-
-### post-mortem-template-delete <template-id>
-Delete post-mortem template
-- `<template-id>` (positional, required) string — Template ID.
-
-### post-mortem-template-info <template-id>
-Get post-mortem template detail
-- `<template-id>` (positional, required) string — Template ID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
-
-### post-mortem-template-list
-List post-mortem templates
-- `--asc` bool — Ascending order when true.
-- `--limit` int64 — Page size, at most 100. (0-100)
-- `--order-by` string — Field used to order results. · enum: created_at_seconds
-- `--page` int64 — Page number starting at 1. (min 0)
-- `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
-
-### post-mortem-template-upsert
-Create or update post-mortem template
-- `--content` string (required) — BlockNote JSON template content.
-- `--content-markdown` string — Markdown version of the template content.
-- `--description` string — Template description.
-- `--name` string (required) — Template name.
-- `--team-id` int64 — Managing team ID. Required when creating a custom template.
-- `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
-- response: same shape as `post-mortem-template-info <template-id>` above
-
-### post-mortem-title-reset <post-mortem-id>
-Update post-mortem title
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID.
-- `--title` string (required) — New report title.
 
 ### reassign <id>
 Reassign an incident to new responders

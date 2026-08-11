@@ -38,7 +38,7 @@ fduty alert feed <alert-id> --output-format toon
 fduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
-Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened.
+Structured `alert-event list` output stays below 16 KiB. A trailing `...` means a long retained string was shortened. In json/toon mode rows default to the compact projection `event_id,alert_id,event_severity,event_status,event_time,title` (a stderr note says so when it applies); any other response field is one `--fields` away — a key missing from the output means it wasn't selected, not that the server omits it.
 
 ## Hot flow — merge noisy alerts into an existing incident
 
@@ -148,7 +148,7 @@ View alert timeline
 
 `settings` shape depends on `kind`: `title_reset` → `{"title": "<template>"}`; `description_reset` → `{"description": "<template>"}`; `severity_reset` → `{"severity": "Critical"|"Warning"|"Info"}`; `alert_drop` → `{}` (empty object); `alert_inhibit` → `{"equals": ["<label_key>", ...], "source_filters": <OrFilterGroup>}`.
 
-**`rules[].if` (and `alert_inhibit`'s `source_filters`) is OR-of-AND** — an array of arrays of conditions: the outer array is OR, each inner array is AND. This is unlike `enrichment`'s rule-level `if`, which is a single flat AND-only condition list.
+**`rules[].if` (and `alert_inhibit`'s `source_filters`) are OR-of-AND condition trees** — read `reference/filters.md` before composing them. Note this differs from `enrichment`'s rule-level `if`, which is a single flat AND-only condition list.
 
 ## Gotchas
 

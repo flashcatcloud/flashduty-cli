@@ -47,6 +47,8 @@ Configuration, permission-model, enrichment, monitor, and on-call questions are 
 
 Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state — recommend the action and get explicit per-target confirmation first. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.
 
+**Keep an undo path — back up before overwriting.** Before `update` / `upsert` / `delete` on critical config (escalation policies, schedules, integrations, routing, status pages, alert rules, notification templates), fetch the current object with the matching read verb and save it to `backups/<resource>_<id>_<timestamp>.json` in your workspace. Your completion report must state: what changed, where the backup file is, and how to restore (re-upsert the saved JSON / delete the created IDs). For `create`-only changes skip the backup — report the undo (delete) instead. This is the only undo path for resources without server-side history: one read call buys recoverability.
+
 ## Compound flows — bundled scripts
 
 Some asks span several commands. For those the skill ships a script that fetches everything in one call — run it as your **first action** for that ask, rather than hand-picking commands and writing the rest from memory:
@@ -57,14 +59,17 @@ Some asks span several commands. For those the skill ships a script that fetches
 
 | intent / 意图 (terms route in either language) | card |
 |---|---|
-| incident / fault / 故障 / 事件 / triage 分诊 / acknowledge 认领 / merge 合并 / escalate 升级 / postmortem 复盘 / **summarize or analyze an incident 故障汇总分析** | **`reference/incident.md`** |
+| incident / fault / 故障 / 事件 / triage 分诊 / acknowledge 认领 / merge 合并 / escalate 升级 / **summarize or analyze an incident 故障汇总分析** | **`reference/incident.md`** |
+| post-mortem / postmortem 复盘 / 复盘报告 / 复盘模板 / post-incident review / RCA report | **`reference/postmortem.md`** |
 | alert / 告警 / dedup 去重 / alert fields 告警字段 / alert pipeline 告警管道 | **`reference/alert.md`** |
 | change / 变更 / deployment 部署 / release 发布 / correlated change 变更关联 / what changed | **`reference/change.md`** |
 | monitor / 监控 / alert rule 告警规则 / datasource 数据源 / inspection 巡检 / rule config 规则配置 | **`reference/monit.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
 | host diagnostics / 主机诊断 / on-box / process 进程 / load 负载 / lock 锁 / slow query 慢查询 / mysql / reachability 可达性 | **`reference/monit-agent.md`** |
-| channel / 协作空间 / collaboration space / 频道 / integration 集成 / dispatch rule 分派规则 / escalation 升级规则 / noise reduction 降噪 / silence 静默 / inhibit 抑制 | **`reference/channel.md`** |
+| channel / 协作空间 / collaboration space / 频道 / integration 集成 / alert grouping 告警分组 | **`reference/channel.md`** |
+| dispatch rule 分派策略 / 分派规则 / escalation rule 升级规则 / notify layers 通知层级 / who gets paged | **`reference/escalation.md`** |
+| silence 静默 / 屏蔽 / inhibit 抑制 / drop rule 丢弃 / noise reduction 降噪 / maintenance silence 维护窗口静默 | **`reference/noise.md`** |
 | enrichment / 数据加工 / 富化 / label mapping 字段映射 / extraction 提取 / mapping schema 集成 schema | **`reference/enrichment.md`** |
 | insight / 洞察 / stats 统计 / trend 趋势 / MTTA / MTTR / top alerts Top 告警 / incident export 故障导出 | **`reference/insight.md`** |
 | schedule / on-call / 值班 / 排班 / rotation 轮值 / who is on call 谁在值班 / shift 班次 / next responder 下一班 | **`reference/schedule.md`** |
@@ -79,3 +84,5 @@ Some asks span several commands. For those the skill ships a script that fetches
 | sourcemap / source map / source mapping / symbolication / deobfuscate / stack enrich / dSYM / miniprogram source map | **`reference/sourcemap.md`** |
 | status page / 状态页 / public incident 公开事件 / public timeline 公开时间线 / maintenance window 维护窗口 / subscriber 订阅者 | **`reference/status-page.md`** |
 | AI-SRE platform / customize / 安装配置 MCP server (connector) 连接器 / install mcp / skill upload 上传技能 / A2A agent / session export 会话导出 | **`reference/safari.md`** |
+
+Shared reference: `reference/filters.md` — read it before composing any `filters` / `source_filters` / `target_filters` value (silence / inhibit / drop / escalation rules); it carries the condition shape, operators, and the valid key set per rule family.
