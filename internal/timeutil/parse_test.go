@@ -194,6 +194,29 @@ func TestParse(t *testing.T) {
 			wantExact:  time.Date(2026, 5, 29, 14, 0, 0, 0, time.Local).Unix(),
 			exactMatch: true,
 		},
+		// 25. Unix timestamp in milliseconds (13 digits) → divided down to seconds
+		{
+			name:       "unix milliseconds 1712000000000",
+			input:      "1712000000000",
+			wantExact:  1712000000,
+			exactMatch: true,
+		},
+		// 26. Boundary at the seconds/milliseconds threshold: just below is
+		// still treated as seconds, however implausible a date that is.
+		{
+			name:       "boundary below ms threshold treated as seconds",
+			input:      "99999999999",
+			wantExact:  99999999999,
+			exactMatch: true,
+		},
+		// 27. Boundary at the seconds/milliseconds threshold: at or above is
+		// treated as milliseconds.
+		{
+			name:       "boundary at ms threshold treated as milliseconds",
+			input:      "100000000000",
+			wantExact:  100000000000 / 1000,
+			exactMatch: true,
+		},
 	}
 
 	for _, tc := range tests {

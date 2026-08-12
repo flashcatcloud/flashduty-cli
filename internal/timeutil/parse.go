@@ -17,7 +17,9 @@ import (
 //   - Date: "2026-04-01" (parsed as local midnight)
 //   - Datetime: "2026-04-01 10:00:00" or "2026-04-01T10:00:00" (parsed as local time)
 //   - RFC3339 with timezone: "2026-04-01T10:00:00+08:00" / "...Z" (the format the SDK emits)
-//   - Unix timestamp: "1712000000" (passed through)
+//   - Unix timestamp in seconds: "1712000000" (passed through)
+//   - Unix timestamp in milliseconds: "1712000000000" (divided down to seconds;
+//     distinguished from seconds by magnitude — see msThreshold below)
 func Parse(s string) (int64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "now" {
@@ -67,13 +69,25 @@ func Parse(s string) (int64, error) {
 		}
 	}
 
-	// Try unix timestamp
-	if ts, err := strconv.ParseInt(s, 10, 64); err == nil && ts > 1000000000 {
-		return ts, nil
+	// Try unix timestamp, seconds or milliseconds. A value at or above
+	// msThreshold (100 billion) would be seconds only for a date past the
+	// year 5138, so any realistic timestamp that large must be milliseconds.
+	if ts, err := strconv.ParseInt(s, 10, 64); err == nil {
+		switch {
+		case ts >= msThreshold:
+			return ts / 1000, nil
+		case ts > 1000000000:
+			return ts, nil
+		}
 	}
 
-	return 0, fmt.Errorf("unable to parse time %q: expected duration (24h), RFC3339 (2006-01-02T15:04:05Z07:00), date (2006-01-02), datetime (2006-01-02 15:04:05), or unix timestamp", s)
+	return 0, fmt.Errorf("unable to parse time %q: expected duration (24h), RFC3339 (2006-01-02T15:04:05Z07:00), date (2006-01-02), datetime (2006-01-02 15:04:05), or unix timestamp in seconds or milliseconds", s)
 }
+
+// msThreshold is the magnitude cutoff separating a unix timestamp in seconds
+// from one in milliseconds: 100,000,000,000 as seconds is the year 5138, so
+// any input at or above it is treated as milliseconds instead.
+const msThreshold = 100_000_000_000
 
 // expandDays converts day shorthand (e.g. "7d", "30d") to hours for time.ParseDuration.
 // If the string does not end with "d" or is not purely numeric before it, returns as-is.

@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -70,8 +71,8 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type: prometheus|victorialogs|loki|mysql (required)")
 	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name as configured (required)")
 	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki", "mysql")
-	cmd.Flags().StringVar(&timeStart, "time-start", "15m", "Window start (relative '15m'/'1h', unix seconds, or 'now')")
-	cmd.Flags().StringVar(&timeEnd, "time-end", "now", "Window end (relative, unix seconds, or 'now'; span capped at 6h)")
+	cmd.Flags().StringVar(&timeStart, "time-start", "15m", "Window start: relative duration ('15m'/'1h'), 'now', a date/RFC3339 timestamp, or a unix epoch in seconds or milliseconds")
+	cmd.Flags().StringVar(&timeEnd, "time-end", "now", "Window end: same formats as --time-start; span capped at 6h")
 	cmd.Flags().StringVar(&inputQuery, "input-query", "", "Filter-only log query OR matrix PromQL (required)")
 	cmd.Flags().StringVar(&operation, "operation", "", "log_patterns or metric_trends (default inferred from ds-type)")
 	cmd.Flags().IntVar(&maxLogs, "max-logs", 0, "Max log lines scanned (default 10000, cap 50000)")
@@ -98,6 +99,9 @@ func newMonitQueryRowsCmd() *cobra.Command {
 			argsMap, err := parseKVSlice(argsKV)
 			if err != nil {
 				return fmt.Errorf("invalid --args: %w", err)
+			}
+			if err := normalizeRawTimeArgs(dsType, argsMap); err != nil {
+				return err
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -136,7 +140,35 @@ func newMonitQueryRowsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name (required)")
 	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki", "mysql")
 	cmd.Flags().StringVar(&expr, "expr", "", "Query expression (required)")
-	cmd.Flags().StringSliceVar(&argsKV, "args", nil, "Arg entries KEY=VALUE (repeatable; values must be strings per monit-query contract)")
+	cmd.Flags().StringSliceVar(&argsKV, "args", nil, "Arg entries KEY=VALUE (repeatable; values must be strings per monit-query contract). "+
+		"For loki/victorialogs raw mode, <ds-type>.start/<ds-type>.end accept a relative duration ('15m'), 'now', a date/RFC3339 timestamp, "+
+		"or a unix epoch in seconds or milliseconds — normalized to the form the datasource requires before sending")
 
 	return cmd
+}
+
+// normalizeRawTimeArgs rewrites the raw-mode time-window args of a
+// monit-query rows call (<ds-type>.start / <ds-type>.end) into the unix-
+// seconds form the server requires, accepting any format timeutil.Parse
+// understands (RFC3339, date/datetime, relative duration, unix seconds or
+// milliseconds). Loki and VictoriaLogs are the only ds-types whose raw mode
+// consumes these keys; other ds-types ignore args entirely, so nothing is
+// touched for them.
+func normalizeRawTimeArgs(dsType string, args map[string]string) error {
+	if dsType != "loki" && dsType != "victorialogs" {
+		return nil
+	}
+	for _, suffix := range []string{"start", "end"} {
+		key := dsType + "." + suffix
+		v, ok := args[key]
+		if !ok || v == "" {
+			continue
+		}
+		ts, err := timeutil.Parse(v)
+		if err != nil {
+			return fmt.Errorf("invalid --args %s=%s: %w", key, v, err)
+		}
+		args[key] = strconv.FormatInt(ts, 10)
+	}
+	return nil
 }
