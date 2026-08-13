@@ -285,7 +285,7 @@ func newAlertTimelineCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max events")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
