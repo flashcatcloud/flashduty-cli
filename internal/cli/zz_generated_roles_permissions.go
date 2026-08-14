@@ -24,14 +24,14 @@ Request fields:
   --role-id int (required) — Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (integer) (required) — Unix epoch seconds the role was created.
+  - created_at (string) (required) — Unix epoch seconds the role was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - description (string) (required) — Role description.
   - editable (boolean) (required) — False for built-in roles which cannot be modified.
   - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
   - role_id (integer) (required) — Unique role ID.
   - role_name (string) (required) — Role display name.
   - status (string) (required) — Role status. [enabled, disabled]
-  - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
+  - updated_at (string) (required) — Unix epoch seconds the role was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role info --data '{"role_id":2}'`,
@@ -85,14 +85,14 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
-    - created_at (integer) (required) — Unix epoch seconds the role was created.
+    - created_at (string) (required) — Unix epoch seconds the role was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Role description.
     - editable (boolean) (required) — False for built-in roles which cannot be modified.
     - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
     - role_id (integer) (required) — Unique role ID.
     - role_name (string) (required) — Role display name.
     - status (string) (required) — Role status. [enabled, disabled]
-    - updated_at (integer) (required) — Unix epoch seconds the role was last updated.
+    - updated_at (string) (required) — Unix epoch seconds the role was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - total (integer) (required) — Total role count.
 `,
 		Example: `  flashduty role list --data '{"asc":false,"orderby":"created_at"}'`,

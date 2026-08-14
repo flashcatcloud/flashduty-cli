@@ -29,7 +29,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - created_at (integer) (required) — Unix epoch seconds the team was created.
+  - created_at (string) (required) — Unix epoch seconds the team was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator.
   - description (string) (required) — Free-form description.
@@ -38,7 +38,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Team status. [enabled, disabled]
   - team_id (integer) (required) — Unique team ID.
   - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
-  - updated_at (integer) (required) — Unix epoch seconds the team was last updated.
+  - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - updated_by (integer) (required) — Member ID of the last editor.
   - updated_by_name (string) (required) — Display name of the last editor.
 `,
@@ -163,7 +163,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - account_id (integer) (required) — Owning account ID.
-    - created_at (integer) (required) — Unix epoch seconds the team was created.
+    - created_at (string) (required) — Unix epoch seconds the team was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — Member ID of the creator.
     - creator_name (string) (required) — Display name of the creator.
     - description (string) (required) — Free-form description.
@@ -172,7 +172,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) (required) — Team status. [enabled, disabled]
     - team_id (integer) (required) — Unique team ID.
     - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
-    - updated_at (integer) (required) — Unix epoch seconds the team was last updated.
+    - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last editor.
     - updated_by_name (string) (required) — Display name of the last editor.
   - limit (integer) (required) — Page size used.

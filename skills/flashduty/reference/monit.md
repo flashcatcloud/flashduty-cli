@@ -98,7 +98,7 @@ Create datasource
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
 - body-only (`--data`): payload (object) (required)
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (string)
 
 ### datasource-delete
 Delete datasource
@@ -112,7 +112,7 @@ Get datasource detail
 ### datasource-list
 List datasources
 - `--type` string — Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); address (string); edge_cluster_name (string); enabled (boolean); id (integer); name (string); note (string); payload (object); type_ident (string); updated_at (string)
 
 ### datasource-sls-logstores
 List SLS logstores
@@ -188,7 +188,7 @@ Get rule status counters for top-level folders
 
 ### rule-counter-total
 Get rule counter time series
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); clock (integer); id (integer); num (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); clock (string); id (integer); num (integer)
 
 ### rule-create
 Create alert rule
@@ -242,7 +242,7 @@ Import alert rules
 ### rule-info
 Get alert rule detail
 - `--id` int64 (required) — Alert rule ID. Obtainable per folder via 'POST /monit/rule/list/basic'.
-- response: same shape as `rule-create` above
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); annotations (object); channel_ids (array<integer>); created_at (string); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); folder_id (integer); id (integer); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); timezone (string); updated_at (string); updater_id (integer); updater_name (string)
 
 ### rule-list-basic
 List alert rules
@@ -316,7 +316,7 @@ Browse service map fleet hosts
 - `--limit` int64 — Maximum number of matching hosts to return in this page. Default 50, range 1-100. (1-100)
 - `--scan-limit` int64 — Maximum number of candidate hosts to examine while filling this page. Default 1000, range 'limit'-2000. (max 2000)
 - `--statuses` stringSlice — Filter to hosts currently in any of these statuses. Up to 20 values. · enum: active | degraded | stale | initializing | disabled | unsupported | no_data
-- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (integer); items (array<object>); next_cursor (string); partial (boolean); truncated (boolean); truncation_reasons (array<string>)
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (string); items (array<object>); next_cursor (string); partial (boolean); truncated (boolean); truncation_reasons (array<string>)
 
 ### servicemap-fleet-summary
 Get service map fleet summary
@@ -324,7 +324,7 @@ Get service map fleet summary
 - `--capture-modes` stringSlice — Filter to hosts using any of these capture modes. 'unknown' matches hosts that have not reported a capture mode yet. · enum: ebpf | polling | unknown
 - `--edge-clusters` stringSlice — Filter to hosts in any of these exact edge cluster names. Up to 20 values.
 - `--scan-limit` int64 — Maximum number of candidate hosts to scan. Default 2000, range 1-5000. (1-5000)
-- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (integer); partial (boolean); scan_limit (integer); truncated (boolean); truncation_reasons (array<string>)
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); generated_at_ms (string); partial (boolean); scan_limit (integer); truncated (boolean); truncation_reasons (array<string>)
 
 ### servicemap-status
 Get service map status
@@ -332,13 +332,13 @@ Get service map status
 - `--host-id` string — A single host ID to check. Combine with 'host_ids' to check several; mutually exclusive with 'fleet=true'. (≤128 chars)
 - `--host-ids` stringSlice — Multiple host IDs to check in one call, up to 200 combined with 'host_id'. Mutually exclusive with 'fleet=true'.
 - `--limit` int64 — In 'fleet' mode, the number of candidate hosts to sample. Ignored otherwise. Default 100, range 1-200. (1-200)
-- response: single object (`data` unwrapped to the top level) — fields: coverage (object); fleet (boolean); generated_at_ms (integer); items (array<object>); partial (boolean)
+- response: single object (`data` unwrapped to the top level) — fields: coverage (object); fleet (boolean); generated_at_ms (string); items (array<object>); partial (boolean)
 
 ### servicemap-summary
 Get service map summary
 - `--network-scope-id` string — Optional integrity check: if set, must match the network scope already associated with 'anchor.host_id', or the request is rejected with 'InvalidParameter'.
 - body-only (`--data`): anchor (object) (required)
-- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); authoritative (boolean); context_ref_detail (string); coverage (object); freshness (object); graph_role (string); latest_collection_authoritative (boolean); latest_health_at_ms (integer); neighbors (array<object>); network_scope_id (string); observed_at_ms (integer); received_at_ms (integer); resolution_counts (object); status (string); truncated (boolean); truncation_reasons (array<string>)
+- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); authoritative (boolean); context_ref_detail (string); coverage (object); freshness (object); graph_role (string); latest_collection_authoritative (boolean); latest_health_at_ms (string); neighbors (array<object>); network_scope_id (string); observed_at_ms (string); received_at_ms (string); resolution_counts (object); status (string); truncated (boolean); truncation_reasons (array<string>)
 
 ### servicemap-topology
 Get service map topology
@@ -351,7 +351,7 @@ Get service map topology
 - `--network-scope-id` string — Optional integrity check: if set, must match the network scope already associated with 'anchor.host_id', or the request is rejected with 'InvalidParameter'.
 - `--unresolved-mode` string — How unresolved edges are projected. 'full' (default) includes them in 'edges' and 'unresolved_endpoints'; 'summary' omits them from 'edges' and returns only a bounded sample in 'unresolved_endpoints'. · enum: summary | full
 - body-only (`--data`): anchor (object) (required)
-- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); coverage (object); edges (array<object>); freshness (object); network_scope_id (string); nodes (array<object>); observed_at_ms (integer); resolution_counts (object); truncated (boolean); truncation_reasons (array<string>); unresolved_endpoints (array<object>); unresolved_projection (object)
+- response: single object (`data` unwrapped to the top level) — fields: anchor_entity_id (string); anchor_host_id (string); coverage (object); edges (array<object>); freshness (object); network_scope_id (string); nodes (array<object>); observed_at_ms (string); resolution_counts (object); truncated (boolean); truncation_reasons (array<string>); unresolved_endpoints (array<object>); unresolved_projection (object)
 
 ### store-ruleset-create
 Create ruleset
@@ -359,7 +359,7 @@ Create ruleset
 - `--open-flag` int64 — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.
 - `--payload` string (required) — JSON string containing the alert rule definitions.
 - `--type-ident` string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
-- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (string)
 
 ### store-ruleset-delete
 Delete ruleset
@@ -373,7 +373,7 @@ Get ruleset detail
 ### store-ruleset-list
 List rulesets
 - `--type-ident` string (required) — Datasource type identifier to filter by, e.g. 'prometheus'.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: created_at (integer); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: created_at (string); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (string)
 
 ### store-ruleset-update
 Update ruleset
@@ -389,7 +389,7 @@ List monitored targets
 - `--cursor` string — Opaque pagination cursor from the previous response's 'next_cursor'. Omit / pass empty string for the first page. Reset whenever 'keyword', 'limit', or tenant changes.
 - `--keyword` string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
 - `--limit` int64 — Page size. Default 50, max 200. (max 200)
-- response: `{items: [...], next_cursor, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_version (string); cluster_name (string); edge_ipport (string); target_kind (string); target_locator (string); updated_at (integer)
+- response: `{items: [...], next_cursor, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_version (string); cluster_name (string); edge_ipport (string); target_kind (string); target_locator (string); updated_at (string)
 
 ### tools-catalog
 List target tool catalog

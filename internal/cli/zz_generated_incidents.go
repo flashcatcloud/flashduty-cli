@@ -186,7 +186,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Synchronization records on the current page.
     - channel_id (integer) (required) — Channel ID for the incident.
     - channel_name (string) (required) — Channel name for the incident.
-    - created_at (integer) (required) — Mapping record creation time, Unix seconds.
+    - created_at (string) (required) — Mapping record creation time, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - error_message (string) — Error message when synchronization failed. Usually absent on successful records.
     - incident_id (string) (required) — Associated Flashduty incident ID.
     - incident_title (string) (required) — Associated incident title.
@@ -434,28 +434,28 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) (required) — Channel ID.
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
     - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
     - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
     - data_source_type (string) — Deprecated. Use 'integration_type'.
-    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Alert description.
-    - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
+    - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
-      - created_at (integer) — Record creation time, Unix epoch seconds.
+      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
       - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
       - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-      - event_time (integer) — Event timestamp, Unix epoch seconds.
+      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
         - href (string) — Optional link URL when the image is clicked.
@@ -465,7 +465,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
-      - updated_at (integer) — Record update time, Unix epoch seconds.
+      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
     - images (array<object>) (required) — Attached images.
       - alt (string) — Alt text.
@@ -480,13 +480,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_ref_id (string) (required) — Integration reference ID.
     - integration_type (string) (required) — Integration type string.
     - labels (object) (required) — Alert labels.
-    - last_time (integer) (required) — Unix timestamp (seconds) of the most recent event.
+    - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - responder_email (string) (required) — Primary responder email, if any.
     - responder_name (string) (required) — Primary responder name, if any.
-    - start_time (integer) (required) — Unix timestamp (seconds) when the alert first fired.
+    - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
-    - updated_at (integer) (required) — Last update timestamp (seconds).
+    - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - total (integer) (required) — Total matching alerts.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
@@ -698,11 +698,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - account_id (integer) — Account ID that owns the comment type.
     - color (string) — Label color as a hex value in #RRGGBB format (stored uppercase).
     - comment_type_id (string) — Comment type ID (24-character hex ObjectID).
-    - created_at (integer) — Creation time as a Unix timestamp in seconds.
+    - created_at (string) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) — ID of the user who created the comment type.
     - name (string) — Display name of the comment type. Unique within the account (case-insensitive, trimmed). (≤40 chars)
     - position (integer) — 1-based display position of the comment type.
-    - updated_at (integer) — Last update time as a Unix timestamp in seconds.
+    - updated_at (string) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) — ID of the user who last updated the comment type.
 `,
 		Example: `  flashduty incident comment-type-create --data '{"color":"#30A46C","name":"Key finding"}'`,
@@ -806,11 +806,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account ID that owns the comment type.
     - color (string) — Label color as a hex value in #RRGGBB format (stored uppercase).
     - comment_type_id (string) — Comment type ID (24-character hex ObjectID).
-    - created_at (integer) — Creation time as a Unix timestamp in seconds.
+    - created_at (string) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) — ID of the user who created the comment type.
     - name (string) — Display name of the comment type. Unique within the account (case-insensitive, trimmed). (≤40 chars)
     - position (integer) — 1-based display position of the comment type.
-    - updated_at (integer) — Last update time as a Unix timestamp in seconds.
+    - updated_at (string) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) — ID of the user who last updated the comment type.
 `,
 		Example: `  flashduty incident comment-type-list --data '{}'`,
@@ -1162,9 +1162,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) (required) — True when more entries are available.
   - items (array<object>) (required) — Timeline entries for the current page.
     - account_id (integer) (required) — Account ID.
-    - created_at (integer) (required) — Creation timestamp in milliseconds.
+    - created_at (string) (required) — Creation timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
-    - deleted_at (integer) — Soft-delete timestamp (ms). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (ms). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
       - added_assignee_ids (array<integer>) — Member IDs added as assignees.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
@@ -1246,7 +1246,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - work_item_id (string) — Work item ID.
     - ref_id (string) (required) — ObjectID of the source alert or incident this entry references.
     - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'i_wi_created' | Work Item Created: An Action or Follow-up was created. | | 'i_wi_updated' | Work Item Updated: Title, description, status, or priority was changed. | | 'i_wi_assignees' | Work Item Assignees Changed: Assignees were updated. | | 'i_wi_completed' | Work Item Completed: An assignee marked the work item complete. | | 'i_wi_converted' | Work Item Converted: An Action was converted to a Follow-up. | | 'i_wi_bound' | Work Item Bound: A converted Follow-up was bound to a post-mortem. | | 'i_wi_deleted' | Work Item Deleted: An Action or Follow-up was soft-deleted. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]
-    - updated_at (integer) (required) — Last update timestamp in milliseconds.
+    - updated_at (string) (required) — Last update timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident feed --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":20,"p":1}'`,
@@ -1382,7 +1382,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_locale (string) (required) — Account locale.
   - account_name (string) (required) — Account name.
   - account_time_zone (string) (required) — Account time zone.
-  - ack_time (integer) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged.
+  - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
   - ai_summary (string) (required) — AI-generated summary of the incident.
   - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
@@ -1396,28 +1396,28 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - channel_id (integer) (required) — Channel ID.
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
     - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
     - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
     - data_source_type (string) — Deprecated. Use 'integration_type'.
-    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Alert description.
-    - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
+    - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
-      - created_at (integer) — Record creation time, Unix epoch seconds.
+      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
       - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
       - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-      - event_time (integer) — Event timestamp, Unix epoch seconds.
+      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
         - href (string) — Optional link URL when the image is clicked.
@@ -1427,7 +1427,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
-      - updated_at (integer) — Record update time, Unix epoch seconds.
+      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
     - images (array<object>) (required) — Attached images.
       - alt (string) — Alt text.
@@ -1442,13 +1442,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - integration_ref_id (string) (required) — Integration reference ID.
     - integration_type (string) (required) — Integration type string.
     - labels (object) (required) — Alert labels.
-    - last_time (integer) (required) — Unix timestamp (seconds) of the most recent event.
+    - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - responder_email (string) (required) — Primary responder email, if any.
     - responder_name (string) (required) — Primary responder name, if any.
-    - start_time (integer) (required) — Unix timestamp (seconds) when the alert first fired.
+    - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
-    - updated_at (integer) (required) — Last update timestamp (seconds).
+    - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - assigned_to (object) (required) — Current assignment target for the incident.
     - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
     - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
@@ -1461,14 +1461,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
   - channel_name (string) (required) — Channel display name.
   - channel_status (string) (required) — Channel status.
-  - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
+  - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - closer (object) — Closer member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
     - person_id (integer) — Member ID.
     - person_name (string) — Member display name.
   - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
-  - created_at (integer) (required) — Creation timestamp (seconds).
+  - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator (object) — Creator member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
@@ -1480,10 +1480,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - data_source_type (string) — Deprecated. Use 'integration_type' instead.
   - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
   - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
-  - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+  - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - description (string) (required) — Incident description.
   - detail_url (string) (required) — Web console URL for the incident.
-  - end_time (integer) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active.
+  - end_time (string) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - equals_md5 (string) (required) — MD5 hash used for content-equality checks.
   - ever_muted (boolean) (required) — Whether the incident has ever been silenced.
   - fields (object) (required) — Custom field values keyed by field name.
@@ -1502,7 +1502,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
   - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
   - labels (object) (required) — Labels propagated from alerts.
-  - last_time (integer) (required) — Unix timestamp (seconds) of the most recent update.
+  - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - links (array<object>) — Channel-level link integrations rendered for this incident.
     - endpoint (string) (required) — Rendered URL for the link.
     - name (string) (required) — Display name of the link.
@@ -1520,18 +1520,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - reporter_email (string) — Reporter email for manually created incidents.
   - resolution (string) (required) — Resolution notes.
   - responders (array<object>) (required) — Current responders with assignment/acknowledgement state.
-    - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+    - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - as (string) — Role label of this responder.
-    - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+    - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - email (string) — Member email, filled by the server.
     - person_id (integer) (required) — Responder member ID.
     - person_name (string) — Member display name, filled by the server.
   - root_cause (string) (required) — Root cause analysis.
   - silence_url (string) (required) — Quick-silence URL for this incident.
-  - snoozed_before (integer) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed.
-  - start_time (integer) (required) — Unix timestamp (seconds) when the incident started.
+  - snoozed_before (string) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - start_time (string) (required) — Unix timestamp (seconds) when the incident started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - title (string) (required) — Incident title.
-  - updated_at (integer) (required) — Last update timestamp (seconds).
+  - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    optionalArg("incident_id"),
 		Example: `  flashduty incident info --data '{"incident_id":"69da451ef77b1b51f40e83ee"}'`,
@@ -1636,7 +1636,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_locale (string) (required) — Account locale.
     - account_name (string) (required) — Account name.
     - account_time_zone (string) (required) — Account time zone.
-    - ack_time (integer) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged.
+    - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
     - ai_summary (string) (required) — AI-generated summary of the incident.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
@@ -1650,35 +1650,35 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - channel_id (integer) (required) — Channel ID.
       - channel_name (string) (required) — Channel display name.
       - channel_status (string) (required) — Channel status.
-      - created_at (integer) (required) — Creation timestamp (seconds).
+      - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
       - data_source_type (string) — Deprecated. Use 'integration_type'.
-      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) (required) — Alert description.
-      - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
+      - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
-        - created_at (integer) — Record creation time, Unix epoch seconds.
+        - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-        - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+        - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - description (string) — Event description.
         - event_id (string) — Event ID (MongoDB ObjectID).
         - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
         - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-        - event_time (integer) — Event timestamp, Unix epoch seconds.
+        - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
         - integration_type (string) — Type/plugin key of the integration that produced this event.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
-        - updated_at (integer) — Record update time, Unix epoch seconds.
+        - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
       - images (array<object>) (required) — Attached images.
         - alt (string) — Alt text.
@@ -1693,13 +1693,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - integration_ref_id (string) (required) — Integration reference ID.
       - integration_type (string) (required) — Integration type string.
       - labels (object) (required) — Alert labels.
-      - last_time (integer) (required) — Unix timestamp (seconds) of the most recent event.
+      - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - responder_email (string) (required) — Primary responder email, if any.
       - responder_name (string) (required) — Primary responder name, if any.
-      - start_time (integer) (required) — Unix timestamp (seconds) when the alert first fired.
+      - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
-      - updated_at (integer) (required) — Last update timestamp (seconds).
+      - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
@@ -1712,14 +1712,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
-    - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
+    - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
@@ -1731,10 +1731,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated. Use 'integration_type' instead.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
-    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Incident description.
     - detail_url (string) (required) — Web console URL for the incident.
-    - end_time (integer) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active.
+    - end_time (string) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - equals_md5 (string) (required) — MD5 hash used for content-equality checks.
     - ever_muted (boolean) (required) — Whether the incident has ever been silenced.
     - fields (object) (required) — Custom field values keyed by field name.
@@ -1753,7 +1753,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
     - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
     - labels (object) (required) — Labels propagated from alerts.
-    - last_time (integer) (required) — Unix timestamp (seconds) of the most recent update.
+    - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
@@ -1771,18 +1771,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - reporter_email (string) — Reporter email for manually created incidents.
     - resolution (string) (required) — Resolution notes.
     - responders (array<object>) (required) — Current responders with assignment/acknowledgement state.
-      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - as (string) — Role label of this responder.
-      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - email (string) — Member email, filled by the server.
       - person_id (integer) (required) — Responder member ID.
       - person_name (string) — Member display name, filled by the server.
     - root_cause (string) (required) — Root cause analysis.
     - silence_url (string) (required) — Quick-silence URL for this incident.
-    - snoozed_before (integer) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed.
-    - start_time (integer) (required) — Unix timestamp (seconds) when the incident started.
+    - snoozed_before (string) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start_time (string) (required) — Unix timestamp (seconds) when the incident started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) (required) — Incident title.
-    - updated_at (integer) (required) — Last update timestamp (seconds).
+    - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
   - total (integer) (required) — Total number of matching incidents.
 `,
@@ -1931,7 +1931,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_locale (string) (required) — Account locale.
     - account_name (string) (required) — Account name.
     - account_time_zone (string) (required) — Account time zone.
-    - ack_time (integer) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged.
+    - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
     - ai_summary (string) (required) — AI-generated summary of the incident.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
@@ -1945,35 +1945,35 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - channel_id (integer) (required) — Channel ID.
       - channel_name (string) (required) — Channel display name.
       - channel_status (string) (required) — Channel status.
-      - created_at (integer) (required) — Creation timestamp (seconds).
+      - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
       - data_source_type (string) — Deprecated. Use 'integration_type'.
-      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) (required) — Alert description.
-      - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
+      - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
-        - created_at (integer) — Record creation time, Unix epoch seconds.
+        - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-        - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+        - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - description (string) — Event description.
         - event_id (string) — Event ID (MongoDB ObjectID).
         - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
         - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-        - event_time (integer) — Event timestamp, Unix epoch seconds.
+        - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
         - integration_type (string) — Type/plugin key of the integration that produced this event.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
-        - updated_at (integer) — Record update time, Unix epoch seconds.
+        - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
       - images (array<object>) (required) — Attached images.
         - alt (string) — Alt text.
@@ -1988,13 +1988,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - integration_ref_id (string) (required) — Integration reference ID.
       - integration_type (string) (required) — Integration type string.
       - labels (object) (required) — Alert labels.
-      - last_time (integer) (required) — Unix timestamp (seconds) of the most recent event.
+      - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - responder_email (string) (required) — Primary responder email, if any.
       - responder_name (string) (required) — Primary responder name, if any.
-      - start_time (integer) (required) — Unix timestamp (seconds) when the alert first fired.
+      - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
-      - updated_at (integer) (required) — Last update timestamp (seconds).
+      - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
@@ -2007,14 +2007,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
-    - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
+    - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
@@ -2026,10 +2026,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated. Use 'integration_type' instead.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
-    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Incident description.
     - detail_url (string) (required) — Web console URL for the incident.
-    - end_time (integer) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active.
+    - end_time (string) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - equals_md5 (string) (required) — MD5 hash used for content-equality checks.
     - ever_muted (boolean) (required) — Whether the incident has ever been silenced.
     - fields (object) (required) — Custom field values keyed by field name.
@@ -2048,7 +2048,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
     - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
     - labels (object) (required) — Labels propagated from alerts.
-    - last_time (integer) (required) — Unix timestamp (seconds) of the most recent update.
+    - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
@@ -2066,18 +2066,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - reporter_email (string) — Reporter email for manually created incidents.
     - resolution (string) (required) — Resolution notes.
     - responders (array<object>) (required) — Current responders with assignment/acknowledgement state.
-      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - as (string) — Role label of this responder.
-      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - email (string) — Member email, filled by the server.
       - person_id (integer) (required) — Responder member ID.
       - person_name (string) — Member display name, filled by the server.
     - root_cause (string) (required) — Root cause analysis.
     - silence_url (string) (required) — Quick-silence URL for this incident.
-    - snoozed_before (integer) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed.
-    - start_time (integer) (required) — Unix timestamp (seconds) when the incident started.
+    - snoozed_before (string) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start_time (string) (required) — Unix timestamp (seconds) when the incident started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) (required) — Incident title.
-    - updated_at (integer) (required) — Last update timestamp (seconds).
+    - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
   - total (integer) (required) — Total number of matching incidents.
 `,
@@ -2219,7 +2219,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_locale (string) (required) — Account locale.
     - account_name (string) (required) — Account name.
     - account_time_zone (string) (required) — Account time zone.
-    - ack_time (integer) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged.
+    - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
     - ai_summary (string) (required) — AI-generated summary of the incident.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
@@ -2233,35 +2233,35 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - channel_id (integer) (required) — Channel ID.
       - channel_name (string) (required) — Channel display name.
       - channel_status (string) (required) — Channel status.
-      - created_at (integer) (required) — Creation timestamp (seconds).
+      - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
       - data_source_type (string) — Deprecated. Use 'integration_type'.
-      - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) (required) — Alert description.
-      - end_time (integer) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active.
+      - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
         - account_id (integer) — Account ID.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
-        - created_at (integer) — Record creation time, Unix epoch seconds.
+        - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-        - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+        - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - description (string) — Event description.
         - event_id (string) — Event ID (MongoDB ObjectID).
         - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
         - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-        - event_time (integer) — Event timestamp, Unix epoch seconds.
+        - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
         - integration_type (string) — Type/plugin key of the integration that produced this event.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
-        - updated_at (integer) — Record update time, Unix epoch seconds.
+        - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
       - images (array<object>) (required) — Attached images.
         - alt (string) — Alt text.
@@ -2276,13 +2276,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - integration_ref_id (string) (required) — Integration reference ID.
       - integration_type (string) (required) — Integration type string.
       - labels (object) (required) — Alert labels.
-      - last_time (integer) (required) — Unix timestamp (seconds) of the most recent event.
+      - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - responder_email (string) (required) — Primary responder email, if any.
       - responder_name (string) (required) — Primary responder name, if any.
-      - start_time (integer) (required) — Unix timestamp (seconds) when the alert first fired.
+      - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
-      - updated_at (integer) (required) — Last update timestamp (seconds).
+      - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - assigned_to (object) (required) — Current assignment target for the incident.
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
@@ -2295,14 +2295,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
     - channel_status (string) (required) — Channel status.
-    - close_time (integer) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open.
+    - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
       - person_id (integer) — Member ID.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
@@ -2314,10 +2314,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated. Use 'integration_type' instead.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
-    - deleted_at (integer) — Soft-delete timestamp (seconds). Zero if not deleted.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Incident description.
     - detail_url (string) (required) — Web console URL for the incident.
-    - end_time (integer) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active.
+    - end_time (string) (required) — Unix timestamp (seconds) when the incident ended. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - equals_md5 (string) (required) — MD5 hash used for content-equality checks.
     - ever_muted (boolean) (required) — Whether the incident has ever been silenced.
     - fields (object) (required) — Custom field values keyed by field name.
@@ -2336,7 +2336,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
     - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
     - labels (object) (required) — Labels propagated from alerts.
-    - last_time (integer) (required) — Unix timestamp (seconds) of the most recent update.
+    - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
@@ -2354,19 +2354,19 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - reporter_email (string) — Reporter email for manually created incidents.
     - resolution (string) (required) — Resolution notes.
     - responders (array<object>) (required) — Current responders with assignment/acknowledgement state.
-      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - as (string) — Role label of this responder.
-      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - email (string) — Member email, filled by the server.
       - person_id (integer) (required) — Responder member ID.
       - person_name (string) — Member display name, filled by the server.
     - root_cause (string) (required) — Root cause analysis.
     - score (number) (required) — Similarity score from the vector search.
     - silence_url (string) (required) — Quick-silence URL for this incident.
-    - snoozed_before (integer) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed.
-    - start_time (integer) (required) — Unix timestamp (seconds) when the incident started.
+    - snoozed_before (string) (required) — Unix timestamp (seconds) until which notifications are snoozed. 0 if not snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start_time (string) (required) — Unix timestamp (seconds) when the incident started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) (required) — Incident title.
-    - updated_at (integer) (required) — Last update timestamp (seconds).
+    - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident past-list --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":5}'`,
@@ -2479,9 +2479,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
     - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
     - responders (array<object>) (required) — Responders involved in the incident(s).
-      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - as (string) — Role label of this responder.
-      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - email (string) — Member email, filled by the server.
       - person_id (integer) (required) — Responder member ID.
       - person_name (string) — Member display name, filled by the server.
@@ -2493,7 +2493,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
-    - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - created_at_seconds (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
@@ -2504,7 +2504,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.
     - title (string) (required) — Report title.
-    - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
+    - updated_at_seconds (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args: requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -2578,7 +2578,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
-    - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - created_at_seconds (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
@@ -2589,7 +2589,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.
     - title (string) (required) — Report title.
-    - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
+    - updated_at_seconds (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - search_after_ctx (string) — Cursor for forward pagination.
   - total (integer) (required) — Total matching reports.
 `,
@@ -3370,7 +3370,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — War room records.
     - account_id (integer) (required) — Account ID.
     - chat_id (string) (required) — Chat/group ID on the IM side.
-    - created_at (integer) (required) — Creation timestamp (seconds).
+    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID that created the war room.
     - incident_id (string) (required) — Associated incident ID (MongoDB ObjectID).
     - integration_id (integer) (required) — IM integration ID.
@@ -3438,9 +3438,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - items (array<object>) (required) — Work items for the current page.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3451,7 +3451,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -3520,9 +3520,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3533,7 +3533,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -3610,9 +3610,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3623,7 +3623,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -3710,9 +3710,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key and no new item was created.
   - item (object) (required) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3723,7 +3723,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -3881,9 +3881,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - items (array<object>) (required) — Work items for the current page.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3894,7 +3894,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -3973,9 +3973,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3986,7 +3986,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -4063,9 +4063,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
-    - converted_at_seconds (integer) — Conversion time as a Unix timestamp in seconds. Present only after conversion.
+    - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
-    - created_at_seconds (integer) (required) — Creation time as a Unix timestamp in seconds.
+    - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -4076,7 +4076,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
     - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
-    - updated_at_seconds (integer) (required) — Last update time as a Unix timestamp in seconds.
+    - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -4164,12 +4164,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
     - content (string) (required) — BlockNote JSON content used to initialize the report body.
     - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-    - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+    - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Template description.
     - name (string) (required) — Template name shown in the console.
     - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
     - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-    - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+    - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - search_after_ctx (string) — Cursor for forward pagination.
   - total (integer) (required) — Total matching templates.
 `,
@@ -4237,12 +4237,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
   - content (string) (required) — BlockNote JSON content used to initialize the report body.
   - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - description (string) (required) — Template description.
   - name (string) (required) — Template name shown in the console.
   - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
   - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+  - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args: requireBodyFieldOrExactArg("template_id", "template-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -4352,9 +4352,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
     - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
     - responders (array<object>) (required) — Responders involved in the incident(s).
-      - acknowledged_at (integer) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged.
+      - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - as (string) — Role label of this responder.
-      - assigned_at (integer) (required) — Unix timestamp (seconds) when the member was assigned.
+      - assigned_at (string) (required) — Unix timestamp (seconds) when the member was assigned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - email (string) — Member email, filled by the server.
       - person_id (integer) (required) — Responder member ID.
       - person_name (string) — Member display name, filled by the server.
@@ -4366,7 +4366,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
-    - created_at_seconds (integer) (required) — Creation timestamp (seconds).
+    - created_at_seconds (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - generation (integer) (required) — Collaboration document generation. Incremented by each full content reset; 0 for legacy documents.
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
@@ -4377,7 +4377,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - team_id (integer) (required) — Owning team ID. 0 if none.
     - template_id (string) (required) — Template used to initialize the report.
     - title (string) (required) — Report title.
-    - updated_at_seconds (integer) (required) — Last update timestamp (seconds).
+    - updated_at_seconds (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident post-mortem-init --data '{"incident_ids":["69bb9233331067560c718ecd"],"template_id":"post_mortem_default_tmpl_en-us"}'`,
@@ -4709,12 +4709,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
   - content (string) (required) — BlockNote JSON content used to initialize the report body.
   - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-  - created_at_seconds (integer) (required) — Unix timestamp in seconds when the template was created.
+  - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - description (string) (required) — Template description.
   - name (string) (required) — Template name shown in the console.
   - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
   - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-  - updated_at_seconds (integer) (required) — Unix timestamp in seconds when the template was last updated.
+  - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty incident post-mortem-template-upsert --data '{"content":"[{\"type\":\"heading\",\"content\":\"Summary\"}]","content_markdown":"## Summary\nDescribe what happened.","description":"Template for production incident reviews.","name":"Production incident template","team_id":2477033058131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

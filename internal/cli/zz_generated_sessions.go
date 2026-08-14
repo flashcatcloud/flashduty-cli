@@ -37,7 +37,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - author (string) — Event author (e.g. user, the agent name).
     - branch (string) — ADK branch path for nested agents.
     - content (object) — ADK content envelope {role, parts:[...]}.
-    - created_at (integer) (required) — Unix timestamp in milliseconds when the event was written.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the event was written. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - error_code (string) — Error code when the event represents a failure.
     - error_message (string) — Human-readable error message, when present.
     - event_id (string) (required) — Event identifier.
@@ -52,7 +52,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - session (object) (required) — One agent session row.
     - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
     - app_name (string) (required) — Agent app that owns the session.
-    - archived_at (integer) (required) — Unix timestamp in milliseconds when archived; 0 means not archived.
+    - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
       - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
       - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
@@ -65,14 +65,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
       - account_pack_id (string) — Resolved account-scoped pack id.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (integer) (required) — Unix timestamp in milliseconds when the packs were resolved.
+      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the packs were resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - team_pack_id (string) — Resolved team-scoped pack id.
       - versions (object) — Per-pack resolved version map.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
-    - created_at (integer) (required) — Unix timestamp in milliseconds when the session was created.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
-    - current_turn_started_at (integer) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet.
+    - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
     - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
@@ -80,15 +80,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
     - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
-    - last_event_at (integer) — Unix timestamp in milliseconds of the most recent assistant-side event.
+    - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (integer) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
+    - pinned_at (string) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
-    - shared_at (integer) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared.
+    - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
     - status (string) (required) — Lifecycle status. [enabled, deleted]
@@ -100,7 +100,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
-    - updated_at (integer) (required) — Unix timestamp in milliseconds of the last session update.
+    - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not specific to this session.
 `,
 		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
@@ -193,7 +193,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - sessions (array<object>) (required) — The page of sessions.
     - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
     - app_name (string) (required) — Agent app that owns the session.
-    - archived_at (integer) (required) — Unix timestamp in milliseconds when archived; 0 means not archived.
+    - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
       - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
       - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
@@ -206,14 +206,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
       - account_pack_id (string) — Resolved account-scoped pack id.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (integer) (required) — Unix timestamp in milliseconds when the packs were resolved.
+      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the packs were resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - team_pack_id (string) — Resolved team-scoped pack id.
       - versions (object) — Per-pack resolved version map.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
-    - created_at (integer) (required) — Unix timestamp in milliseconds when the session was created.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
-    - current_turn_started_at (integer) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet.
+    - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
     - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
@@ -221,15 +221,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
     - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
-    - last_event_at (integer) — Unix timestamp in milliseconds of the most recent assistant-side event.
+    - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (integer) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned.
+    - pinned_at (string) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
-    - shared_at (integer) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared.
+    - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
     - status (string) (required) — Lifecycle status. [enabled, deleted]
@@ -241,7 +241,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
-    - updated_at (integer) (required) — Unix timestamp in milliseconds of the last session update.
+    - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not dependent on this call's filters.
   - total (integer) (required) — Total number of sessions matching the filter (ignoring pagination).
 `,

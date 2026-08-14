@@ -41,9 +41,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - timestamp (integer)
     - version (string)
   - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-    - regressed_at (integer) — Timestamp when the regression was detected.
+    - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - regressed_at_version (string) — Application version in which the regression was observed.
-    - resolved_at (integer) — Timestamp of the previous resolution before the regression.
+    - resolved_at (string) — Timestamp of the previous resolution before the regression. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - resolved_at (integer)
   - resolved_by (integer)
   - service (string)
@@ -155,9 +155,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - timestamp (integer)
       - version (string)
     - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-      - regressed_at (integer) — Timestamp when the regression was detected.
+      - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - regressed_at_version (string) — Application version in which the regression was observed.
-      - resolved_at (integer) — Timestamp of the previous resolution before the regression.
+      - resolved_at (string) — Timestamp of the previous resolution before the regression. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - resolved_at (integer)
     - resolved_by (integer)
     - service (string)

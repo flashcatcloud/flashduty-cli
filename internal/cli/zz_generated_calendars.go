@@ -87,7 +87,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Calendar events sorted by start_at.
     - account_id (integer) — Account ID. Only present for private events.
     - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
-    - created_at (integer) (required) — Creation timestamp (Unix seconds).
+    - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) — Creator person ID. Only present for private events.
     - description (string) (required) — Event description.
     - end_at (string) (required) — Event end date (YYYY-MM-DD, exclusive).
@@ -95,7 +95,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - is_off (boolean) (required) — Whether the event marks a non-working day.
     - start_at (string) (required) — Event start date (YYYY-MM-DD).
     - summary (string) (required) — Event summary.
-    - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+    - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - total (integer) (required) — Total number of events returned.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
@@ -381,7 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Account ID.
   - cal_id (string) (required) — Calendar ID.
   - cal_name (string) (required) — Calendar display name.
-  - created_at (integer) (required) — Creation timestamp (Unix seconds).
+  - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_id (integer) (required) — Creator person ID.
   - description (string) (required) — Calendar description.
   - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
@@ -389,7 +389,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Calendar status. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID (0 when not assigned).
   - timezone (string) (required) — IANA timezone.
-  - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+  - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - updated_by (integer) (required) — Last updater person ID.
   - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
 `,
@@ -448,7 +448,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - cal_id (string) (required) — Calendar ID.
     - cal_name (string) (required) — Calendar display name.
-    - created_at (integer) (required) — Creation timestamp (Unix seconds).
+    - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — Creator person ID.
     - description (string) (required) — Calendar description.
     - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
@@ -456,7 +456,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) (required) — Calendar status. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID (0 when not assigned).
     - timezone (string) (required) — IANA timezone.
-    - updated_at (integer) (required) — Last update timestamp (Unix seconds).
+    - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Last updater person ID.
     - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
   - total (integer) (required) — Total number of calendars returned.

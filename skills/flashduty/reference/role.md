@@ -75,13 +75,13 @@ Enable a role
 ### info <role-id>
 Get role detail
 - `<role-id>` (positional, required) int64 — Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
-- response: single object (`data` unwrapped to the top level) — fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (string)
 
 ### list
 List roles
 - `--asc` bool — Ascending sort order. Default: false (descending).
 - `--orderby` string — Sort field. Default: 'updated_at'. · enum: created_at | updated_at
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (integer)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (string)
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members

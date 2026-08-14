@@ -42,7 +42,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - returned (integer) (required) — Number of matched hosts included in this page ('<= limit').
     - scanned (integer) (required) — Number of distinct candidate hosts actually examined in this request.
     - states (object) (required) — Count of returned items per status value; always includes all seven status keys, zero-filled. Reflects only this page, not the account's full population.
-  - generated_at_ms (integer) (required) — Unix timestamp in milliseconds this response was generated.
+  - generated_at_ms (string) (required) — Unix timestamp in milliseconds this response was generated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - items (array<object>) (required) — Matching hosts for this page.
     - agent_version (string) (required) — Agent version reported by this host.
     - edge_cluster (string) (required) — Edge cluster name this host belongs to.
@@ -58,9 +58,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - graph_available (boolean) (required) — True if a current graph can be fetched for this host right now.
       - max_age_ms (integer) — Age in milliseconds of the host's graph data, relative to when this response was generated.
       - node_count (integer) (required) — Number of nodes in the host's current graph.
-      - observed_at_ms (integer) — Unix timestamp in milliseconds the host's graph was observed by the agent.
+      - observed_at_ms (string) — Unix timestamp in milliseconds the host's graph was observed by the agent. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - reason_codes (array<string>) — Machine-readable codes explaining the current status.
-      - received_at_ms (integer) — Unix timestamp in milliseconds the host's current graph generation was received by the server.
+      - received_at_ms (string) — Unix timestamp in milliseconds the host's current graph generation was received by the server. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - report_interval_ms (integer) — Configured reporting interval in milliseconds.
       - snapshot_ready (boolean) (required) — True if the agent has produced at least one full snapshot.
       - status (string) (required) — Overall ServiceMap collection status. [active, degraded, stale, initializing, disabled, unsupported, no_data]
@@ -150,7 +150,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - matched (integer) (required) — Number of scanned hosts that passed the agent version / edge cluster / capture mode filters and still have a current inventory row.
     - scanned (integer) (required) — Number of distinct candidate hosts actually examined.
     - states (object) (required) — Count of hosts per status value; always includes all seven keys, zero-filled.
-  - generated_at_ms (integer) (required) — Unix timestamp in milliseconds this response was generated.
+  - generated_at_ms (string) (required) — Unix timestamp in milliseconds this response was generated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - partial (boolean) (required) — True if the scan was truncated or any host failed to classify.
   - scan_limit (integer) (required) — The normalized scan budget actually applied, echoing the default when the request omitted it.
   - truncated (boolean) (required) — True if 'scan_limit' was reached before scanning every candidate host in the account.
@@ -226,7 +226,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - succeeded (integer) (required) — Number of hosts whose status was read successfully.
     - truncated (boolean) (required) — True if 'fleet' mode found more candidates than 'limit' allowed to return.
   - fleet (boolean) (required) — Echoes whether this response was produced from a fleet sample rather than explicit host IDs.
-  - generated_at_ms (integer) (required) — Unix timestamp in milliseconds this response was generated.
+  - generated_at_ms (string) (required) — Unix timestamp in milliseconds this response was generated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - items (array<object>) (required) — Per-host status, in the same order the hosts were resolved.
     - authoritative (boolean) (required) — True if the host has an authoritative current graph.
     - capability (object) (required) — The host's self-reported ServiceMap capability.
@@ -248,17 +248,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - error_code (string) — Set to 'status_unavailable' when this host's status could not be read; other fields fall back to inventory-derived defaults in that case.
     - freshness (object) (required) — How recent the host's graph data is.
       - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
-      - newest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered.
-      - oldest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered.
+      - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - status (string) (required) — Freshness classification. [fresh, stale, unknown]
     - graph_available (boolean) (required) — True if a current graph can be fetched for this host right now.
     - host_id (string) (required) — Host ID this status describes.
-    - latest_health_at_ms (integer) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph.
+    - latest_health_at_ms (string) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - network_scope_id (string) — Network scope resolved for this host, when known.
     - node_count (integer) (required) — Number of nodes in the host's current graph.
-    - observed_at_ms (integer) — Unix timestamp in milliseconds the host's graph was observed by the agent.
+    - observed_at_ms (string) — Unix timestamp in milliseconds the host's graph was observed by the agent. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - reason_codes (array<string>) — Machine-readable codes explaining the current status.
-    - received_at_ms (integer) — Unix timestamp in milliseconds the host's current graph generation was received by the server.
+    - received_at_ms (string) — Unix timestamp in milliseconds the host's current graph generation was received by the server. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - report_interval_ms (integer) — Configured reporting interval in milliseconds.
     - status (string) (required) — Overall ServiceMap collection status. [active, degraded, stale, initializing, disabled, unsupported, no_data]
   - partial (boolean) (required) — True if any host failed or the fleet sample was truncated.
@@ -342,12 +342,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - truncated_hosts (integer) (required) — Number of loaded host graphs that were truncated at collection time.
   - freshness (object) (required) — How recent the graph data is.
     - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
-    - newest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered.
-    - oldest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered.
+    - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) (required) — Freshness classification. [fresh, stale, unknown]
   - graph_role (string) (required) — 'current' if the summary reflects the live graph; 'last_known_good' if the latest ingestion is unhealthy and this reflects the last authoritative graph instead. [current, last_known_good]
   - latest_collection_authoritative (boolean) (required) — False when 'graph_role=last_known_good', i.e. the most recent collection attempt was not authoritative.
-  - latest_health_at_ms (integer) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph.
+  - latest_health_at_ms (string) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - neighbors (array<object>) (required) — Up to 12 outbound relations, most informative first.
     - active_connections (any) — Active connection count for this relation, when the underlying agent reports it.
     - destination_ip (string) — Destination IP address.
@@ -362,8 +362,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - target_entity_id (string) — Entity ID of the resolved target, when 'resolution_status=resolved' and unambiguous.
     - target_host_id (string) — Host ID of the resolved target, when 'resolution_status=resolved' and unambiguous.
   - network_scope_id (string) (required) — Network scope the summary was resolved within.
-  - observed_at_ms (integer) (required) — Unix timestamp in milliseconds the underlying data was observed by the agent.
-  - received_at_ms (integer) (required) — Unix timestamp in milliseconds the current graph generation was received by the server.
+  - observed_at_ms (string) (required) — Unix timestamp in milliseconds the underlying data was observed by the agent. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - received_at_ms (string) (required) — Unix timestamp in milliseconds the current graph generation was received by the server. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - resolution_counts (object) (required) — Counts of the anchor host's outbound relations by resolution outcome.
     - ambiguous (integer) (required) — Number of edges resolved to multiple or low-confidence candidates.
     - resolved (integer) (required) — Number of edges resolved to exactly one confident candidate.
@@ -468,7 +468,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - netns_id (string) (required) — Network namespace ID the candidate listener is in.
         - node_display_name (string) — Display name of the candidate's owning node, when known.
         - node_kind (string) — Kind of the candidate's owning node, when known.
-        - observed_at_ms (integer) (required) — Unix timestamp in milliseconds when the candidate's graph generation was observed by the agent.
+        - observed_at_ms (string) (required) — Unix timestamp in milliseconds when the candidate's graph generation was observed by the agent. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - port (integer) (required) — Destination port.
         - protocol (string) (required) — Transport protocol, 'tcp' or 'udp'. [tcp, udp]
       - candidates_truncated (boolean) — True if the candidate list was cut short by an internal query budget.
@@ -488,8 +488,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source_netns_id (string) (required) — Network namespace ID the connection originated from.
   - freshness (object) (required) — How recent the graph data is.
     - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
-    - newest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered.
-    - oldest_received_at_ms (integer) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered.
+    - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) (required) — Freshness classification. [fresh, stale, unknown]
   - network_scope_id (string) (required) — Network scope the graph was resolved within.
   - nodes (array<object>) (required) — Nodes discovered during the traversal.
@@ -509,7 +509,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - sample_instances (any) — Opaque sample of underlying instances folded into this node, when applicable.
     - systemd_unit (string) — systemd unit name, when the node is a systemd-managed process.
     - workload_name (string) — Kubernetes workload name, when known.
-  - observed_at_ms (integer) (required) — Unix timestamp in milliseconds the underlying data was observed by the agent (the most recent among loaded hosts).
+  - observed_at_ms (string) (required) — Unix timestamp in milliseconds the underlying data was observed by the agent (the most recent among loaded hosts). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - resolution_counts (object) (required) — Counts of edges by resolution outcome.
     - ambiguous (integer) (required) — Number of edges resolved to multiple or low-confidence candidates.
     - resolved (integer) (required) — Number of edges resolved to exactly one confident candidate.

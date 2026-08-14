@@ -19,14 +19,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) — IM integrations with the war-room feature enabled.
     - account_id (integer) — Account this integration belongs to.
     - category (string) — Category of the integration plugin.
-    - created_at (integer) — Unix timestamp in seconds when the integration was created.
+    - created_at (string) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) — Person who created the integration.
     - data_source_id (integer) — Integration ID.
     - description (string) — Integration description.
     - exclusive_data_source_id (integer) — Exclusive integration ID associated with this integration.
     - integration_id (integer) — Integration ID, alias of data_source_id.
     - integration_key (string) — Push key used by alert sources to send to this integration.
-    - last_time (integer) — Unix timestamp in seconds of the most recent activity on the integration.
+    - last_time (string) — Unix timestamp in seconds of the most recent activity on the integration. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - name (string) — Integration name.
     - no_editable (boolean) — Whether the integration is read-only.
     - plugin_id (integer) — Plugin ID backing this integration.
@@ -36,7 +36,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - settings (object) — Plugin-specific configuration of the integration.
     - status (string) — Current status of the integration.
     - team_id (integer) — Team that owns this integration.
-    - updated_at (integer) — Unix timestamp in seconds when the integration was last updated.
+    - updated_at (string) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) — Person who last updated the integration.
 `,
 		Example: `  flashduty datasource im-war-room-enabled-list --data '{}'`,

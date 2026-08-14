@@ -49,7 +49,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
-    - created_at (integer) — Upload timestamp, Unix epoch seconds.
+    - created_at (string) — Upload timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - git_commit_sha (string) — Git commit SHA for this build.
     - git_repository_url (string) — Git repository URL associated with this build.
     - key (string) — Storage key uniquely identifying this sourcemap file.
@@ -57,7 +57,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - service (string) — Application or service name.
     - size (integer) — File size in bytes.
     - type (string) — Platform type: 'browser', 'android', or 'ios'. [browser, android, ios]
-    - updated_at (integer) — Last update timestamp, Unix epoch seconds.
+    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - version (string) — Application version string.
   - total (integer) (required) — Total number of matching records.
 `,

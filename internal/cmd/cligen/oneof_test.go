@@ -79,7 +79,7 @@ func TestTreePreservesPropertyDescriptionOverRef(t *testing.T) {
 			"$ref":        "#/components/schemas/Window",
 			"description": "Baseline analysis window.",
 		},
-	}}, 0)
+	}}, 0, nil)
 	if len(fields) != 1 || fields[0].Desc != "Baseline analysis window." {
 		t.Fatalf("field descriptions = %#v", fields)
 	}

@@ -53,7 +53,7 @@ fduty status-page change-active-list <page_id> --type incident
 List active status page events
 - `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. · enum: incident | maintenance
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (string); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (string); status (string); title (string); type (string); updates (array<object>)
 
 ### change-create <page-id>
 Create status page event
@@ -81,7 +81,7 @@ Delete status page event
 Get status page event detail
 - `--change-id` int64 (required) — Event (change) ID.
 - `--page-id` int64 (required) — Status page ID.
-- response: single object (`data` unwrapped to the top level) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (integer); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (integer); status (string); title (string); type (string); updates (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: affected_components (array<object>); auto_update_by_schedule (boolean); change_id (integer); close_at_seconds (string); description (string); is_retrospective (boolean); linked_change_ids (array<string>); notify_subscribers (boolean); page_id (integer); responder_ids (array<integer>); start_at_seconds (string); status (string); title (string); type (string); updates (array<object>)
 
 ### change-list <page-id>
 List status page events
@@ -184,7 +184,7 @@ Cancel status page migration
 ### migration-status <job-id>
 Get migration status
 - `<job-id>` (positional, required) string — Migration job ID returned by 'migrate-structure' or 'migrate-email-subscribers'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); error (string); job_id (string); phase (string); progress (object); source_page_id (string); status (string); target_page_id (integer); updated_at (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); error (string); job_id (string); phase (string); progress (object); source_page_id (string); status (string); target_page_id (integer); updated_at (string)
 
 ### section-delete <section-id> [<id2>...]
 Delete status page section

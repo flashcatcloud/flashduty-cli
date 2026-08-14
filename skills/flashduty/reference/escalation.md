@@ -70,12 +70,12 @@ Enable escalation rule
 Get escalation rule detail
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### escalate-rule-list <channel-id>
 List escalation rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (integer); deleted_at (integer); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### escalate-rule-update
 Update escalation rule

@@ -59,12 +59,12 @@ Delete field
 ### info <field-id>
 Get field detail
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); default_value (any); deleted_at (integer); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (integer); updated_by (integer); value_type (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (string); updated_by (integer); value_type (string)
 
 ### list
 List custom fields
 - `--name` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); default_value (any); deleted_at (integer); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (integer); updated_by (integer); value_type (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (string); updated_by (integer); value_type (string)
 
 ### update <field-id>
 Update field

@@ -69,7 +69,7 @@ Enable channel
 ### info <channel-id>
 Get channel detail
 - `<channel-id>` (positional, required) int64 — ID of the channel to query; obtain it from 'POST /channel/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
 
 ### infos <channel-id> [<id2>...]
 Batch get channels
@@ -80,7 +80,7 @@ Batch get channels
 List channels
 - `--name` string
 - `--team-ids` int64Slice
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (integer); creator_id (integer); creator_name (string); deleted_at (integer); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (integer); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
 
 ### update <channel-id>
 Update channel

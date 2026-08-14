@@ -69,7 +69,7 @@ func run(only string) error {
 	// a curated command is harmlessly dropped while the curated one keeps the
 	// path-name; curated commands at a different (ergonomic) name coexist as
 	// extras. This guarantees every API path has a command at its path-name.
-	services := collectServices(asMap(spec["paths"]), asMap(asMap(spec["components"])["schemas"]))
+	services := collectServices(asMap(spec["paths"]), asMap(asMap(spec["components"])["schemas"]), sdk)
 	groupShorts := computeGroupShorts(services)
 
 	var registered []string
@@ -171,7 +171,7 @@ type specField struct {
 	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
 }
 
-func collectServices(paths, schemas map[string]any) []service {
+func collectServices(paths, schemas map[string]any, sdk map[string]map[string]methodInfo) []service {
 	walker := &specWalker{schemas: schemas}
 	byTag := map[string][]struct {
 		path, http string
@@ -233,10 +233,20 @@ func collectServices(paths, schemas map[string]any) []service {
 		svc := service{Name: serviceName(tag), Tag: tag}
 		for _, e := range entries {
 			opID := str(e.op, "operationId")
-			respTree, respArray := walker.responseTree(e.op)
+			method := names[opID]
+			// The Go type the SDK actually decodes this operation's response into
+			// (Out(0) of the reflected method), so responseTree can tell a field
+			// whose Go type customizes JSON marshaling (e.g. Timestamp/
+			// TimestampMilli, see wireTypeOverride) from the OpenAPI wire type the
+			// spec describes.
+			var respType reflect.Type
+			if mi, ok := sdk[svc.Name][method]; ok {
+				respType = mi.RespType
+			}
+			respTree, respArray := walker.responseTree(e.op, respType)
 			svc.Ops = append(svc.Ops, specOp{
 				OpID:      opID,
-				Method:    names[opID],
+				Method:    method,
 				HTTP:      e.http,
 				Path:      e.path,
 				Summary:   str(e.op, "summary"),
@@ -565,7 +575,14 @@ func (w *specWalker) arrayLeafSchema(s map[string]any) map[string]any {
 // tree walks an object schema (resolving $ref/allOf) into a sorted field tree,
 // recursing into nested objects and array-element objects (through any depth
 // of nested arrays, see arrayLeafSchema) up to maxSchemaDepth.
-func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
+//
+// goType, when non-nil, is the Go struct type the SDK actually decodes this
+// schema level into (nil for the request side, where the spec's wire type is
+// also what the CLI flag accepts). It is used ONLY to detect fields whose Go
+// type customizes JSON marshaling (see wireTypeOverride) — matched by field,
+// so a same-named field with a plain type (e.g. AlertRuleAudit.CreatedAt,
+// which really is a bare int64 on the wire) is left untouched.
+func (w *specWalker) tree(schema map[string]any, depth int, goType reflect.Type) []schemaField {
 	if depth > maxSchemaDepth {
 		return nil
 	}
@@ -582,14 +599,16 @@ func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
 			Type:       schemaType(pv),
 			Constraint: constraintOf(pv),
 		}
+		fieldGoType := goFieldType(goType, wire)
+		applyWireTypeOverride(&f, fieldGoType)
 		switch {
 		case w.isObjectSchema(pv):
 			f.Type = "object"
-			f.Children = w.tree(pv, depth+1)
+			f.Children = w.tree(pv, depth+1, goElemType(fieldGoType))
 		case str(pv, "type") == "array":
 			it := w.arrayLeafSchema(pv)
 			if w.isObjectSchema(it) {
-				f.Children = w.tree(it, depth+1)
+				f.Children = w.tree(it, depth+1, goElemType(fieldGoType))
 			} else if len(f.Enum) == 0 {
 				f.Enum = enumStrings(it) // array (possibly nested) of constrained scalars
 			}
@@ -601,6 +620,8 @@ func (w *specWalker) tree(schema map[string]any, depth int) []schemaField {
 }
 
 // requestTree returns the full nested field tree of an operation's JSON body.
+// goType is nil: the request-side wire type IS what the CLI flag/--data value
+// accepts, so no override is needed there (see tree's goType doc).
 func (w *specWalker) requestTree(op map[string]any) []schemaField {
 	rb := asMap(op["requestBody"])
 	if rb == nil {
@@ -610,7 +631,7 @@ func (w *specWalker) requestTree(op map[string]any) []schemaField {
 	if sch == nil {
 		return nil
 	}
-	return w.tree(sch, 0)
+	return w.tree(sch, 0, nil)
 }
 
 // responseTree returns the field tree of an operation's 200 response `data`
@@ -622,7 +643,13 @@ func (w *specWalker) requestTree(op map[string]any) []schemaField {
 // would otherwise yield nothing — leaving every such list endpoint (e.g.
 // rule-list-basic) with an empty Response-fields block that forced agents to
 // guess jq keys. Callers document this shape as a TOP-LEVEL array (`jq '.[]'`).
-func (w *specWalker) responseTree(op map[string]any) ([]schemaField, bool) {
+//
+// respType is the Go type the SDK method actually decodes `data` into (Out(0)
+// of the reflected method, nil if unknown), threaded down through tree() so a
+// field described as a wire integer in the spec but decoded through a
+// type with a custom MarshalJSON (e.g. Timestamp/TimestampMilli) is documented
+// by what --json actually prints, not the wire type.
+func (w *specWalker) responseTree(op map[string]any, respType reflect.Type) ([]schemaField, bool) {
 	r200 := asMap(asMap(op["responses"])["200"])
 	sch := asMap(asMap(asMap(r200["content"])["application/json"])["schema"])
 	if sch == nil {
@@ -636,18 +663,19 @@ func (w *specWalker) responseTree(op map[string]any) ([]schemaField, bool) {
 	if str(data, "type") == "array" {
 		it := w.deref(asMap(data["items"]))
 		if it["properties"] != nil || it["allOf"] != nil {
-			return w.tree(it, 0), true
+			return w.tree(it, 0, goElemType(respType)), true
 		}
 		return nil, false // array of bare scalars — no row field tree to document
 	}
-	return w.tree(data, 0), false
+	return w.tree(data, 0, respType), false
 }
 
 // ---- reflection over the compiled SDK -------------------------------------
 
 type methodInfo struct {
-	ReqType string // request struct name ("" => no body param)
-	HasData bool   // method returns (*Data, *Response, error)
+	ReqType  string       // request struct name ("" => no body param)
+	HasData  bool         // method returns (*Data, *Response, error)
+	RespType reflect.Type // Out(0), dereferenced (nil if HasData is false)
 }
 
 // eachServiceField walks a Client value, descending into its embedded
@@ -694,6 +722,9 @@ func reflectSDK() map[string]map[string]methodInfo {
 					rt = rt.Elem()
 				}
 				info.ReqType = rt.Name()
+			}
+			if info.HasData {
+				info.RespType = deref(mt.Out(0))
 			}
 			methods[meth.Name] = info
 		}
@@ -784,6 +815,84 @@ func deref(t reflect.Type) reflect.Type {
 		t = t.Elem()
 	}
 	return t
+}
+
+// goFieldType returns the reflect.Type of the JSON-tagged struct field named
+// wire on t (descending into anonymous embedded structs, mirroring the
+// json-tag matching reqFields does on the request side), or nil when t isn't
+// a struct or has no such field.
+func goFieldType(t reflect.Type, wire string) reflect.Type {
+	if t == nil {
+		return nil
+	}
+	dt := deref(t)
+	if dt.Kind() != reflect.Struct {
+		return nil
+	}
+	for i := 0; i < dt.NumField(); i++ {
+		f := dt.Field(i)
+		if f.Anonymous && deref(f.Type).Kind() == reflect.Struct {
+			if got := goFieldType(f.Type, wire); got != nil {
+				return got
+			}
+			continue
+		}
+		if strings.Split(f.Tag.Get("json"), ",")[0] == wire {
+			return f.Type
+		}
+	}
+	return nil
+}
+
+// goElemType descends from a field's Go type to the struct type its schema
+// children should be matched against: itself if already a struct, or its
+// element type through any depth of nested slices (mirroring arrayLeafSchema's
+// schema-side descent). Returns nil for anything else (scalars, maps).
+func goElemType(t reflect.Type) reflect.Type {
+	if t == nil {
+		return nil
+	}
+	dt := deref(t)
+	for dt.Kind() == reflect.Slice {
+		dt = deref(dt.Elem())
+	}
+	if dt.Kind() != reflect.Struct {
+		return nil
+	}
+	return dt
+}
+
+// wireTypeOverride maps a go-flashduty SDK type to the note appended to a
+// response field's help when the field decodes into that type. Both Timestamp
+// and TimestampMilli marshal to a quoted RFC3339 string in the process's local
+// timezone (see go-flashduty's timestamp.go) instead of the plain wire integer
+// the OpenAPI spec — cligen's only source for response help text — describes,
+// so a field of either type needs its generated type/description corrected to
+// match what the CLI's --json actually prints.
+var wireTypeOverride = map[reflect.Type]string{
+	reflect.TypeOf(flashduty.Timestamp(0)):      timestampOverrideNote,
+	reflect.TypeOf(flashduty.TimestampMilli(0)): timestampOverrideNote,
+}
+
+const timestampOverrideNote = "CLI `--json` renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0."
+
+// applyWireTypeOverride corrects f's Type/Desc in place when fieldGoType is a
+// type in wireTypeOverride, appending the note to any existing spec
+// description rather than discarding it.
+func applyWireTypeOverride(f *schemaField, fieldGoType reflect.Type) {
+	if fieldGoType == nil {
+		return
+	}
+	note, ok := wireTypeOverride[deref(fieldGoType)]
+	if !ok {
+		return
+	}
+	f.Type = "string"
+	if f.Desc == "" {
+		f.Desc = note
+		return
+	}
+	f.Desc = strings.TrimRight(f.Desc, " ") + " " + note
 }
 
 func scalarKind(t reflect.Type) (string, bool) {
