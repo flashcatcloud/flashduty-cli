@@ -33,6 +33,12 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 **A result you did not fetch is "unknown", never "empty" — and "fetched" means the same scope, not just the same verb.** You may report a command's result for a given window, entity, or aspect — including "returned empty" or any count/list/finding — **only if a call covering that exact scope appears in your tool-call history this turn**. A wider or different time window, or a sibling entity's result, does not transfer: extrapolating from what you did fetch is the same fabrication as skipping the fetch. If the scope wasn't queried, the honest answer is "未查询 — 可运行 <command>", not a filled-in number or a generalized claim.
 
+## Timestamps — convert before quoting
+
+fduty renders timestamp fields (created_at / updated_at / start_time / …) as **RFC3339 strings in the process's local timezone** in `--json` and `toon` output; unset values stay the bare integer `0`. In the AI-SRE runner the process timezone is **Etc/UTC** (the env block's `Environment Timezone`), so those strings come out **UTC** — not the user's local time. The env block's `User Timezone` (Asia/Shanghai for zh-CN accounts) is the zone the user reads.
+
+**Rule: before quoting ANY fduty timestamp to the user, convert it to the user's timezone** (Asia/Shanghai for zh-CN accounts; the runner env block states `User Timezone`). Report the converted time and label it 北京时间/本地时间. Never present a raw UTC wall-clock as if it were the user's local time — e.g. a change logged at `2026-08-13T13:05:03Z` happened at **21:05 北京时间**, not 13:05. A timestamp you can't convert must be reported with its original offset and an explicit "(UTC)" tag.
+
 ## Command names — don't guess, read the card
 
 The hot path: **read the domain card** (index below) for the exact verb + flags. Command groups are hyphenated (`status-page`, `alert-event`), not concatenated (`statuspage`) — guessing the wrong form costs a failed call. For a command outside the cards, derive it from its API path: **group = first path segment, verb = the rest joined by `-`** (`POST /status-page/change/create` → `fduty status-page change-create`), then confirm with `fduty <group> <verb> --help`. Pass nested-object / array fields as JSON via `--data '{...}'`; typed scalar flags override matching `--data` keys.
