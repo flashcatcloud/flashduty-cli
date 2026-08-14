@@ -93,7 +93,7 @@ List members
 - `--query` string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
 - `--role-id` int64 — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 - `--search-after-ctx` string
-- response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (integer); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (integer)
+- response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (string)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member

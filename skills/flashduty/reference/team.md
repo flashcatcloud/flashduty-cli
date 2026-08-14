@@ -66,7 +66,7 @@ Get team detail
 - `--id` int64
 - `--name` string
 - `--ref-id` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (string); updated_by (integer); updated_by_name (string)
 
 ### info
 Get team detail
@@ -88,7 +88,7 @@ List teams
 - `--orderby` string
 - `--page` int
 - `--person-id` int64
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (integer); updated_by (integer); updated_by_name (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); creator_name (string); description (string); person_ids (array<integer>); ref_id (string); status (string); team_id (integer); team_name (string); updated_at (string); updated_by (integer); updated_by_name (string)
 
 ### update
 Update an existing team

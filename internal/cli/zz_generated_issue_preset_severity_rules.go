@@ -276,9 +276,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - rules (array<object>) (required) — Full rule set captured immediately before the mutation that produced this snapshot. Empty for the very first snapshot.
       - account_id (integer) (required) — Account ID the rule belongs to.
       - application_id (string) (required) — RUM application ID the rule belongs to.
-      - created_at (integer) (required) — Unix timestamp in milliseconds when the rule was created.
+      - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - created_by (integer) (required) — Member ID who originally created the rule.
-      - deleted_at (integer) (required) — Unix timestamp in milliseconds the rule was soft-deleted; '0' means not deleted. Always '0' in practice, since deleted rules are excluded before a snapshot is taken.
+      - deleted_at (string) (required) — Unix timestamp in milliseconds the rule was soft-deleted; '0' means not deleted. Always '0' in practice, since deleted rules are excluded before a snapshot is taken. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) (required) — Rule description. May be empty.
       - filters (array<array<object>>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
         - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
@@ -290,9 +290,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - rule_name (string) (required) — Rule display name.
       - severity (string) (required) — Severity assigned to errors matching this rule. [Critical, Warning, Info]
       - status (string) (required) — Rule status at snapshot time. [enabled, disabled]
-      - updated_at (integer) (required) — Unix timestamp in milliseconds when the rule was last updated.
+      - updated_at (string) (required) — Unix timestamp in milliseconds when the rule was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - updated_by (integer) (required) — Member ID who last updated the rule as of snapshot time.
-    - updated_at (integer) (required) — Unix timestamp in milliseconds when the snapshot was written.
+    - updated_at (string) (required) — Unix timestamp in milliseconds when the snapshot was written. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Member ID who triggered the mutation this snapshot precedes.
     - updated_by_name (string) (required) — Display name of 'updated_by' at the time of the change.
     - version (integer) (required) — Monotonically increasing snapshot version number, starting at 1.
@@ -426,7 +426,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Rules ordered by evaluation order ('priority' ascending, then 'created_at' ascending).
-    - created_at (integer) (required) — Unix timestamp in milliseconds when the rule was created.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Rule description. May be empty.
     - filters (array<array<object>>) (required) — OR-of-ANDs filter structure: the outer array is OR'd, each inner array is AND'd. A rule matches an error when at least one inner AND-group fully matches.
       - key (string) (required) — Filter attribute key. Only these Error-level attributes are supported for preset severity rules. [error.usr_id, error.usr_email, error.view_url, error.view_url_path, error.error_type, error.error_message, error.env, error.service, error.device_type, error.os_name, error.browser_name, error.is_crash]
@@ -437,7 +437,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - rule_name (string) (required) — Rule display name.
     - severity (string) (required) — Severity assigned to errors matching this rule. [Critical, Warning, Info]
     - status (string) (required) — Only enabled rules are evaluated against incoming errors. [enabled, disabled]
-    - updated_at (integer) (required) — Unix timestamp in milliseconds when the rule was last updated.
+    - updated_at (string) (required) — Unix timestamp in milliseconds when the rule was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum issue-preset-severity-rules-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,

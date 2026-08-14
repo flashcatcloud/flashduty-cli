@@ -26,9 +26,9 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID that owns this resource.
   - action.days (integer) (required) — Retention period in days for action (user interaction) data.
-  - created_at (integer) (required) — Unix timestamp in seconds when the resource was created. Also anchors the start of the first billing window.
+  - created_at (string) (required) — Unix timestamp in seconds when the resource was created. Also anchors the start of the first billing window. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - error.days (integer) (required) — Retention period in days for error data.
-  - expired_at (integer) — Unix timestamp in seconds when the on-premises license expires. Only present on on-premises deployments; omitted entirely for SaaS accounts.
+  - expired_at (string) — Unix timestamp in seconds when the on-premises license expires. Only present on on-premises deployments; omitted entirely for SaaS accounts. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - long_task.days (integer) (required) — Retention period in days for long-task data.
   - offering_id (integer) (required) — ID of the offering (SKU) this resource was provisioned from.
   - order_id (string) (required) — ID of the order that provisioned this resource. Empty for resources provisioned outside the order flow (e.g. on-premises).
@@ -45,11 +45,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - session_replay.free_cnt (integer) (required) — Free quota for session-replay sessions per application, per billing window.
   - session_replay.used_cnt (integer) (required) — Number of session-replay sessions used in the current billing window.
   - status (string) (required) — Status of the resource. A resource with status 'deleted' or 'destroyed' never reaches this field — the operation returns 'ResourceNotFound' for those instead. [enabled, disabled]
-  - updated_at (integer) (required) — Unix timestamp in seconds when the resource was last updated.
+  - updated_at (string) (required) — Unix timestamp in seconds when the resource was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - version (string) (required) — Plan version of this resource. [free, professional]
   - view.days (integer) (required) — Retention period in days for view (page/screen) data.
-  - window_end_time (integer) (required) — Unix timestamp in seconds for the end of the current 30-day billing window.
-  - window_start_time (integer) (required) — Unix timestamp in seconds for the start of the current 30-day billing window.
+  - window_end_time (string) (required) — Unix timestamp in seconds for the end of the current 30-day billing window. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - window_start_time (string) (required) — Unix timestamp in seconds for the start of the current 30-day billing window. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty rum resource-info --data '{"no_cache":false}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

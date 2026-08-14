@@ -79,12 +79,12 @@ Delete application
 ### application-info <application-id>
 Get application detail
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-infos <application-id> [<id2>...]
 Batch get applications
 - `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-list
 List applications
@@ -96,7 +96,7 @@ List applications
 - `--query` string — Substring match on the application name.
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (integer); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (integer); updated_by (integer)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-update <application-id>
 Update application
@@ -152,7 +152,7 @@ List error ingestion rule history
 - `--orderby` string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
 - `--page` int64 — Zero-based page number. Default 0. (min 0)
 - `--search-after-ctx` string
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: rules (array<object>); updated_at (integer); updated_by (integer); updated_by_name (string); version (integer)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: rules (array<object>); updated_at (string); updated_by (integer); updated_by_name (string); version (integer)
 
 ### error-ingestion-rules-history-revert <application-id>
 Revert error ingestion rules to a history version
@@ -162,7 +162,7 @@ Revert error ingestion rules to a history version
 ### error-ingestion-rules-list <application-id>
 List error ingestion rules
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array<object>>); rule_id (string); rule_name (string); status (string); updated_at (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); description (string); filters (array<array<object>>); rule_id (string); rule_name (string); status (string); updated_at (string)
 
 ### error-ingestion-rules-update
 Update an error ingestion rule
@@ -256,7 +256,7 @@ Revert preset severity rules to a history snapshot
 ### issue-preset-severity-rules-list <application-id>
 List preset severity rules
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); description (string); filters (array<array<object>>); priority (integer); rule_id (string); rule_name (string); severity (string); status (string); updated_at (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); description (string); filters (array<array<object>>); priority (integer); rule_id (string); rule_name (string); severity (string); status (string); updated_at (string)
 
 ### issue-preset-severity-rules-reorder
 Reorder preset severity rule
@@ -282,7 +282,7 @@ Update issue
 ### resource-info
 Get RUM resource info
 - `--no-cache` bool — Bypass the short-lived cache of the resource record (plan version, quotas, status) and read it from source. Does not refresh the usage counts. Default 'false'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action.days (integer); created_at (integer); error.days (integer); expired_at (integer); long_task.days (integer); offering_id (integer); order_id (string); product (string); resource.days (integer); resource_id (string); resource_name (string); session.days (integer); session_investigate.free_cnt (integer); session_investigate.used_cnt (integer); session_limit_reached (boolean); session_measure.free_cnt (integer); session_measure.used_cnt (integer); session_replay.free_cnt (integer); session_replay.used_cnt (integer); status (string); updated_at (integer); version (string); view.days (integer); window_end_time (integer); window_start_time (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action.days (integer); created_at (string); error.days (integer); expired_at (string); long_task.days (integer); offering_id (integer); order_id (string); product (string); resource.days (integer); resource_id (string); resource_name (string); session.days (integer); session_investigate.free_cnt (integer); session_investigate.used_cnt (integer); session_limit_reached (boolean); session_measure.free_cnt (integer); session_measure.used_cnt (integer); session_replay.free_cnt (integer); session_replay.used_cnt (integer); status (string); updated_at (string); version (string); view.days (integer); window_end_time (string); window_start_time (string)
 
 ### session-replay-metadata <session-id>
 Get session replay metadata

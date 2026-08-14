@@ -56,28 +56,28 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_name (string) — Name of the collaboration channel.
     - channel_status (string) — Status of the collaboration channel.
     - description (string) — Change description.
-    - end_time (integer) — Unix timestamp in seconds when the change ended.
+    - end_time (string) — Unix timestamp in seconds when the change ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - events (array<object>) — Underlying change events, returned only when include_events is true.
       - account_id (integer) — Account this change event belongs to.
       - change_key (string) — Stable key that groups events belonging to the same change.
       - change_status (string) — Lifecycle status of the change event. [Planned, Ready, Processing, Canceled, Done]
       - channel_id (integer) — Collaboration channel this change event is routed to.
-      - created_at (integer) — Unix timestamp in seconds when the change event was created.
-      - deleted_at (integer) — Unix timestamp in seconds when the change event was deleted.
+      - created_at (string) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - description (string) — Change event description.
       - event_id (string) — Change event ID, a MongoDB ObjectID hex string.
-      - event_time (integer) — Unix timestamp in seconds when the change event occurred.
+      - event_time (string) — Unix timestamp in seconds when the change event occurred. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - integration_id (integer) — Integration that reported this change event.
       - labels (object) — Key-value labels attached to the change event.
       - link (string) — External link to the source change record.
       - title (string) — Change event title.
-      - updated_at (integer) — Unix timestamp in seconds when the change event was last updated.
+      - updated_at (string) — Unix timestamp in seconds when the change event was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - integration_id (integer) — Integration that reported this change.
     - integration_name (string) — Name of the reporting integration.
     - labels (object) — Key-value labels attached to the change.
-    - last_time (integer) — Unix timestamp in seconds of the most recent change activity.
+    - last_time (string) — Unix timestamp in seconds of the most recent change activity. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - link (string) — External link to the source change record.
-    - start_time (integer) — Unix timestamp in seconds when the change started.
+    - start_time (string) — Unix timestamp in seconds when the change started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - title (string) — Change title.
   - total (integer) — Total number of matching changes.
 `,

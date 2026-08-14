@@ -22,7 +22,7 @@ API: GET /status-page/list (status-page-read-page-list)
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Status pages owned by the account.
     - components (array<object>) — Components tracked on the status page.
-      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
       - description (string) — Component description.
       - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -98,7 +98,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
       - description (string) — Component description.
       - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -109,19 +109,19 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
     - change_id (integer) (required) — Event ID.
-    - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+    - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) — Event description (Markdown).
     - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
     - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
     - notify_subscribers (boolean) — Whether subscribers were notified about this event.
     - page_id (integer) — Parent status page ID.
     - responder_ids (array<integer>) — Member IDs responsible for this event.
-    - start_at_seconds (integer) — Event start time in unix seconds.
+    - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
     - type (string) (required) — Event type. [incident, maintenance]
     - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-      - at_seconds (integer) (required) — Update timestamp in unix seconds.
+      - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_changes (array<object>) — Component status transitions applied by this update.
         - component_id (string) (required) — Component ID.
         - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
@@ -373,7 +373,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-    - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+    - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - component_id (string) — Component ID.
     - description (string) — Component description.
     - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -384,19 +384,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
   - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
   - change_id (integer) (required) — Event ID.
-  - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+  - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - description (string) — Event description (Markdown).
   - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
   - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
   - notify_subscribers (boolean) — Whether subscribers were notified about this event.
   - page_id (integer) — Parent status page ID.
   - responder_ids (array<integer>) — Member IDs responsible for this event.
-  - start_at_seconds (integer) — Event start time in unix seconds.
+  - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   - title (string) (required) — Event title.
   - type (string) (required) — Event type. [incident, maintenance]
   - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-    - at_seconds (integer) (required) — Update timestamp in unix seconds.
+    - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - component_changes (array<object>) — Component status transitions applied by this update.
       - component_id (string) (required) — Component ID.
       - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
@@ -463,7 +463,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required)
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
       - description (string) — Component description.
       - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -474,19 +474,19 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
     - change_id (integer) (required) — Event ID.
-    - close_at_seconds (integer) — Scheduled close time in unix seconds. Set for retrospective and maintenance events.
+    - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) — Event description (Markdown).
     - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
     - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
     - notify_subscribers (boolean) — Whether subscribers were notified about this event.
     - page_id (integer) — Parent status page ID.
     - responder_ids (array<integer>) — Member IDs responsible for this event.
-    - start_at_seconds (integer) — Event start time in unix seconds.
+    - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
     - type (string) (required) — Event type. [incident, maintenance]
     - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-      - at_seconds (integer) (required) — Update timestamp in unix seconds.
+      - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_changes (array<object>) — Component status transitions applied by this update.
         - component_id (string) (required) — Component ID.
         - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
@@ -1130,7 +1130,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - components (array<object>) — Components tracked on the status page.
-    - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+    - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - component_id (string) — Component ID.
     - description (string) — Component description.
     - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -1388,7 +1388,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owner account ID.
-  - created_at (integer) (required) — Job creation time, unix seconds.
+  - created_at (string) (required) — Job creation time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - error (string) — Terminal error message when 'status' is 'failed'.
   - job_id (string) (required) — Migration job ID.
   - phase (string) (required) — Current migration phase. [structure, history, subscribers]
@@ -1406,7 +1406,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - source_page_id (string) (required) — Atlassian Statuspage source page ID.
   - status (string) (required) — Current job status. [pending, running, completed, failed, cancelled]
   - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
-  - updated_at (integer) (required) — Last status update time, unix seconds.
+  - updated_at (string) (required) — Last status update time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args: requireBodyFieldOrExactArg("job_id", "job-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1700,7 +1700,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required)
     - all (boolean) (required) — Whether the subscriber is subscribed to all components.
     - components (array<object>) (required) — Components this subscriber has subscribed to.
-      - available_since_seconds (integer) — Timestamp when the component was first available, in unix seconds.
+      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
       - description (string) — Component description.
       - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.

@@ -30,7 +30,7 @@ Request fields:
   --type-ident string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_account_id (integer) (required) — Account ID of the creator.
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator.
@@ -39,7 +39,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
   - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-create --data '{"note":"CPU usage alerts","open_flag":1,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.8\"}]","type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -146,7 +146,7 @@ Request fields:
   --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_account_id (integer) (required) — Account ID of the creator.
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator.
@@ -155,7 +155,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
   - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-info --data '{"id":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -202,7 +202,7 @@ Request fields:
   --type-ident string (required) — Datasource type identifier to filter by, e.g. 'prometheus'.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_account_id (integer) (required) — Account ID of the creator.
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator.
@@ -211,7 +211,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
   - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-list --data '{"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -264,7 +264,7 @@ Request fields:
   --payload string (required) — New JSON string of alert rule definitions.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (integer) (required) — Creation timestamp, Unix epoch seconds.
+  - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - creator_account_id (integer) (required) — Account ID of the creator.
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator.
@@ -273,7 +273,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
   - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-update --data '{"id":1,"note":"Updated CPU alerts","open_flag":2,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.9\"}]"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

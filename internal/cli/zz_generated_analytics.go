@@ -98,7 +98,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer)
     - total_seconds_to_ack (integer)
     - total_seconds_to_close (integer)
-    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
+    - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight account --data '{"aggregate_unit":"day","end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -309,7 +309,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer)
     - total_seconds_to_ack (integer)
     - total_seconds_to_close (integer)
-    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
+    - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight channel --data '{"aggregate_unit":"day","channel_ids":[4321322010131],"end_time":1712604800,"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -511,7 +511,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_interruptions (integer)
     - total_notifications (integer)
     - total_seconds_to_ack (integer)
-    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
+    - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight responder --data '{"aggregate_unit":"day","end_time":1712604800,"responder_ids":[3790925372131],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -722,7 +722,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer)
     - total_seconds_to_ack (integer)
     - total_seconds_to_close (integer)
-    - ts (integer) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used.
+    - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight team --data '{"aggregate_unit":"day","end_time":1712604800,"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1249,7 +1249,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>)
     - acknowledgements (integer)
     - assigned_to (object) — Current assignment target for the incident.
-      - assigned_at (integer) — Unix timestamp (seconds) when this assignment was made.
+      - assigned_at (string) — Unix timestamp (seconds) when this assignment was made. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) driving the assignment.
       - escalate_rule_name (string) — Display name of the escalation rule.
       - id (string) — Internal assignment record ID.
@@ -1285,7 +1285,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - seconds_to_ack (integer)
     - seconds_to_close (integer)
     - severity (string) [Critical, Warning, Info, Ok]
-    - snoozed_before (integer) — Unix timestamp in seconds until which the incident is snoozed.
+    - snoozed_before (string) — Unix timestamp in seconds until which the incident is snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - team_id (integer)
     - team_name (string)
     - timeout_escalations (integer)

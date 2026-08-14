@@ -17,11 +17,11 @@ API: POST /oncall/license/list (oncall-license-read-license-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — People holding an active license.
-    - created_at (integer) (required) — Unix timestamp when a fixed license was assigned. '0' for temporary licenses.
+    - created_at (string) (required) — Unix timestamp when a fixed license was assigned. '0' for temporary licenses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - person_id (integer) (required) — ID of the licensed person.
     - person_name (string) (required) — Display name of the licensed person.
     - type (string) (required) — License assignment type. 'fixed' is explicitly assigned; 'temporary' is held from the active license window. [fixed, temporary]
-    - updated_at (integer) (required) — Unix timestamp when a fixed license was last changed. '0' for temporary licenses.
+    - updated_at (string) (required) — Unix timestamp when a fixed license was last changed. '0' for temporary licenses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Person ID that last changed a fixed license. '0' for temporary licenses.
   - total (integer) (required) — Number of people holding an active license.
 `,

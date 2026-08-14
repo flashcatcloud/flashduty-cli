@@ -27,7 +27,7 @@ func TestTreeExpandsNestedArrayOfObject(t *testing.T) {
 				"items": map[string]any{"$ref": "#/components/schemas/FilterCondition"},
 			},
 		},
-	}}, 0)
+	}}, 0, nil)
 
 	if len(fields) != 1 || fields[0].Wire != "filters" {
 		t.Fatalf("fields = %#v, want single 'filters' field", fields)
@@ -62,7 +62,7 @@ func TestTreeLeavesNestedArrayOfScalarWithoutChildren(t *testing.T) {
 			"type":  "array",
 			"items": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 		},
-	}}, 0)
+	}}, 0, nil)
 
 	if len(fields) != 1 || fields[0].Wire != "equals" {
 		t.Fatalf("fields = %#v, want single 'equals' field", fields)
@@ -106,7 +106,7 @@ func TestTreeExpandsPlainArrayOfObjectUnchanged(t *testing.T) {
 			"type":  "array",
 			"items": map[string]any{"type": "object", "properties": map[string]any{"target": map[string]any{"type": "string"}}},
 		},
-	}}, 0)
+	}}, 0, nil)
 
 	if len(fields) != 1 || len(fields[0].Children) != 1 || fields[0].Children[0].Wire != "target" {
 		t.Fatalf("layers field = %#v, want single child 'target'", fields[0])

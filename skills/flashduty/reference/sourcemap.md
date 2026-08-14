@@ -47,7 +47,7 @@ List sourcemaps
 - `--type` string — Platform type. Defaults to 'browser' when omitted. · enum: browser | android | ios
 - `--uuid` string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
 - `--versions` stringSlice — Filter by version strings. Up to 100 values.
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (integer); git_commit_sha (string); git_repository_url (string); key (string); metadata (object); service (string); size (integer); type (string); updated_at (integer); version (string)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); git_commit_sha (string); git_repository_url (string); key (string); metadata (object); service (string); size (integer); type (string); updated_at (string); version (string)
 
 ### stack-enrich
 Enrich a stack trace

@@ -31,25 +31,25 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - device (object)
     - type (string) — Device type recorded for the session, e.g. 'desktop', 'mobile', 'tablet'.
   - foreground_periods (array<object>) — Foreground periods across the session (mobile sessions only; empty for web).
-    - end (integer) — Unix timestamp in milliseconds when the foreground period ended.
-    - start (integer) — Unix timestamp in milliseconds when the foreground period started.
+    - end (string) — Unix timestamp in milliseconds when the foreground period ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start (string) — Unix timestamp in milliseconds when the foreground period started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - view_id (string) — View ID active during this foreground period.
   - session (object)
-    - end (integer) — Unix timestamp in milliseconds when the session ended (or was last updated, if still active).
+    - end (string) — Unix timestamp in milliseconds when the session ended (or was last updated, if still active). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - is_active (boolean) — Whether the session was still active as of the last recorded event.
     - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
     - source (string) — SDK platform that recorded the session. [browser, android, ios, miniprogram, react-native, flutter, kotlin-multiplatform, roku, unity]
-    - start (integer) — Unix timestamp in milliseconds when the session started.
+    - start (string) — Unix timestamp in milliseconds when the session started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - views (array<object>) — Every view recorded during the session, in chronological order.
     - container_source (string) — SDK platform of the container app, when this view is embedded (e.g. a WebView inside a native app).
     - container_view_id (string) — View ID of the containing view, when this view is embedded.
-    - end (integer) — Unix timestamp in milliseconds when the view ended.
+    - end (string) — Unix timestamp in milliseconds when the view ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - is_active (boolean) — Whether the view was still active as of the last recorded event.
     - loading_type (string) — How the view was entered, e.g. 'initial_load', 'route_change'.
     - name (string) — View name, typically the route or screen name.
     - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
     - source (string) — SDK platform that recorded the view. [browser, android, ios, miniprogram, react-native, flutter, kotlin-multiplatform, roku, unity]
-    - start (integer) — Unix timestamp in milliseconds when the view started.
+    - start (string) — Unix timestamp in milliseconds when the view started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - url (string) — URL (web) or screen identifier (mobile) associated with the view.
     - view_id (string) — Unique ID of the view within the session.
 `,

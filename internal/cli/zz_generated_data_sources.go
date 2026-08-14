@@ -139,7 +139,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - tls_server_name (string)
       - tls_skip_verify (boolean)
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit datasource-info --data '{"id":10}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -301,7 +301,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
       - tls_server_name (string)
       - tls_skip_verify (boolean)
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit datasource-list --data '{"type":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -704,7 +704,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - tls_server_name (string)
       - tls_skip_verify (boolean)
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit datasource-create --data '{"address":"http://prometheus.example.com:9090","edge_cluster_name":"default","name":"Prometheus Prod","note":"Production Prometheus","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1051,7 +1051,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - tls_server_name (string)
       - tls_skip_verify (boolean)
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
-  - updated_at (integer) (required) — Last update timestamp, Unix epoch seconds.
+  - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit datasource-update --data '{"address":"http://prometheus-v2.example.com:9090","edge_cluster_name":"default","id":10,"name":"Prometheus Prod v2","note":"Updated","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

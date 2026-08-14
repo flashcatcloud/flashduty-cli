@@ -102,7 +102,7 @@ List post-mortems
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Report status. Defaults to 'published' on the server when omitted. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (integer); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (string); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (string)
 
 ### post-mortem-status-reset <post-mortem-id>
 Update post-mortem status
@@ -116,7 +116,7 @@ Delete post-mortem template
 ### post-mortem-template-info <template-id>
 Get post-mortem template detail
 - `<template-id>` (positional, required) string — Template ID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (string); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (string)
 
 ### post-mortem-template-list
 List post-mortem templates
@@ -125,7 +125,7 @@ List post-mortem templates
 - `--order-by` string — Field used to order results. · enum: created_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (integer); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (integer)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (string); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (string)
 
 ### post-mortem-template-upsert
 Create or update post-mortem template

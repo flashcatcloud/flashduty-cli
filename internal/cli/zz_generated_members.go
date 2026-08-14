@@ -296,7 +296,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_role_ids (array<integer>) (required) — Role IDs
     - avatar (string) (required) — Avatar URL
     - country_code (string) (required) — Phone country code
-    - created_at (integer) (required) — Creation timestamp (Unix seconds)
+    - created_at (string) (required) — Creation timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - email (string) (required) — Email address
     - email_verified (boolean) (required) — Email verified
     - is_external (boolean) (required) — Provisioned via SSO
@@ -308,7 +308,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - ref_id (string) (required) — External reference ID
     - status (string) (required) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
     - time_zone (string) — Time zone
-    - updated_at (integer) (required) — Update timestamp (Unix seconds)
+    - updated_at (string) (required) — Update timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - limit (integer) — Page size
   - p (integer) — Current page
   - total (integer) — Total count

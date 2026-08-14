@@ -228,10 +228,10 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - create_at (integer) (required) — Creation timestamp (Unix seconds).
+  - create_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - create_by (integer) (required) — Creator person ID.
   - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
-    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
       - group_name (string) (required) — Group display name.
@@ -241,19 +241,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
     - index (integer) (required) — Index inside the rotation.
-    - start (integer) (required) — Shift start timestamp (Unix seconds).
-    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - description (any) (required) — Schedule description. null when returned from /schedule/preview.
   - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
-  - end (integer) — Window end (Unix seconds).
+  - end (string) — Window end (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - field (string) — Field name used by the legacy update-field endpoint.
   - final_schedule (object) (required) — Collapsed final schedule across all layers.
     - layer_name (string) (required) — Layer display name.
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -261,7 +261,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
   - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
   - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
@@ -269,7 +269,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -277,7 +277,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - layers (array<object>) (required) — Rotation layers defined on the schedule.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -318,7 +318,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - weight (integer) (required) — Layer weight for ordering.
   - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
   - next_oncall (object) (required) — Next on-call group, or null when unknown.
-    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
       - group_name (string) (required) — Group display name.
@@ -328,8 +328,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
     - index (integer) (required) — Index inside the rotation.
-    - start (integer) (required) — Shift start timestamp (Unix seconds).
-    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - notify (object) (required) — Notification configuration attached to a schedule.
     - advance_in_time (integer) — Advance notification lead time (seconds).
@@ -355,7 +355,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -363,12 +363,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
-  - start (integer) — Window start (Unix seconds).
+  - start (string) — Window start (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
   - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
-  - update_at (integer) (required) — Last update timestamp (Unix seconds).
+  - update_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - update_by (integer) (required) — Last updater person ID.
 `,
 		Args:    requireBodyFieldOrExactArg("schedule_id", "schedule-id"),
@@ -438,10 +438,10 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
     - account_id (integer) (required) — Account ID.
-    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - create_by (integer) (required) — Creator person ID.
     - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -449,22 +449,22 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - description (any) (required) — Schedule description. null when returned from /schedule/preview.
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
-    - end (integer) — Window end (Unix seconds).
+    - end (string) — Window end (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - field (string) — Field name used by the legacy update-field endpoint.
     - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
     - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
     - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
@@ -472,10 +472,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - layers (array<object>) (required) — Rotation layers defined on the schedule.
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -514,7 +514,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
     - next_oncall (object) (required) — Next on-call group, or null when unknown.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -522,8 +522,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
       - advance_in_time (integer) — Advance notification lead time (seconds).
@@ -543,15 +543,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
-    - start (integer) — Window start (Unix seconds).
+    - start (string) — Window start (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
     - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
-    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - update_by (integer) (required) — Last updater person ID.
 `,
 		Args:    requireBodyFieldOrArgs("schedule_ids", "schedule-ids"),
@@ -621,10 +621,10 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules on this page.
     - account_id (integer) (required) — Account ID.
-    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - create_by (integer) (required) — Creator person ID.
     - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -632,22 +632,22 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - description (any) (required) — Schedule description. null when returned from /schedule/preview.
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
-    - end (integer) — Window end (Unix seconds).
+    - end (string) — Window end (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - field (string) — Field name used by the legacy update-field endpoint.
     - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
     - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
     - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
@@ -655,10 +655,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - layers (array<object>) (required) — Rotation layers defined on the schedule.
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -697,7 +697,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
     - next_oncall (object) (required) — Next on-call group, or null when unknown.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -705,8 +705,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
       - advance_in_time (integer) — Advance notification lead time (seconds).
@@ -726,15 +726,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
-    - start (integer) — Window start (Unix seconds).
+    - start (string) — Window start (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
     - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
-    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - update_by (integer) (required) — Last updater person ID.
   - total (integer) (required) — Total number of schedules matching the filters.
 `,
@@ -892,10 +892,10 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - create_at (integer) (required) — Creation timestamp (Unix seconds).
+  - create_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - create_by (integer) (required) — Creator person ID.
   - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
-    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
       - group_name (string) (required) — Group display name.
@@ -905,19 +905,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
     - index (integer) (required) — Index inside the rotation.
-    - start (integer) (required) — Shift start timestamp (Unix seconds).
-    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - description (any) (required) — Schedule description. null when returned from /schedule/preview.
   - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
-  - end (integer) — Window end (Unix seconds).
+  - end (string) — Window end (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - field (string) — Field name used by the legacy update-field endpoint.
   - final_schedule (object) (required) — Collapsed final schedule across all layers.
     - layer_name (string) (required) — Layer display name.
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -925,7 +925,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
   - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
   - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
@@ -933,7 +933,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -941,7 +941,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - layers (array<object>) (required) — Rotation layers defined on the schedule.
     - account_id (integer) (required) — Account ID.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -982,7 +982,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - weight (integer) (required) — Layer weight for ordering.
   - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
   - next_oncall (object) (required) — Next on-call group, or null when unknown.
-    - end (integer) (required) — Shift end timestamp (Unix seconds).
+    - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group (object) (required) — Oncall group definition within a rotation layer.
       - end (integer) (required) — Group end timestamp (Unix seconds).
       - group_name (string) (required) — Group display name.
@@ -992,8 +992,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
     - index (integer) (required) — Index inside the rotation.
-    - start (integer) (required) — Shift start timestamp (Unix seconds).
-    - update_at (integer) (required) — Update timestamp (Unix seconds).
+    - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - notify (object) (required) — Notification configuration attached to a schedule.
     - advance_in_time (integer) — Advance notification lead time (seconds).
@@ -1019,7 +1019,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
     - name (string) (required) — Layer internal name.
     - schedules (array<object>) (required) — Computed shifts.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -1027,12 +1027,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
-  - start (integer) — Window start (Unix seconds).
+  - start (string) — Window start (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
   - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
-  - update_at (integer) (required) — Last update timestamp (Unix seconds).
+  - update_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule preview --data '{"end":1712086400,"layers":[{"day_mask":{"repeat":[1,2,3,4,5]},"enable_time":1712000000,"expire_time":0,"fair_rotation":false,"groups":[{"end":0,"group_name":"A","members":[{"person_ids":[2451002751131],"role_id":0}],"name":"A","start":0}],"handoff_time":0,"hidden":0,"layer_name":"Layer 1","mask_continuous_enabled":false,"mode":0,"name":"Layer 1","restrict_end":0,"restrict_mode":0,"restrict_periods":[],"restrict_start":0,"rotation_duration":86400,"rotation_unit":"day","rotation_value":1,"weight":0}],"schedule_name":"Preview Schedule","start":1712000000}'`,
@@ -1116,10 +1116,10 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules assigned to the current user (or matching the requested IDs).
     - account_id (integer) (required) — Account ID.
-    - create_at (integer) (required) — Creation timestamp (Unix seconds).
+    - create_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - create_by (integer) (required) — Creator person ID.
     - cur_oncall (object) (required) — Current on-call group, or null when nobody is on-call.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -1127,22 +1127,22 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - description (any) (required) — Schedule description. null when returned from /schedule/preview.
     - disabled (any) (required) — Disabled flag (0 = enabled, 1 = disabled). Deprecated. null when returned from /schedule/preview.
-    - end (integer) — Window end (Unix seconds).
+    - end (string) — Window end (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - field (string) — Field name used by the legacy update-field endpoint.
     - final_schedule (object) (required) — Collapsed final schedule across all layers.
       - layer_name (string) (required) — Layer display name.
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - group_id (any) (required) — Legacy team/group ID. null when returned from /schedule/preview.
     - id (any) (required) — Schedule ID. null when returned from /schedule/preview.
     - layer_schedules (array<object>) (required) — Alias of schedule_layers returned for compatibility.
@@ -1150,10 +1150,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - layers (array<object>) (required) — Rotation layers defined on the schedule.
       - account_id (integer) (required) — Account ID.
       - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -1192,7 +1192,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - weight (integer) (required) — Layer weight for ordering.
     - name (any) (required) — Schedule name (legacy field; mirrors schedule_name). null when returned from /schedule/preview.
     - next_oncall (object) (required) — Next on-call group, or null when unknown.
-      - end (integer) (required) — Shift end timestamp (Unix seconds).
+      - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - group (object) (required) — Oncall group definition within a rotation layer.
         - end (integer) (required) — Group end timestamp (Unix seconds).
         - group_name (string) (required) — Group display name.
@@ -1200,8 +1200,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
       - index (integer) (required) — Index inside the rotation.
-      - start (integer) (required) — Shift start timestamp (Unix seconds).
-      - update_at (integer) (required) — Update timestamp (Unix seconds).
+      - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
       - advance_in_time (integer) — Advance notification lead time (seconds).
@@ -1221,15 +1221,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - mode (integer) (required) — Layer mode: 0 = common rotation, 1 = override.
       - name (string) (required) — Layer internal name.
       - schedules (array<object>) (required) — Computed shifts.
-        - end (integer) (required) — Shift end timestamp (Unix seconds).
+        - end (string) (required) — Shift end timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
         - group (object) (required) — Oncall group definition within a rotation layer.
         - index (integer) (required) — Index inside the rotation.
-        - start (integer) (required) — Shift start timestamp (Unix seconds).
+        - start (string) (required) — Shift start timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - schedule_name (any) (required) — Schedule display name. null when returned from /schedule/preview.
-    - start (integer) — Window start (Unix seconds).
+    - start (string) — Window start (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (any) (required) — Legacy status flag. Deprecated. null when returned from /schedule/preview.
     - team_id (any) (required) — Owning team ID. null when returned from /schedule/preview.
-    - update_at (integer) (required) — Last update timestamp (Unix seconds).
+    - update_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - update_by (integer) (required) — Last updater person ID.
 `,
 		Example: `  flashduty schedule self --data '{"end":1712086400,"start":1712000000}'`,
