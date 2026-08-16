@@ -12,7 +12,6 @@ Prereq: `SKILL.md` read. Datasource-side RCA: query a monitoring datasource dire
 |---|---|
 | pre-clustered RCA evidence (log patterns / metric trends) | `diagnose --operation log_patterns\|metric_trends` |
 | run a query and get natural structured results (frames / records / samples) | `data --expr "<query>"` |
-| legacy flattened rows (migration only) | `rows --expr "<query>"` |
 
 ## Hot flow — diagnose a noisy datasource
 
@@ -50,27 +49,18 @@ Pre-clustered RCA findings (log_patterns or metric_trends)
 - `--timeout-seconds` int
 - response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
 
-### rows
-Raw datasource passthrough (returns values/rows as the datasource itself would). Deprecated — prefer 'monit-query data'
-- `--args` stringSlice
-- `--ds-name` string
-- `--ds-type` string
-- `--expr` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: fields (object); values (object)
-
 <!-- GENERATED:monit-query END -->
 
 ## Key concepts
 
-- **`data` = structured query.** Stable `query_result.v1` response: dispatch on `result.kind` — `frames` (typed tables / time series), `records` (schema-flexible rows, big ints as decimal strings), `samples` (instant samples with labels; non-finite floats as `"NaN"` / `"+Inf"` / `"-Inf"`). Prefer this over `rows`.
-- **`rows` = legacy raw passthrough (deprecated).** Numeric fields under `values` (metric canonical key `__value__`); labels/columns under `fields`. Only for callers that still need the flattened shape during migration. **Time belongs in the query expression**, not in flags.
+- **`data` = structured query.** Stable `query_result.v1` response: dispatch on `result.kind` — `frames` (typed tables / time series), `records` (schema-flexible rows, big ints as decimal strings), `samples` (instant samples with labels; non-finite floats as `"NaN"` / `"+Inf"` / `"-Inf"`).
 - **`diagnose` = pre-clustered evidence.** Its versioned response echoes the datasource, query, and RFC 3339 analysis window. Each result contains method-specific `pattern_evidence` (logs) or `series_evidence` (metrics), structured window statistics, and observations; log results also declare redaction and untrusted observed-data paths in `data_handling`. Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
 
 ## Gotchas
 
 - **Discover the datasource name first** (`monit datasource-list`). A wrong/guessed name 400s `can not find datasource` — re-list, don't retry variants.
 - **A 5xx or HTML-body error is TRANSIENT** — retry the same call ≤3×. Do NOT fall back to SSH, `monit-agent`, or incident search on a transient datasource error.
-- **`data` and `rows` have no time flags** — putting `--time-start` on them is wrong; embed the range in `--expr` (on `data`, `--delay-seconds` shifts the point-in-time lookback).
+- **`data` has no time flags** — putting `--time-start` on it is wrong; embed the range in `--expr` (or use `--delay-seconds` for the point-in-time lookback).
 - Empty results = the query genuinely matched nothing in that window — report it, don't widen blindly.
 - **`diagnose` rejects windows wider than 6 hours outright.** `--time-start`/`--time-end` span is capped at 6h server-side; the default window is the last 15 minutes (`--time-start 15m`, `--time-end now`). Widen within the cap, don't retry past it.
 - **`--ds-type` on `diagnose` only accepts `prometheus`, `victorialogs`, `loki`, `mysql`.** `monit datasource-list` can return other types (e.g. `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`) — those are not supported here.

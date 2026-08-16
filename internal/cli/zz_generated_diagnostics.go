@@ -270,8 +270,9 @@ func genDiagnosticsQueryRowsCmd() *cobra.Command {
 	var fDsType string
 	var fExpr string
 	cmd := &cobra.Command{
-		Use:   "query-rows",
-		Short: "Query data source rows",
+		Use:        "query-rows",
+		Short:      "Query data source rows",
+		Deprecated: "use 'monit-query data' instead",
 		Long: `Query data source rows.
 
 Deprecated. Run a synchronous ad-hoc query and return the historical flattened rows shape. Existing consumers should migrate to '/monit/query/data', which preserves frames, records, and samples without forcing every result into legacy rows.

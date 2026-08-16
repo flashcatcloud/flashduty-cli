@@ -52,7 +52,12 @@ func walk(c *cobra.Command, parents []string, d *Dump) {
 	// command gains both real behavior of its own AND subcommands — this
 	// predicate must change to emit a card for that command's own behavior
 	// while still not treating its children as absent.
-	if !c.HasSubCommands() && c.Runnable() && !c.Hidden {
+	//
+	// Deprecated commands are excluded: cards guide NEW usage, and a
+	// deprecated verb's replacement is what the card prose should teach.
+	// The command stays in the CLI tree (with its runtime deprecation
+	// warning) for the migration period — it just earns no card entry.
+	if !c.HasSubCommands() && c.Runnable() && !c.Hidden && c.Deprecated == "" {
 		d.Commands = append(d.Commands, command(c, path))
 	}
 
