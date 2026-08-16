@@ -28,7 +28,7 @@ Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on monitors �
 | export / import rules (backup/migrate) | `rule-export` / `rule-import` |
 | what datasource types support rules | `rule-dstypes` |
 | per-channel / per-node / total counters | `rule-counter-channel` / `rule-counter-node` / `rule-counter-total` |
-| run ad-hoc PromQL / SQL / LogQL | `query-rows` |
+| run ad-hoc PromQL / SQL / LogQL | `monit-query data` (curated; see the monit-query card) |
 | log-pattern / metric-trend RCA evidence | `query-diagnose` |
 | list monitored hosts/targets | `targets` |
 | what tools a target exposes | `tools-catalog` |
@@ -43,7 +43,8 @@ fduty monit datasource-list --output-format toon
 fduty monit datasource-list --type prometheus --output-format toon
 
 # 2a. point-in-time query (PromQL/SQL/LogQL); ALL time range goes INSIDE --expr
-fduty monit query-rows --ds-type prometheus --ds-name <ds-name> \
+#     (the curated 'monit-query data' — see the monit-query card)
+fduty monit-query data --ds-type prometheus --ds-name <ds-name> \
   --expr 'rate(http_requests_total{job="api"}[5m])' --output-format toon
 
 # 2b. log pattern RCA over last 15 min (time_range via --data; omit = last 15 min default)
@@ -165,16 +166,6 @@ Diagnose data source
 - `--operation` string — Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. · enum: log_patterns | metric_trends
 - body-only (`--data`): input (object) (required); methods (array<object>); options (object); time_range (object)
 - response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
-
-### query-rows
-Query data source rows
-- `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.
-- `--delay-seconds` int64 — Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.
-- `--ds-name` string (required) — Data source name; must match a configured data source under the tenant.
-- `--ds-type` string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
-- `--expr` string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
-- body-only (`--data`): args (object)
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: fields (object); values (object)
 
 ### rule-audit-detail
 Get rule audit snapshot
@@ -439,7 +430,7 @@ Invoke target tools
 
 - **Datasource name is not guessable.** A `can not find datasource` 400 means the name is wrong — re-run `datasource-list` and copy the exact `Name`. Never invent variants.
 - **`datasource-info` (and the `datasource-create`/`datasource-update` responses) return credentials exactly as configured — nothing is masked.** The `payload` object includes whatever passwords, API keys, tokens, and similar fields were set, in the clear. Treat the response as sensitive: don't dump it into logs or chat, don't echo it back beyond what the task needs, and don't pass it on to another tool.
-- **`query-rows` has no time flags.** There is no `--time-start` / `--time-end` / `--operation`. Embed all time range and bucketing inside `--expr`. Passing those flags is a silent no-op or error.
+- **`monit-query data` has no time flags.** There is no `--time-start` / `--time-end` / `--operation`. Embed all time range and bucketing inside `--expr`. Passing those flags is a silent no-op or error.
 - **`query-diagnose` time window via `--data`**, not flags. Pass `{"time_range":{"start":<unix>,"end":<unix>},...}`. Window wider than 6 hours is rejected server-side. Omitting `time_range` defaults to the last 15 minutes.
 - **`rule_configs` and nested arrays require `--data`.** The queries, thresholds, enabled_times, and labels objects cannot be expressed as flat flags — pass them as inline JSON via `--data '{"rule_configs":{...}}'`. Typed scalar flags (`--name`, `--enabled`, `--cron-pattern`, `--ds-type`) override matching `--data` keys.
 - **`folder-id 0` is not a universal "all rules" sentinel.** If the API says "Folder not found", believe it. For global inventory use `rule-counter-status` / `rule-counter-node` first, then run `rule-list-basic` against real folder IDs only.

@@ -150,6 +150,9 @@ type specOp struct {
 	// envelope. RespTree then holds the ROW (array-element) fields, and help must
 	// document the output as a TOP-LEVEL array (`jq '.[]'`), not `under data`.
 	RespArray bool
+	// Deprecated is the cobra deprecation message when the spec marks the
+	// operation `deprecated: true`; empty means the operation is current.
+	Deprecated string
 }
 
 // schemaField is one node in a (possibly nested) request/response schema tree.
@@ -244,18 +247,27 @@ func collectServices(paths, schemas map[string]any, sdk map[string]map[string]me
 				respType = mi.RespType
 			}
 			respTree, respArray := walker.responseTree(e.op, respType)
+			opDeprecated := ""
+			if ok, _ := e.op["deprecated"].(bool); ok {
+				if msg := opDeprecationMessages[opID]; msg != "" {
+					opDeprecated = msg
+				} else {
+					opDeprecated = "this API operation is deprecated"
+				}
+			}
 			svc.Ops = append(svc.Ops, specOp{
-				OpID:      opID,
-				Method:    method,
-				HTTP:      e.http,
-				Path:      e.path,
-				Summary:   str(e.op, "summary"),
-				Desc:      str(e.op, "description"),
-				Example:   walker.example(e.op),
-				Fields:    walker.fields(e.op),
-				ReqTree:   walker.requestTree(e.op),
-				RespTree:  respTree,
-				RespArray: respArray,
+				OpID:       opID,
+				Method:     method,
+				HTTP:       e.http,
+				Path:       e.path,
+				Summary:    str(e.op, "summary"),
+				Desc:       str(e.op, "description"),
+				Example:    walker.example(e.op),
+				Fields:     walker.fields(e.op),
+				ReqTree:    walker.requestTree(e.op),
+				RespTree:   respTree,
+				RespArray:  respArray,
+				Deprecated: opDeprecated,
 			})
 		}
 		if len(svc.Ops) > 0 {
@@ -972,6 +984,13 @@ var opAliases = map[string][]string{
 	"channelInfo": {"get", "detail"},
 }
 
+// opDeprecationMessages maps a spec-deprecated operationId to its cobra
+// deprecation message. Ops without an entry get a generic message when the
+// spec marks them deprecated.
+var opDeprecationMessages = map[string]string{
+	"monit-read-query-rows": "use 'monit-query data' instead",
+}
+
 // positional describes the positional argument a generated command exposes.
 type positional struct {
 	Wire     string // request-body wire key the positional folds into
@@ -1181,6 +1200,9 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	fmt.Fprintf(&b, "\tcmd := &cobra.Command{\n")
 	fmt.Fprintf(&b, "\t\tUse:   %q,\n", use)
 	fmt.Fprintf(&b, "\t\tShort: %q,\n", oneLine(o.Summary))
+	if o.Deprecated != "" {
+		fmt.Fprintf(&b, "\t\tDeprecated: %q,\n", o.Deprecated)
+	}
 	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
 	if aliases := opAliases[o.OpID]; len(aliases) > 0 {
 		quoted := make([]string, len(aliases))
