@@ -55,7 +55,7 @@ fduty member list --query "alice" --output-format toon
 
 ### delete
 Delete member
-- `--country-code` string — Phone country code, used with phone
+- `--country-code` string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
 - `--email` string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
 - `--is-force` bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
 - `--member-id` int64 — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
@@ -69,7 +69,7 @@ Get current member info
 
 ### info-reset
 Reset member info
-- `--country-code` string — Country or region code used to parse phone.
+- `--country-code` string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
 - `--email` string — Email address used to identify the member.
 - `--from` string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
 - `--member-id` int64 — Member ID used to identify the member.

@@ -65,7 +65,7 @@ Create a template
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
-- `--feishu-app-card-table-enabled` bool — Render alert labels as a table in Feishu app cards.
+- `--feishu-app-card-v2-table-enabled` bool — Render alert labels as a table in Feishu app cards.
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
@@ -91,7 +91,7 @@ List available template functions
 ### get-preset
 Get the preset template for a channel
 - `--channel` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
 
 ### info <template-id>
 Get template detail
@@ -109,7 +109,7 @@ List templates
 - `--query` string — Regex or substring match on template_name.
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter by specific team IDs.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
 
 ### preview
 Preview template
@@ -127,7 +127,7 @@ Update a template
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
-- `--feishu-app-card-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
+- `--feishu-app-card-v2-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--sms` string — SMS template source (Go 'text/template' syntax).

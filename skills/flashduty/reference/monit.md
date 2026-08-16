@@ -147,6 +147,16 @@ Preview datasource query
 - `--expr` string (required) — Query expression. Format depends on 'ds_type' (PromQL for Prometheus, LogQL for Loki, etc.).
 - body-only (`--data`): args (object)
 
+### query-data
+Query structured data
+- `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.
+- `--delay-seconds` int64 — Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.
+- `--ds-name` string (required) — Data source name; must match a configured data source under the tenant.
+- `--ds-type` string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
+- `--expr` string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
+- body-only (`--data`): args (object)
+- response: single object (`data` unwrapped to the top level) — fields: format (string); result (object)
+
 ### query-diagnose
 Diagnose data source
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.

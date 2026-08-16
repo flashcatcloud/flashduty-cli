@@ -182,6 +182,7 @@ var generatedOpIDs = []string{
 	"monit-datasource-write-delete",
 	"monit-datasource-write-update",
 	"monit-preview-sync",
+	"monit-read-query-data",
 	"monit-read-query-diagnose",
 	"monit-read-query-rows",
 	"monit-read-targets-list",
