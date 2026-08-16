@@ -27,7 +27,7 @@ Remove a member from the organization by ID, email, phone, or name.
 API: POST /member/delete (memberDelete)
 
 Request fields:
-  --country-code string — Phone country code, used with phone
+  --country-code string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
   --email string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
   --is-force bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
   --member-id int — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
@@ -81,7 +81,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Phone country code, used with phone")
+	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Region hint for parsing 'phone' when it has no \"+\" prefix — an ISO 3166-1 alpha-2 code such as \"CN\" (the default when omitted). Legacy digit calling codes like \"86\" are still accepted in this parsing context.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email address. Only used when neither 'member_id' nor 'member_name' is provided")
 	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'")
@@ -170,7 +170,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_role_ids (array<integer>) — Assigned role IDs
   - account_time_zone (string) — Account-level time zone (e.g. Asia/Shanghai)
   - avatar (string) — Member avatar URL
-  - country_code (string) — Phone country code
+  - country_code (string) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
   - domain (string) — Account domain
   - email (string) — Email address
   - email_verified (boolean) — Whether email is verified
@@ -220,7 +220,7 @@ API: POST /member/invite (memberInvite)
 Request fields:
   --from string — Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow
   members (array<object>, via --data) (required) — Members to invite (max 20)
-    - country_code (string) — Country code
+    - country_code (string) — ISO 3166-1 alpha-2 region code for 'phone' (e.g. "CN"). Validated and normalized to upper case before storage; invalid values are rejected with a 400. Also the parsing hint when 'phone' has no "+" prefix (defaults to "CN").
     - email (string) — Email address
     - locale (string) — Locale [zh-CN, en-US]
     - member_name (string) — Display name (2-39 chars)
@@ -234,7 +234,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - member_id (integer) — Member ID
     - member_name (string) — Member display name
 `,
-		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"time_zone":"Asia/Shanghai"}]}'`,
+		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"time_zone":"Asia/Shanghai"},{"country_code":"CN","locale":"zh-CN","member_name":"Dave","phone":"13800138000","time_zone":"Asia/Shanghai"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -295,7 +295,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID
     - account_role_ids (array<integer>) (required) — Role IDs
     - avatar (string) (required) — Avatar URL
-    - country_code (string) (required) — Phone country code
+    - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
     - created_at (string) (required) — Creation timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - email (string) (required) — Email address
     - email_verified (boolean) (required) — Email verified
@@ -385,7 +385,7 @@ Identify a member and reset the specified profile fields.
 API: POST /member/info/reset (memberResetInfo)
 
 Request fields:
-  --country-code string — Country or region code used to parse phone.
+  --country-code string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
   --email string — Email address used to identify the member.
   --from string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
   --member-id int — Member ID used to identify the member.
@@ -394,7 +394,7 @@ Request fields:
   --ref-id string — External reference ID used to identify the member.
   updates (object, via --data) (required) — New profile values to write. Must include at least one field.
     - avatar (string) — New avatar URL. (≤499 chars)
-    - country_code (string) — Country or region code for the new phone number.
+    - country_code (string) — ISO 3166-1 alpha-2 region code (e.g. "CN", "US"). Updated independently — 'phone' is not required — and also used as the parsing hint for 'phone'. Invalid values are rejected with a 400; an explicit empty string is not allowed.
     - email (string) — New email address.
     - locale (string) — New locale preference. [zh-CN, en-US]
     - member_name (string) — New display name. (2-39 chars)
@@ -449,7 +449,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Country or region code used to parse phone.")
+	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Region hint for parsing 'phone' when it has no \"+\" prefix — an ISO 3166-1 alpha-2 code such as \"CN\" (the default when omitted). Legacy digit calling codes like \"86\" are still accepted in this parsing context.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email address used to identify the member.")
 	cmd.Flags().StringVar(&fFrom, "from", "", "Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID used to identify the member.")
@@ -596,6 +596,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID
     - as (string) — Login role (account/member)
     - avatar (string) — Avatar URL
+    - country_code (string) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
     - email (string) — Email address
     - email_verified (boolean) (required) — Email verified
     - locale (string) — Locale

@@ -822,9 +822,15 @@ personal channels, or a template.`,
 			var notify flashduty.AddIncidentResponderRequestNotify
 			if followPreference || notifyChannel != "" || templateID != "" {
 				notify = flashduty.AddIncidentResponderRequestNotify{
-					FollowPreference: followPreference,
 					PersonalChannels: parseStringSlice(notifyChannel),
 					TemplateID:       templateID,
+				}
+				// Explicit wire value whenever the intent is "use these channels"
+				// (channels given without the flag) or the flag was set explicitly.
+				// Template-only keeps the server default (nil = personal
+				// preference), so a template alone never suppresses delivery.
+				if cmd.Flags().Changed("follow-preference") || notifyChannel != "" {
+					notify.FollowPreference = &followPreference
 				}
 			}
 

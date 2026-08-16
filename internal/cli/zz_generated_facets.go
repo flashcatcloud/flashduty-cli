@@ -108,7 +108,7 @@ Return RUM field definitions, optionally filtered by scope and facet status.
 API: POST /rum/field/list (rum-read-field-list)
 
 Request fields:
-  --is-facet bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
+  --is-facet bool — When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.
   --scopes []string — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -156,7 +156,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fIsFacet, "is-facet", false, "When true, return only facet-enabled fields. When false or omitted, return all fields.")
+	cmd.Flags().BoolVar(&fIsFacet, "is-facet", false, "When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.")
 	cmd.Flags().StringSliceVar(&fScopes, "scopes", nil, "Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

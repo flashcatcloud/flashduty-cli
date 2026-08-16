@@ -73,7 +73,7 @@ Request fields:
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
   notify (object, via --data) — Rotation notification configuration.
-    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -332,7 +332,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - notify (object) (required) — Notification configuration attached to a schedule.
-    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -526,7 +526,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
-      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
       - by (object) (required) — Per-recipient notification preference.
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -709,7 +709,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
-      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
       - by (object) (required) — Per-recipient notification preference.
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -872,7 +872,7 @@ Request fields:
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
   notify (object, via --data) — Rotation notification configuration.
-    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -996,7 +996,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - weight (integer) (required) — Layer weight the shift comes from.
   - notify (object) (required) — Notification configuration attached to a schedule.
-    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -1204,7 +1204,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - update_at (string) (required) — Update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - weight (integer) (required) — Layer weight the shift comes from.
     - notify (object) (required) — Notification configuration attached to a schedule.
-      - advance_in_time (integer) — Advance notification lead time (seconds).
+      - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
       - by (object) (required) — Per-recipient notification preference.
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
@@ -1338,7 +1338,7 @@ Request fields:
     - update_by (integer) (required) — Last updater person ID.
     - weight (integer) (required) — Layer weight for ordering.
   notify (object, via --data) — Rotation notification configuration.
-    - advance_in_time (integer) — Advance notification lead time (seconds).
+    - advance_in_time (any) — Advance notification lead time in seconds. '0' notifies exactly at shift start; omitting disables advance notification.
     - by (object) (required) — Per-recipient notification preference.
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.

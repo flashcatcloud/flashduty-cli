@@ -27,7 +27,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) — Account ID.
   - alerting (object) — Alert settings for the application.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (boolean) — Whether alerting is enabled.
+    - enabled (any) — Whether alerting is enabled.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
   - application_id (string) — Unique application ID.
   - application_name (string) — Application display name.
@@ -103,7 +103,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account ID.
     - alerting (object) — Alert settings for the application.
       - channel_ids (array<integer>) — Channel IDs to send alerts to.
-      - enabled (boolean) — Whether alerting is enabled.
+      - enabled (any) — Whether alerting is enabled.
       - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
@@ -194,7 +194,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account ID.
     - alerting (object) — Alert settings for the application.
       - channel_ids (array<integer>) — Channel IDs to send alerts to.
-      - enabled (boolean) — Whether alerting is enabled.
+      - enabled (any) — Whether alerting is enabled.
       - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
@@ -360,7 +360,7 @@ Request fields:
   --type string (required) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration; defaults to disabled ('enabled: false') when omitted.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (boolean) — Whether alerting is enabled.
+    - enabled (any) — Whether alerting is enabled.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
   links (object, via --data) — Optional external-link integration configuration.
     - enabled (boolean) — Whether external link integration is enabled.
@@ -501,14 +501,14 @@ API: POST /rum/application/update (rum-application-write-update)
 Request fields:
   --application-id string (required) — Application ID to update. Get application IDs via 'POST /rum/application/list'.
   --application-name string — New application name, 1–40 characters. Omit to leave unchanged.
-  --is-private bool — Restrict access to members of the owning team. Omit to leave unchanged.
-  --no-geo bool — When 'true', stop inferring geographic location from IP. Omit to leave unchanged.
-  --no-ip bool — When 'true', stop collecting user IP addresses. Omit to leave unchanged.
+  --is-private bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
+  --no-geo bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
+  --no-ip bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
   --team-id int — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
   --type string — Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration. Omit to leave unchanged.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (boolean) — Whether alerting is enabled.
+    - enabled (any) — Whether alerting is enabled.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
   links (object, via --data) — External-link integration configuration. Omit to leave unchanged.
     - enabled (boolean) — Whether external link integration is enabled.
@@ -570,9 +570,9 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "Application ID to update. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name, 1–40 characters. Omit to leave unchanged.")
-	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to members of the owning team. Omit to leave unchanged.")
-	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP. Omit to leave unchanged.")
-	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
