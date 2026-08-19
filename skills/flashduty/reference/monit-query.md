@@ -65,10 +65,20 @@ Pre-clustered RCA findings (log_patterns or metric_trends)
 - **`diagnose` rejects windows wider than 6 hours outright.** `--time-start`/`--time-end` span is capped at 6h server-side; the default window is the last 15 minutes (`--time-start 15m`, `--time-end now`). Widen within the cap, don't retry past it.
 - **`--ds-type` on `diagnose` only accepts `prometheus`, `victorialogs`, `loki`, `mysql`.** `monit datasource-list` can return other types (e.g. `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`) — those are not supported here.
 - **Tunables and their caps**: `--max-logs` (default 10000, cap 50000), `--max-patterns` (default 20, cap 50), `--timeout-seconds` (default 25, cap 30).
+- **LogsQL (`victorialogs`) puts `by (...)` BEFORE the aggregate.** Write `| stats by (level) count() n`. The SQL/PromQL/Loki habit of trailing `by` — `| stats count(*) by (level)`, `| stats count() by level`, `| stats count(*) as n by level` — is a **parse** error, not a semantic one: `cannot parse 'stats' pipe: unexpected token ... after [count(*)]`. Same shape for several keys (`| stats by (level, file) count() n`) and for a global aggregate (`| stats count() n`, no `by` at all). Downstream pipes are ordinary: `| sort (n desc) | limit 10`, `| filter n:>100`.
+- **LogsQL `_time:` takes a duration or a bracketed range — never a slash range.** `_time:5m`, `_time:1h` and `_time:[2026-01-31T02:00:00Z, 2026-01-31T03:00:00Z]` parse. `_time:2026-01-31T02:00:00Z/2026-01-31T03:00:00Z`, `_time:1/31T02:00:00Z/…` and `_time:02:00Z-03:00Z` all fail with `cannot parse duration at _time filter` — timestamps must be full RFC 3339, and abbreviated dates never parse.
 
 ## Worked example — log-pattern evidence in the last hour
 
 ```bash
 fduty monit-query diagnose --ds-name prod-loki --ds-type loki \
   --operation log_patterns --input-query '{app="payment"} |= "error"' --time-start -1h --time-end now --output-format toon
+```
+
+## Worked example — LogsQL top error sources in the last hour
+
+```bash
+fduty monit-query data --ds-name prod-vlogs --ds-type victorialogs \
+  --expr '_time:1h _stream:{module="payment"} level:ERROR | stats by (file) count() n | sort (n desc) | limit 10' \
+  --output-format toon
 ```
