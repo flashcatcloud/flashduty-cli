@@ -97,9 +97,11 @@ func newAlertEventListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					if err != nil {
 						return err
 					}
+					noteProjectionShortening(cmd.ErrOrStderr(), note)
 					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
 				}
 

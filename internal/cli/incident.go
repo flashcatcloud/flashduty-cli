@@ -127,9 +127,11 @@ func newIncidentListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					if err != nil {
 						return err
 					}
+					noteProjectionShortening(cmd.ErrOrStderr(), note)
 					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
 				}
 
@@ -614,9 +616,11 @@ func newIncidentSimilarCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					if err != nil {
 						return err
 					}
+					noteProjectionShortening(cmd.ErrOrStderr(), note)
 					return ctx.Printer.Print(proj, nil)
 				}
 
@@ -1584,9 +1588,11 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						if err := boundProjectedOutput(proj[0], compactDetailOutputLimit); err != nil {
+						note, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
+						if err != nil {
 							return err
 						}
+						noteProjectionShortening(cmd.ErrOrStderr(), note)
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)
