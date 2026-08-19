@@ -58,7 +58,7 @@ func TestHelpForEverySubcommand(t *testing.T) {
 	// Test 110: all top-level commands show help without errors
 	commands := []string{
 		"channel", "member", "team", "field", "escalation-rule",
-		"statuspage", "template", "change", "config", "login",
+		"status-page", "template", "change", "config", "login",
 	}
 	for _, cmd := range commands {
 		t.Run(cmd, func(t *testing.T) {

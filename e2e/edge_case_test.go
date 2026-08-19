@@ -49,7 +49,7 @@ func TestNoTruncOnFieldList(t *testing.T) {
 }
 
 func TestNoTruncOnStatusPageList(t *testing.T) {
-	r := runCLI(t, "statuspage", "list", "--no-trunc")
+	r := runCLI(t, "status-page", "list", "--no-trunc")
 	requireSuccess(t, r)
 }
 
