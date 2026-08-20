@@ -17,7 +17,14 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: stable
+          # Follow the module's own Go, the way ci.yml already does. Chasing
+          # "stable" means every upstream Go release lands here unannounced,
+          # and golangci-lint is a prebuilt binary that can only parse source
+          # up to the Go it was built with: Go 1.27.0 going stable made v2.11
+          # (built with go1.26) panic with "file requires newer Go version",
+          # which is a repo-wide red on every open PR, triggered by nothing in
+          # the repo. Pinning to go.mod means lint only moves when we move.
+          go-version-file: "go.mod"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:

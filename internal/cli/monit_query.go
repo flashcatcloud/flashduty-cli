@@ -69,9 +69,9 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type: prometheus|victorialogs|loki|mysql (required)")
+	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type: loki|victorialogs (log_patterns) or prometheus (metric_trends) (required)")
 	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name as configured (required)")
-	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki", "mysql")
+	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki")
 	cmd.Flags().StringVar(&timeStart, "time-start", "15m", "Window start: relative duration ('15m'/'1h'), 'now', a date/RFC3339 timestamp, or a unix epoch in seconds or milliseconds")
 	cmd.Flags().StringVar(&timeEnd, "time-end", "now", "Window end: same formats as --time-start; span capped at 6h")
 	cmd.Flags().StringVar(&inputQuery, "input-query", "", "Filter-only log query OR matrix PromQL (required)")
