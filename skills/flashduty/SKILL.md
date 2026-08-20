@@ -69,11 +69,15 @@ Some asks span several commands. For those the skill ships a script that fetches
 | post-mortem / postmortem 复盘 / 复盘报告 / 复盘模板 / post-incident review / RCA report | **`reference/postmortem.md`** |
 | alert / 告警 / dedup 去重 / alert fields 告警字段 / alert pipeline 告警管道 | **`reference/alert.md`** |
 | change / 变更 / deployment 部署 / release 发布 / correlated change 变更关联 / what changed | **`reference/change.md`** |
-| monitor / 监控 / alert rule 告警规则 / datasource 数据源 / inspection 巡检 / rule config 规则配置 | **`reference/monit.md`** |
+| monitor / 监控 / inspection 巡检 — unsure which Flashmonit surface | **`reference/monit.md`** (index; routes to the four below) |
+| alert rule 告警规则 / rule config 规则配置 / rule folder 规则文件夹 / rule export 规则导出 | **`reference/monit-rule.md`** |
+| datasource 数据源 = a system Flashmonit queries (Prometheus / Loki / SQL / SLS) / connect a datasource 连接数据源 / SLS project / logstore | **`reference/monit-datasource.md`** |
+| service map 服务地图 / topology 拓扑 / service dependencies 服务依赖 / agent fleet 探针队列 | **`reference/monit-servicemap.md`** |
+| store ruleset 规则集 / 规则模板库 | **`reference/monit-ruleset.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
 | host diagnostics / 主机诊断 / on-box / process 进程 / load 负载 / lock 锁 / slow query 慢查询 / mysql / reachability 可达性 | **`reference/monit-agent.md`** |
-| channel / 协作空间 / collaboration space / 频道 / integration 集成 / alert grouping 告警分组 | **`reference/channel.md`** |
+| channel / 协作空间 / collaboration space / 频道 / integration 集成 / 告警来源 alert source / alert grouping 告警分组 | **`reference/channel.md`** |
 | dispatch rule 分派策略 / 分派规则 / escalation rule 升级规则 / notify layers 通知层级 / who gets paged | **`reference/escalation.md`** |
 | silence 静默 / 屏蔽 / inhibit 抑制 / drop rule 丢弃 / noise reduction 降噪 / maintenance silence 维护窗口静默 | **`reference/noise.md`** |
 | enrichment / 数据加工 / 富化 / label mapping 字段映射 / extraction 提取 / mapping schema 集成 schema | **`reference/enrichment.md`** |
