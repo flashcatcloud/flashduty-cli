@@ -186,32 +186,105 @@ flashduty field list [flags]     # List custom field definitions
 
 Supports `--name`.
 
-### `statuspage` - Status Page Management (5 command groups)
+### `status-page` - Status Page Management (28 commands)
+
+The group is `status-page` (hyphenated), not `statuspage`. Nested object/array
+fields carry no typed flag and must be supplied as JSON through `--data`;
+`--data -` reads the entire request body from stdin. Positional arguments and
+explicitly-set typed flags override the matching keys inside `--data`.
+
+**Pages, components, sections**
 
 ```bash
-flashduty statuspage list [--id <ids>]                                  # List status pages
-flashduty statuspage changes --page-id <id> --type <incident|maintenance>  # List active changes
-flashduty statuspage create-incident --page-id <id> --title <title>     # Create status incident
-flashduty statuspage create-timeline --page-id <id> --change <id> --message <msg>  # Add timeline update
-flashduty statuspage migrate structure --from atlassian --source-page-id <id> --api-key <key>   # Start structure/history migration
-flashduty statuspage migrate email-subscribers --from atlassian --source-page-id <id> --target-page-id <id> --api-key <key>   # Start email subscriber migration
-flashduty statuspage migrate status --job-id <id>                       # Check migration job status
-flashduty statuspage migrate cancel --job-id <id>                       # Cancel a running migration job
+flashduty status-page list                                     # List status pages (JSON: {"items":[...]})
+flashduty status-page info <page-id>                           # Page detail, incl. component and section IDs
+flashduty status-page create --name <name> --url-name <slug> --type <public|internal> \
+    --date-view <calendar|list> --display-uptime-mode <chart_and_percentage|chart|none>
+flashduty status-page update <page-id> [--name <name>] [--url-name <slug>] ...   # Update a page
+flashduty status-page delete <page-id>                         # Delete a page
+flashduty status-page component-upsert <page-id> --data '{"components":[{"name":"API","section_id":"<section-id>"}]}'
+flashduty status-page component-delete <component-id> [<id2>...] --page-id <page-id>
+flashduty status-page section-upsert <page-id> --data '{"sections":[{"name":"Core"}]}'
+flashduty status-page section-delete <section-id> [<id2>...] --page-id <page-id>
 ```
 
-Migration jobs are asynchronous. After starting `structure` or `email-subscribers`, use:
+**Events (incident / maintenance) and their timeline**
 
 ```bash
-flashduty statuspage migrate status --job-id <job_id>
+flashduty status-page change-active-list <page-id> --type <incident|maintenance>   # Only in-progress events
+flashduty status-page change-list <page-id> --type <incident|maintenance> --status <status>
+flashduty status-page change-info --page-id <page-id> --change-id <change-id>
+flashduty status-page change-create <page-id> --type <incident|maintenance> --title <title> \
+    --status <status> --description <text> --data '{"updates":[...]}'
+flashduty status-page change-update --page-id <page-id> --change-id <change-id> [--title <title>]
+flashduty status-page change-delete --page-id <page-id> --change-id <change-id>
+flashduty status-page change-timeline-create --page-id <page-id> --change-id <change-id> \
+    --status <status> --description <text> [--data '{"component_changes":[...]}']
+flashduty status-page change-timeline-update --page-id <page-id> --change-id <change-id> --update-id <update-id> [--description <text>]
+flashduty status-page change-timeline-delete --page-id <page-id> --change-id <change-id> --update-id <update-id>
+```
+
+`change-create` takes `<page-id>` as a **required positional argument**, and its
+required `updates` array (with the nested `component_changes`) has no flag — so a
+real `change-create` call always carries a `--data` payload:
+
+```bash
+flashduty status-page change-create 5750613685214 --type incident \
+  --title "API latency elevated" --status investigating \
+  --description "Investigating elevated latency." \
+  --data '{"updates":[{"status":"investigating","description":"Team is investigating.","component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}]}]}'
+```
+
+The whole body can also come from stdin with `--data -`:
+
+```bash
+cat change.json | flashduty status-page change-create 5750613685214 --data -
+```
+
+Resolving an incident goes through `change-timeline-create`; every component the
+event touched must be moved back to `operational`:
+
+```bash
+flashduty status-page change-timeline-create --page-id 5750613685214 --change-id 5821693893131 \
+  --status resolved --description "Recovered." \
+  --data '{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"operational"}]}'
+```
+
+**Subscribers and templates**
+
+```bash
+flashduty status-page subscriber-list <page-id> [--component-ids <ids>] [--page <n>] [--limit <n>]
+flashduty status-page subscriber-import <page-id> --method <email|im> --data '{"subscribers":[...]}'
+flashduty status-page subscriber-export <page-id> [--component-ids <ids>]
+flashduty status-page template-list <page-id> --type <pre_defined|message>
+flashduty status-page template-upsert <page-id> --type <pre_defined|message> --data '{"template":{...}}'
+flashduty status-page template-delete --page-id <page-id> --template-id <template-id> --type <pre_defined|message>
+```
+
+**Migration from Atlassian Statuspage**
+
+```bash
+flashduty status-page migrate-structure <source-page-id> --api-key <key> [--url-name <slug>]   # Structure + history
+flashduty status-page migrate-email-subscribers --source-page-id <id> --target-page-id <id> --api-key <key>
+flashduty status-page migration-status <job-id>                # Check migration job status
+flashduty status-page migration-cancel <job-id>                # Cancel a running migration job
+```
+
+Migration jobs are asynchronous. After starting `migrate-structure` or
+`migrate-email-subscribers`, poll the returned `job_id`:
+
+```bash
+flashduty status-page migration-status <job-id>
 ```
 
 Typical flow:
 
 ```bash
-flashduty statuspage migrate structure --from atlassian --source-page-id page_123 --api-key $ATLASSIAN_STATUSPAGE_API_KEY
-flashduty statuspage migrate status --job-id <structure_job_id>
-flashduty statuspage migrate email-subscribers --from atlassian --source-page-id page_123 --target-page-id <target_page_id> --api-key $ATLASSIAN_STATUSPAGE_API_KEY
-flashduty statuspage migrate status --job-id <subscriber_job_id>
+flashduty status-page migrate-structure page_123 --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty status-page migration-status <structure_job_id>
+flashduty status-page migrate-email-subscribers --source-page-id page_123 \
+  --target-page-id <target_page_id> --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty status-page migration-status <subscriber_job_id>
 ```
 
 ### `template` - Notification Template Management (4 commands)

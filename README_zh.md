@@ -185,13 +185,102 @@ flashduty field list [flags]     # 列出自定义字段定义
 
 支持 `--name`。
 
-### `statuspage` - 状态页管理（4 个命令）
+### `status-page` - 状态页管理（28 个命令）
+
+命令组名是 `status-page`（带连字符），不是 `statuspage`。嵌套对象、数组类字段没有
+对应的 flag，必须通过 `--data` 传 JSON；`--data -` 表示整个请求体从 stdin 读取。
+位置参数和显式设置的 flag 会覆盖 `--data` 里的同名字段。
+
+**状态页、组件、分组**
 
 ```bash
-flashduty statuspage list [--id <ids>]                                  # 列出状态页
-flashduty statuspage changes --page-id <id> --type <incident|maintenance>  # 列出活跃的变更
-flashduty statuspage create-incident --page-id <id> --title <title>     # 创建状态页事件
-flashduty statuspage create-timeline --page-id <id> --change <id> --message <msg>  # 添加时间线更新
+flashduty status-page list                                     # 列出状态页（JSON 形如 {"items":[...]}）
+flashduty status-page info <page-id>                           # 状态页详情，含组件 ID 和分组 ID
+flashduty status-page create --name <name> --url-name <slug> --type <public|internal> \
+    --date-view <calendar|list> --display-uptime-mode <chart_and_percentage|chart|none>
+flashduty status-page update <page-id> [--name <name>] [--url-name <slug>] ...   # 更新状态页
+flashduty status-page delete <page-id>                         # 删除状态页
+flashduty status-page component-upsert <page-id> --data '{"components":[{"name":"API","section_id":"<section-id>"}]}'
+flashduty status-page component-delete <component-id> [<id2>...] --page-id <page-id>
+flashduty status-page section-upsert <page-id> --data '{"sections":[{"name":"核心服务"}]}'
+flashduty status-page section-delete <section-id> [<id2>...] --page-id <page-id>
+```
+
+**事件（故障 / 维护）与时间线**
+
+```bash
+flashduty status-page change-active-list <page-id> --type <incident|maintenance>   # 只列进行中的事件
+flashduty status-page change-list <page-id> --type <incident|maintenance> --status <status>
+flashduty status-page change-info --page-id <page-id> --change-id <change-id>
+flashduty status-page change-create <page-id> --type <incident|maintenance> --title <title> \
+    --status <status> --description <text> --data '{"updates":[...]}'
+flashduty status-page change-update --page-id <page-id> --change-id <change-id> [--title <title>]
+flashduty status-page change-delete --page-id <page-id> --change-id <change-id>
+flashduty status-page change-timeline-create --page-id <page-id> --change-id <change-id> \
+    --status <status> --description <text> [--data '{"component_changes":[...]}']
+flashduty status-page change-timeline-update --page-id <page-id> --change-id <change-id> --update-id <update-id> [--description <text>]
+flashduty status-page change-timeline-delete --page-id <page-id> --change-id <change-id> --update-id <update-id>
+```
+
+`change-create` 的 `<page-id>` 是**必填位置参数**；必填的 `updates` 数组（以及嵌套在里面的
+`component_changes`）没有对应的 flag，所以真实的 `change-create` 调用一定带 `--data`：
+
+```bash
+flashduty status-page change-create 5750613685214 --type incident \
+  --title "API 延迟升高" --status investigating \
+  --description "正在排查延迟升高问题。" \
+  --data '{"updates":[{"status":"investigating","description":"团队正在排查。","component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}]}]}'
+```
+
+整个请求体也可以用 `--data -` 从 stdin 读：
+
+```bash
+cat change.json | flashduty status-page change-create 5750613685214 --data -
+```
+
+关闭事件走 `change-timeline-create`，并且事件涉及的每个组件都要改回 `operational`：
+
+```bash
+flashduty status-page change-timeline-create --page-id 5750613685214 --change-id 5821693893131 \
+  --status resolved --description "已恢复。" \
+  --data '{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"operational"}]}'
+```
+
+**订阅者与模板**
+
+```bash
+flashduty status-page subscriber-list <page-id> [--component-ids <ids>] [--page <n>] [--limit <n>]
+flashduty status-page subscriber-import <page-id> --method <email|im> --data '{"subscribers":[...]}'
+flashduty status-page subscriber-export <page-id> [--component-ids <ids>]
+flashduty status-page template-list <page-id> --type <pre_defined|message>
+flashduty status-page template-upsert <page-id> --type <pre_defined|message> --data '{"template":{...}}'
+flashduty status-page template-delete --page-id <page-id> --template-id <template-id> --type <pre_defined|message>
+```
+
+**从 Atlassian Statuspage 迁移**
+
+```bash
+flashduty status-page migrate-structure <source-page-id> --api-key <key> [--url-name <slug>]   # 迁移结构与历史
+flashduty status-page migrate-email-subscribers --source-page-id <id> --target-page-id <id> --api-key <key>
+flashduty status-page migration-status <job-id>                # 查询迁移任务状态
+flashduty status-page migration-cancel <job-id>                # 取消正在跑的迁移任务
+```
+
+迁移任务是异步的。启动 `migrate-structure` 或 `migrate-email-subscribers` 之后，
+用返回的 `job_id` 轮询：
+
+```bash
+flashduty status-page migration-status <job-id>
+```
+
+典型流程：
+
+```bash
+flashduty status-page migrate-structure page_123 --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty status-page migration-status <structure_job_id>
+flashduty status-page migrate-email-subscribers --source-page-id page_123 \
+  --target-page-id <target_page_id> --api-key $ATLASSIAN_STATUSPAGE_API_KEY
+flashduty status-page migration-status <subscriber_job_id>
 ```
 
 ### `template` - 通知模板管理（4 个命令）
