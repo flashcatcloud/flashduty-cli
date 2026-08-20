@@ -1,6 +1,6 @@
 # fduty monit — command card
 
-Prereq: `SKILL.md` read. Flashmonit is four separate surfaces sharing one command group, so this card is an index: **read the card for the surface you need, not all of them.**
+Prereq: `SKILL.md` read. Flashmonit is five separate surfaces sharing one command group, so this card is an index: **read the card for the surface you need, not all of them.**
 
 ## Route here when
 
