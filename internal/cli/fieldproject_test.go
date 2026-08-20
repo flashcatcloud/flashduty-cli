@@ -42,7 +42,7 @@ func TestBoundProjectedOutputCapsStructuredFormats(t *testing.T) {
 				"title":       strings.Repeat("数据库故障", 2000),
 			}}
 
-			if err := boundProjectedOutput(rows, 512); err != nil {
+			if _, err := boundProjectedOutput(rows, 512); err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
 			encoded, err := marshalStructured(rows)
@@ -68,8 +68,8 @@ func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
 		rows[i] = map[string]any{"count": i}
 	}
 
-	err := boundProjectedOutput(rows, 512)
-	if err == nil || !strings.Contains(err.Error(), "request fewer rows or fields") {
+	_, err := boundProjectedOutput(rows, 512)
+	if err == nil || !strings.Contains(err.Error(), "request fewer rows") {
 		t.Fatalf("irreducible output error = %v, want bounded guidance", err)
 	}
 }
@@ -92,7 +92,7 @@ func TestBoundProjectedOutputDetailWithinBudgetLeavesValuesUnchanged(t *testing.
 		"progress":    "Triggered",
 	}
 
-	if err := boundProjectedOutput(row, compactDetailOutputLimit); err != nil {
+	if _, err := boundProjectedOutput(row, compactDetailOutputLimit); err != nil {
 		t.Fatalf("bound projected output: %v", err)
 	}
 	if !reflect.DeepEqual(row, want) {
@@ -119,7 +119,7 @@ func TestBoundProjectedOutputDetailOversizedErrorsWithoutMutating(t *testing.T) 
 		"root_cause":  strings.Repeat("disk exhaustion details ", 3000),
 	}
 
-	err := boundProjectedOutput(row, 512)
+	_, err := boundProjectedOutput(row, 512)
 	if err == nil {
 		t.Fatal("expected an error for an oversized detail projection, got nil")
 	}
@@ -151,7 +151,7 @@ func TestBoundProjectedOutputDetailErrorIsDeterministic(t *testing.T) {
 			"delta":   strings.Repeat("d", 400),
 			"echo":    strings.Repeat("e", 400),
 		}
-		err := boundProjectedOutput(row, 512)
+		_, err := boundProjectedOutput(row, 512)
 		if err == nil {
 			t.Fatal("expected an error for an oversized detail projection, got nil")
 		}
@@ -196,7 +196,7 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 			row["title"] = strings.Repeat("数据库故障", 5000)
 			stub.data = map[string]any{"items": []any{row}, "total": 1}
 
-			out, _, err := execCommandSplit("incident", "list", "--output-format", format)
+			out, stderrText, err := execCommandSplit("incident", "list", "--output-format", format)
 			if err != nil {
 				t.Fatalf("execCommandSplit: %v", err)
 			}
@@ -205,6 +205,11 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 			}
 			if !utf8.ValidString(out) || !strings.Contains(out, "...") {
 				t.Fatalf("bounded %s incident list must retain valid UTF-8 and show truncation", format)
+			}
+			// The clipped value must be announced, not just marked: a --json
+			// consumer filters on the value and never sees the "..." itself.
+			if !strings.Contains(stderrText, "were shortened to fit") || !strings.Contains(stderrText, "title") {
+				t.Errorf("shortened %s incident list should announce the clipped field on stderr, got:\n%s", format, stderrText)
 			}
 		})
 	}
@@ -800,7 +805,7 @@ func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 		originals[i] = clone
 	}
 
-	if err := boundProjectedOutput(rows, compactListOutputLimit); err != nil {
+	if _, err := boundProjectedOutput(rows, compactListOutputLimit); err != nil {
 		t.Fatalf("bound: %v", err)
 	}
 
@@ -845,5 +850,72 @@ func TestStructuredFieldsEmptyErrors(t *testing.T) {
 				t.Fatalf("empty --fields error = %v, want --fields validation", err)
 			}
 		})
+	}
+}
+
+// TestBoundProjectedListAnnouncesShortening pins that a list projection which
+// had to clip values says so on the caller's side. The "..." marker alone is
+// only visible to something that READS the value; a --json consumer runs a jq
+// filter or an exact match over it, where a clipped string produces an empty
+// result that is indistinguishable from "nothing matched" — the expensive
+// failure this note exists to prevent.
+func TestBoundProjectedListAnnouncesShortening(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			flagOutputFormat = format
+			rows := []map[string]any{{
+				"incident_id": "inc-1",
+				"title":       strings.Repeat("payment-gateway timeout ", 200),
+			}}
+
+			note, err := boundProjectedOutput(rows, 512)
+			if err != nil {
+				t.Fatalf("bound projected output: %v", err)
+			}
+			if note == "" {
+				t.Fatalf("shortened projection returned no note; caller cannot tell values were clipped")
+			}
+			if !strings.Contains(note, "title") {
+				t.Fatalf("note = %q, want it to name the shortened field (title)", note)
+			}
+		})
+	}
+}
+
+// TestBoundProjectedListNoNoteWhenNothingShortened keeps the note honest: a
+// projection that fits must not claim anything was clipped.
+func TestBoundProjectedListNoNoteWhenNothingShortened(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	rows := []map[string]any{{"incident_id": "inc-1", "title": "disk full"}}
+
+	note, err := boundProjectedOutput(rows, 512)
+	if err != nil {
+		t.Fatalf("bound projected output: %v", err)
+	}
+	if note != "" {
+		t.Fatalf("fitting projection returned note %q, want none", note)
+	}
+}
+
+// TestBoundProjectedListErrorNamesLargestFields pins that a list projection
+// which cannot fit at all says WHICH fields are responsible, exactly as the
+// detail path already does. Without it the only way to find the oversized
+// field is to re-run the query once per field.
+func TestBoundProjectedListErrorNamesLargestFields(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	rows := make([]map[string]any, 200)
+	for i := range rows {
+		rows[i] = map[string]any{"count": i, "score": i * 2}
+	}
+
+	_, err := boundProjectedOutput(rows, 512)
+	if err == nil {
+		t.Fatalf("irreducible projection = nil error, want refusal")
+	}
+	if !strings.Contains(err.Error(), "largest fields:") {
+		t.Fatalf("list overflow error = %q, want it to name the largest fields", err)
 	}
 }
