@@ -31,6 +31,15 @@ func TestMonitQueryRowsFlags(t *testing.T) {
 	}
 }
 
+func TestMonitQueryDataFlags(t *testing.T) {
+	cmd := newMonitQueryDataCmd()
+	for _, name := range []string{"ds-type", "ds-name", "expr", "args", "delay-seconds"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("flag --%s missing", name)
+		}
+	}
+}
+
 // --- monit-query diagnose -------------------------------------------------
 
 func TestMonitQueryDiagnoseHappyPath(t *testing.T) {
@@ -201,6 +210,104 @@ func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
 }
 
 // --- monit-query rows -----------------------------------------------------
+
+func TestMonitQueryDataHappyPath(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	// data returns the stable query_result.v1 envelope: data.{format,result}.
+	stub.data = map[string]any{
+		"format": "query_result.v1",
+		"result": map[string]any{
+			"kind": "samples",
+			"samples": []any{
+				map[string]any{"labels": map[string]any{"job": "api"}, "value": 1.25},
+			},
+		},
+	}
+
+	out, err := execCommand(
+		"monit-query", "data",
+		"--ds-type", "prometheus",
+		"--ds-name", "prom-prod",
+		"--expr", "up",
+		"--delay-seconds", "30",
+		"--args", "step=15s",
+		"--output-format", "json",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stub.lastPath != "/monit/query/data" {
+		t.Fatalf("expected /monit/query/data, got %q", stub.lastPath)
+	}
+	body := stub.lastBody
+	if body["ds_type"] != "prometheus" || body["ds_name"] != "prom-prod" || body["expr"] != "up" {
+		t.Errorf("unexpected data input: %#v", body)
+	}
+	if fmt.Sprint(body["delay_seconds"]) != "30" {
+		t.Errorf("expected delay_seconds 30, got %v", body["delay_seconds"])
+	}
+	args, _ := body["args"].(map[string]any)
+	if args["step"] != "15s" {
+		t.Errorf("expected args step=15s, got %#v", args)
+	}
+	var rendered map[string]any
+	if err := json.Unmarshal([]byte(out), &rendered); err != nil {
+		t.Fatalf("decode CLI JSON: %v\n%s", err, out)
+	}
+	if rendered["format"] != "query_result.v1" {
+		t.Errorf("expected format query_result.v1, got %v", rendered["format"])
+	}
+}
+
+func TestMonitQueryDataRequiredFlags(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "missing ds-type",
+			args: []string{
+				"monit-query", "data",
+				"--ds-name", "prom-prod",
+				"--expr", "up",
+			},
+		},
+		{
+			name: "missing ds-name",
+			args: []string{
+				"monit-query", "data",
+				"--ds-type", "prometheus",
+				"--expr", "up",
+			},
+		},
+		{
+			name: "missing expr",
+			args: []string{
+				"monit-query", "data",
+				"--ds-type", "prometheus",
+				"--ds-name", "prom-prod",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			_, err := execCommand(tc.args...)
+			if err == nil {
+				t.Fatal("expected required-flag error, got nil")
+			}
+			if !strings.Contains(err.Error(), "required") {
+				t.Errorf("expected error to mention 'required', got %q", err.Error())
+			}
+			if stub.requests != 0 {
+				t.Errorf("data should not have been called: %d request(s)", stub.requests)
+			}
+		})
+	}
+}
 
 func TestMonitQueryRowsHappyPath(t *testing.T) {
 	saveAndResetGlobals(t)
@@ -403,6 +510,28 @@ func TestMonitQueryRowsRawModeNormalizesRFC3339(t *testing.T) {
 	wantEnd := time.Date(2026, 8, 11, 10, 5, 0, 0, time.UTC).Unix()
 	if start != strconv.FormatInt(wantStart, 10) || end != strconv.FormatInt(wantEnd, 10) {
 		t.Errorf("expected start=%d end=%d, got start=%s end=%s", wantStart, wantEnd, start, end)
+	}
+}
+
+func TestMonitQueryDataInvalidArgs(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"monit-query", "data",
+		"--ds-type", "prometheus",
+		"--ds-name", "prom-prod",
+		"--expr", "up",
+		"--args", "no-equals-sign",
+	)
+	if err == nil {
+		t.Fatal("expected error for malformed --args, got nil")
+	}
+	if !strings.Contains(err.Error(), "--args") {
+		t.Errorf("expected error to mention --args, got %q", err.Error())
+	}
+	if stub.requests != 0 {
+		t.Errorf("data should not have been called: %d request(s)", stub.requests)
 	}
 }
 

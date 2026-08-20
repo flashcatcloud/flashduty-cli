@@ -102,9 +102,9 @@ List applications
 Update application
 - `<application-id>` (positional, required) string — Application ID to update. Get application IDs via 'POST /rum/application/list'.
 - `--application-name` string — New application name, 1–40 characters. Omit to leave unchanged.
-- `--is-private` bool — Restrict access to members of the owning team. Omit to leave unchanged.
-- `--no-geo` bool — When 'true', stop inferring geographic location from IP. Omit to leave unchanged.
-- `--no-ip` bool — When 'true', stop collecting user IP addresses. Omit to leave unchanged.
+- `--is-private` bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
+- `--no-geo` bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
+- `--no-ip` bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
 - `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
 - `--type` string — Application type. Omit to leave unchanged. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
@@ -186,7 +186,7 @@ Count facet value distribution
 
 ### field-list
 List RUM fields
-- `--is-facet` bool — When true, return only facet-enabled fields. When false or omitted, return all fields.
+- `--is-facet` bool — When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.
 - `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 

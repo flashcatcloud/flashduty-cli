@@ -80,6 +80,18 @@ func noteDefaultProjection(w io.Writer, fields []string) {
 		strings.Join(fields, ","))
 }
 
+// noteProjectionShortening tells the caller, on stderr, that some values came
+// back clipped. Without it a shortened value is only visible to a reader, not
+// to the jq filter or exact match a --json consumer runs over it, so a query
+// that silently matches nothing looks like an empty result rather than a
+// truncated one.
+func noteProjectionShortening(w io.Writer, note string) {
+	if note == "" {
+		return
+	}
+	_, _ = fmt.Fprintln(w, note)
+}
+
 // boundProjectedOutput keeps the new agent-oriented projections below their
 // command budget without changing the selected keys. List rows (many small
 // records) are shortened fairly when they overflow the budget, with
@@ -88,15 +100,63 @@ func noteDefaultProjection(w io.Writer, fields []string) {
 // a genuinely short value, so silently shortening it would hand the caller
 // wrong data instead of a compact one. If a detail projection doesn't fit,
 // the command fails with an error instead.
-func boundProjectedOutput(data any, maxBytes int) error {
+//
+// It returns a caller-printable note (empty when nothing was shortened) that
+// names the clipped fields, so the caller can announce the loss on stderr —
+// the "..." marker is only visible to something that reads the value, never
+// to the filter a --json consumer runs over it.
+func boundProjectedOutput(data any, maxBytes int) (string, error) {
 	switch value := data.(type) {
 	case map[string]any:
-		return boundProjectedDetail(value, maxBytes)
+		return "", boundProjectedDetail(value, maxBytes)
 	case []map[string]any:
 		return boundProjectedList(value, maxBytes)
 	default:
-		return fmt.Errorf("internal error: unsupported projected output %T", data)
+		return "", fmt.Errorf("internal error: unsupported projected output %T", data)
 	}
+}
+
+// largestProjectedFields names the up to three fields carrying the most bytes
+// in a projection, so an over-budget request can be narrowed in one pass
+// instead of one re-run per field. Sizes are summed per field across every
+// row, which is what makes it meaningful for a list: the field responsible
+// for the overflow is the one that is big in aggregate, not in any one row.
+// Ties break on name so the same oversized request always names the same
+// fields, despite Go's randomized map iteration order.
+func largestProjectedFields(rows []map[string]any) (string, error) {
+	totals := map[string]int{}
+	for _, row := range rows {
+		for key, value := range row {
+			encoded, err := marshalStructured(map[string]any{key: value})
+			if err != nil {
+				return "", err
+			}
+			totals[key] += len(encoded)
+		}
+	}
+
+	type fieldSize struct {
+		name string
+		size int
+	}
+	sizes := make([]fieldSize, 0, len(totals))
+	for name, size := range totals {
+		sizes = append(sizes, fieldSize{name, size})
+	}
+	sort.Slice(sizes, func(i, j int) bool {
+		if sizes[i].size != sizes[j].size {
+			return sizes[i].size > sizes[j].size
+		}
+		return sizes[i].name < sizes[j].name
+	})
+	if len(sizes) > 3 {
+		sizes = sizes[:3]
+	}
+	largest := make([]string, len(sizes))
+	for i, f := range sizes {
+		largest[i] = fmt.Sprintf("%s (%d bytes)", f.name, f.size)
+	}
+	return strings.Join(largest, ", "), nil
 }
 
 // boundProjectedDetail rejects an oversized single-object projection instead
@@ -112,35 +172,12 @@ func boundProjectedDetail(row map[string]any, maxBytes int) error {
 		return nil
 	}
 
-	type fieldSize struct {
-		name string
-		size int
-	}
-	sizes := make([]fieldSize, 0, len(row))
-	for key, value := range row {
-		fieldEncoded, err := marshalStructured(map[string]any{key: value})
-		if err != nil {
-			return err
-		}
-		sizes = append(sizes, fieldSize{key, len(fieldEncoded)})
-	}
-	// Ties break on name so the same oversized request always names the same
-	// fields, despite Go's randomized map iteration order.
-	sort.Slice(sizes, func(i, j int) bool {
-		if sizes[i].size != sizes[j].size {
-			return sizes[i].size > sizes[j].size
-		}
-		return sizes[i].name < sizes[j].name
-	})
-	if len(sizes) > 3 {
-		sizes = sizes[:3]
-	}
-	largest := make([]string, len(sizes))
-	for i, f := range sizes {
-		largest[i] = fmt.Sprintf("%s (%d bytes)", f.name, f.size)
+	largest, err := largestProjectedFields([]map[string]any{row})
+	if err != nil {
+		return err
 	}
 	return fmt.Errorf("projected detail is %d bytes, exceeds the %d-byte limit; largest fields: %s; request fewer --fields, or omit --fields for the full, unbounded detail",
-		len(encoded), maxBytes, strings.Join(largest, ", "))
+		len(encoded), maxBytes, largest)
 }
 
 // boundProjectedList shortens a list projection's string values fairly when
@@ -153,14 +190,25 @@ func boundProjectedDetail(row map[string]any, maxBytes int) error {
 // marker itself disappear, so a shortened value is always distinguishable
 // from a genuinely short one; if no cap at or above that floor fits, the
 // command fails with a small error instead of emitting values that look
-// real but aren't.
-func boundProjectedList(rows []map[string]any, maxBytes int) error {
+// real but aren't. Whatever it clips, it reports back in the returned note.
+func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 	encoded, err := marshalStructured(rows)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(encoded)+1 < maxBytes {
-		return nil
+		return "", nil
+	}
+
+	// The overflow error names the fields responsible, exactly as the detail
+	// path does, so the request can be narrowed in one pass.
+	tooBig := func() (string, error) {
+		largest, err := largestProjectedFields(rows)
+		if err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s; request fewer rows (--limit) or fewer --fields",
+			len(encoded), len(rows), maxBytes, largest)
 	}
 
 	maxLen := 0
@@ -172,7 +220,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) error {
 		}
 	}
 	if maxLen == 0 {
-		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+		return tooBig()
 	}
 
 	fits := func(limit int) (bool, error) {
@@ -202,12 +250,12 @@ func boundProjectedList(rows []map[string]any, maxBytes int) error {
 	// reintroduce.
 	const minMarkedTruncationCap = 4
 	if maxLen <= minMarkedTruncationCap {
-		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+		return tooBig()
 	}
 	if ok, err := fits(minMarkedTruncationCap); err != nil {
-		return err
+		return "", err
 	} else if !ok {
-		return fmt.Errorf("structured projection exceeds %d-byte limit; request fewer rows or fields", maxBytes)
+		return tooBig()
 	}
 
 	// Binary search for the largest cap that still fits: fits(limit) is true
@@ -219,7 +267,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) error {
 		mid := lo + (hi-lo+1)/2
 		ok, err := fits(mid)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if ok {
 			lo = mid
@@ -228,14 +276,33 @@ func boundProjectedList(rows []map[string]any, maxBytes int) error {
 		}
 	}
 
+	shortened, total := 0, 0
+	fields := map[string]bool{}
 	for _, row := range rows {
 		for key, value := range row {
-			if text, ok := value.(string); ok {
-				row[key] = truncateUTF8Bytes(text, lo)
+			text, ok := value.(string)
+			if !ok {
+				continue
 			}
+			total++
+			clipped := truncateUTF8Bytes(text, lo)
+			if clipped != text {
+				shortened++
+				fields[key] = true
+			}
+			row[key] = clipped
 		}
 	}
-	return nil
+	if shortened == 0 {
+		return "", nil
+	}
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return fmt.Sprintf("note: %d of %d string values were shortened to fit the %d-byte limit and now end with \"...\" (fields: %s); matching or filtering on those fields will miss — narrow --fields or --limit for untruncated values",
+		shortened, total, maxBytes, strings.Join(names, ", ")), nil
 }
 
 func truncateUTF8Bytes(value string, maxBytes int) string {

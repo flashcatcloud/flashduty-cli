@@ -127,9 +127,11 @@ func newIncidentListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					if err != nil {
 						return err
 					}
+					noteProjectionShortening(cmd.ErrOrStderr(), note)
 					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
 				}
 
@@ -614,9 +616,11 @@ func newIncidentSimilarCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					if err := boundProjectedOutput(proj, compactListOutputLimit); err != nil {
+					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					if err != nil {
 						return err
 					}
+					noteProjectionShortening(cmd.ErrOrStderr(), note)
 					return ctx.Printer.Print(proj, nil)
 				}
 
@@ -822,9 +826,15 @@ personal channels, or a template.`,
 			var notify flashduty.AddIncidentResponderRequestNotify
 			if followPreference || notifyChannel != "" || templateID != "" {
 				notify = flashduty.AddIncidentResponderRequestNotify{
-					FollowPreference: followPreference,
 					PersonalChannels: parseStringSlice(notifyChannel),
 					TemplateID:       templateID,
+				}
+				// Explicit wire value whenever the intent is "use these channels"
+				// (channels given without the flag) or the flag was set explicitly.
+				// Template-only keeps the server default (nil = personal
+				// preference), so a template alone never suppresses delivery.
+				if cmd.Flags().Changed("follow-preference") || notifyChannel != "" {
+					notify.FollowPreference = &followPreference
 				}
 			}
 
@@ -1506,7 +1516,7 @@ func newIncidentFeedCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max events")
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 
 	return cmd
@@ -1578,9 +1588,11 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						if err := boundProjectedOutput(proj[0], compactDetailOutputLimit); err != nil {
+						note, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
+						if err != nil {
 							return err
 						}
+						noteProjectionShortening(cmd.ErrOrStderr(), note)
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)
