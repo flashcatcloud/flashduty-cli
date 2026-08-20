@@ -4,7 +4,9 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 
 ## Route here when
 
-"数据源 / 连接数据源 / SLS project / logstore" or "datasource / connect a datasource / SLS discovery" → this card.
+"数据源 / 连接数据源 / SLS project / logstore" or "datasource / connect a datasource / SLS discovery" → this card, **when the datasource is something Flashmonit queries** (Prometheus, Loki, VictoriaLogs, SQL engines, SLS).
+
+**"Datasource" is two unrelated things in this product — check which one the user means.** This card is `POST /monit/datasource/*`: the Flashmonit config surface, i.e. the systems Flashmonit *queries*. On-call has its own, older use of the word: the top-level `datasource` group is `POST /datasource/*` and holds IM-integration plumbing (`fduty datasource im-war-room-enabled-list`, `fduty datasource im-person-try-link`), while the On-call **integrations** that *receive* alerts into a channel live in `reference/channel.md`. So 接入告警 / 集成 / 告警来源 → On-call, not here; "连一个 Prometheus / Loki / MySQL 上来查" → here.
 
 **Mutating:** `datasource-create`, `datasource-update`, `datasource-delete` — confirm before running. **`datasource-delete` is irreversible**; confirm the target with `datasource-info` first.
 

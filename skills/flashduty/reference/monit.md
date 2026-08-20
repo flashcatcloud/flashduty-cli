@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Flashmonit is five separate surfaces sharing one comman
 
 ## Route here when
 
-"监控规则 / 告警规则 / 数据源 / PromQL查询 / 日志查询 / 诊断 / 监控目标 / 主机工具" or "alert rule / datasource / metric query / log pattern / diagnose / monitored host / tools catalog" → **monit**. NOT `incident` (that domain = the alert graph after rules fire).
+"监控规则 / 告警规则 / 数据源 / PromQL查询 / 日志查询 / 诊断 / 监控目标 / 主机工具" or "alert rule / datasource / metric query / log pattern / diagnose / monitored host / tools catalog" → **monit**. NOT `incident` (that domain = the alert graph after rules fire), and **"数据源" here means a system Flashmonit queries** — On-call 集成 / 告警来源 is a different surface (`reference/channel.md`), and the top-level `datasource` group (`fduty datasource im-war-room-enabled-list`) is On-call IM plumbing, not this one.
 
 ## Which card
 
