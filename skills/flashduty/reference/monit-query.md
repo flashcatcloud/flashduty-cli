@@ -62,7 +62,7 @@ Raw datasource passthrough (returns values/rows as the datasource itself would)
 - `rows` has **no time flags** — putting `--time-start` on `rows` is wrong; embed the range in `--expr`.
 - Empty results = the query genuinely matched nothing in that window — report it, don't widen blindly.
 - **`diagnose` rejects windows wider than 6 hours outright.** `--time-start`/`--time-end` span is capped at 6h server-side; the default window is the last 15 minutes (`--time-start 15m`, `--time-end now`). Widen within the cap, don't retry past it.
-- **`--ds-type` on `diagnose` only accepts `prometheus`, `victorialogs`, `loki`, `mysql`.** `monit datasource-list` can return other types (e.g. `oracle`, `postgres`, `clickhouse`, `elasticsearch`, `sls`) — those are not supported here.
+- **`diagnose` pairs one operation with one set of datasource types, and rejects every other combination server-side.** `log_patterns` takes `loki` or `victorialogs`; `metric_trends` takes `prometheus`. There is no third operation, so no other `--ds-type` value can succeed — `mysql`, `oracle`, `postgres`, `clickhouse`, `elasticsearch`, and `sls` all come back as an invalid-parameter error however you pair them. `monit datasource-list` returns those types because `data` supports them; `diagnose` does not.
 - **Tunables and their caps**: `--max-logs` (default 10000, cap 50000), `--max-patterns` (default 20, cap 50), `--timeout-seconds` (default 25, cap 30).
 
 ## Worked example — log-pattern evidence in the last hour
