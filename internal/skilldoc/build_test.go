@@ -50,6 +50,44 @@ func TestBuild_CapturesLeafWithFlagsAndRequired(t *testing.T) {
 	}
 }
 
+// TestBuild_ExcludesHiddenFlags verifies a flag hidden via cobra's
+// MarkDeprecated (which implies Hidden) is dropped from the card dump, so a
+// deprecated alias like incident list's --channel-id never resurfaces in a
+// generated skill card.
+func TestBuild_ExcludesHiddenFlags(t *testing.T) {
+	root := &cobra.Command{Use: "fduty"}
+	list := &cobra.Command{Use: "list", Short: "List things", Run: func(*cobra.Command, []string) {}}
+	list.Flags().String("channel", "", "Comma-separated channel IDs")
+	list.Flags().Int64("channel-id", 0, "Deprecated: use --channel instead")
+	_ = list.Flags().MarkDeprecated("channel-id", "use --channel instead")
+	root.AddCommand(list)
+
+	d := Build(root)
+	var got *Command
+	for i := range d.Commands {
+		if d.Commands[i].Path == "list" {
+			got = &d.Commands[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("missing list command")
+	}
+	for _, f := range got.Flags {
+		if f.Name == "channel-id" {
+			t.Fatalf("deprecated/hidden flag --channel-id must not appear in the dump: %+v", got.Flags)
+		}
+	}
+	var hasChannel bool
+	for _, f := range got.Flags {
+		if f.Name == "channel" {
+			hasChannel = true
+		}
+	}
+	if !hasChannel {
+		t.Fatalf("visible flag --channel missing from dump: %+v", got.Flags)
+	}
+}
+
 // runnableGroupTree mirrors internal/cli.newGroupCmd: a container command that
 // is Runnable (RunE just prints help, same as every group in the real tree —
 // alert, incident, oncall schedule, ...) purely so a mistyped subcommand fails
