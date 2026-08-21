@@ -72,7 +72,7 @@ func pastIncidentColumns() []output.Column {
 }
 
 func newIncidentListCmd() *cobra.Command {
-	var progress, severity, query, since, until, nums, fields string
+	var progress, severity, query, since, until, nums, fields, channel string
 	var channelID int64
 	var limit, page int
 	defaultStructuredFields := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"}
@@ -101,7 +101,17 @@ func newIncidentListCmd() *cobra.Command {
 				}
 				req.Page = page
 				req.Limit = limit
-				if channelID != 0 {
+				if channel != "" {
+					channelIDs, err := parseIntSlice(channel)
+					if err != nil {
+						return fmt.Errorf("invalid --channel: %w", err)
+					}
+					req.ChannelIDs = channelIDs
+				} else if channelID != 0 {
+					// --channel-id is a deprecated single-ID alias kept for scripts
+					// written before --channel existed; --channel above is canonical
+					// and wins when both are set. parseIntSlice/--channel is exactly
+					// the pattern alert list and change list already use.
 					req.ChannelIDs = []int64{channelID}
 				}
 				if nums != "" {
@@ -144,9 +154,16 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info")
 	registerEnumFlag(cmd, "progress", "Triggered", "Processing", "Closed")
 	registerEnumFlag(cmd, "severity", severityEnum...)
-	// --channel-id matches the sibling channel commands (channel info
-	// --channel-id, channel escalate-rule-list --channel-id).
-	cmd.Flags().Int64Var(&channelID, "channel-id", 0, "Filter by channel ID")
+	// --channel matches the sibling list verbs (alert list --channel,
+	// alert-event list --channel, change list --channel): comma-separated
+	// channel IDs, forwarded to the API's channel_ids ([]int64) field.
+	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	// --channel-id is kept as a deprecated single-ID alias for existing
+	// scripts (this is a public CLI). MarkDeprecated hides it from --help
+	// and prints a runtime notice on use; no separate MarkHidden call is
+	// needed (pflag's MarkDeprecated already sets Flag.Hidden = true).
+	cmd.Flags().Int64Var(&channelID, "channel-id", 0, "Deprecated: use --channel instead")
+	_ = cmd.Flags().MarkDeprecated("channel-id", "use --channel instead")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")

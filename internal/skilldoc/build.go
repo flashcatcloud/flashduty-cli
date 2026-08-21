@@ -78,6 +78,9 @@ func command(c *cobra.Command, path []string) Command {
 		cmd.Group = path[0]
 	}
 	c.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Hidden {
+			return
+		}
 		cmd.Flags = append(cmd.Flags, Flag{
 			Name:     f.Name,
 			Type:     f.Value.Type(),
