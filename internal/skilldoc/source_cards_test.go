@@ -24,3 +24,39 @@ func TestChannelCardDisambiguatesFlashcatWorkspace(t *testing.T) {
 		}
 	}
 }
+
+// TestTemplateCardUpdateSemanticsAreDestructive pins the one fact the template card
+// previously stated backwards. POST /template/update binds every channel field as a plain
+// string and writes all of them unconditionally, so a channel absent from the request is
+// stored as "" — omitting a flag deletes that channel's body for every escalation rule
+// bound to the template. The card used to promise the opposite ("omitted channel flags are
+// left unchanged"), which turns a one-field edit into a silent wipe of a live channel.
+func TestTemplateCardUpdateSemanticsAreDestructive(t *testing.T) {
+	body, err := os.ReadFile("../../skills/flashduty/reference/template.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+
+	for _, banned := range []string{
+		"omitted channel flags are left unchanged",
+		"only supplied fields overwrite",
+	} {
+		if strings.Contains(text, banned) {
+			t.Errorf("template card reasserts the retracted patch-semantics claim %q; update writes every channel field unconditionally", banned)
+		}
+	}
+
+	for _, want := range []string{
+		"full-object replace",
+		"is CLEARED",
+		"survive omission",
+		"info --json",
+		"Verify the FIELD SET",
+		"--feishu-app-card-v2-table-enabled",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("template card missing %q", want)
+		}
+	}
+}

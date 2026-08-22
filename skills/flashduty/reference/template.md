@@ -2,6 +2,10 @@
 
 Prereq: `SKILL.md` read. Read verbs are free. `create`, `update`, `delete` mutate account-wide notification templates — confirm before running. `delete <template-id>` is **irreversible**.
 
+**`update` is a full-object replace.** Every channel field you do not pass is written
+empty. A one-channel edit is still a whole-object write — never call `update` without the
+`info --json` snapshot from the hot flow below.
+
 ## Route here when
 
 "通知模板 / 消息模板 / 告警通知格式 / 飞书模板 / Slack 模板 / 邮件模板 / template CRUD / custom template / preview notification / validate template" → **template**. NOT `channel` (channel = escalation policy routing; template = the rendered text/card body). The key ID is **`template_id`** (string), returned by `list` or `create`.
@@ -46,14 +50,45 @@ fduty template create \
 fduty template info <template-id> --output-format toon
 ```
 
-## Hot flow — update one channel on an existing template
+## Hot flow — change one channel on an existing template
+
+`update` overwrites the whole object, so this is read → modify → preview → write →
+verify. Skipping step 1 or step 5 is how a live channel gets silently blanked.
 
 ```bash
-# template-id is POSITIONAL; --template-name is required even on update
-fduty template update <template-id> \
-  --template-name "Critical-Feishu-v2" \
-  --feishu "$(cat ./feishu-v3.tpl)"
+T=<template-id>          # POSITIONAL on update/info/delete; --template-name always required
+
+# 1. Snapshot the whole template — this is both your backup and your write payload
+fduty template info "$T" --json > /tmp/tpl.json
+NONEMPTY='to_entries[]|select(.value|type=="string")|select(.value!="")|.key'
+jq -r "$NONEMPTY" /tmp/tpl.json          # the channels that must survive this edit
+
+# 2. Edit only the channel you care about, on disk
+jq -r '.feishu_app' /tmp/tpl.json > /tmp/feishu_app.tpl
+#    …edit /tmp/feishu_app.tpl…
+
+# 3. Preview the edited source against a REAL incident before writing
+fduty template preview --type feishu_app --content "$(cat /tmp/feishu_app.tpl)" \
+  --incident-id <incident-id>
+
+# 4. Write — your edit PLUS every other channel that was non-empty in the snapshot
+fduty template update "$T" \
+  --template-name "$(jq -r '.template_name // ""' /tmp/tpl.json)" \
+  --description   "$(jq -r '.description // ""'   /tmp/tpl.json)" \
+  --feishu-app    "$(cat /tmp/feishu_app.tpl)" \
+  --dingtalk-app  "$(jq -r '.dingtalk_app // ""'  /tmp/tpl.json)" \
+  --dingtalk      "$(jq -r '.dingtalk // ""'      /tmp/tpl.json)"
+#   …one flag per non-empty key from step 1; omitting any of them clears it
+
+# 5. Verify the FIELD SET, not just your edit
+fduty template info "$T" --json > /tmp/tpl_after.json
+diff <(jq -r "$NONEMPTY" /tmp/tpl.json | sort) <(jq -r "$NONEMPTY" /tmp/tpl_after.json | sort)
+#   empty diff = nothing was wiped. A key only on the left = you just deleted a live
+#   channel; restore it immediately from /tmp/tpl.json.
 ```
+
+Checking only the field you edited is **not** verification — the damage from a full-object
+replace always lands on the fields you did not touch.
 
 <!-- GENERATED:template START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -166,8 +201,19 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 ## Gotchas
 
 - **`info`, `update`, `delete` take `<template-id>` as a positional first argument** — pass it bare, not as `--template-id`. `create`, `list`, `preview`, `validate`, `get-preset`, `functions`, `variables` take all inputs as flags.
-- **`update` replaces every channel field you pass — omitted channel flags are left unchanged** (server behavior: only supplied fields overwrite). Always pass `--template-name` even if the name is unchanged — it is required on update.
-- **`--feishu-app-card-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
+- **`update` is a full-object replace — every channel field you omit is CLEARED.** The
+  server writes all 16 channel fields plus `description` on every call, and a field absent
+  from the request arrives as the empty string: omitting `--dingtalk-app` sets
+  `dingtalk_app` to `""`, and that channel silently stops rendering for every escalation
+  rule bound to the template. Only `team_id`, `feishu_app_card_v2_table_enabled`,
+  `incident_card_hidden_fields` and `status` survive omission (they are patch-semantics).
+  Always snapshot with `info --json` first and pass every non-empty channel back — see the
+  hot flow above. `--template-name` is required on every update even when unchanged.
+- **`--feishu-app-card-v2-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
+- **`list` returns every channel's full template source for every row** — a few dozen
+  templates blow past a tool-output cap in one call. Never render it directly: go to a
+  file and project. `fduty template list --limit 100 --json > /tmp/tpl_list.json && jq -r
+  '.items[] | [.template_id, .template_name, .team_id] | @tsv' /tmp/tpl_list.json`.
 - **`delete` is permanent.** The built-in preset (`template_id = 000000000000000000000001`) can be addressed by that sentinel ID in `info` and `delete` — don't delete it.
 - **`validate` reads from a local `--file`; `preview` takes inline `--content`.** They are complementary: `validate` gives size-vs-limit diagnostics; `preview` renders against real or mock incident data.
 - **`email` uses `html/template` syntax; `sms` and `voice` use `text/template`** — auto-escaping rules differ. Don't mix them.
