@@ -41,6 +41,11 @@ func TestTemplateCardUpdateSemanticsAreDestructive(t *testing.T) {
 	for _, banned := range []string{
 		"omitted channel flags are left unchanged",
 		"only supplied fields overwrite",
+		// buildTemplateUpdates writes 14 channel-content fields, not 16.
+		"16 channel fields",
+		// status is not a field of update's request at all, so it is not a
+		// pointer-typed input that "survives" omission.
+		"and `status` survive omission",
 	} {
 		if strings.Contains(text, banned) {
 			t.Errorf("template card reasserts the retracted patch-semantics claim %q; update writes every channel field unconditionally", banned)
@@ -51,8 +56,17 @@ func TestTemplateCardUpdateSemanticsAreDestructive(t *testing.T) {
 		"full-object replace",
 		"is CLEARED",
 		"survive omission",
+		"14 channel-content fields",
 		"info --json",
-		"Verify the FIELD SET",
+		// Length comparison, not a non-empty field-set check: only the former catches a
+		// body that was truncated rather than cleared.
+		"Verify LENGTHS",
+		// The write path must move bodies with jq, never through command substitution,
+		// which strips every trailing newline off a template body.
+		"--rawfile",
+		"--data -",
+		`"$(cat`,
+		"strips *all* trailing newlines",
 		"--feishu-app-card-v2-table-enabled",
 	} {
 		if !strings.Contains(text, want) {

@@ -57,38 +57,43 @@ verify. Skipping step 1 or step 5 is how a live channel gets silently blanked.
 
 ```bash
 T=<template-id>          # POSITIONAL on update/info/delete; --template-name always required
+CHLEN='["dingtalk","dingtalk_app","email","feishu","feishu_app","slack","slack_app","sms","teams_app","telegram","voice","wecom","wecom_app","zoom"] as $ch | . as $t | $ch[] | "\(.)\t\($t[.] // "" | length)"'
 
 # 1. Snapshot the whole template — this is both your backup and your write payload
 fduty template info "$T" --json > /tmp/tpl.json
-NONEMPTY='to_entries[]|select(.value|type=="string")|select(.value!="")|.key'
-jq -r "$NONEMPTY" /tmp/tpl.json          # the channels that must survive this edit
+jq -r "$CHLEN" /tmp/tpl.json          # every channel and its current byte length
 
 # 2. Edit only the channel you care about, on disk
 jq -r '.feishu_app' /tmp/tpl.json > /tmp/feishu_app.tpl
 #    …edit /tmp/feishu_app.tpl…
 
 # 3. Preview the edited source against a REAL incident before writing
-fduty template preview --type feishu_app --content "$(cat /tmp/feishu_app.tpl)" \
-  --incident-id <incident-id>
+jq -n --rawfile c /tmp/feishu_app.tpl \
+  '{type:"feishu_app", content:$c, incident_id:"<incident-id>"}' \
+  | fduty template preview --data -
 
-# 4. Write — your edit PLUS every other channel that was non-empty in the snapshot
-fduty template update "$T" \
-  --template-name "$(jq -r '.template_name // ""' /tmp/tpl.json)" \
-  --description   "$(jq -r '.description // ""'   /tmp/tpl.json)" \
-  --feishu-app    "$(cat /tmp/feishu_app.tpl)" \
-  --dingtalk-app  "$(jq -r '.dingtalk_app // ""'  /tmp/tpl.json)" \
-  --dingtalk      "$(jq -r '.dingtalk // ""'      /tmp/tpl.json)"
-#   …one flag per non-empty key from step 1; omitting any of them clears it
+# 4. Write — rebuild the body from the snapshot, moving template bodies with jq and
+#    NEVER through "$(...)": command substitution strips every trailing newline, so a
+#    body ending in a blank line would come back silently shortened.
+jq -c --rawfile feishu_app /tmp/feishu_app.tpl \
+  '{template_id, template_name, description,
+    dingtalk, dingtalk_app, email, feishu, feishu_app, slack, slack_app, sms,
+    teams_app, telegram, voice, wecom, wecom_app, zoom}
+   | .feishu_app = $feishu_app' /tmp/tpl.json \
+  | fduty template update --data -
+#    Everything left out of that object is patch-semantics and survives untouched:
+#    team_id, feishu_app_card_v2_table_enabled, incident_card_hidden_fields.
 
-# 5. Verify the FIELD SET, not just your edit
+# 5. Verify LENGTHS, not just the field you edited
 fduty template info "$T" --json > /tmp/tpl_after.json
-diff <(jq -r "$NONEMPTY" /tmp/tpl.json | sort) <(jq -r "$NONEMPTY" /tmp/tpl_after.json | sort)
-#   empty diff = nothing was wiped. A key only on the left = you just deleted a live
-#   channel; restore it immediately from /tmp/tpl.json.
+diff <(jq -r "$CHLEN" /tmp/tpl.json) <(jq -r "$CHLEN" /tmp/tpl_after.json)
+#    Only the channel you edited may differ. A channel that dropped to 0 was wiped; a
+#    channel a few bytes shorter was truncated — restore it from /tmp/tpl.json.
 ```
 
 Checking only the field you edited is **not** verification — the damage from a full-object
-replace always lands on the fields you did not touch.
+replace always lands on the fields you did not touch, and comparing only *which* fields are
+non-empty misses a body that was shortened rather than cleared.
 
 <!-- GENERATED:template START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -202,13 +207,21 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 
 - **`info`, `update`, `delete` take `<template-id>` as a positional first argument** — pass it bare, not as `--template-id`. `create`, `list`, `preview`, `validate`, `get-preset`, `functions`, `variables` take all inputs as flags.
 - **`update` is a full-object replace — every channel field you omit is CLEARED.** The
-  server writes all 16 channel fields plus `description` on every call, and a field absent
-  from the request arrives as the empty string: omitting `--dingtalk-app` sets
-  `dingtalk_app` to `""`, and that channel silently stops rendering for every escalation
-  rule bound to the template. Only `team_id`, `feishu_app_card_v2_table_enabled`,
-  `incident_card_hidden_fields` and `status` survive omission (they are patch-semantics).
-  Always snapshot with `info --json` first and pass every non-empty channel back — see the
-  hot flow above. `--template-name` is required on every update even when unchanged.
+  server writes all 14 channel-content fields plus `description` on every call, and a
+  field absent from the request arrives as the empty string: omitting `--dingtalk-app`
+  sets `dingtalk_app` to `""`, and that channel silently stops rendering for every
+  escalation rule bound to the template. Only the pointer-typed inputs survive omission:
+  `team_id`, `feishu_app_card_v2_table_enabled`, `incident_card_hidden_fields`. (`status`
+  is not part of `update`'s request at all — it moves only through the separate
+  enable/disable endpoints, which the CLI does not expose — so `update` can never change
+  it.) Always snapshot with `info --json` first and rebuild the body from that snapshot —
+  see the hot flow above. `--template-name` is required on every update even when
+  unchanged.
+- **Never move a template body through `"$(cat …)"` or `"$(jq -r …)"`.** Bash command
+  substitution strips *all* trailing newlines, so a body that legitimately ends in a blank
+  line is written back shortened — and a check that only asks which fields are non-empty
+  cannot see it, because the field is still non-empty. Carry bodies with `jq --rawfile`
+  and write with `--data -`, as the hot flow does.
 - **`--feishu-app-card-v2-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
 - **`list` returns every channel's full template source for every row** — a few dozen
   templates blow past a tool-output cap in one call. Never render it directly: go to a
