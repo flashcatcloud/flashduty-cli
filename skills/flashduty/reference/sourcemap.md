@@ -44,7 +44,7 @@ List sourcemaps
 - `--search-after-ctx` string
 - `--services` stringSlice — Filter by service names. Up to 100 values.
 - `--start-time` int64 (required) — Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'.
-- `--type` string — Platform type. Defaults to 'browser' when omitted. · enum: browser | android | ios
+- `--type` string — Platform type. Defaults to 'browser' when omitted. One of 'browser' (JavaScript sourcemaps), 'android' (ProGuard/R8 mappings or NDK native symbols, distinguishable via 'kind'), 'ios' (dSYM symbol files). · enum: browser | android | ios
 - `--uuid` string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
 - `--versions` stringSlice — Filter by version strings. Up to 100 values.
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); git_commit_sha (string); git_repository_url (string); key (string); metadata (object); service (string); size (integer); type (string); updated_at (string); version (string)
@@ -58,7 +58,7 @@ Enrich a stack trace
 - `--service` string (required) — Application or service name used when the sourcemap was uploaded.
 - `--source-type` string — Android error source type. Use 'ndk' with 'arch' for native symbolication.
 - `--stack` string — Raw stack trace to parse and enrich.
-- `--type` string — Source platform. Defaults to 'browser' when omitted. · enum: browser | android | ios | miniprogram | harmony
+- `--type` string — Source platform. Defaults to 'browser' when omitted. One of 'browser' (JS stacks, sourcemap-based), 'android' (mapping/NDK symbolication), 'ios' (dSYM symbolication), 'miniprogram' (WeChat mini program, sourcemap-based), 'harmony' (HarmonyOS, sourcemap/native symbolication), 'flutter' (Flutter stack symbolication), 'electron' (Electron, sourcemap-based). · enum: browser | android | ios | miniprogram | harmony | flutter | electron
 - `--variant` string — Android build variant used by older Gradle plugin versions.
 - `--version` string (required) — Application version used when the sourcemap was uploaded.
 - body-only (`--data`): binary_images (array<object>)

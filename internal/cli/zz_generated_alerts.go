@@ -46,8 +46,8 @@ Request fields:
   --start-time string — Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean)
-  - items (array<object>)
+  - has_next_page (boolean) — Whether a next page exists (probed by fetching limit+1 rows).
+  - items (array<object>) — Raw alert events on the current page.
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
@@ -70,8 +70,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - search_after_ctx (string)
-  - total (integer)
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID of the last event on this page; pass it back as 'search_after_ctx'. Omitted when there are no more results or the result is empty.
+  - total (integer) — Total number of matching events, capped at 1000.
 `,
 		Example: `  flashduty alert-event list --data '{"end_time":1712707200,"limit":20,"severities":"Critical","start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -278,8 +278,8 @@ Request fields:
   --types []string — Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean)
-  - items (array<object>)
+  - has_next_page (boolean) — Whether a next page exists.
+  - items (array<object>) — Alert feed records on the current page.
     - account_id (integer) (required) — Account ID.
     - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
@@ -288,7 +288,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - severity (string) — Severity level. [Ok, Critical, Warning, Info]
       - status (string) — Severity level. [Ok, Critical, Warning, Info]
     - ref_id (string) (required) — ObjectID of the alert this entry references.
-    - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_comm' | Comment added on the alert. | | 'a_close' | Alert closed. | [a_new, a_comm, a_close]
+    - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_update' | Alert updated by an incoming event (e.g. severity or status change). | | 'a_merge' | Alert merged. | | 'a_comm' | Comment added on the alert. | | 'a_m_silence' | Alert muted by a silence rule. | | 'a_m_inhibit' | Alert muted by an inhibit rule. | | 'a_close' | Alert closed (historical data only; no longer produced). | [a_new, a_update, a_merge, a_comm, a_m_silence, a_m_inhibit, a_close]
     - updated_at (string) (required) — Last update timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
@@ -501,7 +501,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
-  - items (array<object>)
+  - items (array<object>) — Alerts on the current page.
     - account_id (integer) — Account ID.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
@@ -677,7 +677,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
-  - items (array<object>)
+  - items (array<object>) — Alerts on the current page.
     - account_id (integer) — Account ID.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
@@ -798,7 +798,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
       - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
       - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-    - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
@@ -861,7 +861,7 @@ Request fields:
   --integration-ids []int (required) — Integration IDs.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
+  - items (array<object>) — Alert pipeline configuration of each requested integration, one item per configured integration.
     - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) — Member ID who created the pipeline.
     - integration_id (integer) — Integration ID this pipeline applies to.
@@ -870,7 +870,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
         - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
         - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-      - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+      - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
         - description (string) — New description template.
         - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
@@ -1009,7 +1009,7 @@ Request fields:
       - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
       - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
       - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-    - kind (string) — Rule type. [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.

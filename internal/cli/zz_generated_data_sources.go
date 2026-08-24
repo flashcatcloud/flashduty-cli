@@ -35,109 +35,109 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
@@ -197,109 +197,109 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
@@ -484,109 +484,109 @@ Request fields:
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -600,109 +600,109 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
@@ -831,109 +831,109 @@ Request fields:
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -947,109 +947,109 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - max_execution_seconds (integer) — Max query execution time in seconds.
-      - open_conns (integer)
-      - password (string)
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_enabled (boolean)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — ClickHouse authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_enabled (boolean) — Whether TLS is enabled; when 'false', all 'tls_*' fields are cleared before saving.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+      - username (string) — ClickHouse authentication username.
     - elasticsearch (object) — Elasticsearch datasource configuration.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
-      - certificate_fingerprint (string)
+      - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
       - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
-      - headers (array<string>)
-      - password (string)
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
+      - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
-      - timeout_mills (integer)
-      - tls_ca (string)
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'X-Scope-OrgID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
-      - password (string)
+      - password (string) — MySQL authentication password.
       - timeout_mills (integer) — Query timeout in milliseconds.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. [disable, require, verify-full]
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
-      - username (string)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; only allowed when 'tls_mode' is 'verify-full' (or empty legacy mode).
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_mode (string) — TLS mode for the MySQL connection. Empty keeps the legacy per-field TLS behavior. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification; 'verify-full' = TLS with full server verification (CA chain and hostname). MySQL has no 'verify-ca' — verifying the CA implies verifying the hostname. [disable, require, verify-full]
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
+      - username (string) — MySQL authentication username.
     - oracle (object) — Oracle datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
       - options (object) — Extra connection options as key-value pairs.
-      - password (string)
-      - timeout_mills (integer)
-      - username (string)
+      - password (string) — Oracle authentication password.
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - username (string) — Oracle authentication username.
     - postgres (object) — PostgreSQL datasource configuration.
-      - idle_conns (integer)
-      - lifetime_seconds (integer)
-      - open_conns (integer)
-      - password (string)
-      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. [disable, require, verify-ca, verify-full]
-      - timeout_mills (integer)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - username (string)
+      - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
+      - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
+      - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
+      - password (string) — PostgreSQL authentication password.
+      - ssl_mode (string) — SSL mode for the PostgreSQL connection. Empty keeps the legacy behavior inferred from 'tls_ca'. 'disable' = no TLS (all 'tls_*' fields are cleared on save); 'require' = TLS without server certificate verification ('tls_ca' not allowed); 'verify-ca' = verify the server certificate CA chain but not the hostname; 'verify-full' = verify both CA chain and hostname. [disable, require, verify-ca, verify-full]
+      - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate; used with 'ssl_mode' 'verify-ca'/'verify-full' and rejected under 'require'.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - username (string) — PostgreSQL authentication username.
     - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
       - basic_auth_password (string) — Basic auth password.
       - basic_auth_username (string) — Basic auth username.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
-      - basic_auth_enabled (boolean)
-      - basic_auth_password (string)
-      - basic_auth_username (string)
-      - headers (array<string>)
-      - params (array<string>)
-      - tls_ca (string)
-      - tls_cert (string)
-      - tls_key (string)
-      - tls_max_version (string)
-      - tls_min_version (string)
-      - tls_server_name (string)
-      - tls_skip_verify (boolean)
+      - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
+      - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'; usable for tenancy headers such as 'AccountID'/'ProjectID'.
+      - params (array<string>) — Custom query parameters appended to every request URL, each entry formatted as 'key=value'.
+      - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
+      - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
+      - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
+      - tls_max_version (string) — Maximum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint.
+      - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
   - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'victorialogs'.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,

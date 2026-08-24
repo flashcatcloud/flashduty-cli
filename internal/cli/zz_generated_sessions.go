@@ -44,13 +44,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - invocation_id (string) — ADK invocation id grouping a turn.
     - partial (boolean) (required) — True for a streaming partial chunk.
     - session_id (string) (required) — Owning session id.
-    - status (string) — Event status. [normal, compressed]
+    - status (string) — Event status. One of: 'normal' (a live event included in the context fed to the model), 'compressed' (folded into a compaction summary boundary event; no longer loaded for the model, kept as history only). [normal, compressed]
     - turn_complete (boolean) (required) — True on the terminal event of a turn.
     - usage_metadata (object) — Per-turn token usage metadata.
   - has_more_older (boolean) (required) — True when older events remain beyond this page.
   - search_after_ctx (string) — Opaque keyset cursor; pass back as search_after_ctx to fetch the next older page. Omitted when has_more_older is false.
   - session (object) (required) — One agent session row.
-    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
+    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller is the session creator (full access) | | 'team_member' | Caller belongs to the session's bound team (full access) | | 'manager' | Manager grant (reserved; never produced by the current version) | | 'share_link' | Granted via a valid share link (view/fork only; cannot continue or manage) | | 'participant' | Same-account non-member granted via a participable team session (view/continue/fork only) | [owner, team_member, manager, share_link, participant]
     - app_name (string) (required) — Agent app that owns the session.
     - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
@@ -75,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
-    - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
+    - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
     - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
@@ -91,7 +91,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) (required) — Lifecycle status. [enabled, deleted]
+    - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
@@ -179,7 +179,7 @@ Request fields:
   --page int — Page number, 1-based. (min 1)
   --limit int — Page size, 1–100. (1-100)
   --search-after-ctx string
-  --app-name string (required) — Agent app whose sessions to list. [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
+  --app-name string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
   --asc bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
   --entry-kinds []string — Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]
   --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
@@ -191,7 +191,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - sessions (array<object>) (required) — The page of sessions.
-    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. [owner, team_member, manager, share_link]
+    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller is the session creator (full access) | | 'team_member' | Caller belongs to the session's bound team (full access) | | 'manager' | Manager grant (reserved; never produced by the current version) | | 'share_link' | Granted via a valid share link (view/fork only; cannot continue or manage) | | 'participant' | Same-account non-member granted via a participable team session (view/continue/fork only) | [owner, team_member, manager, share_link, participant]
     - app_name (string) (required) — Agent app that owns the session.
     - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
@@ -216,7 +216,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
-    - entry_kind (string) — Surface that created the session. [web, im, api, automation, subagent]
+    - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
     - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
@@ -232,7 +232,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) (required) — Lifecycle status. [enabled, deleted]
+    - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
@@ -305,7 +305,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
+	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').")
 	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]")
 	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")

@@ -54,7 +54,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - edge_count (integer) (required) — Number of edges in the host's current graph.
       - enabled (boolean) (required) — True if ServiceMap collection is enabled on this host.
       - error_code (string) — Set to 'status_unavailable' when this host's live status could not be read; other fields fall back to inventory-derived defaults in that case.
-      - freshness_status (string) — Freshness classification of the host's graph. [fresh, stale, unknown]
+      - freshness_status (string) — Freshness classification of the host's graph. 'fresh' = the latest snapshot was received within 2× the report interval; 'stale' = no new snapshot within 2× the report interval; 'unknown' = no topology snapshot ever received, freshness undecidable. [fresh, stale, unknown]
       - graph_available (boolean) (required) — True if a current graph can be fetched for this host right now.
       - max_age_ms (integer) — Age in milliseconds of the host's graph data, relative to when this response was generated.
       - node_count (integer) (required) — Number of nodes in the host's current graph.
@@ -63,7 +63,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - received_at_ms (string) — Unix timestamp in milliseconds the host's current graph generation was received by the server. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - report_interval_ms (integer) — Configured reporting interval in milliseconds.
       - snapshot_ready (boolean) (required) — True if the agent has produced at least one full snapshot.
-      - status (string) (required) — Overall ServiceMap collection status. [active, degraded, stale, initializing, disabled, unsupported, no_data]
+      - status (string) (required) — Overall ServiceMap collection status. | Value | Meaning | |---|---| | 'active' | Collection healthy: a fresh snapshot exists with no degradation. | | 'degraded' | Collecting but quality is impaired: health reports are newer than the snapshot, the snapshot is truncated/degraded, or collection is failing. | | 'stale' | A snapshot exists but is outdated (not updated within 2× the report interval). | | 'initializing' | The agent has reported the capability but the first snapshot is not ready yet. | | 'disabled' | Topology collection is disabled on this host. | | 'unsupported' | The agent or kernel does not support this collection. | | 'no_data' | No snapshot or health data received at all. | [active, degraded, stale, initializing, disabled, unsupported, no_data]
   - next_cursor (string) — Opaque cursor to fetch the next page. Absent when there are no more candidates to scan.
   - partial (boolean) (required) — True if any host in this page failed to read status, or the scan was truncated.
   - truncated (boolean) (required) — True if 'scan_limit' was reached before finding 'limit' matches; 'next_cursor' may still find more.
@@ -250,7 +250,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
       - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-      - status (string) (required) — Freshness classification. [fresh, stale, unknown]
+      - status (string) (required) — Freshness classification. 'fresh' = the latest snapshot was received within 2× the report interval; 'stale' = no new snapshot within 2× the report interval; 'unknown' = no snapshot data, undecidable. [fresh, stale, unknown]
     - graph_available (boolean) (required) — True if a current graph can be fetched for this host right now.
     - host_id (string) (required) — Host ID this status describes.
     - latest_health_at_ms (string) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -260,7 +260,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - reason_codes (array<string>) — Machine-readable codes explaining the current status.
     - received_at_ms (string) — Unix timestamp in milliseconds the host's current graph generation was received by the server. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - report_interval_ms (integer) — Configured reporting interval in milliseconds.
-    - status (string) (required) — Overall ServiceMap collection status. [active, degraded, stale, initializing, disabled, unsupported, no_data]
+    - status (string) (required) — Overall ServiceMap collection status. | Value | Meaning | |---|---| | 'active' | Collection healthy: a fresh snapshot exists with no degradation. | | 'degraded' | Collecting but quality is impaired: health reports are newer than the snapshot, the snapshot is truncated/degraded, or collection is failing. | | 'stale' | A snapshot exists but is outdated (not updated within 2× the report interval). | | 'initializing' | The agent has reported the capability but the first snapshot is not ready yet. | | 'disabled' | Topology collection is disabled on this host. | | 'unsupported' | The agent or kernel does not support this collection. | | 'no_data' | No snapshot or health data received at all. | [active, degraded, stale, initializing, disabled, unsupported, no_data]
   - partial (boolean) (required) — True if any host failed or the fleet sample was truncated.
 `,
 		Example: `  flashduty monit servicemap-status --data '{"host_id":"host_0123456789abcdef0123456789abcdef"}'`,
@@ -335,16 +335,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - ipv6_only_known_listener_count (integer) — Number of IPv6 wildcard listeners with a known IPV6_V6ONLY setting.
     - ipv6_only_unknown_listener_count (integer) — Number of IPv6 wildcard listeners whose IPV6_V6ONLY setting could not be determined.
     - ipv6_wildcard_listener_count (integer) — Number of IPv6 wildcard (unspecified-address) listeners observed.
-    - kubernetes_enrichment_status (string) (required) — Aggregate Kubernetes enrichment coverage across loaded hosts. [unknown, complete, partial, unavailable]
-    - listener_address_family_status (string) (required) — Aggregate coverage of IPv4/IPv6 listener address-family resolution across loaded hosts. [unknown, complete, partial, unavailable]
-    - network_inventory_status (string) (required) — Aggregate network-inventory enrichment coverage across loaded hosts. [unknown, complete, partial, unavailable]
+    - kubernetes_enrichment_status (string) (required) — Aggregate Kubernetes enrichment coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | Every host has full pod-binding metadata for its entities. | | 'partial' | At least one host has bindings but some pod metadata is missing or bindings were dropped. | | 'unavailable' | At least one host has no pod bindings at all. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
+    - listener_address_family_status (string) (required) — Aggregate listener address-family (IPv4/IPv6) resolution coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | On every host, the IPv6-only attribute of all IPv6 wildcard listeners is known. | | 'partial' | At least one host knows the IPv6-only attribute for only some IPv6 wildcard listeners. | | 'unavailable' | At least one host knows the IPv6-only attribute of none of its IPv6 wildcard listeners. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
+    - network_inventory_status (string) (required) — Aggregate network-inventory enrichment coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | Every requested network namespace on every host was scanned successfully with no errors. | | 'partial' | At least one host failed to scan some namespaces, or scanning raised errors. | | 'unavailable' | At least one host failed to scan all of its namespaces. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
     - reasons (array<string>) — Machine-readable reason codes explaining any degraded or truncated state among loaded hosts.
     - truncated_hosts (integer) (required) — Number of loaded host graphs that were truncated at collection time.
   - freshness (object) (required) — How recent the graph data is.
     - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
     - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - status (string) (required) — Freshness classification. [fresh, stale, unknown]
+    - status (string) (required) — Freshness classification. 'fresh' = the latest snapshot was received within 2× the report interval; 'stale' = no new snapshot within 2× the report interval; 'unknown' = no snapshot data, undecidable. [fresh, stale, unknown]
   - graph_role (string) (required) — 'current' if the summary reflects the live graph; 'last_known_good' if the latest ingestion is unhealthy and this reflects the last authoritative graph instead. [current, last_known_good]
   - latest_collection_authoritative (boolean) (required) — False when 'graph_role=last_known_good', i.e. the most recent collection attempt was not authoritative.
   - latest_health_at_ms (string) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -352,10 +352,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - active_connections (any) — Active connection count for this relation, when the underlying agent reports it.
     - destination_ip (string) — Destination IP address.
     - destination_port (integer) — Destination port.
-    - destination_protocol (string) — Transport protocol of the destination. [tcp, udp]
+    - destination_protocol (string) — Transport protocol of the destination. 'tcp' = TCP connection; 'udp' = UDP session. Collectors currently only report 'tcp'; 'udp' is reserved. [tcp, udp]
     - edge_id (string) (required) — Edge ID.
     - last_seen (string) — Timestamp this relation was last observed.
-    - resolution_status (string) (required) — Resolution outcome for this relation's destination. [resolved, ambiguous, unresolved]
+    - resolution_status (string) (required) — Resolution outcome for this relation's destination. 'resolved' = uniquely resolved to a listening entity on a host — the relation is reliable; 'ambiguous' = multiple candidates exist (or the listener address family is unknown) — treat the relation as a lead to verify; 'unresolved' = no candidate found, the destination identity is unknown. [resolved, ambiguous, unresolved]
     - source_display_name (string) — Display name of the source node, when known.
     - source_entity_id (string) (required) — Entity ID of the source node.
     - target_display_name (string) — Display name of the resolved target, when known.
@@ -368,7 +368,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - ambiguous (integer) (required) — Number of edges resolved to multiple or low-confidence candidates.
     - resolved (integer) (required) — Number of edges resolved to exactly one confident candidate.
     - unresolved (integer) (required) — Number of edges with no resolvable candidate.
-  - status (string) (required) — ServiceMap collection status of the anchor host. [active, degraded, stale, initializing, disabled, unsupported, no_data]
+  - status (string) (required) — ServiceMap collection status of the anchor host. | Value | Meaning | |---|---| | 'active' | Collection healthy: a fresh snapshot exists with no degradation. | | 'degraded' | Collecting but quality is impaired: health reports are newer than the snapshot, the snapshot is truncated/degraded, or collection is failing. | | 'stale' | A snapshot exists but is outdated (not updated within 2× the report interval). | | 'initializing' | The agent has reported the capability but the first snapshot is not ready yet. | | 'disabled' | Topology collection is disabled on this host. | | 'unsupported' | The agent or kernel does not support this collection. | | 'no_data' | No snapshot or health data received at all. | [active, degraded, stale, initializing, disabled, unsupported, no_data]
   - truncated (boolean) (required) — True if the fixed-size summary omitted any neighbor or coverage detail to stay within its bounds.
   - truncation_reasons (array<string>) — Machine-readable reasons the summary was truncated, when 'truncated=true'.
 `,
@@ -444,9 +444,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - ipv6_only_known_listener_count (integer) — Number of IPv6 wildcard listeners with a known IPV6_V6ONLY setting.
     - ipv6_only_unknown_listener_count (integer) — Number of IPv6 wildcard listeners whose IPV6_V6ONLY setting could not be determined.
     - ipv6_wildcard_listener_count (integer) — Number of IPv6 wildcard (unspecified-address) listeners observed.
-    - kubernetes_enrichment_status (string) (required) — Aggregate Kubernetes enrichment coverage across loaded hosts. [unknown, complete, partial, unavailable]
-    - listener_address_family_status (string) (required) — Aggregate coverage of IPv4/IPv6 listener address-family resolution across loaded hosts. [unknown, complete, partial, unavailable]
-    - network_inventory_status (string) (required) — Aggregate network-inventory enrichment coverage across loaded hosts. [unknown, complete, partial, unavailable]
+    - kubernetes_enrichment_status (string) (required) — Aggregate Kubernetes enrichment coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | Every host has full pod-binding metadata for its entities. | | 'partial' | At least one host has bindings but some pod metadata is missing or bindings were dropped. | | 'unavailable' | At least one host has no pod bindings at all. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
+    - listener_address_family_status (string) (required) — Aggregate listener address-family (IPv4/IPv6) resolution coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | On every host, the IPv6-only attribute of all IPv6 wildcard listeners is known. | | 'partial' | At least one host knows the IPv6-only attribute for only some IPv6 wildcard listeners. | | 'unavailable' | At least one host knows the IPv6-only attribute of none of its IPv6 wildcard listeners. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
+    - network_inventory_status (string) (required) — Aggregate network-inventory enrichment coverage across loaded hosts (worst per-host status wins). | Value | Meaning | |---|---| | 'complete' | Every requested network namespace on every host was scanned successfully with no errors. | | 'partial' | At least one host failed to scan some namespaces, or scanning raised errors. | | 'unavailable' | At least one host failed to scan all of its namespaces. | | 'unknown' | No host loaded, or a host reported an unrecognized status. | [unknown, complete, partial, unavailable]
     - reasons (array<string>) — Machine-readable reason codes explaining any degraded or truncated state among loaded hosts.
     - truncated_hosts (integer) (required) — Number of loaded host graphs that were truncated at collection time.
   - edges (array<object>) (required) — Edges discovered during the traversal. Excludes unresolved edges when 'unresolved_mode=summary'.
@@ -490,7 +490,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - max_age_ms (integer) (required) — Age in milliseconds of the staleest graph covered, relative to now.
     - newest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the most recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - oldest_received_at_ms (string) (required) — Unix timestamp in milliseconds of the least recently received graph among the hosts covered. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - status (string) (required) — Freshness classification. [fresh, stale, unknown]
+    - status (string) (required) — Freshness classification. 'fresh' = the latest snapshot was received within 2× the report interval; 'stale' = no new snapshot within 2× the report interval; 'unknown' = no snapshot data, undecidable. [fresh, stale, unknown]
   - network_scope_id (string) (required) — Network scope the graph was resolved within.
   - nodes (array<object>) (required) — Nodes discovered during the traversal.
     - container_name (string) — Container name, when the node runs in a container.
@@ -530,7 +530,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - by_reason (array<object>) (required) — Breakdown of 'total' unresolved edges by reason code.
       - count (integer) (required) — Number of unresolved edges with this reason.
       - reason (string) (required) — Machine-readable unresolved reason code.
-    - mode (string) (required) — The 'unresolved_mode' that was applied. [summary, full]
+    - mode (string) (required) — The 'unresolved_mode' that was applied. 'full' = unresolved destinations are listed completely in 'unresolved_endpoints' and their edges stay in 'edges' (default); 'summary' = unresolved edges are excluded from 'edges' and 'unresolved_endpoints' keeps at most 20 samples, complemented by the 'by_reason' counts. [summary, full]
     - omitted (integer) (required) — Number of unresolved edges found but not returned ('total - returned').
     - returned (integer) (required) — Number of unresolved edges included in 'unresolved_endpoints'.
     - total (integer) (required) — Total number of unresolved edges found, regardless of how many were returned.

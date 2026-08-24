@@ -95,10 +95,10 @@ Request fields:
   --team-ids []int (required) — List of team IDs to look up. Max 100.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
-    - person_ids (array<integer>)
-    - team_id (integer)
-    - team_name (string)
+  - items (array<object>) (required) — Array of brief team info for the matched 'team_ids'; may be null when no ID matches.
+    - person_ids (array<integer>) — Array of person IDs belonging to the team; empty array (never null) when the team has no members.
+    - team_id (integer) — Team ID.
+    - team_name (string) — Team name.
 `,
 		Args:    requireBodyFieldOrArgs("team_ids", "team-ids"),
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
@@ -161,7 +161,7 @@ Request fields:
   --query string — Substring match on team name.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Array of teams for the current page, used with 'p', 'limit' and 'total' for pagination; empty array on an empty page.
     - account_id (integer) (required) — Owning account ID.
     - created_at (string) (required) — Unix epoch seconds the team was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — Member ID of the creator.

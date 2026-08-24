@@ -32,7 +32,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - allow_insecure_oauth_http (boolean) — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this agent's endpoint.
   - auth_config (object) — Authentication config; sensitive values ('api_key', 'token', 'client_secret') are masked.
-  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
   - can_edit (boolean) (required) — Whether the caller may edit this agent.
   - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
@@ -118,7 +118,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - allow_insecure_oauth_http (boolean) — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS.
     - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this agent's endpoint.
     - auth_config (object) — Authentication config; sensitive values ('api_key', 'token', 'client_secret') are masked.
-    - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+    - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
     - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
     - can_edit (boolean) (required) — Whether the caller may edit this agent.
     - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.

@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - session_replay.used_cnt (integer) (required) — Number of session-replay sessions used in the current billing window.
   - status (string) (required) — Status of the resource. A resource with status 'deleted' or 'destroyed' never reaches this field — the operation returns 'ResourceNotFound' for those instead. [enabled, disabled]
   - updated_at (string) (required) — Unix timestamp in seconds when the resource was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - version (string) (required) — Plan version of this resource. [free, professional]
+  - version (string) (required) — Plan version of this resource. One of 'free' (free plan) or 'professional' (professional plan). [free, professional]
   - view.days (integer) (required) — Retention period in days for view (page/screen) data.
   - window_end_time (string) (required) — Unix timestamp in seconds for the end of the current 30-day billing window. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - window_start_time (string) (required) — Unix timestamp in seconds for the start of the current 30-day billing window. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.

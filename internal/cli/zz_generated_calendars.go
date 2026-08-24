@@ -385,8 +385,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) (required) — Creator person ID.
   - description (string) (required) — Calendar description.
   - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
-  - kind (string) (required) — Calendar kind. [region.official.holiday, religion.holiday, personal]
-  - status (string) (required) — Calendar status. [enabled, deleted]
+  - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
+  - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID (0 when not assigned).
   - timezone (string) (required) — IANA timezone.
   - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -440,7 +440,7 @@ Return the list of service calendars visible to the current account.
 API: POST /calendar/list (calendarList)
 
 Request fields:
-  --kind string — Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]
+  --kind string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. [region.official.holiday, personal]
   --no-locale bool — Disable locale filtering when listing public-holiday calendars.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -452,8 +452,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) (required) — Creator person ID.
     - description (string) (required) — Calendar description.
     - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
-    - kind (string) (required) — Calendar kind. [region.official.holiday, religion.holiday, personal]
-    - status (string) (required) — Calendar status. [enabled, deleted]
+    - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
+    - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID (0 when not assigned).
     - timezone (string) (required) — IANA timezone.
     - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -488,7 +488,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter. Defaults to personal when empty. [region.official.holiday, personal]")
+	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. [region.official.holiday, personal]")
 	cmd.Flags().BoolVar(&fNoLocale, "no-locale", false, "Disable locale filtering when listing public-holiday calendars.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

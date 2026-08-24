@@ -30,7 +30,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
-  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
+  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID.
@@ -43,7 +43,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
-  - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
@@ -114,14 +114,14 @@ Request fields:
   --team-ids []int — Filter to these team IDs; this narrows results and does not expand access.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - rules (array<object>) (required)
+  - rules (array<object>) (required) — Array of automation rules for the current page, used with 'total' for pagination.
     - account_id (integer) (required) — Account ID.
     - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
     - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - cron_expr (string) (required) — Normalized 5-field cron expression.
     - enabled (boolean) (required) — Whether the rule is enabled.
     - environment_id (string) (required) — BYOC Runner ID.
-    - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
+    - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
     - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
     - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
     - http_post_trigger_id (string) — HTTP POST trigger ID.
@@ -134,7 +134,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - owner_id (integer) (required) — Creator person ID.
     - prompt (string) (required) — Task prompt.
     - rule_id (string) (required) — Rule ID.
-    - run_scope (string) (required) — Hidden session run scope. [person, team]
+    - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
     - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
     - schedule_trigger_id (string) — Schedule trigger ID.
@@ -228,7 +228,7 @@ Request fields:
   --cron-expr string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
   --enabled bool — Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.
   --environment-id string — BYOC Runner ID. Used only when 'environment_kind=byoc'.
-  --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
+  --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (a self-hosted BYOC runner in the account, used with 'environment_id'); automatic selection prefers an online BYOC runner and falls back to the cloud sandbox. [cloud, byoc]
   --http-post-trigger-enabled bool — Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.
   --name string (required) — Rule name. (1-255 chars)
   --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
@@ -246,7 +246,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
-  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
+  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID.
@@ -259,7 +259,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
-  - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
@@ -330,7 +330,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.")
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID. Used only when 'environment_kind=byoc'.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
+	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (a self-hosted BYOC runner in the account, used with 'environment_id'); automatic selection prefers an online BYOC runner and falls back to the cloud sandbox. [cloud, byoc]")
 	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.")
 	cmd.Flags().StringVar(&fName, "name", "", "Rule name. (required) (1-255 chars)")
 	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
@@ -413,7 +413,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - checks (array<string>) (required) — Names of the readiness checks performed, in order. Current fixed set: rule_loaded, actor_authorized, app_allowed, runtime_scope_resolved, rule_config_valid.
     - ok (boolean) (required) — Whether all readiness checks passed. Always true in a response that reaches the caller — a failed preflight returns a 400/403 error instead of a payload with ok=false.
     - owner_id (integer) (required) — Rule owner person ID.
-    - scope (string) (required) — Resolved run scope for this run; mirrors the rule's run_scope. [person, team]
+    - scope (string) (required) — Resolved run scope for this run; mirrors the rule's run_scope. One of: 'person' (personal rule, runs as its creator), 'team' (team rule, runs under the owning team). [person, team]
     - team_id (integer) (required) — Rule's scope team ID; 0 means a personal rule.
     - warnings (array<string>) — Non-fatal warnings surfaced during preflight. Omitted or empty when there are none.
   - rule_id (string) (required) — Rule ID that was run.
@@ -503,7 +503,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
-  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
+  - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID.
@@ -516,7 +516,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
-  - run_scope (string) (required) — Hidden session run scope. [person, team]
+  - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
@@ -639,7 +639,7 @@ Request fields:
   --trigger-kind string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - runs (array<object>) (required)
+  - runs (array<object>) (required) — Array of run records for the given 'rule_id', filtered by the request's status/trigger-kind/time-range and paginated.
     - account_id (integer) (required) — Account ID.
     - attempts (integer) (required) — Attempt count.
     - completed_at (string) (required) — Completion time, Unix milliseconds. 0 means not completed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -654,8 +654,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - run_id (string) (required) — Run ID.
     - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - stats_json (any) — Run stats JSON.
-    - status (string) (required) — Run status. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
-    - trigger_kind (string) (required) — Trigger kind. [schedule, debug, manual, http_post, oncall_incident]
+    - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
+    - trigger_kind (string) (required) — Trigger kind. One of: | Value | Meaning | | --- | --- | | 'schedule' | Fired by the rule's schedule trigger | | 'debug' | Debug run (reserved; current rule runs never carry this kind) | | 'manual' | Triggered manually by a user | | 'http_post' | Fired via the rule's HTTP POST webhook | | 'oncall_incident' | Fired by an on-call incident event | [schedule, debug, manual, http_post, oncall_incident]
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - total (integer) (required) — Total count.
 `,
@@ -736,7 +736,7 @@ Request fields:
   --locale string — Template locale such as zh-CN or en-US. Omit to detect from the request locale. (≤16 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - templates (array<object>) (required)
+  - templates (array<object>) (required) — Array of built-in automation templates, with display text localized by the request 'locale' (falling back to request headers).
     - description (string) (required) — Template description.
     - enabled (boolean) (required) — Whether the template is enabled.
     - icon (string) (required) — Icon identifier.

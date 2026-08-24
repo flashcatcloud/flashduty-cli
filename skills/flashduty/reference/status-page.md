@@ -98,7 +98,7 @@ Create event timeline entry
 - `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
 - `--description` string — Update description (Markdown). Required.
 - `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `--status` string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
+- `--status` string (required) — Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - body-only (`--data`): component_changes (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: update_id (string)
 
@@ -239,8 +239,8 @@ Update status page
 - `--contact-info` string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
 - `--custom-domain` string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
 - `--dark-logo` string — Dark-mode logo image of the status page. Omit to keep the existing value.
-- `--date-view` string — How event dates are displayed. Omit to keep the existing value. · enum: calendar | list
-- `--display-uptime-mode` string — How uptime is displayed. Omit to keep the existing value. · enum: chart_and_percentage | chart | none
+- `--date-view` string — How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. · enum: calendar | list
+- `--display-uptime-mode` string — How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. · enum: chart_and_percentage | chart | none
 - `--favicon` string — Favicon of the status page. Omit to keep the existing value.
 - `--logo` string — Logo image of the status page. Omit to keep the existing value.
 - `--logo-url` string — URL opened when the logo is clicked. Omit to keep the existing value.

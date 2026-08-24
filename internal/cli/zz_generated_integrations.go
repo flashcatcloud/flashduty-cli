@@ -164,7 +164,7 @@ Request fields:
   --status string — Filter by delivery status: 'success' or 'failed'. [success, failed]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Webhook delivery records on the current page.
     - attempt (integer) (required) — Attempt sequence number.
     - channel_id (integer) — Channel ID associated with the event, when applicable.
     - duration (integer) (required) — Total elapsed time of the attempt in milliseconds.

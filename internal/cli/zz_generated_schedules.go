@@ -51,7 +51,7 @@ Request fields:
         - role_id (integer) (required) — Oncall role ID.
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
-    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
     - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
     - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
     - layer_name (string) — User-facing layer name.
@@ -66,7 +66,7 @@ Request fields:
       - restrict_start (integer) (required) — Start offset inside the rotation cycle.
     - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
     - rotation_duration (integer) (required) — Rotation duration in seconds.
-    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
     - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
     - schedule_id (integer) (required) — Parent schedule ID.
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -295,7 +295,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - role_id (integer) (required) — Oncall role ID.
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
-    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
     - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
     - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
     - layer_name (string) — User-facing layer name.
@@ -310,7 +310,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - restrict_start (integer) (required) — Start offset inside the rotation cycle.
     - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
     - rotation_duration (integer) (required) — Rotation duration in seconds.
-    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
     - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
     - schedule_id (integer) (required) — Parent schedule ID.
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -491,7 +491,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - members (array<object>) (required) — Members of this group.
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
-      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
       - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
       - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
       - layer_name (string) — User-facing layer name.
@@ -506,7 +506,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - restrict_start (integer) (required) — Start offset inside the rotation cycle.
       - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
       - rotation_duration (integer) (required) — Rotation duration in seconds.
-      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
       - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
       - schedule_id (integer) (required) — Parent schedule ID.
       - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -674,7 +674,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - members (array<object>) (required) — Members of this group.
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
-      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
       - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
       - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
       - layer_name (string) — User-facing layer name.
@@ -689,7 +689,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - restrict_start (integer) (required) — Start offset inside the rotation cycle.
       - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
       - rotation_duration (integer) (required) — Rotation duration in seconds.
-      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
       - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
       - schedule_id (integer) (required) — Parent schedule ID.
       - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -850,7 +850,7 @@ Request fields:
         - role_id (integer) (required) — Oncall role ID.
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
-    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
     - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
     - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
     - layer_name (string) — User-facing layer name.
@@ -865,7 +865,7 @@ Request fields:
       - restrict_start (integer) (required) — Start offset inside the rotation cycle.
     - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
     - rotation_duration (integer) (required) — Rotation duration in seconds.
-    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
     - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
     - schedule_id (integer) (required) — Parent schedule ID.
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -959,7 +959,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - role_id (integer) (required) — Oncall role ID.
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
-    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
     - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
     - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
     - layer_name (string) — User-facing layer name.
@@ -974,7 +974,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - restrict_start (integer) (required) — Start offset inside the rotation cycle.
     - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
     - rotation_duration (integer) (required) — Rotation duration in seconds.
-    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
     - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
     - schedule_id (integer) (required) — Parent schedule ID.
     - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -1169,7 +1169,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - members (array<object>) (required) — Members of this group.
         - name (string) (required) — Legacy group name.
         - start (integer) (required) — Group start timestamp (Unix seconds).
-      - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+      - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
       - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
       - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
       - layer_name (string) — User-facing layer name.
@@ -1184,7 +1184,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - restrict_start (integer) (required) — Start offset inside the rotation cycle.
       - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
       - rotation_duration (integer) (required) — Rotation duration in seconds.
-      - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+      - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
       - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
       - schedule_id (integer) (required) — Parent schedule ID.
       - update_at (integer) (required) — Last update timestamp (Unix seconds).
@@ -1316,7 +1316,7 @@ Request fields:
         - role_id (integer) (required) — Oncall role ID.
       - name (string) (required) — Legacy group name.
       - start (integer) (required) — Group start timestamp (Unix seconds).
-    - handoff_time (integer) (required) — Handoff time inside the rotation cycle (seconds).
+    - handoff_time (integer) (required) — Rotation handoff time, as a Unix timestamp in seconds.
     - hidden (integer) (required) — Whether the layer is hidden in the UI (0 = no, 1 = yes).
     - layer_end (any) — Layer end timestamp (Unix seconds). null means open-ended.
     - layer_name (string) — User-facing layer name.
@@ -1331,7 +1331,7 @@ Request fields:
       - restrict_start (integer) (required) — Start offset inside the rotation cycle.
     - restrict_start (integer) (required) — Legacy start offset inside the restriction window (seconds).
     - rotation_duration (integer) (required) — Rotation duration in seconds.
-    - rotation_unit (string) (required) — Rotation unit. [hour, day, week, month]
+    - rotation_unit (string) (required) — Rotation unit. On-call assignees rotate in turn by this unit. | Value | Meaning | |---|---| | 'hour' | Rotates hourly. | | 'day' | Rotates daily. | | 'week' | Rotates weekly. | | 'month' | Rotates monthly. | [hour, day, week, month]
     - rotation_value (integer) (required) — Rotation quantity (number of rotation_unit per cycle).
     - schedule_id (integer) (required) — Parent schedule ID.
     - update_at (integer) (required) — Last update timestamp (Unix seconds).

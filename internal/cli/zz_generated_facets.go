@@ -31,13 +31,13 @@ Request fields:
   --end-time int (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
   --facet-key string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
   --limit int — Maximum number of top values to return. Default 100, maximum 100. (max 100)
-  --scope string (required) — RUM data scope to query. [session, view, action, error, resource, long_task, vital, issue, sourcemap]
+  --scope string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | [session, view, action, error, resource, long_task, vital, issue, sourcemap]
   --sql string — SQL WHERE clause (no SELECT) for additional filtering.
   --start-time int (required) — Start of the time range, Unix epoch milliseconds.
   facet_value (any, via --data) — When set, filter events where 'facet_key' equals this value before counting. Accepts string, number, or boolean.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Facet values with their occurrence counts, sorted by count descending, capped at 'limit' (max 100).
     - count (integer) (required) — Number of events with this facet value in the time range.
     - facet_value (any) (required) — The facet value. Type matches the field's 'value_type'.
 `,
@@ -87,7 +87,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Maximum 31-day span. (required)")
 	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'. (required)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of top values to return. Default 100, maximum 100. (max 100)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "RUM data scope to query. (required) [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | (required) [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
 	cmd.Flags().StringVar(&fSql, "sql", "", "SQL WHERE clause (no SELECT) for additional filtering.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -112,7 +112,7 @@ Request fields:
   --scopes []string — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — RUM field definitions matching the 'scopes' / 'is_facet' filters, with names and descriptions localized to the request locale.
     - account_id (integer) (required) — Account ID. 0 for built-in fields.
     - description (string) (required) — Description of what this field captures.
     - edit_able (boolean) (required) — True if this is a custom field that can be edited by the user.
@@ -123,11 +123,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - is_facet (boolean) (required) — True if value distribution counting is supported for this field.
     - queryable (boolean) (required) — True if this field can be used in DQL/SQL queries.
     - scopes (array<string>) (required) — RUM scopes this field appears in.
-    - show_type (string) (required) — Display type in the analytics UI. [list, range]
+    - show_type (string) (required) — Display type in the analytics UI. One of 'list' (shown as an enumerated value list; only this type supports facet counting) or 'range' (filtered and shown as a numeric/time range). [list, range]
     - status (string) (required) — Field status, e.g. 'active'.
     - unit_family (string) (required) — Measurement unit family, e.g. 'time', 'bytes'. Empty for dimensionless fields.
     - unit_name (string) (required) — Specific measurement unit, e.g. 'millisecond', 'byte'.
-    - value_type (string) (required) — Data type of the field value. [string, number, boolean, array<string>, array<number>, array<boolean>]
+    - value_type (string) (required) — Data type of the field value. One of: | Value | Meaning | |---|---| | 'string' | String | | 'number' | Numeric | | 'boolean' | Boolean | | 'array<string>' | Array of strings | | 'array<number>' | Array of numbers | | 'array<boolean>' | Array of booleans | [string, number, boolean, array<string>, array<number>, array<boolean>]
 `,
 		Example: `  flashduty rum field-list --data '{"is_facet":false,"scopes":["error"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

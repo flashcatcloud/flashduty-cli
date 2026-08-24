@@ -43,12 +43,12 @@ Request fields:
   --query string — Substring match on the minified URL (browser) or build ID (android). Max 200 characters.
   --services []string — Filter by service names. Up to 100 values.
   --start-time int (required) — Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'.
-  --type string — Platform type. Defaults to 'browser' when omitted. [browser, android, ios]
+  --type string — Platform type. Defaults to 'browser' when omitted. One of 'browser' (JavaScript sourcemaps), 'android' (ProGuard/R8 mappings or NDK native symbols, distinguishable via 'kind'), 'ios' (dSYM symbol files). [browser, android, ios]
   --uuid string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
   --versions []string — Filter by version strings. Up to 100 values.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Sourcemap records of the current page (including iOS dSYM and miniprogram symbol files).
     - created_at (string) — Upload timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - git_commit_sha (string) — Git commit SHA for this build.
     - git_repository_url (string) — Git repository URL associated with this build.
@@ -131,7 +131,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the minified URL (browser) or build ID (android). Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fServices, "services", nil, "Filter by service names. Up to 100 values.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to 'browser' when omitted. [browser, android, ios]")
+	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to 'browser' when omitted. One of 'browser' (JavaScript sourcemaps), 'android' (ProGuard/R8 mappings or NDK native symbols, distinguishable via 'kind'), 'ios' (dSYM symbol files). [browser, android, ios]")
 	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Filter by dSYM bundle UUID. Max 200 characters.")
 	cmd.Flags().StringSliceVar(&fVersions, "versions", nil, "Filter by version strings. Up to 100 values.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -167,7 +167,7 @@ Request fields:
   --service string (required) — Application or service name used when the sourcemap was uploaded.
   --source-type string — Android error source type. Use 'ndk' with 'arch' for native symbolication.
   --stack string — Raw stack trace to parse and enrich.
-  --type string — Source platform. Defaults to 'browser' when omitted. [browser, android, ios, miniprogram, harmony]
+  --type string — Source platform. Defaults to 'browser' when omitted. One of 'browser' (JS stacks, sourcemap-based), 'android' (mapping/NDK symbolication), 'ios' (dSYM symbolication), 'miniprogram' (WeChat mini program, sourcemap-based), 'harmony' (HarmonyOS, sourcemap/native symbolication), 'flutter' (Flutter stack symbolication), 'electron' (Electron, sourcemap-based). [browser, android, ios, miniprogram, harmony, flutter, electron]
   --variant string — Android build variant used by older Gradle plugin versions.
   --version string (required) — Application version used when the sourcemap was uploaded.
   binary_images (array<object>, via --data) — Loaded binary images from an iOS crash report.
@@ -179,7 +179,7 @@ Request fields:
     - uuid (string) (required) — Build UUID identifying the binary or dSYM.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - frames (array<object>) (required)
+  - frames (array<object>) (required) — Error stack frames after symbolication (via sourcemap, dSYM, NDK symbol tables, etc.).
     - address (string) — iOS or native memory address.
     - class_name (string) — Android Java/Kotlin class name.
     - code_snippets (array<object>) — Source-code snippets around this frame.
@@ -265,7 +265,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fService, "service", "", "Application or service name used when the sourcemap was uploaded. (required)")
 	cmd.Flags().StringVar(&fSourceType, "source-type", "", "Android error source type. Use 'ndk' with 'arch' for native symbolication.")
 	cmd.Flags().StringVar(&fStack, "stack", "", "Raw stack trace to parse and enrich.")
-	cmd.Flags().StringVar(&fType, "type", "", "Source platform. Defaults to 'browser' when omitted. [browser, android, ios, miniprogram, harmony]")
+	cmd.Flags().StringVar(&fType, "type", "", "Source platform. Defaults to 'browser' when omitted. One of 'browser' (JS stacks, sourcemap-based), 'android' (mapping/NDK symbolication), 'ios' (dSYM symbolication), 'miniprogram' (WeChat mini program, sourcemap-based), 'harmony' (HarmonyOS, sourcemap/native symbolication), 'flutter' (Flutter stack symbolication), 'electron' (Electron, sourcemap-based). [browser, android, ios, miniprogram, harmony, flutter, electron]")
 	cmd.Flags().StringVar(&fVariant, "variant", "", "Android build variant used by older Gradle plugin versions.")
 	cmd.Flags().StringVar(&fVersion, "version", "", "Application version used when the sourcemap was uploaded. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

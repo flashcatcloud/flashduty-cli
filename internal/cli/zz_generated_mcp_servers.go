@@ -29,7 +29,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
@@ -55,7 +55,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) (required) — Tool description.
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
-  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
@@ -126,7 +126,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
     - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
     - args (array<string>) — Command arguments (stdio transport).
-    - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+    - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
     - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
     - can_edit (boolean) (required) — Whether the caller may edit this server.
     - command (string) — Executable command (stdio transport only).
@@ -152,7 +152,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - description (string) (required) — Tool description.
       - input_schema (object) — JSON Schema describing the tool's input parameters.
       - name (string) (required) — Tool name.
-    - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+    - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
     - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - url (string) — Server URL (sse / streamable-http transport).
   - total (integer) (required) — Total number of matching servers.
@@ -249,7 +249,7 @@ Request fields:
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string (required) — Server description. (1-1024 chars)
   --environment-id string — Runner ID; required when environment_kind is byoc.
-  --environment-kind string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. [byoc]
+  --environment-kind string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). [byoc]
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --server-name string (required) — MCP server name, unique within the account. (1-255 chars)
@@ -267,7 +267,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
@@ -293,7 +293,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) (required) — Tool description.
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
-  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
@@ -381,7 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Server description. (required) (1-1024 chars)")
 	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID; required when environment_kind is byoc.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. [byoc]")
+	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). [byoc]")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name, unique within the account. (required) (1-255 chars)")
@@ -593,7 +593,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
   - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. [shared, per_user_secret, per_user_oauth]
+  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
@@ -619,7 +619,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - description (string) (required) — Tool description.
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
-  - transport (string) (required) — Transport protocol. [stdio, sse, streamable-http]
+  - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - url (string) — Server URL (sse / streamable-http transport).
 `,

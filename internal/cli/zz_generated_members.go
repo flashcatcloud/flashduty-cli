@@ -222,7 +222,7 @@ Request fields:
   members (array<object>, via --data) (required) — Members to invite (max 20)
     - country_code (string) — ISO 3166-1 alpha-2 region code for 'phone' (e.g. "CN"). Validated and normalized to upper case before storage; invalid values are rejected with a 400. Also the parsing hint when 'phone' has no "+" prefix (defaults to "CN").
     - email (string) — Email address
-    - locale (string) — Locale [zh-CN, en-US]
+    - locale (string) — Locale. One of: 'zh-CN' (Simplified Chinese), 'en-US' (English); other values are rejected with a 400. [zh-CN, en-US]
     - member_name (string) — Display name (2-39 chars)
     - phone (string) — Phone number
     - ref_id (string) — External reference ID
@@ -396,7 +396,7 @@ Request fields:
     - avatar (string) — New avatar URL. (≤499 chars)
     - country_code (string) — ISO 3166-1 alpha-2 region code (e.g. "CN", "US"). Updated independently — 'phone' is not required — and also used as the parsing hint for 'phone'. Invalid values are rejected with a 400; an explicit empty string is not allowed.
     - email (string) — New email address.
-    - locale (string) — New locale preference. [zh-CN, en-US]
+    - locale (string) — New locale preference. One of: 'zh-CN' (Simplified Chinese), 'en-US' (English); other values are rejected with a 400. [zh-CN, en-US]
     - member_name (string) — New display name. (2-39 chars)
     - password (string) — New login password in the encrypted format accepted by the backend.
     - phone (string) — New phone number. Include country_code when the number is not in E.164 format.

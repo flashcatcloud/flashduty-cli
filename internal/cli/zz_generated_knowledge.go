@@ -92,7 +92,7 @@ Request fields:
   --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - files (array<object>) (required)
+  - files (array<object>) (required) — Array of files in the specified knowledge pack; empty array when the pack has no files.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
@@ -164,8 +164,8 @@ Request fields:
   --rel-path string (required) — Path of the file relative to the pack root.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - warnings (array<object>)
-    - code (string) (required) — Warning code. [unresolved_reference, still_referenced_by]
+  - warnings (array<object>) — Non-blocking warnings after deletion; 'code=still_referenced_by' means the (force-)deleted file is still @ref-referenced by other files in the pack ('refs' lists the referrers). Absent when there are no warnings (omitempty).
+    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the pack; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the pack; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
     - ref (string) — Single reference related to the warning.
     - refs (array<string>) — Multiple references related to the warning.
 `,
@@ -237,8 +237,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - size_bytes (integer) (required) — File size in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
-  - warnings (array<object>)
-    - code (string) (required) — Warning code. [unresolved_reference, still_referenced_by]
+  - warnings (array<object>) — Non-blocking warnings after a successful write; 'code=unresolved_reference' means an @ref in the file content points to a file that does not exist in the pack. Absent when there are no warnings (omitempty).
+    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the pack; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the pack; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
     - ref (string) — Single reference related to the warning.
     - refs (array<string>) — Multiple references related to the warning.
 `,
@@ -295,7 +295,7 @@ Return the account-scope knowledge pack metadata and its file list.
 API: POST /safari/knowledge/get (knowledge-pack-read-get)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - files (array<object>) (required)
+  - files (array<object>) (required) — Array of files in this knowledge pack; empty array when the pack has no files.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
@@ -364,11 +364,11 @@ Request fields:
   --search-after-ctx string
   --include-account bool — Include the account-scope pack; defaults to true.
   --query string — Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)
-  --scope string — Restrict to one scope; 'all' (default) overrides 'include_account'. [all, account, team]
+  --scope string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]
   --team-ids []int — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - packs (array<object>) (required)
+  - packs (array<object>) (required) — Array of visible knowledge packs after filtering (current page), used with 'total' for pagination.
     - account_id (integer) (required) — Account that owns the pack.
     - can_edit (boolean) (required) — Whether the caller can edit this pack.
     - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -430,7 +430,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include the account-scope pack; defaults to true.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict to one scope; 'all' (default) overrides 'include_account'. [all, account, team]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to these team IDs; for non-admins the list is intersected with their own teams.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -501,7 +501,7 @@ Idempotently create the knowledge pack at the given scope, or return the existin
 API: POST /safari/knowledge/pack/ensure (knowledge-pack-write-ensure)
 
 Request fields:
-  --scope string (required) — Scope of the pack to ensure. [account, team]
+  --scope string (required) — Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). [account, team]
   --scope-id int — Team ID; required for 'team' scope, ignored for 'account' scope.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -545,7 +545,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fScope, "scope", "", "Scope of the pack to ensure. (required) [account, team]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). (required) [account, team]")
 	cmd.Flags().Int64Var(&fScopeID, "scope-id", 0, "Team ID; required for 'team' scope, ignored for 'account' scope.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

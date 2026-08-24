@@ -84,7 +84,7 @@ Request fields:
   --orderby string — Sort field. Default: 'updated_at'. [created_at, updated_at]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Array of roles; includes account roles plus built-in global roles unless 'no_global=true'; empty array when no results.
     - created_at (string) (required) — Unix epoch seconds the role was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - description (string) (required) — Role description.
     - editable (boolean) (required) — False for built-in roles which cannot be modified.
@@ -146,13 +146,13 @@ Request fields:
   --with-all bool — If true, return all permissions with is_granted set to indicate which are granted.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Array of permission items: system-level permissions plus the caller's account-scoped custom-menu permissions (never other tenants' rows).
     - class (string) (required) — Permission class (e.g., 'On-call', 'Organization').
     - description (string) (required) — Human-readable permission description.
     - id (integer) (required) — Unique permission ID.
     - is_granted (boolean) — Present when with_all is true. Indicates whether this permission is granted to the requested roles.
     - permission_name (string) (required) — Permission display name.
-    - permission_type (string) (required) — Whether this is a read or manage permission. [read, manage]
+    - permission_type (string) (required) — Whether this is a read or manage permission. 'read': view-only permission (read/list/query); 'manage': administrative permission covering mutations (create, update, delete, configure). [read, manage]
     - scope (string) (required) — Permission scope (e.g., 'on-call', 'organization').
     - status (string) (required) — Permission status. [enabled, disabled]
 `,
@@ -206,7 +206,7 @@ Request fields:
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - factor_name (string) (required) — Factor identifier (e.g., 'template:read:info').
-  - factor_type (string) (required) — Factor type. [api, button, visit, menu, url]
+  - factor_type (string) (required) — Factor type. 'api': backend API factor — 'factor_name' is the API name (e.g. 'skill:write:upload'), enforced at the gateway; 'button': UI action factor, used by the role-config page to render action toggles; 'visit': page-visit factor (custom menu pages use this type); 'menu': menu-visibility factor (legacy, no current seed data); 'url': page route-path factor (legacy, no current seed data). [api, button, visit, menu, url]
 `,
 		Example: `  flashduty role permission-factor-list --data '{"factor_types":["api"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

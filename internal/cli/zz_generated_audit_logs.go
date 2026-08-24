@@ -20,7 +20,7 @@ Return all operation names that are recorded in the audit log, for use as 'opera
 API: POST /audit/operation/list (audit-read-operation-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Array of all auditable operation types (only APIs flagged for audit); always an array, possibly empty.
     - name (string) (required) — Stable machine-readable operation name for use as a filter.
     - name_cn (string) (required) — Human-readable Chinese label shown in the console.
 `,
@@ -92,8 +92,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - operation (string) (required) — Stable machine-readable operation name, e.g. 'template:write:create'.
     - operation_name (string) (required) — Human-readable operation label in the account's locale.
     - params (array<object>) (required) — URL path parameters as an array of key-value pairs, or an empty array when none.
-      - Key (string)
-      - Value (string)
+      - Key (string) — Name of a URL path parameter (the ':xxx' placeholder in the route).
+      - Value (string) — The actual value of that path parameter in this request.
     - request_id (string) (required) — Unique request ID for correlation.
   - search_after_ctx (string) (required) — Opaque cursor for the next page. Empty string when there are no more results.
   - total (integer) (required) — Total matching entries in the search window.
