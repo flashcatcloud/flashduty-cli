@@ -2,6 +2,10 @@
 
 Prereq: `SKILL.md` read. Read verbs are free. `create`, `update`, `delete` mutate account-wide notification templates — confirm before running. `delete <template-id>` is **irreversible**.
 
+**`update` writes only the fields you send.** A channel you omit keeps its current
+content; a channel you send as an empty string is cleared. So a one-channel edit sends one
+channel — but read the clearing caveat under Gotchas before you try to empty one.
+
 ## Route here when
 
 "通知模板 / 消息模板 / 告警通知格式 / 飞书模板 / Slack 模板 / 邮件模板 / template CRUD / custom template / preview notification / validate template" → **template**. NOT `channel` (channel = escalation policy routing; template = the rendered text/card body). The key ID is **`template_id`** (string), returned by `list` or `create`.
@@ -46,14 +50,40 @@ fduty template create \
 fduty template info <template-id> --output-format toon
 ```
 
-## Hot flow — update one channel on an existing template
+## Hot flow — change one channel on an existing template
+
+`update` patches, so you send only the channel you are changing. What still bites is the
+*body*: carry it with `jq --rawfile` and `--data -`, never through `"$(...)"`.
 
 ```bash
-# template-id is POSITIONAL; --template-name is required even on update
-fduty template update <template-id> \
-  --template-name "Critical-Feishu-v2" \
-  --feishu "$(cat ./feishu-v3.tpl)"
+T=<template-id>          # POSITIONAL on update/info/delete; --template-name always required
+
+# 1. Pull the current source of the channel you are changing
+fduty template info "$T" --json > /tmp/tpl.json
+jq -r '.feishu_app' /tmp/tpl.json > /tmp/feishu_app.tpl
+#    …edit /tmp/feishu_app.tpl…
+
+# 2. Preview the edited source against a REAL incident before writing
+jq -n --rawfile c /tmp/feishu_app.tpl \
+  '{type:"feishu_app", content:$c, incident_id:"<incident-id>"}' \
+  | fduty template preview --data -
+
+# 3. Write that one channel. NEVER move the body through "$(...)": command substitution
+#    strips every trailing newline, so a body ending in a blank line is silently shortened.
+jq -n --rawfile feishu_app /tmp/feishu_app.tpl \
+  --arg t "$T" --arg n "<template-name>" \
+  '{template_id:$t, template_name:$n, feishu_app:$feishu_app}' \
+  | fduty template update --data -
+
+# 4. Verify the body round-tripped byte-for-byte — cmp catches a silent truncation that
+#    "the field is still non-empty" would not.
+fduty template info "$T" --json | jq -r '.feishu_app' | cmp - /tmp/feishu_app.tpl \
+  && echo "round-trip OK"
 ```
+
+Every channel you did not name is untouched — that is the server contract now, not luck.
+Verify the body you wrote anyway: `cmp` is what separates "wrote the right bytes" from
+"wrote something non-empty".
 
 <!-- GENERATED:template START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -166,8 +196,30 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 ## Gotchas
 
 - **`info`, `update`, `delete` take `<template-id>` as a positional first argument** — pass it bare, not as `--template-id`. `create`, `list`, `preview`, `validate`, `get-preset`, `functions`, `variables` take all inputs as flags.
-- **`update` replaces every channel field you pass — omitted channel flags are left unchanged** (server behavior: only supplied fields overwrite). Always pass `--template-name` even if the name is unchanged — it is required on update.
-- **`--feishu-app-card-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
+- **`update` is a partial update: omitting a field leaves it alone.** The server writes
+  only what the request contains, so naming one channel rewrites that channel and nothing
+  else. All 14 channel-content fields plus `description`, `team_id`,
+  `feishu_app_card_v2_table_enabled` and `incident_card_hidden_fields` behave this way.
+  (`status` is not part of `update`'s request at all — it moves only through the separate
+  enable/disable endpoints, which the CLI does not expose — so `update` can never change
+  it.) `--template-name` is still required on every update even when unchanged.
+- **To CLEAR a channel you must send it as an explicit empty string** — omitting it now
+  means "keep", not "clear". `--dingtalk-app ''` is the intent, but a flag set to the empty
+  string was dropped before it reached the wire in `fduty` **older than v1.4.2**, which
+  makes clearing a silent no-op on those builds. Check `fduty --version` first; if it is
+  older, clear via `--data` with the field spelled out — `--data '{"template_id":"…",
+  "template_name":"…","dingtalk_app":""}'` — and confirm with `info --json` that the
+  channel actually went empty.
+- **Never move a template body through `"$(cat …)"` or `"$(jq -r …)"`.** Bash command
+  substitution strips *all* trailing newlines, so a body that legitimately ends in a blank
+  line is written back shortened — and a check that only asks which fields are non-empty
+  cannot see it, because the field is still non-empty. Carry bodies with `jq --rawfile`
+  and write with `--data -`, as the hot flow does.
+- **`--feishu-app-card-v2-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
+- **`list` returns every channel's full template source for every row** — a few dozen
+  templates blow past a tool-output cap in one call. Never render it directly: go to a
+  file and project. `fduty template list --limit 100 --json > /tmp/tpl_list.json && jq -r
+  '.items[] | [.template_id, .template_name, .team_id] | @tsv' /tmp/tpl_list.json`.
 - **`delete` is permanent.** The built-in preset (`template_id = 000000000000000000000001`) can be addressed by that sentinel ID in `info` and `delete` — don't delete it.
 - **`validate` reads from a local `--file`; `preview` takes inline `--content`.** They are complementary: `validate` gives size-vs-limit diagnostics; `preview` renders against real or mock incident data.
 - **`email` uses `html/template` syntax; `sms` and `voice` use `text/template`** — auto-escaping rules differ. Don't mix them.
