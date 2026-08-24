@@ -112,7 +112,7 @@ Create Automation rule
 - `--cron-expr` string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
 - `--enabled` bool — Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.
 - `--environment-id` string — BYOC Runner ID. Used only when 'environment_kind=byoc'.
-- `--environment-kind` string — Runtime environment kind. Omit or send an empty value for automatic selection. · enum: cloud | byoc
+- `--environment-kind` string — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (a self-hosted BYOC runner in the account, used with 'environment_id'); automatic selection prefers an online BYOC runner and falls back to the cloud sandbox. · enum: cloud | byoc
 - `--http-post-trigger-enabled` bool — Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.
 - `--name` string (required) — Rule name. (1-255 chars)
 - `--oncall-incident-channel-ids` intSlice — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
@@ -230,7 +230,7 @@ Delete knowledge pack
 
 ### knowledge-pack-ensure
 Ensure knowledge pack
-- `--scope` string (required) — Scope of the pack to ensure. · enum: account | team
+- `--scope` string (required) — Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). · enum: account | team
 - `--scope-id` int64 — Team ID; required for 'team' scope, ignored for 'account' scope.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at_ms (string); created_by (integer); file_count (integer); pack_id (string); scope (string); scope_id (integer); team_name (string); total_bytes (integer); updated_at_ms (string); version (integer)
 
@@ -240,7 +240,7 @@ List knowledge packs
 - `--limit` int64 — Page size.
 - `--page` int64 — Page number, 1-based; returns all results when both 'p' and 'limit' are unset.
 - `--query` string — Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)
-- `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. · enum: all | account | team
+- `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
 - response: single object (`data` unwrapped to the top level) — fields: packs (array<object>); total (integer)
@@ -263,7 +263,7 @@ Create MCP server
 - `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
 - `--description` string (required) — Server description. (1-1024 chars)
 - `--environment-id` string — Runner ID; required when environment_kind is byoc.
-- `--environment-kind` string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. · enum: byoc
+- `--environment-kind` string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). · enum: byoc
 - `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
 - `--server-name` string (required) — MCP server name, unique within the account. (1-255 chars)
@@ -344,7 +344,7 @@ Get session detail
 
 ### session-list
 List sessions
-- `--app-name` string (required) — Agent app whose sessions to list. · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant | swe
+- `--app-name` string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant | swe
 - `--asc` bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
 - `--entry-kinds` stringSlice — Restrict to sessions produced by these surfaces; empty returns every kind. · enum: web | im | api | automation
 - `--include-subagent-sessions` bool — Include subagent-dispatched sessions in the list.

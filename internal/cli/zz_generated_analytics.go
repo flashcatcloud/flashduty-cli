@@ -43,7 +43,7 @@ Return aggregated incident insight metrics for the entire account.
 API: POST /insight/account (insightByAccount)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -52,7 +52,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -68,36 +68,35 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
-    - account_id (integer)
-    - acknowledgement_pct (number)
-    - channel_id (integer)
-    - channel_name (string)
-    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
-    - mean_seconds_to_ack (number)
-    - mean_seconds_to_close (number)
-    - noise_reduction_pct (number)
-    - responder_id (integer)
-    - responder_name (string)
-    - team_id (integer)
-    - team_name (string)
-    - total_alert_cnt (integer)
-    - total_alert_event_cnt (integer)
-    - total_engaged_seconds (integer)
-    - total_incident_cnt (integer)
-    - total_incidents_acknowledged (integer)
-    - total_incidents_auto_closed (integer)
-    - total_incidents_closed (integer)
-    - total_incidents_escalated (integer)
-    - total_incidents_manually_closed (integer)
-    - total_incidents_manually_escalated (integer)
-    - total_incidents_reassigned (integer)
-    - total_incidents_timeout_closed (integer)
-    - total_incidents_timeout_escalated (integer)
-    - total_interruptions (integer)
-    - total_notifications (integer)
-    - total_seconds_to_ack (integer)
-    - total_seconds_to_close (integer)
+  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+    - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals; 100 when there are no incidents.
+    - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
+    - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
+    - hours (string) — Hour bucket when 'split_hours' is enabled. 'work' is Mon–Fri 08:00–19:00, 'sleep' is daily 23:00–08:00, and 'off' is everything else, all evaluated in the account timezone ('sleep' takes precedence over 'work'). [work, sleep, off]
+    - mean_seconds_to_ack (number) — Mean time to first acknowledgement in seconds.
+    - mean_seconds_to_close (number) — Mean time to close in seconds.
+    - noise_reduction_pct (number) — Noise reduction ratio (%): '100 − incidents ÷ alert events × 100'; 0 when no alert-event comparison data exists.
+    - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
+    - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
+    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
+    - total_alert_cnt (integer) — Total number of alerts.
+    - total_alert_event_cnt (integer) — Total number of alert events.
+    - total_engaged_seconds (integer) — Total engaged time in seconds: each incident contributes the sum of close time minus acknowledgement time across its acknowledged responders.
+    - total_incident_cnt (integer) — Total number of incidents.
+    - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
+    - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
+    - total_incidents_closed (integer) — Incidents that are closed.
+    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_manually_closed (integer) — Incidents closed manually.
+    - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
+    - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
+    - total_incidents_timeout_closed (integer) — Incidents closed automatically on timeout.
+    - total_incidents_timeout_escalated (integer) — Incidents escalated on timeout at least once.
+    - total_interruptions (integer) — Total interruptions: notifications sent via app push, SMS, or voice call; consecutive notifications to the same responder within 60 seconds count as one.
+    - total_notifications (integer) — Total number of notifications sent.
+    - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
+    - total_seconds_to_close (integer) — Total time to close in seconds.
     - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight account --data '{"aggregate_unit":"day","end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
@@ -192,7 +191,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -202,7 +201,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -254,7 +253,7 @@ Return insight metrics aggregated by channel.
 API: POST /insight/channel (insightByChannel)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -263,7 +262,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -279,36 +278,35 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
-    - account_id (integer)
-    - acknowledgement_pct (number)
-    - channel_id (integer)
-    - channel_name (string)
-    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
-    - mean_seconds_to_ack (number)
-    - mean_seconds_to_close (number)
-    - noise_reduction_pct (number)
-    - responder_id (integer)
-    - responder_name (string)
-    - team_id (integer)
-    - team_name (string)
-    - total_alert_cnt (integer)
-    - total_alert_event_cnt (integer)
-    - total_engaged_seconds (integer)
-    - total_incident_cnt (integer)
-    - total_incidents_acknowledged (integer)
-    - total_incidents_auto_closed (integer)
-    - total_incidents_closed (integer)
-    - total_incidents_escalated (integer)
-    - total_incidents_manually_closed (integer)
-    - total_incidents_manually_escalated (integer)
-    - total_incidents_reassigned (integer)
-    - total_incidents_timeout_closed (integer)
-    - total_incidents_timeout_escalated (integer)
-    - total_interruptions (integer)
-    - total_notifications (integer)
-    - total_seconds_to_ack (integer)
-    - total_seconds_to_close (integer)
+  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+    - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals; 100 when there are no incidents.
+    - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
+    - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
+    - hours (string) — Hour bucket when 'split_hours' is enabled. 'work' is Mon–Fri 08:00–19:00, 'sleep' is daily 23:00–08:00, and 'off' is everything else, all evaluated in the account timezone ('sleep' takes precedence over 'work'). [work, sleep, off]
+    - mean_seconds_to_ack (number) — Mean time to first acknowledgement in seconds.
+    - mean_seconds_to_close (number) — Mean time to close in seconds.
+    - noise_reduction_pct (number) — Noise reduction ratio (%): '100 − incidents ÷ alert events × 100'; 0 when no alert-event comparison data exists.
+    - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
+    - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
+    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
+    - total_alert_cnt (integer) — Total number of alerts.
+    - total_alert_event_cnt (integer) — Total number of alert events.
+    - total_engaged_seconds (integer) — Total engaged time in seconds: each incident contributes the sum of close time minus acknowledgement time across its acknowledged responders.
+    - total_incident_cnt (integer) — Total number of incidents.
+    - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
+    - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
+    - total_incidents_closed (integer) — Incidents that are closed.
+    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_manually_closed (integer) — Incidents closed manually.
+    - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
+    - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
+    - total_incidents_timeout_closed (integer) — Incidents closed automatically on timeout.
+    - total_incidents_timeout_escalated (integer) — Incidents escalated on timeout at least once.
+    - total_interruptions (integer) — Total interruptions: notifications sent via app push, SMS, or voice call; consecutive notifications to the same responder within 60 seconds count as one.
+    - total_notifications (integer) — Total number of notifications sent.
+    - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
+    - total_seconds_to_close (integer) — Total time to close in seconds.
     - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight channel --data '{"aggregate_unit":"day","channel_ids":[4321322010131],"end_time":1712604800,"start_time":1712000000}'`,
@@ -403,7 +401,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -413,7 +411,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -465,7 +463,7 @@ Return insight metrics aggregated by responder.
 API: POST /insight/responder (insightByResponder)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -474,7 +472,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -490,27 +488,26 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
-    - account_id (integer)
-    - acknowledgement_pct (number)
-    - channel_id (integer)
-    - channel_name (string)
-    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
-    - mean_seconds_to_ack (number)
-    - responder_id (integer)
-    - responder_name (string)
-    - team_id (integer)
-    - team_name (string)
-    - total_engaged_seconds (integer)
-    - total_incident_cnt (integer)
-    - total_incidents_acknowledged (integer)
-    - total_incidents_escalated (integer)
-    - total_incidents_manually_escalated (integer)
-    - total_incidents_reassigned (integer)
-    - total_incidents_timeout_escalated (integer)
-    - total_interruptions (integer)
-    - total_notifications (integer)
-    - total_seconds_to_ack (integer)
+  - items (array<object>) — Incident response metric rows aggregated by responder; further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+    - acknowledgement_pct (number) — This responder's acknowledgement rate (%): acknowledged incidents ÷ involved incidents × 100, rounded to two decimals.
+    - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
+    - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
+    - hours (string) — Hour bucket when 'split_hours' is enabled. 'work' is Mon–Fri 08:00–19:00, 'sleep' is daily 23:00–08:00, and 'off' is everything else, all evaluated in the account timezone ('sleep' takes precedence over 'work'). [work, sleep, off]
+    - mean_seconds_to_ack (number) — This responder's mean time to acknowledgement in seconds.
+    - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
+    - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
+    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
+    - total_engaged_seconds (integer) — This responder's total engaged time in seconds: each incident contributes close time minus their acknowledgement time.
+    - total_incident_cnt (integer) — Incidents this responder was involved in.
+    - total_incidents_acknowledged (integer) — Incidents acknowledged by this responder.
+    - total_incidents_escalated (integer) — This responder's incidents that were escalated at least once.
+    - total_incidents_manually_escalated (integer) — This responder's incidents escalated manually.
+    - total_incidents_reassigned (integer) — Incidents reassigned away from this responder.
+    - total_incidents_timeout_escalated (integer) — This responder's incidents escalated on timeout.
+    - total_interruptions (integer) — Interruptions for this responder: notifications sent via app push, SMS, or voice call; consecutive notifications within 60 seconds count as one.
+    - total_notifications (integer) — Total notifications sent to this responder.
+    - total_seconds_to_ack (integer) — This responder's total time to acknowledgement in seconds: each incident contributes acknowledgement time minus assignment time.
     - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight responder --data '{"aggregate_unit":"day","end_time":1712604800,"responder_ids":[3790925372131],"start_time":1712000000}'`,
@@ -605,7 +602,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -615,7 +612,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -667,7 +664,7 @@ Return insight metrics aggregated by team.
 API: POST /insight/team (insightByTeam)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -676,7 +673,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -692,36 +689,35 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
-    - account_id (integer)
-    - acknowledgement_pct (number)
-    - channel_id (integer)
-    - channel_name (string)
-    - hours (string) — Hour bucket when 'split_hours' is enabled. [work, sleep, off]
-    - mean_seconds_to_ack (number)
-    - mean_seconds_to_close (number)
-    - noise_reduction_pct (number)
-    - responder_id (integer)
-    - responder_name (string)
-    - team_id (integer)
-    - team_name (string)
-    - total_alert_cnt (integer)
-    - total_alert_event_cnt (integer)
-    - total_engaged_seconds (integer)
-    - total_incident_cnt (integer)
-    - total_incidents_acknowledged (integer)
-    - total_incidents_auto_closed (integer)
-    - total_incidents_closed (integer)
-    - total_incidents_escalated (integer)
-    - total_incidents_manually_closed (integer)
-    - total_incidents_manually_escalated (integer)
-    - total_incidents_reassigned (integer)
-    - total_incidents_timeout_closed (integer)
-    - total_incidents_timeout_escalated (integer)
-    - total_interruptions (integer)
-    - total_notifications (integer)
-    - total_seconds_to_ack (integer)
-    - total_seconds_to_close (integer)
+  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+    - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals; 100 when there are no incidents.
+    - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
+    - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
+    - hours (string) — Hour bucket when 'split_hours' is enabled. 'work' is Mon–Fri 08:00–19:00, 'sleep' is daily 23:00–08:00, and 'off' is everything else, all evaluated in the account timezone ('sleep' takes precedence over 'work'). [work, sleep, off]
+    - mean_seconds_to_ack (number) — Mean time to first acknowledgement in seconds.
+    - mean_seconds_to_close (number) — Mean time to close in seconds.
+    - noise_reduction_pct (number) — Noise reduction ratio (%): '100 − incidents ÷ alert events × 100'; 0 when no alert-event comparison data exists.
+    - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
+    - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
+    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
+    - total_alert_cnt (integer) — Total number of alerts.
+    - total_alert_event_cnt (integer) — Total number of alert events.
+    - total_engaged_seconds (integer) — Total engaged time in seconds: each incident contributes the sum of close time minus acknowledgement time across its acknowledged responders.
+    - total_incident_cnt (integer) — Total number of incidents.
+    - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
+    - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
+    - total_incidents_closed (integer) — Incidents that are closed.
+    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_manually_closed (integer) — Incidents closed manually.
+    - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
+    - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
+    - total_incidents_timeout_closed (integer) — Incidents closed automatically on timeout.
+    - total_incidents_timeout_escalated (integer) — Incidents escalated on timeout at least once.
+    - total_interruptions (integer) — Total interruptions: notifications sent via app push, SMS, or voice call; consecutive notifications to the same responder within 60 seconds count as one.
+    - total_notifications (integer) — Total number of notifications sent.
+    - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
+    - total_seconds_to_close (integer) — Total time to close in seconds.
     - ts (string) — Aggregation bucket start time, Unix seconds. Present when 'aggregate_unit' is used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty insight team --data '{"aggregate_unit":"day","end_time":1712604800,"start_time":1712000000,"team_ids":[4295771902131]}'`,
@@ -816,7 +812,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -826,7 +822,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -878,7 +874,7 @@ Export channel insight metrics as a CSV file. CSV headers and formatted values u
 API: POST /insight/channel/export (insightChannelExport)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -887,7 +883,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -998,7 +994,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -1008,7 +1004,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -1230,7 +1226,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -1245,9 +1241,12 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean)
-  - items (array<object>)
-    - acknowledgements (integer)
+  - has_next_page (boolean) — Whether another page of results is available.
+  - items (array<object>) — Incident items.
+    - acknowledgements (integer) — Number of acknowledgements.
+    - active_alert_cnt (integer) — Number of alerts still active (not recovered).
+    - alert_cnt (integer) — Total number of alerts aggregated into the incident.
+    - alert_event_cnt (integer) — Total number of alert events associated with the incident; each report of an alert counts as one event.
     - assigned_to (object) — Current assignment target for the incident.
       - assigned_at (string) — Unix timestamp (seconds) when this assignment was made. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) driving the assignment.
@@ -1255,41 +1254,47 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - id (string) — Internal assignment record ID.
       - layer_idx (integer) — Current level index within the escalation rule.
       - person_ids (array<integer>) — Member IDs assigned directly to this incident.
-      - type (string) — Assignment type. [assign, reassign, escalate, reopen]
-    - assignments (integer)
-    - channel_id (integer)
-    - channel_name (string)
-    - closed_by (string) [auto, timeout, manually]
+      - type (string) — Assignment type. | Value | Meaning | |---|---| | 'assign' | Initial assignment when the incident is created manually. | | 'reassign' | Re-assignment of an existing incident. | | 'escalate' | Assignment triggered by escalation policy advancement. | | 'reopen' | Assignment restarted from the first layer after the incident is reopened. | [assign, reassign, escalate, reopen]
+    - assignments (integer) — Number of assignments.
+    - channel_id (integer) — ID of the channel the incident belongs to.
+    - channel_name (string) — Name of the channel the incident belongs to.
+    - closed_by (string) — How the incident was closed: 'auto', 'timeout', or 'manually'. Empty string while the incident is still open. [auto, timeout, manually]
     - closer_id (integer) — Member ID of the person who closed the incident.
     - closer_name (string) — Display name of the person who closed the incident.
-    - created_at (integer)
-    - creator_id (integer)
-    - creator_name (string)
-    - description (string)
-    - engaged_seconds (integer)
-    - escalations (integer)
-    - ever_muted (boolean) — Whether the incident has ever been muted.
-    - fields (object)
-    - frequency (string) — Incident frequency classification. [frequent, rare]
-    - hours (string)
-    - incident_id (string)
-    - interruptions (integer)
-    - labels (object)
-    - manual_escalations (integer)
-    - notifications (integer)
+    - created_at (string) — Incident creation time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - creator_id (integer) — Person ID of the incident creator.
+    - creator_name (string) — Display name of the incident creator.
+    - description (string) — Incident description. Omitted when empty.
+    - engaged_seconds (integer) — Total engaged time in seconds across acknowledged responders, each contributing close time minus their acknowledgement time; 0 if not closed.
+    - escalations (integer) — Total escalations, the sum of 'timeout_escalations' and 'manual_escalations'.
+    - ever_muted (boolean) — Whether the incident was ever muted by flapping-based noise reduction.
+    - fields (object) — Custom fields of the incident. Omitted when empty.
+    - frequency (string) — Frequency classification: 'frequent' or 'rare'. [frequent, rare]
+    - hours (string) — Time-of-day bucket of the creation time in the account timezone: 'work' = Mon–Fri 08:00–19:00, 'sleep' = 23:00–08:00 daily, 'off' = all other times. [work, off, sleep]
+    - incident_id (string) — Incident ID, unique within the account.
+    - interruptions (integer) — Number of interruptions: notifications sent via app push, SMS, or voice call; consecutive notifications to the same responder within 60 seconds count as one.
+    - labels (object) — Incident labels as key-value pairs. Omitted when empty.
+    - manual_escalations (integer) — Manually triggered escalations.
+    - notifications (integer) — Total number of notifications sent.
     - owner_id (integer) — Member ID of the incident owner.
     - owner_name (string) — Display name of the incident owner.
     - progress (string) — Incident progress state — one of 'Triggered', 'Processing', 'Closed'.
-    - reassignments (integer)
-    - responders (array<object>)
-    - seconds_to_ack (integer)
-    - seconds_to_close (integer)
-    - severity (string) [Critical, Warning, Info, Ok]
+    - reassignments (integer) — Number of reassignments.
+    - responders (array<object>) — Responders with per-person assignment and acknowledgement times.
+      - acknowledged_at (string) — Acknowledgement time, as a Unix timestamp in seconds; 0 if not acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - as (string) — Responder's identity in an external chat tool (e.g. Slack); only present when backfilled by an external system.
+      - assigned_at (string) — Assignment time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - email (string) — Responder email. Omitted when empty.
+      - person_id (integer) — Person ID of the responder.
+      - person_name (string) — Responder display name. Omitted when empty.
+    - seconds_to_ack (integer) — Seconds from incident creation to the first acknowledgement; 0 if never acknowledged.
+    - seconds_to_close (integer) — Seconds from incident creation to close; 0 if not closed.
+    - severity (string) — Incident severity. [Critical, Warning, Info]
     - snoozed_before (string) — Unix timestamp in seconds until which the incident is snoozed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - team_id (integer)
-    - team_name (string)
-    - timeout_escalations (integer)
-    - title (string)
+    - team_id (integer) — ID of the team that owns the incident.
+    - team_name (string) — Name of the team that owns the incident.
+    - timeout_escalations (integer) — Escalations triggered by timeout.
+    - title (string) — Incident title.
   - search_after_ctx (string) — Cursor token to fetch the next page. Pass it back in the next request's 'search_after_ctx'.
   - total (integer) — Total matching incidents.
 `,
@@ -1400,7 +1405,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -1451,7 +1456,7 @@ Export responder insight metrics as a CSV file. CSV headers and formatted values
 API: POST /insight/responder/export (insightResponderExport)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -1460,7 +1465,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -1571,7 +1576,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -1581,7 +1586,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -1633,7 +1638,7 @@ Export team insight metrics as a CSV file. CSV headers and formatted values use 
 API: POST /insight/team/export (insightTeamExport)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -1642,7 +1647,7 @@ Request fields:
   --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Field to sort the underlying incident set by. [created_at]
+  --orderby string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -1753,7 +1758,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -1763,7 +1768,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the underlying incident set by. [created_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")
@@ -1817,7 +1822,7 @@ Return the top-K alert groups aggregated either by 'check' or by 'resource' labe
 API: POST /insight/alert/topk-by-label (insightTopkAlertsByLabel)
 
 Request fields:
-  --aggregate-unit string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]
+  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
@@ -1827,8 +1832,8 @@ Request fields:
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
   --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
   --k int — Number of top entries to return, between 1 and 100.
-  --label string (required) — Dimension to aggregate by. [check, resource]
-  --orderby string — Field to sort results by. [total_alert_cnt, total_alert_event_cnt]
+  --label string (required) — Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). [check, resource]
+  --orderby string — Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count. [total_alert_cnt, total_alert_event_cnt]
   --query string — Full-text query applied to incident title and description.
   --responder-ids []int — Filter by responder person IDs. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -1844,11 +1849,11 @@ Request fields:
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
+  - items (array<object>) — Top-K statistic rows aggregated by the requested label's values.
     - hours (string) — Hour bucket when 'split_hours' is enabled.
     - label (string) — Aggregation key value (check name or resource identifier).
-    - total_alert_cnt (integer)
-    - total_alert_event_cnt (integer)
+    - total_alert_cnt (integer) — Total number of alerts in this label-value bucket.
+    - total_alert_event_cnt (integer) — Total number of raw alert events in this label-value bucket.
 `,
 		Example: `  flashduty insight alert-topk-by-label --data '{"end_time":1712604800,"k":10,"label":"check","orderby":"total_alert_cnt","start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1948,7 +1953,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
@@ -1959,8 +1964,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
 	cmd.Flags().Int64Var(&fK, "k", 0, "Number of top entries to return, between 1 and 100.")
-	cmd.Flags().StringVar(&fLabel, "label", "", "Dimension to aggregate by. (required) [check, resource]")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort results by. [total_alert_cnt, total_alert_event_cnt]")
+	cmd.Flags().StringVar(&fLabel, "label", "", "Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). (required) [check, resource]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count. [total_alert_cnt, total_alert_event_cnt]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text query applied to incident title and description.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds.")

@@ -68,7 +68,7 @@ Create application
 - `--no-geo` bool — Do not infer geographic location.
 - `--no-ip` bool — Do not collect IP addresses.
 - `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'.
-- `--type` string (required) — Application type. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
+- `--type` string (required) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 - response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
 
@@ -106,7 +106,7 @@ Update application
 - `--no-geo` bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
 - `--no-ip` bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
 - `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
-- `--type` string — Application type. Omit to leave unchanged. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
+- `--type` string — Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 
 ### application-webhook-test <application-id>
@@ -178,7 +178,7 @@ Count facet value distribution
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
 - `--facet-key` string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
 - `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
-- `--scope` string (required) — RUM data scope to query. · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
+- `--scope` string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
 - `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
 - body-only (`--data`): facet_value (any)
@@ -193,7 +193,7 @@ List RUM fields
 ### issue-info <issue-id>
 Get issue detail
 - `<issue-id>` (positional, required) string — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
-- response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
+- response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
 ### issue-list
 List issues
@@ -212,7 +212,7 @@ List issues
 - `--statuses` stringSlice — Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected cause; see the enum for valid values. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (integer); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (integer); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (integer); versions (array<string>)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
 ### issue-preset-severity-rules-create <application-id>
 Create preset severity rule
@@ -276,8 +276,8 @@ Update preset severity rule
 ### issue-update <issue-id>
 Update issue
 - `<issue-id>` (positional, required) string — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
-- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. · enum: for_review | reviewed | ignored | resolved
-- `--suspected-cause` string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. · enum: for_review | reviewed | ignored | resolved
+- `--suspected-cause` string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 
 ### resource-info
 Get RUM resource info

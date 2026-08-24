@@ -24,40 +24,40 @@ Request fields:
   --issue-id string (required) — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - age (integer)
-  - application_id (string)
-  - application_name (string)
-  - created_at (integer)
-  - error (object)
-    - message (string)
-    - type (string)
+  - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
+  - application_id (string) — ID of the RUM application this issue belongs to.
+  - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
+  - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - error (object) — Representative error of this issue, taken from the error event that created it.
+    - message (string) — Normalized error message, truncated to at most 512 characters.
+    - type (string) — Error type, from the error event's 'error_type' field as reported by the SDK.
   - error_count (integer) — Total error occurrences.
-  - first_seen (object)
-    - timestamp (integer)
-    - version (string)
+  - first_seen (object) — Information about the issue's first occurrence (time and application version).
+    - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - version (string) — Application version at first occurrence; empty string when the event carries no version.
   - is_crash (boolean) — Whether the error caused an app crash.
   - issue_id (string) — Unique issue ID.
-  - last_seen (object)
-    - timestamp (integer)
-    - version (string)
+  - last_seen (object) — Information about the issue's most recent occurrence (time and application version).
+    - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
   - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
     - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - regressed_at_version (string) — Application version in which the regression was observed.
-    - resolved_at (string) — Timestamp of the previous resolution before the regression. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - resolved_at (integer)
-  - resolved_by (integer)
-  - service (string)
+    - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
+  - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
   - session_count (integer) — Affected user sessions.
   - severity (string) — Issue severity level.
-  - status (string) [for_review, reviewed, ignored, resolved]
-  - suspected_cause (object)
-    - person_id (integer)
-    - reason (string)
-    - source (string) [auto, user]
-    - value (string) [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
-  - team_id (integer)
-  - updated_at (integer)
-  - versions (array<string>)
+  - status (string) — Triage status of the issue: 'for_review', 'reviewed', 'ignored', or 'resolved'; soft-deleted ('deleted') issues are never returned. [for_review, reviewed, ignored, resolved]
+  - suspected_cause (object) — Suspected root cause analysis, determined automatically (rules or AI) or set manually by a user.
+    - person_id (integer) — Person ID of the user who manually set the cause; 0 when 'source' is 'auto'.
+    - reason (string) — Explanation for the cause determination, generated only by AI analysis; empty string when AI is disabled or analysis has not run.
+    - source (string) — Origin of the cause: 'auto' for system-determined, 'user' for manually set. [auto, user]
+    - value (string) — Suspected cause category. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  - team_id (integer) — ID of the team owning this issue, copied from the owning application's 'team_id' at issue creation.
+  - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - versions (array<string>) — Deduplicated list of application versions in which this issue has occurred; may contain an empty string for events without version info.
 `,
 		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
 		Example: `  flashduty rum issue-info --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9"}'`,
@@ -136,43 +136,43 @@ Request fields:
   --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean)
-  - items (array<object>)
-    - age (integer)
-    - application_id (string)
-    - application_name (string)
-    - created_at (integer)
-    - error (object)
-      - message (string)
-      - type (string)
+  - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
+  - items (array<object>) — Issues of the current page.
+    - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
+    - application_id (string) — ID of the RUM application this issue belongs to.
+    - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
+    - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - error (object) — Representative error of this issue, taken from the error event that created it.
+      - message (string) — Normalized error message, truncated to at most 512 characters.
+      - type (string) — Error type, from the error event's 'error_type' field as reported by the SDK.
     - error_count (integer) — Total error occurrences.
-    - first_seen (object)
-      - timestamp (integer)
-      - version (string)
+    - first_seen (object) — Information about the issue's first occurrence (time and application version).
+      - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - version (string) — Application version at first occurrence; empty string when the event carries no version.
     - is_crash (boolean) — Whether the error caused an app crash.
     - issue_id (string) — Unique issue ID.
-    - last_seen (object)
-      - timestamp (integer)
-      - version (string)
+    - last_seen (object) — Information about the issue's most recent occurrence (time and application version).
+      - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
     - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
       - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - regressed_at_version (string) — Application version in which the regression was observed.
-      - resolved_at (string) — Timestamp of the previous resolution before the regression. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - resolved_at (integer)
-    - resolved_by (integer)
-    - service (string)
+      - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
+    - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
     - session_count (integer) — Affected user sessions.
     - severity (string) — Issue severity level.
-    - status (string) [for_review, reviewed, ignored, resolved]
-    - suspected_cause (object)
-      - person_id (integer)
-      - reason (string)
-      - source (string) [auto, user]
-      - value (string) [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
-    - team_id (integer)
-    - updated_at (integer)
-    - versions (array<string>)
-  - total (integer)
+    - status (string) — Triage status of the issue: 'for_review', 'reviewed', 'ignored', or 'resolved'; soft-deleted ('deleted') issues are never returned. [for_review, reviewed, ignored, resolved]
+    - suspected_cause (object) — Suspected root cause analysis, determined automatically (rules or AI) or set manually by a user.
+      - person_id (integer) — Person ID of the user who manually set the cause; 0 when 'source' is 'auto'.
+      - reason (string) — Explanation for the cause determination, generated only by AI analysis; empty string when AI is disabled or analysis has not run.
+      - source (string) — Origin of the cause: 'auto' for system-determined, 'user' for manually set. [auto, user]
+      - value (string) — Suspected cause category. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+    - team_id (integer) — ID of the team owning this issue, copied from the owning application's 'team_id' at issue creation.
+    - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - versions (array<string>) — Deduplicated list of application versions in which this issue has occurred; may contain an empty string for events without version info.
+  - total (integer) — Total number of issues matching the filter conditions.
 `,
 		Example: `  flashduty rum issue-list --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD"],"end_time":1775961914595,"limit":20,"orderby":"updated_at","p":1,"start_time":1772611200000,"statuses":["for_review"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -275,8 +275,8 @@ API: POST /rum/issue/update (rum-issue-write-update)
 
 Request fields:
   --issue-id string (required) — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
-  --status string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. [for_review, reviewed, ignored, resolved]
-  --suspected-cause string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  --status string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. [for_review, reviewed, ignored, resolved]
+  --suspected-cause string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
 `,
 		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
 		Example: `  flashduty rum issue-update --data '{"issue_id":"NHEacQHi2DhXqobr9qPQz9","status":"resolved"}'`,
@@ -317,8 +317,8 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. Get issue IDs via 'POST /rum/issue/list'. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. [for_review, reviewed, ignored, resolved]")
-	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

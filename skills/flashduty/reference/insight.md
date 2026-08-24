@@ -62,7 +62,7 @@ fduty insight team-export      --start-time 30d --end-time now > teams.csv
 
 ### account
 Get account-level insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -71,7 +71,7 @@ Get account-level insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -86,11 +86,11 @@ Get account-level insight
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (string)
 
 ### alert-topk-by-label
 Get top-K alerts grouped by check or resource
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -100,8 +100,8 @@ Get top-K alerts grouped by check or resource
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--k` int64 — Number of top entries to return, between 1 and 100.
-- `--label` string (required) — Dimension to aggregate by. · enum: check | resource
-- `--orderby` string — Field to sort results by. · enum: total_alert_cnt | total_alert_event_cnt
+- `--label` string (required) — Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). · enum: check | resource
+- `--orderby` string — Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count. · enum: total_alert_cnt | total_alert_event_cnt
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -120,7 +120,7 @@ Get top-K alerts grouped by check or resource
 
 ### channel
 Get channel insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -129,7 +129,7 @@ Get channel insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -148,7 +148,7 @@ Get channel insight
 
 ### channel-export
 Export channel insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -157,7 +157,7 @@ Export channel insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -207,7 +207,7 @@ List insight incidents
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
 - `--limit` int64 — Page size, between 1 and 100. Defaults to 20. (1-100)
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--page` int64 — Page number, starting at 1. Defaults to 1. (min 1)
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
@@ -223,7 +223,7 @@ List insight incidents
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgements (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (integer); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgements (integer); active_alert_cnt (integer); alert_cnt (integer); alert_event_cnt (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (string); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
 ### incidents
 Query incidents with performance metrics
@@ -231,11 +231,11 @@ Query incidents with performance metrics
 - `--page` int
 - `--since` string
 - `--until` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: acknowledgements (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (integer); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: acknowledgements (integer); active_alert_cnt (integer); alert_cnt (integer); alert_event_cnt (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (string); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
 ### responder
 Get responder insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -244,7 +244,7 @@ Get responder insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -259,11 +259,11 @@ Get responder insight
 - `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (string)
 
 ### responder-export
 Export responder insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -272,7 +272,7 @@ Export responder insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -290,7 +290,7 @@ Export responder insight
 
 ### team
 Get team insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -299,7 +299,7 @@ Get team insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
@@ -318,7 +318,7 @@ Get team insight
 
 ### team-export
 Export team insight
-- `--aggregate-unit` string — Aggregate metrics into time buckets. When set, the time range must cover at least 24 hours; 'day' additionally caps the range at 31 days. · enum: day | week | month
+- `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
 - `--asc` bool — Sort ascending when 'true', descending otherwise.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
@@ -327,7 +327,7 @@ Export team insight
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Field to sort the underlying incident set by. · enum: created_at
+- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
 - `--query` string — Full-text query applied to incident title and description.
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
 - `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.

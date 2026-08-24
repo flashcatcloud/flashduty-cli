@@ -48,7 +48,7 @@ Create field
 - `--field-name` string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
 - `--field-type` string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. · enum: checkbox | multi_select | single_select | text
 - `--options` stringSlice — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
-- `--value-type` string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. · enum: string | bool | float
+- `--value-type` string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. · enum: string | bool | float
 - body-only (`--data`): default_value (any)
 - response: single object (`data` unwrapped to the top level) — fields: field_id (string); field_name (string)
 

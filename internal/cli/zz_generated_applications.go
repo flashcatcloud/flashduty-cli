@@ -40,13 +40,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - systems (any) — External systems whose URL templates can be opened from matching RUM events.
   - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
   - no_ip (boolean) — If 'true', IP addresses are not collected.
-  - status (string) — Application status. [enabled, disabled, deleted]
+  - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
   - tracing (object) — APM tracing integration settings.
     - enabled (boolean) — Whether tracing integration is enabled.
     - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. [popup, tab]
-  - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+  - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - updated_by (integer) — Last updater member ID.
 `,
@@ -99,7 +99,7 @@ Request fields:
   --application-ids []string (required) — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>)
+  - items (array<object>) — Application info items matching the requested 'application_ids' (max 200, deduplicated).
     - account_id (integer) — Account ID.
     - alerting (object) — Alert settings for the application.
       - channel_ids (array<integer>) — Channel IDs to send alerts to.
@@ -116,13 +116,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - systems (any) — External systems whose URL templates can be opened from matching RUM events.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
-    - status (string) — Application status. [enabled, disabled, deleted]
+    - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - tracing (object) — APM tracing integration settings.
       - enabled (boolean) — Whether tracing integration is enabled.
       - endpoint (string) — Trace endpoint URL (http or https).
-      - open_type (string) — How to open the trace link. [popup, tab]
-    - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+      - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) — Last updater member ID.
 `,
@@ -189,8 +189,8 @@ Request fields:
   --team-id int — Filter by team ID. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean)
-  - items (array<object>)
+  - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
+  - items (array<object>) — RUM applications of the current page.
     - account_id (integer) — Account ID.
     - alerting (object) — Alert settings for the application.
       - channel_ids (array<integer>) — Channel IDs to send alerts to.
@@ -207,16 +207,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - systems (any) — External systems whose URL templates can be opened from matching RUM events.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
-    - status (string) — Application status. [enabled, disabled, deleted]
+    - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - tracing (object) — APM tracing integration settings.
       - enabled (boolean) — Whether tracing integration is enabled.
       - endpoint (string) — Trace endpoint URL (http or https).
-      - open_type (string) — How to open the trace link. [popup, tab]
-    - type (string) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity]
+      - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) — Last updater member ID.
-  - total (integer)
+  - total (integer) — Total number of applications matching the filter conditions.
 `,
 		Example: `  flashduty rum application-list --data '{"is_my_team":false,"limit":20,"p":1,"query":""}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -357,7 +357,7 @@ Request fields:
   --no-geo bool — Do not infer geographic location.
   --no-ip bool — Do not collect IP addresses.
   --team-id int (required) — Owning team ID. Get team IDs via 'POST /team/list'.
-  --type string (required) — Application type. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  --type string (required) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration; defaults to disabled ('enabled: false') when omitted.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
     - enabled (any) — Whether alerting is enabled.
@@ -368,7 +368,7 @@ Request fields:
   tracing (object, via --data) — Optional APM tracing integration configuration.
     - enabled (boolean) — Whether tracing integration is enabled.
     - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. [popup, tab]
+    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - application_id (string) — Auto-generated unique application ID.
@@ -423,7 +423,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "Do not infer geographic location.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Application type. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
+	cmd.Flags().StringVar(&fType, "type", "", "Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -505,7 +505,7 @@ Request fields:
   --no-geo bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
   --no-ip bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
   --team-id int — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
-  --type string — Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  --type string — Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration. Omit to leave unchanged.
     - channel_ids (array<integer>) — Channel IDs to send alerts to.
     - enabled (any) — Whether alerting is enabled.
@@ -516,7 +516,7 @@ Request fields:
   tracing (object, via --data) — APM tracing integration configuration. Omit to leave unchanged.
     - enabled (boolean) — Whether tracing integration is enabled.
     - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. [popup, tab]
+    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2","links":{"enabled":true,"systems":[{"enabled":true,"event_types":["crash","error"],"icon_color":"#0F766E","icon_text":"S3","id":"s3-crash-logs","name":"S3 Crash Logs","url":"https://s3.example.com/logs?app=${application_id}\u0026trace=${trace_id}"}]}}'`,
@@ -574,7 +574,7 @@ Request fields:
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
+	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

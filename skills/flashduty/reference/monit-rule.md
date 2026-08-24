@@ -84,12 +84,12 @@ fduty monit rule-update-fields --ids <id1>,<id2> --fields enabled --enabled fals
 ### rule-audit-detail
 Get rule audit snapshot
 - `--id` int64 (required) — Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (integer); creator_id (integer); creator_name (string); id (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (string); creator_id (integer); creator_name (string); id (integer)
 
 ### rule-audits
 List rule change history
 - `--id` int64 (required) — Alert rule ID. Obtainable per folder via 'POST /monit/rule/list/basic'.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (integer); creator_id (integer); creator_name (string); id (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (string); creator_id (integer); creator_name (string); id (integer)
 
 ### rule-counter-channel
 Get rule counts by channel
@@ -116,7 +116,7 @@ Create alert rule
 - `--debug-log-enabled` bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
 - `--delay-seconds` int64 — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
 - `--description` string — Rule description, in Markdown.
-- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. · enum: text | markdown
+- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. · enum: text | markdown
 - `--ds-ids` intSlice — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
 - `--ds-list` stringSlice — Data source name patterns (supports wildcards).
 - `--ds-type` string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -162,7 +162,7 @@ Get alert rule detail
 ### rule-list-basic
 List alert rules
 - `--folder-id` int64 — Folder ID. 0 to list all accessible rules.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (integer); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); timezone (string); triggered (boolean); updated_at (integer); updater_id (integer); updater_name (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); timezone (string); triggered (boolean); updated_at (string); updater_id (integer); updater_name (string)
 
 ### rule-move
 Move alert rules to folder
@@ -186,7 +186,7 @@ Update alert rule
 - `--debug-log-enabled` bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
 - `--delay-seconds` int64 — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
 - `--description` string — Rule description, in Markdown.
-- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. · enum: text | markdown
+- `--description-type` string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. · enum: text | markdown
 - `--ds-ids` intSlice — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
 - `--ds-list` stringSlice — Data source name patterns (supports wildcards).
 - `--ds-type` string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').

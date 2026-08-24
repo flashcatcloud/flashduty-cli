@@ -103,7 +103,7 @@ Get calendar info
 
 ### list
 List calendars
-- `--kind` string — Calendar kind filter. Defaults to personal when empty. · enum: region.official.holiday | personal
+- `--kind` string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. · enum: region.official.holiday | personal
 - `--no-locale` bool — Disable locale filtering when listing public-holiday calendars.
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); cal_name (string); created_at (string); creator_id (integer); description (string); extra_cal_ids (array<string>); kind (string); status (string); team_id (integer); timezone (string); updated_at (string); updated_by (integer); workdays (array<integer>)
 

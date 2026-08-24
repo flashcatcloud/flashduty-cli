@@ -151,25 +151,25 @@ Preview template
 
 ### update <template-id>
 Update a template
-- `--description` string — Free-form description. Up to 500 characters. (≤500 chars)
-- `--dingtalk` string — DingTalk robot message template source.
-- `--dingtalk-app` string — DingTalk app message template source.
-- `--email` string — Email body template source (Go 'html/template' syntax).
-- `--feishu` string — Feishu robot message template source.
-- `--feishu-app` string — Feishu app message template source.
+- `--description` string — Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)
+- `--dingtalk` string — DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.
+- `--dingtalk-app` string — DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--email` string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
+- `--feishu` string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
+- `--feishu-app` string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
 - `--feishu-app-card-v2-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
-- `--slack` string — Slack robot message template source.
-- `--slack-app` string — Slack app message template source.
-- `--sms` string — SMS template source (Go 'text/template' syntax).
-- `--team-id` int64 — Team scope. 0 for account-wide.
-- `--teams-app` string — Microsoft Teams app message template source.
-- `--telegram` string — Telegram bot message template source.
+- `--slack` string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
+- `--slack-app` string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--sms` string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
+- `--team-id` int64 — Team scope. 0 for account-wide. Omit to keep the template's current team.
+- `--teams-app` string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--telegram` string — Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.
 - `<template-id>` (positional, required) string — Target template ID; obtain it from 'POST /template/list'.
 - `--template-name` string (required) — Template name. 1–39 characters. (1-39 chars)
-- `--voice` string — Voice call script template source.
-- `--wecom` string — WeCom robot message template source.
-- `--wecom-app` string — WeCom app message template source.
-- `--zoom` string — Zoom bot message template source.
+- `--voice` string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
+- `--wecom` string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
+- `--wecom-app` string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--zoom` string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
 - body-only (`--data`): incident_card_hidden_fields (object)
 
 ### validate

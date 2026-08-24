@@ -39,7 +39,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
-  - status (string) (required) — Template lifecycle status. [enabled, disabled, deleted]
+  - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
   - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
   - teams_app (string) (required) — Microsoft Teams app message template source.
   - telegram (string) (required) — Telegram bot message template source.
@@ -118,7 +118,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True if another page exists after the returned one.
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Notification templates on the current page; the first item of the first page is always the built-in preset template.
     - account_id (integer) (required) — ID of the owning account.
     - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - creator_id (integer) (required) — Member ID of the creator.
@@ -134,7 +134,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
-    - status (string) (required) — Template lifecycle status. [enabled, disabled, deleted]
+    - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
     - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
     - teams_app (string) (required) — Microsoft Teams app message template source.
     - telegram (string) (required) — Telegram bot message template source.
@@ -232,7 +232,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content (string) — Rendered template output, present when success is true.
   - fixed_fields (array<object>) — Fixed incident-card fields returned for supported IM previews after the requested hiding rules are applied.
-    - field (string) (required) — Incident-card field name. [channel, snoozed_before, severity, responders, aggregate_alert_count]
+    - field (string) (required) — Incident-card field name. | Value | Meaning | |---|---| | 'channel' | Name of the alert channel that produced the incident; returned only when non-empty. | | 'snoozed_before' | Snooze-until timestamp formatted as 'YYYY-MM-DD HH:MM:SS'; returned only while the incident is snoozed. | | 'severity' | Incident severity label; returned only when non-empty. | | 'responders' | Names of the current responders, separated by spaces; returned only when the incident has responders. | | 'aggregate_alert_count' | Number of alerts aggregated into the incident; returned only when greater than 1. | [channel, snoozed_before, severity, responders, aggregate_alert_count]
     - value (string) (required) — Rendered display value for the fixed field.
   - message (string) — Error message describing why rendering failed, present when success is false.
   - success (boolean) — Whether the template rendered without errors.
@@ -503,30 +503,30 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 		Short: "Update a template",
 		Long: `Update a template.
 
-Replace the content of every channel on an existing template.
+Update an existing template. Only the fields present in the request are written: a channel you omit keeps its current content, and an explicit empty string clears it.
 
 API: POST /template/update (template-write-update)
 
 Request fields:
-  --description string — Free-form description. Up to 500 characters. (≤500 chars)
-  --dingtalk string — DingTalk robot message template source.
-  --dingtalk-app string — DingTalk app message template source.
-  --email string — Email body template source (Go 'html/template' syntax).
-  --feishu string — Feishu robot message template source.
-  --feishu-app string — Feishu app message template source.
+  --description string — Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)
+  --dingtalk string — DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.
+  --dingtalk-app string — DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.
+  --email string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
+  --feishu string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
+  --feishu-app string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
   --feishu-app-card-v2-table-enabled bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
-  --slack string — Slack robot message template source.
-  --slack-app string — Slack app message template source.
-  --sms string — SMS template source (Go 'text/template' syntax).
-  --team-id int — Team scope. 0 for account-wide.
-  --teams-app string — Microsoft Teams app message template source.
-  --telegram string — Telegram bot message template source.
+  --slack string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
+  --slack-app string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
+  --sms string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
+  --team-id int — Team scope. 0 for account-wide. Omit to keep the template's current team.
+  --teams-app string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.
+  --telegram string — Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.
   --template-id string (required) — Target template ID; obtain it from 'POST /template/list'.
   --template-name string (required) — Template name. 1–39 characters. (1-39 chars)
-  --voice string — Voice call script template source.
-  --wecom string — WeCom robot message template source.
-  --wecom-app string — WeCom app message template source.
-  --zoom string — Zoom bot message template source.
+  --voice string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
+  --wecom string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
+  --wecom-app string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
+  --zoom string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
   incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
@@ -615,25 +615,25 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. (≤500 chars)")
-	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source.")
-	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source.")
-	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
-	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
-	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)")
+	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.")
-	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
-	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
-	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
-	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
-	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source.")
+	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide. Omit to keep the template's current team.")
+	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID; obtain it from 'POST /template/list'. (required)")
 	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name. 1–39 characters. (required) (1-39 chars)")
-	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
-	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
-	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
-	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
+	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

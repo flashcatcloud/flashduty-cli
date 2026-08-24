@@ -34,8 +34,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - custom_domain (string) — Custom domain pointing to the status page.
     - custom_links (array<object>) — Custom navigation links shown on the status page.
     - dark_logo (string) — Dark-mode logo image of the status page.
-    - date_view (string) — How the timeline is displayed. [calendar, list]
-    - display_uptime_mode (string) — How uptime is displayed. [chart_and_percentage, chart, none]
+    - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
+    - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. [chart_and_percentage, chart, none]
     - favicon (string) — Favicon of the status page.
     - logo (string) — Logo image of the status page.
     - logo_url (string) — URL opened when the logo is clicked.
@@ -54,7 +54,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - email (boolean) — Whether email subscription is enabled.
       - im (boolean) — Whether IM subscription is enabled.
     - template_preference (string) — Preferred change-event template type.
-    - type (string) — Visibility type of the status page. [public, internal]
+    - type (string) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
     - url_name (string) — URL-safe slug, unique per account.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -96,7 +96,7 @@ Request fields:
   --type string (required) — Event type filter. Required. Returns only in-progress (non-terminal) events — 'investigating'/'identified'/'monitoring' for 'incident', 'scheduled'/'ongoing' for 'maintenance'. [incident, maintenance]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Status page changes (incidents/maintenances) matching the filters.
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
       - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
@@ -106,7 +106,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - name (string) (required) — Component display name.
       - order_id (integer) — Display order within its section.
       - section_id (string) — Parent section ID.
-      - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+      - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
     - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
     - change_id (integer) (required) — Event ID.
     - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -119,7 +119,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
-    - type (string) (required) — Event type. [incident, maintenance]
+    - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
     - updates (array<object>) — Timeline updates attached to this event, ordered by time.
       - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_changes (array<object>) — Component status transitions applied by this update.
@@ -127,7 +127,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
         - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
       - description (string) — Update description (Markdown).
-      - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+      - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
@@ -208,7 +208,7 @@ Request fields:
       - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
       - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - description (string) — Update description (Markdown).
-    - status (string) — Change status after this update. Omit if the overall status does not change. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - status (string) — Change status after this update. May be omitted when the overall status does not change. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - update_id (string) — Update ID. Server-assigned on create; supply when replaying historical updates.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -381,7 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - name (string) (required) — Component display name.
     - order_id (integer) — Display order within its section.
     - section_id (string) — Parent section ID.
-    - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+    - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
   - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
   - change_id (integer) (required) — Event ID.
   - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -394,7 +394,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   - title (string) (required) — Event title.
-  - type (string) (required) — Event type. [incident, maintenance]
+  - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
   - updates (array<object>) — Timeline updates attached to this event, ordered by time.
     - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - component_changes (array<object>) — Component status transitions applied by this update.
@@ -402,7 +402,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
       - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - description (string) — Update description (Markdown).
-    - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - update_id (string) (required) — Update ID.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -461,7 +461,7 @@ Request fields:
   --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Status page changes (incidents/maintenances) matching the filters.
     - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
       - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_id (string) — Component ID.
@@ -471,7 +471,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - name (string) (required) — Component display name.
       - order_id (integer) — Display order within its section.
       - section_id (string) — Parent section ID.
-      - status (string) (required) — Current component status resulting from the event. [operational, degraded, partial_outage, full_outage, under_maintenance]
+      - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
     - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
     - change_id (integer) (required) — Event ID.
     - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -484,7 +484,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
-    - type (string) (required) — Event type. [incident, maintenance]
+    - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
     - updates (array<object>) — Timeline updates attached to this event, ordered by time.
       - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
       - component_changes (array<object>) — Component status transitions applied by this update.
@@ -492,7 +492,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
         - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
       - description (string) — Update description (Markdown).
-      - status (string) — Event status after this update. Omitted when the update does not change the overall status. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+      - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
@@ -572,7 +572,7 @@ Request fields:
   --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
   --description string — Update description (Markdown). Required.
   --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --status string (required) — New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  --status string (required) — Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   component_changes (array<object>, via --data) — Component status transitions applied by this update. Component IDs must be unique.
     - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
     - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
@@ -624,7 +624,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New event status. Must match the event type. When the status transitions to 'resolved' or 'completed', all referenced components must become 'operational'. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1142,8 +1142,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - custom_domain (string) — Custom domain pointing to the status page.
   - custom_links (array<object>) — Custom navigation links shown on the status page.
   - dark_logo (string) — Dark-mode logo image of the status page.
-  - date_view (string) — How the timeline is displayed. [calendar, list]
-  - display_uptime_mode (string) — How uptime is displayed. [chart_and_percentage, chart, none]
+  - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
+  - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. [chart_and_percentage, chart, none]
   - favicon (string) — Favicon of the status page.
   - logo (string) — Logo image of the status page.
   - logo_url (string) — URL opened when the logo is clicked.
@@ -1162,7 +1162,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - email (boolean) — Whether email subscription is enabled.
     - im (boolean) — Whether IM subscription is enabled.
   - template_preference (string) — Preferred change-event template type.
-  - type (string) — Visibility type of the status page. [public, internal]
+  - type (string) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
   - url_name (string) — URL-safe slug, unique per account.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
@@ -1391,20 +1391,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (string) (required) — Job creation time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - error (string) — Terminal error message when 'status' is 'failed'.
   - job_id (string) (required) — Migration job ID.
-  - phase (string) (required) — Current migration phase. [structure, history, subscribers]
+  - phase (string) (required) — Current migration phase. 'structure' imports the page structure (sections and components); 'history' imports historical incidents, maintenances, and incident templates; 'subscribers' imports email subscribers. [structure, history, subscribers]
   - progress (object) (required) — Per-entity progress counters.
     - completed_steps (integer) (required) — Steps completed so far.
-    - components_imported (integer) (required)
-    - incidents_imported (integer) (required)
-    - maintenances_imported (integer) (required)
-    - sections_imported (integer) (required)
-    - subscribers_imported (integer) (required)
+    - components_imported (integer) (required) — Number of components imported from the source status page.
+    - incidents_imported (integer) (required) — Number of historical incidents imported.
+    - maintenances_imported (integer) (required) — Number of scheduled maintenances imported.
+    - sections_imported (integer) (required) — Number of sections (Atlassian component groups) imported from the source status page.
+    - subscribers_imported (integer) (required) — Number of email subscribers successfully imported.
     - subscribers_skipped (integer) (required) — Number of subscribers skipped (e.g. because they would create duplicates).
-    - templates_imported (integer) (required)
+    - templates_imported (integer) (required) — Number of incident templates successfully imported; templates that fail are skipped and recorded in 'warnings'.
     - total_steps (integer) (required) — Total steps this job will perform.
     - warnings (array<string>) — Non-fatal warnings recorded during the job.
   - source_page_id (string) (required) — Atlassian Statuspage source page ID.
-  - status (string) (required) — Current job status. [pending, running, completed, failed, cancelled]
+  - status (string) (required) — Current job status. | Value | Meaning | |---|---| | 'pending' | Created, waiting to run. | | 'running' | In progress. | | 'completed' | Finished successfully. | | 'failed' | Failed; the 'error' field holds the reason. | | 'cancelled' | Canceled by request. | [pending, running, completed, failed, cancelled]
   - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
   - updated_at (string) (required) — Last status update time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
@@ -1697,7 +1697,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether there is at least one more page after the current one.
-  - items (array<object>) (required)
+  - items (array<object>) (required) — Subscribers on the current page.
     - all (boolean) (required) — Whether the subscriber is subscribed to all components.
     - components (array<object>) (required) — Components this subscriber has subscribed to.
       - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -1709,7 +1709,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - order_id (integer) — Display order within its section.
       - section_id (string) — Parent section ID.
     - locale (string) — Preferred locale for notifications.
-    - method (string) (required) — Subscription delivery method. [email, im]
+    - method (string) (required) — Subscription notification method. 'email' is email subscription (public pages); 'im' is IM subscription (internal pages). Determined by the page type. [email, im]
     - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
   - total (integer) (required) — Total matching subscribers.
 `,
@@ -1967,8 +1967,8 @@ Request fields:
   --contact-info string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
   --custom-domain string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
   --dark-logo string — Dark-mode logo image of the status page. Omit to keep the existing value.
-  --date-view string — How event dates are displayed. Omit to keep the existing value. [calendar, list]
-  --display-uptime-mode string — How uptime is displayed. Omit to keep the existing value. [chart_and_percentage, chart, none]
+  --date-view string — How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
+  --display-uptime-mode string — How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. [chart_and_percentage, chart, none]
   --favicon string — Favicon of the status page. Omit to keep the existing value.
   --logo string — Logo image of the status page. Omit to keep the existing value.
   --logo-url string — URL opened when the logo is clicked. Omit to keep the existing value.
@@ -2061,8 +2061,8 @@ Request fields:
 	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&fDarkLogo, "dark-logo", "", "Dark-mode logo image of the status page. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fDateView, "date-view", "", "How event dates are displayed. Omit to keep the existing value. [calendar, list]")
-	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. Omit to keep the existing value. [chart_and_percentage, chart, none]")
+	cmd.Flags().StringVar(&fDateView, "date-view", "", "How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]")
+	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. [chart_and_percentage, chart, none]")
 	cmd.Flags().StringVar(&fFavicon, "favicon", "", "Favicon of the status page. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fLogo, "logo", "", "Logo image of the status page. Omit to keep the existing value.")
 	cmd.Flags().StringVar(&fLogoURL, "logo-url", "", "URL opened when the logo is clicked. Omit to keep the existing value.")

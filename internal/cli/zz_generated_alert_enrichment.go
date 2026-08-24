@@ -252,12 +252,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
   - field_id (string) (required) — Field ID — 24-character hex ObjectID.
   - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
-  - field_type (string) (required) — Field input type. [checkbox, multi_select, single_select, text]
+  - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
   - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
   - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
   - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
   - updated_by (integer) (required) — Last updater member ID.
-  - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
+  - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
 		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
 		Example: `  flashduty field info --data '{"field_id":"66e9d3a4f7c2b04a1c8a91b3"}'`,
@@ -324,12 +324,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
     - field_id (string) (required) — Field ID — 24-character hex ObjectID.
     - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
-    - field_type (string) (required) — Field input type. [checkbox, multi_select, single_select, text]
+    - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
     - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
     - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
     - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
     - updated_by (integer) (required) — Last updater member ID.
-    - value_type (string) (required) — Stored value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. [string, bool, float]
+    - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
 		Example: `  flashduty field list --data '{"asc":false,"orderby":"updated_at","query":"severity"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -395,7 +395,7 @@ Request fields:
   --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
   --field-type string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. [checkbox, multi_select, single_select, text]
   --options []string — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
-  --value-type string (required) — Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. [string, bool, float]
+  --value-type string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. [string, bool, float]
   default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -446,7 +446,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (required) (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
-	cmd.Flags().StringVar(&fValueType, "value-type", "", "Stored value type. 'checkbox' requires 'bool'; 'single_select'/'multi_select'/'text' require 'string'. Immutable after creation. (required) [string, bool, float]")
+	cmd.Flags().StringVar(&fValueType, "value-type", "", "Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. (required) [string, bool, float]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

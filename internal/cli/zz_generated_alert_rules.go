@@ -24,13 +24,13 @@ Request fields:
   --id int (required) — Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required)
+  - account_id (integer) (required) — ID of the account that owns the rule.
   - action (string) (required) — Action performed, e.g. 'create', 'update'.
   - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
   - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
-  - created_at (integer) (required)
-  - creator_id (integer) (required)
-  - creator_name (string) (required)
+  - created_at (string) (required) — When this audit record was produced, as a Unix timestamp in seconds; equals the rule's 'updated_at' at change time. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - creator_id (integer) (required) — ID of the user who made this change (taken from the rule's 'updater_id' at change time).
+  - creator_name (string) (required) — Name of the user who made this change (taken from the rule's 'updater_name' at change time).
   - id (integer) (required) — Audit record ID.
 `,
 		Example: `  flashduty monit rule-audit-detail --data '{"id":9001}'`,
@@ -78,13 +78,13 @@ Request fields:
   --id int (required) — Alert rule ID. Obtainable per folder via 'POST /monit/rule/list/basic'.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - account_id (integer) (required)
+  - account_id (integer) (required) — ID of the account that owns the rule.
   - action (string) (required) — Action performed, e.g. 'create', 'update'.
   - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
   - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
-  - created_at (integer) (required)
-  - creator_id (integer) (required)
-  - creator_name (string) (required)
+  - created_at (string) (required) — When this audit record was produced, as a Unix timestamp in seconds; equals the rule's 'updated_at' at change time. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - creator_id (integer) (required) — ID of the user who made this change (taken from the rule's 'updater_id' at change time).
+  - creator_name (string) (required) — Name of the user who made this change (taken from the rule's 'updater_name' at change time).
   - id (integer) (required) — Audit record ID.
 `,
 		Example: `  flashduty monit rule-audits --data '{"id":50001}'`,
@@ -194,8 +194,8 @@ Return trigger status summary for all top-level folder nodes — used for the ov
 API: POST /monit/rule/counter/status (monit-rule-read-counter-status)
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - folder_id (integer) (required)
-  - folder_name (string)
+  - folder_id (integer) (required) — ID of the folder (grouping node).
+  - folder_name (string) — Folder name; omitted by some endpoints ('omitempty').
   - rule_total (integer) (required) — Total rules in the folder family.
   - triggered_rule_count (integer) (required) — Rules with active alerts.
 `,
@@ -233,9 +233,9 @@ Return the stored time series of the total rule count across the account — one
 API: POST /monit/rule/counter/total (monit-rule-read-counter-total)
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - account_id (integer) (required)
+  - account_id (integer) (required) — ID of the account this snapshot belongs to.
   - clock (string) (required) — Sample timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - id (integer) (required)
+  - id (integer) (required) — ID of this snapshot record.
   - num (integer) (required) — Rule count at the sample time.
 `,
 		Example: `  flashduty monit rule-counter-total --data '{}'`,
@@ -273,7 +273,7 @@ API: POST /monit/rule/dstypes (monit-rule-read-dstypes)
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — Owning account ID. '0' for global types.
-  - id (integer) (required)
+  - id (integer) (required) — ID of the datasource type record.
   - ident (string) (required) — Identifier used as the 'ds_type' of rules, e.g. 'prometheus'.
   - name (string) (required) — Display name, e.g. 'Prometheus'.
   - weight (integer) (required) — Display order weight; higher appears first.
@@ -316,61 +316,63 @@ Request fields:
   --ids []int (required) — Rule IDs.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - annotations (object)
-  - cron_pattern (string) (required)
-  - debug_log_enabled (boolean) (required)
-  - delay_seconds (integer)
-  - description (string)
-  - description_type (string) [text, markdown]
-  - ds_ids (array<integer>)
-  - ds_list (array<string>)
-  - ds_type (string) (required)
-  - enabled (boolean) (required)
-  - enabled_times (array<object>)
+  - annotations (object) — Custom annotation key-value pairs attached to alert events; keys must not start with '$' (reserved for query field references).
+  - cron_pattern (string) (required) — Evaluation schedule as a 6-field cron expression (seconds included) or '@every <duration>' (an integral number of seconds, at least 1s); 'CRON_TZ='/'TZ=' prefixes are rejected — set the timezone in 'timezone' instead.
+  - debug_log_enabled (boolean) (required) — Whether to emit debug logs for this rule's evaluations; enable when troubleshooting.
+  - delay_seconds (integer) — Query time offset in seconds: each evaluation reads data as of 'schedule time − delay_seconds' to tolerate ingestion lag; '0' means no offset.
+  - description (string) — Rule description in the format given by 'description_type', shown with alert events.
+  - description_type (string) — Format of 'description', 'text' or 'markdown'; treated as 'text' when omitted. [text, markdown]
+  - ds_ids (array<integer>) — Datasource ID list, merged with 'ds_list'; references by ID and is therefore immune to datasource renames.
+  - ds_list (array<string>) — Datasource name list with wildcard support; merged with 'ds_ids' to decide which datasources the rule monitors — must be maintained by hand if a datasource is renamed.
+  - ds_type (string) (required) — Datasource type ident, e.g. 'prometheus'; must be a datasource type ('ident') that exists in the import target environment.
+  - enabled (boolean) (required) — Whether the rule is enabled; rules imported as disabled are not evaluated.
+  - enabled_times (array<object>) — Effective time windows; each entry has 'days' (0–6, 0 = Sunday) and 'stime'/'etime' ('HH:MM'), interpreted in the rule's 'timezone'; an empty list disables the rule.
     - days (array<integer>) — Days of week, 0 = Sunday.
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
-  - labels (object)
-  - name (string) (required)
-  - repeat_interval (integer)
-  - repeat_total (integer)
+  - labels (object) — Custom label key-value pairs attached to alert events produced by this rule.
+  - name (string) (required) — Rule name, up to 128 characters when imported.
+  - repeat_interval (integer) — Interval in seconds between repeated notifications for a firing alert; values below 1 fall back to the default of 3600.
+  - repeat_total (integer) — Maximum number of repeated notifications for the same alert; values below 1 fall back to the default of 3.
   - rule_configs (object) — Rule evaluation configuration.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
   - timezone (string) — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
@@ -430,7 +432,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean) (required) — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   - delay_seconds (integer) (required) — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   - description (string) — Rule description, in Markdown.
-  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -447,41 +449,43 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - repeat_total (integer) — Max number of repeat notifications.
   - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
   - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
@@ -535,9 +539,9 @@ Request fields:
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — Account ID.
-  - created_at (integer) (required)
-  - creator_id (integer) (required)
-  - creator_name (string) (required)
+  - created_at (string) (required) — Creation time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - creator_id (integer) (required) — ID of the user who created the rule.
+  - creator_name (string) (required) — Name of the user who created the rule.
   - cron_pattern (string) (required) — 5-field cron schedule, e.g. '* * * * *'. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) (required) — Whether debug logging is enabled.
   - delay_seconds (integer) (required) — Evaluation delay in seconds.
@@ -549,9 +553,9 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - name (string) (required) — Rule name.
   - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - triggered (boolean) (required) — True if the rule currently has active alerts.
-  - updated_at (integer) (required)
-  - updater_id (integer) (required)
-  - updater_name (string) (required)
+  - updated_at (string) (required) — Last modification time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updater_id (integer) (required) — ID of the user who last modified the rule.
+  - updater_name (string) (required) — Name of the user who last modified the rule.
 `,
 		Example: `  flashduty monit rule-list-basic --data '{"folder_id":100}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -626,7 +630,7 @@ Request fields:
   --debug-log-enabled bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   --delay-seconds int — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   --description string — Rule description, in Markdown.
-  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
+  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   --ds-ids []int — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
   --ds-list []string — Data source name patterns (supports wildcards).
   --ds-type string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -648,41 +652,43 @@ Request fields:
   labels (object, via --data) — Custom labels.
   rule_configs (object, via --data) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
 
@@ -697,7 +703,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean) — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   - delay_seconds (integer) — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   - description (string) — Rule description, in Markdown.
-  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -714,41 +720,43 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - repeat_total (integer) — Max number of repeat notifications.
   - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
   - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
@@ -863,7 +871,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Seconds to shift the evaluation query window backward, compensating for data ingestion latency.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, in Markdown.")
-	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]")
+	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.")
 	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').")
@@ -1219,8 +1227,8 @@ Request fields:
   --folder-id int — Folder ID to summarize. Obtainable via 'POST /monit/folder/list'. Trigger statistics are returned grouped by direct child folder.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - folder_id (integer) (required)
-  - folder_name (string)
+  - folder_id (integer) (required) — ID of the folder (grouping node).
+  - folder_name (string) — Folder name; omitted by some endpoints ('omitempty').
   - rule_total (integer) (required) — Total rules in the folder family.
   - triggered_rule_count (integer) (required) — Rules with active alerts.
 `,
@@ -1297,7 +1305,7 @@ Request fields:
   --debug-log-enabled bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   --delay-seconds int — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   --description string — Rule description, in Markdown.
-  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
+  --description-type string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   --ds-ids []int — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
   --ds-list []string — Data source name patterns (supports wildcards).
   --ds-type string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -1319,41 +1327,43 @@ Request fields:
   labels (object, via --data) — Custom labels.
   rule_configs (object, via --data) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
 
@@ -1368,7 +1378,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - debug_log_enabled (boolean) — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   - delay_seconds (integer) — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   - description (string) — Rule description, in Markdown.
-  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]
+  - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
   - ds_list (array<string>) — Data source name patterns (supports wildcards).
   - ds_type (string) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
@@ -1385,41 +1395,43 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - repeat_total (integer) — Max number of repeat notifications.
   - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object)
+        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
         - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
         - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer)
-      - severity (string) [Critical, Warning, Info]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_nodata (object) — No-data check configuration.
-      - alerting_check_times (integer)
-      - enabled (boolean)
-      - push_recovery_event (boolean)
-      - recovery_check_times (integer)
+      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
+      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) [Critical, Warning, Info]
+      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer)
-      - critical (string)
-      - enabled (boolean)
-      - info (string)
-      - push_recovery_event (boolean)
-      - recovery (object)
-        - condition (string)
-        - mode (string) [invert, threshold, ql]
-      - recovery_check_times (integer)
-      - warning (string)
-    - queries (array<object>)
-      - args (object)
+      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
+      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
+      - enabled (boolean) — Whether threshold checking is enabled.
+      - info (string) — Info threshold expression, same syntax as 'critical'.
+      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
+      - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
+        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
+      - warning (string) — Warning threshold expression, same syntax as 'critical'.
+    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
-      - label_fields (array<string>)
+      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
       - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>)
+      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
     - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object)
+      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
       - expr (string) — Query expression.
       - name (string) — Relate-query identifier.
   - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
@@ -1534,7 +1546,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Seconds to shift the evaluation query window backward, compensating for data ingestion latency.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, in Markdown.")
-	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. [text, markdown]")
+	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.")
 	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').")
