@@ -103,7 +103,19 @@ Update channel
 ## Key concepts
 
 - **`--auto-resolve-mode`** enum: `trigger` (timer resets on each new alert trigger) | `update` (timer resets on any alert update).
-- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. **`group.time_window` is in minutes** (default cap 1440 = 24h; extended accounts may allow up to 43200 = 30 days). Set via `--data '{"group":{"method":"p","equals":[["service","env"]],"time_window":30}}'` on `create`/`update`.
+- **Alert grouping `group.method`**: `i` = intelligent (embedding similarity), `p` = pattern (label equality), `n` = none. **`group.time_window` is in minutes** (default cap 1440 = 24h; extended accounts may allow up to 43200 = 30 days). Set via `--data` on `create`/`update`:
+
+  ```bash
+  --data '{"group":{"method":"p","equals":[["labels.service","labels.env"]],"time_window":30}}'
+  ```
+
+  **Every entry in `equals` (and in `i_keys`, and in each `cases[].equals`) must
+  be either one of the three built-in fields — `title`, `description`,
+  `severity` — or a label written with its `labels.` prefix.** A bare label name
+  is rejected: `equals: [["service"]]` returns `equal service is not supported`
+  (400). This is the most common way a grouping update fails, and it bites
+  hardest right after `fduty enrichment upsert` creates a new label — the label
+  exists, but it is `labels.<name>` here, never the bare name.
 
 Escalation, silence, inhibit and unsubscribe rules live on their own cards: `reference/escalation.md` and `reference/noise.md`.
 
