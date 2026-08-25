@@ -21,7 +21,7 @@ Create ruleset
 - `--note` string (required) — Description or title of the ruleset.
 - `--open-flag` int64 — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.
 - `--payload` string (required) — JSON string containing the alert rule definitions.
-- `--type-ident` string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
+- `--type-ident` string (required) — Store type identifier this ruleset applies to, e.g. 'redis'.
 - response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (string)
 
 ### store-ruleset-delete
@@ -35,7 +35,7 @@ Get ruleset detail
 
 ### store-ruleset-list
 List rulesets
-- `--type-ident` string (required) — Datasource type identifier to filter by, e.g. 'prometheus'.
+- `--type-ident` string (required) — Store type identifier to filter by, e.g. 'redis'.
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: created_at (string); creator_account_id (integer); creator_id (integer); creator_name (string); id (integer); note (string); open_flag (integer); payload (string); type_ident (string); updated_at (string)
 
 ### store-ruleset-update

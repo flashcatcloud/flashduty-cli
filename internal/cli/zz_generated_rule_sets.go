@@ -27,7 +27,7 @@ Request fields:
   --note string (required) — Description or title of the ruleset.
   --open-flag int — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.
   --payload string (required) — JSON string containing the alert rule definitions.
-  --type-ident string (required) — Datasource type identifier this ruleset applies to, e.g. 'prometheus'.
+  --type-ident string (required) — Store type identifier this ruleset applies to, e.g. 'redis'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -38,10 +38,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - note (string) (required) — Description or title of the ruleset.
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
-  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - type_ident (string) (required) — Store type identifier this ruleset applies to.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
-		Example: `  flashduty monit store-ruleset-create --data '{"note":"CPU usage alerts","open_flag":1,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.8\"}]","type_ident":"prometheus"}'`,
+		Example: `  flashduty monit store-ruleset-create --data '{"note":"CPU usage alerts","open_flag":1,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.8\"}]","type_ident":"redis"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -77,7 +77,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fNote, "note", "", "Description or title of the ruleset. (required)")
 	cmd.Flags().Int64Var(&fOpenFlag, "open-flag", 0, "Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public. Defaults to '0' if omitted.")
 	cmd.Flags().StringVar(&fPayload, "payload", "", "JSON string containing the alert rule definitions. (required)")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier this ruleset applies to, e.g. 'prometheus'. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Store type identifier this ruleset applies to, e.g. 'redis'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -154,7 +154,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - note (string) (required) — Description or title of the ruleset.
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
-  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - type_ident (string) (required) — Store type identifier this ruleset applies to.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-info --data '{"id":1}'`,
@@ -194,12 +194,12 @@ func genRuleSetsListCmd() *cobra.Command {
 		Short: "List rulesets",
 		Long: `List rulesets.
 
-Return all rulesets for a given datasource type that are accessible to the current user.
+Return all rulesets for a given store type that are accessible to the current user.
 
 API: POST /monit/store/ruleset/list (monit-store-ruleset-list)
 
 Request fields:
-  --type-ident string (required) — Datasource type identifier to filter by, e.g. 'prometheus'.
+  --type-ident string (required) — Store type identifier to filter by, e.g. 'redis'.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - created_at (string) (required) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
@@ -210,10 +210,10 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - note (string) (required) — Description or title of the ruleset.
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
-  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - type_ident (string) (required) — Store type identifier this ruleset applies to.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
-		Example: `  flashduty monit store-ruleset-list --data '{"type_ident":"prometheus"}'`,
+		Example: `  flashduty monit store-ruleset-list --data '{"type_ident":"redis"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -237,7 +237,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier to filter by, e.g. 'prometheus'. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Store type identifier to filter by, e.g. 'redis'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -272,7 +272,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - note (string) (required) — Description or title of the ruleset.
   - open_flag (integer) (required) — Sharing scope. '0' = private (creator only), '1' = account-shared, '2' = public.
   - payload (string) — JSON string containing the alert rule definitions. Omitted in list responses.
-  - type_ident (string) (required) — Datasource type identifier this ruleset applies to.
+  - type_ident (string) (required) — Store type identifier this ruleset applies to.
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
 `,
 		Example: `  flashduty monit store-ruleset-update --data '{"id":1,"note":"Updated CPU alerts","open_flag":2,"payload":"[{\"prom_ql\":\"rate(cpu_usage[5m]) \u003e 0.9\"}]"}'`,
