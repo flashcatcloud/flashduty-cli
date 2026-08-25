@@ -146,9 +146,57 @@ View alert timeline
 
 `pipeline-upsert` replaces the whole pipeline (max 50 rules); `rules[].kind` values: `title_reset` · `description_reset` · `severity_reset` · `alert_drop` · `alert_inhibit`. The `rules` array has no typed flag — pass it via `--data '{"rules":[...]}'`. The call is idempotent (upsert), so re-running with the same body is safe.
 
-`settings` shape depends on `kind`: `title_reset` → `{"title": "<template>"}`; `description_reset` → `{"description": "<template>"}`; `severity_reset` → `{"severity": "Critical"|"Warning"|"Info"}`; `alert_drop` → `{}` (empty object); `alert_inhibit` → `{"equals": ["<label_key>", ...], "source_filters": <OrFilterGroup>}`.
+`settings` shape depends on `kind`: `title_reset` → `{"title": "<template>"}`; `description_reset` → `{"description": "<template>"}`; `severity_reset` → `{"severity": "Critical"|"Warning"|"Info"}`; `alert_drop` → `{}` (empty object); `alert_inhibit` → `{"equals": ["<label_key>", ...], "source_filters": [<condition>, ...]}`.
 
-**`rules[].if` (and `alert_inhibit`'s `source_filters`) are OR-of-AND condition trees** — read `reference/filters.md` before composing them. Note this differs from `enrichment`'s rule-level `if`, which is a single flat AND-only condition list.
+**`rules[].if` and `alert_inhibit.source_filters` are FLAT AND-lists** — one array of `{key, oper, vals}` conditions, ALL of which must match:
+
+```json
+"if": [{"key": "labels.env", "oper": "IN", "vals": ["prod"]}]
+```
+
+This is the same shape as `enrichment`'s rule-level `if`, and it is **not** the
+OR-of-AND tree used by silence / inhibit / drop / escalation rules. Wrapping the
+conditions in a second array is rejected before the request leaves the CLI
+(`cannot unmarshal array into ... of type FilterCondition`). Read
+`reference/filters.md` for the operators, the missing-key trap, and the key
+vocabulary — those all apply here; only the nesting differs.
+
+## Writing `title_reset` / `description_reset` templates
+
+The `settings.title` and `settings.description` values are NOT plain strings —
+they are rendered, and the two kinds render differently:
+
+| | with a leading `[TPL]` | without it |
+|---|---|---|
+| `title_reset` | rendered as a template | treated as a `::`-joined key list (below) |
+| `description_reset` | rendered as a template | **silently does nothing** — the rule is a no-op |
+
+**Always write `[TPL]` for `description_reset`.** Omitting it is not an error;
+the rule simply never fires, which reads as "the pipeline didn't apply".
+
+Inside a `[TPL]` value, two substitutions run in order:
+
+1. `${label_name}` — replaced with that label's value; a missing label renders
+   `<no value>` rather than failing.
+2. Go `text/template` — the event is the dot, so labels are
+   `{{.Labels.<name>}}` (`Labels` capitalised; it is a map).
+
+```json
+{"kind": "title_reset", "settings": {"title": "[TPL]{{.Labels.service}} / {{.Labels.check}}"}}
+{"kind": "description_reset", "settings": {"description": "[TPL]${instance} is late by ${seconds}s"}}
+```
+
+**The bare `::` form (title only).** Without `[TPL]`, the title is split on
+`::`; each segment is either a literal or `$name`, which resolves to
+`labels.<name>`. Segments are joined with position-fixed separators — nothing,
+then ` / `, then ` - `, then ` ⋅ ` for the rest — so `$service::$check` renders
+as `payments-api / disk_used`. Prefer the `[TPL]` form: it is explicit about
+where values come from and does not hard-code separators.
+
+**Labels the template reads must already exist.** Enrichment runs BEFORE the
+pipeline, so labels produced by `fduty enrichment upsert` (extraction,
+composition, mapping) are available here — but a label produced by a LATER
+pipeline rule is not, and a typo just renders `<no value>` into the title.
 
 ## Gotchas
 
