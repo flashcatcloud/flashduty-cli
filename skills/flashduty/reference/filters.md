@@ -23,6 +23,12 @@ the rule fires when ANY group matches; each inner array holds
 
 → (Critical AND service=payments-api) OR (env=staging).
 
+**One exception — alert pipeline.** `rules[].if` and
+`alert_inhibit.source_filters` (`reference/alert.md`) take a FLAT array of
+conditions, all AND-ed, with no outer grouping array. Same operators, same
+keys, one less level of nesting. Everything below applies to them except the
+shape.
+
 ## Operators and values
 
 - `oper` is `IN` (the object's value for `key` must equal one of `vals`) or
@@ -42,7 +48,8 @@ custom label. Per family:
 
 | rule family | matched against | extra keys | keys that DO NOT exist here |
 |---|---|---|---|
-| silence / drop (`filters`), inhibit (`source_filters` / `target_filters`), alert pipeline (`rules[].if`, `alert_inhibit.source_filters`) | each alert event | `alert_key`, `title_rule` | `dedup_key` |
+| silence / drop (`filters`), inhibit (`source_filters` / `target_filters`) | each alert event | `alert_key`, `title_rule` | `dedup_key` |
+| alert pipeline (`rules[].if`, `alert_inhibit.source_filters`) — **flat AND-list**, see above | each alert event | `alert_key`, `title_rule` | `dedup_key` |
 | escalation (`filters`) | the incident | `dedup_key` | `alert_key`, `title_rule` |
 
 A key outside the family's vocabulary (e.g. `dedup_key` in a silence rule)
