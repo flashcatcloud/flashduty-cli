@@ -86,7 +86,7 @@ func newChangeListCmd() *cobra.Command {
 					{Header: "TIME", Field: func(v any) string { return output.FormatTime(v.(flashduty.ChangeItem).StartTime) }},
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}

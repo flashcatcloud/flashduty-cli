@@ -1657,6 +1657,42 @@ func TestCommandAlertListStructuredAnnouncesTruncation(t *testing.T) {
 			t.Errorf("table mode already footers the count; no stderr note wanted, got:\n%s", stderrText)
 		}
 	})
+
+	// The truncation judgment must account for the page offset: page 2 of a
+	// total 40 at --limit 20 IS the last page — there is no rest, so no note.
+	fullPage := make([]any, 20)
+	for i := range fullPage {
+		fullPage[i] = alertRow()
+	}
+	lastPage := map[string]any{"items": fullPage, "total": 40}
+
+	t.Run("json last page prints no note", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = lastPage
+
+		_, stderrText, err := execCommandSplit("alert", "list", "--limit", "20", "--page", "2", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if strings.Contains(stderrText, "note: showing") {
+			t.Errorf("the last page has no rest to page for; no note wanted, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("json first page of same total still notes", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = lastPage
+
+		_, stderrText, err := execCommandSplit("alert", "list", "--limit", "20", "--page", "1", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "note: showing 20 of 40 total results (page 1)") {
+			t.Errorf("page 1 with a page 2 beyond it should announce itself on stderr, got:\n%s", stderrText)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
