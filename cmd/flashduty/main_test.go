@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -106,5 +109,51 @@ func TestSetVersionInfoBeforeExecute(t *testing.T) {
 		if !strings.Contains(got, sub) {
 			t.Errorf("[#78] version output missing %q in %q", sub, got)
 		}
+	}
+}
+
+// Test 79: When a compact list projection overflows its byte budget, the
+// binary exits non-zero, writes nothing to stdout, and reports the error on
+// stderr — a pipeline reading stdout must see a failed call, never an empty
+// page masquerading as "no data".
+func TestProjectionOverflowFailsHard(t *testing.T) {
+	binPath := buildTestBinary(t, "")
+
+	// Stub the alert-event list endpoint with a page whose projection stays
+	// over the 16 KiB budget even after value shortening.
+	var body strings.Builder
+	body.WriteString(`{"request_id":"r","error":{"code":"OK","message":""},"data":{"total":100,"items":[`)
+	for i := 0; i < 100; i++ {
+		if i > 0 {
+			body.WriteByte(',')
+		}
+		fmt.Fprintf(&body, `{"event_id":"%024x","alert_id":"%024x","event_severity":"Warning","event_status":"Triggered","event_time":1712000000,"title":%q}`,
+			i, i+1_000_000, strings.Repeat("x", 200))
+	}
+	body.WriteString(`]}}`)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body.String()))
+	}))
+	defer srv.Close()
+
+	run := exec.Command(binPath, "alert-event", "list", "--limit", "100",
+		"--output-format", "json", "--app-key", "test-key", "--base-url", srv.URL)
+	// Isolate HOME so the test never reads the developer's real CLI config.
+	run.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var stdout, stderr bytes.Buffer
+	run.Stdout = &stdout
+	run.Stderr = &stderr
+
+	err := run.Run()
+	if err == nil {
+		t.Fatalf("[#79] expected non-zero exit code for an over-budget projection, got success; stderr:\n%s", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("[#79] a failed projection must write nothing to stdout, got %d bytes:\n%s", stdout.Len(), stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Error: projected list is") || !strings.Contains(stderr.String(), "exceeds the 16384-byte limit") {
+		t.Errorf("[#79] stderr should report the byte-limit refusal, got:\n%s", stderr.String())
 	}
 }
