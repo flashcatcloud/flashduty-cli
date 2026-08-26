@@ -258,13 +258,14 @@ func currentOutputFormat() output.Format {
 }
 
 // marshalStructured serializes v for machine-readable output: indented JSON for
-// FormatJSON (byte-compatible with the legacy --json path) and TOON via the
-// toon-format encoder for FormatTOON.
+// FormatJSON (byte-compatible with the legacy --json path, except that unset
+// SDK timestamps now render as null instead of the bare integer 0 — see
+// output.NullUnsetInstants) and TOON via the toon-format encoder for FormatTOON.
 func marshalStructured(v any) ([]byte, error) {
 	if currentOutputFormat() == output.FormatTOON {
 		return toon.Marshal(v)
 	}
-	return json.MarshalIndent(v, "", "  ")
+	return json.MarshalIndent(output.NullUnsetInstants(v), "", "  ")
 }
 
 // newPrinter creates a Printer based on global flags.

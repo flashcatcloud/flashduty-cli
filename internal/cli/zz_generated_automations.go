@@ -26,7 +26,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
-  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
@@ -44,12 +44,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
-  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
-  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-get --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
@@ -117,7 +117,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - rules (array<object>) (required) — Array of automation rules for the current page, used with 'total' for pagination.
     - account_id (integer) (required) — Account ID.
     - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
-    - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - cron_expr (string) (required) — Normalized 5-field cron expression.
     - enabled (boolean) (required) — Whether the rule is enabled.
     - environment_id (string) (required) — BYOC Runner ID.
@@ -135,12 +135,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - prompt (string) (required) — Task prompt.
     - rule_id (string) (required) — Rule ID.
     - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
-    - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
     - schedule_trigger_id (string) — Schedule trigger ID.
     - team_id (integer) (required) — Scope team ID; 0 means personal rule.
     - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
-    - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total count.
 `,
 		Example: `  flashduty safari automation-rule-list --data '{"limit":20,"scope":"all"}'`,
@@ -242,7 +242,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
-  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
@@ -260,12 +260,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
-  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
-  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123,"timezone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -499,7 +499,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
   - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
-  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - cron_expr (string) (required) — Normalized 5-field cron expression.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
@@ -517,12 +517,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
-  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
-  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
@@ -642,8 +642,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - runs (array<object>) (required) — Array of run records for the given 'rule_id', filtered by the request's status/trigger-kind/time-range and paginated.
     - account_id (integer) (required) — Account ID.
     - attempts (integer) (required) — Attempt count.
-    - completed_at (string) (required) — Completion time, Unix milliseconds. 0 means not completed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - completed_at (string) (required) — Completion time, Unix milliseconds. 0 means not completed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - duration_ms (integer) (required) — Duration in milliseconds.
     - error_code (string) — Error code.
     - error_message (string) — Error message.
@@ -652,11 +652,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - result_json (any) — Run result JSON.
     - rule_id (string) (required) — Rule ID.
     - run_id (string) (required) — Run ID.
-    - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - stats_json (any) — Run stats JSON.
     - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
     - trigger_kind (string) (required) — Trigger kind. One of: | Value | Meaning | | --- | --- | | 'schedule' | Fired by the rule's schedule trigger | | 'debug' | Debug run (reserved; current rule runs never carry this kind) | | 'manual' | Triggered manually by a user | | 'http_post' | Fired via the rule's HTTP POST webhook | | 'oncall_incident' | Fired by an on-call incident event | [schedule, debug, manual, http_post, oncall_incident]
-    - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total count.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),

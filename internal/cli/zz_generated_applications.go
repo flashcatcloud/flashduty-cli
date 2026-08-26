@@ -32,7 +32,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - application_id (string) — Unique application ID.
   - application_name (string) — Application display name.
   - client_token (string) — Token used to initialize the RUM SDK.
-  - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) — Creator member ID.
   - is_private (boolean) — If 'true', the application is only accessible to team members.
   - links (object) — External link integration settings for the application.
@@ -47,7 +47,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - endpoint (string) — Trace endpoint URL (http or https).
     - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
   - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-  - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
@@ -108,7 +108,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
     - client_token (string) — Token used to initialize the RUM SDK.
-    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) — Creator member ID.
     - is_private (boolean) — If 'true', the application is only accessible to team members.
     - links (object) — External link integration settings for the application.
@@ -123,7 +123,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - endpoint (string) — Trace endpoint URL (http or https).
       - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
     - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrArgs("application_ids", "application-ids"),
@@ -199,7 +199,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
     - client_token (string) — Token used to initialize the RUM SDK.
-    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) — Creator member ID.
     - is_private (boolean) — If 'true', the application is only accessible to team members.
     - links (object) — External link integration settings for the application.
@@ -214,7 +214,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - endpoint (string) — Trace endpoint URL (http or https).
       - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
     - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Last updater member ID.
   - total (integer) — Total number of applications matching the filter conditions.
 `,

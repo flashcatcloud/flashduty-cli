@@ -20,7 +20,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_name (string) — Account name.
   - avatar (string) — Account avatar URL.
   - country_code (string) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
-  - created_at (string) — Account creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Account creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - domain (string) — Primary account domain (login subdomain).
   - email (string) — Account contact email.
   - extra_domains (array<string>) — Additional account domains.

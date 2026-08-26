@@ -25,9 +25,9 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — ID of the owning account.
-  - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Member ID of the creator.
-  - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Free-form description.
   - dingtalk (string) (required) — DingTalk robot message template source.
   - dingtalk_app (string) (required) — DingTalk app message template source.
@@ -45,7 +45,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - telegram (string) (required) — Telegram bot message template source.
   - template_id (string) (required) — Template ID.
   - template_name (string) (required) — Unique template name within the account.
-  - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Member ID of the last editor.
   - voice (string) (required) — Voice call script template source.
   - wecom (string) (required) — WeCom robot message template source.
@@ -120,9 +120,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) (required) — True if another page exists after the returned one.
   - items (array<object>) (required) — Notification templates on the current page; the first item of the first page is always the built-in preset template.
     - account_id (integer) (required) — ID of the owning account.
-    - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator.
-    - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Free-form description.
     - dingtalk (string) (required) — DingTalk robot message template source.
     - dingtalk_app (string) (required) — DingTalk app message template source.
@@ -140,7 +140,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - telegram (string) (required) — Telegram bot message template source.
     - template_id (string) (required) — Template ID.
     - template_name (string) (required) — Unique template name within the account.
-    - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last editor.
     - voice (string) (required) — Voice call script template source.
     - wecom (string) (required) — WeCom robot message template source.

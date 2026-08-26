@@ -269,9 +269,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - rules (array<object>) (required) — The application's complete rule list as of this version.
       - account_id (integer) (required) — Account ID.
       - application_id (string) (required) — RUM application ID the rule belongs to.
-      - created_at (string) (required) — Unix timestamp in milliseconds when the row was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - created_at (string) (required) — Unix timestamp in milliseconds when the row was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - created_by (integer) (required) — Member ID who created the rule.
-      - deleted_at (string) (required) — Unix timestamp in milliseconds when the row was soft-deleted; '0' when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - deleted_at (string) (required) — Unix timestamp in milliseconds when the row was soft-deleted; '0' when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Rule description.
       - filters (array<array<object>>) (required) — The rule's filter conditions as of this snapshot version.
         - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
@@ -281,9 +281,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - rule_id (string) (required) — Rule ID.
       - rule_name (string) (required) — Rule name.
       - status (string) (required) — The rule's status as of this snapshot version. [enabled, disabled]
-      - updated_at (string) (required) — Unix timestamp in milliseconds when the row was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - updated_at (string) (required) — Unix timestamp in milliseconds when the row was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - updated_by (integer) (required) — Member ID who last updated the rule.
-    - updated_at (string) (required) — Unix timestamp in milliseconds when this snapshot was recorded. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Unix timestamp in milliseconds when this snapshot was recorded. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID whose action triggered this snapshot.
     - updated_by_name (string) (required) — Display name of the member whose action triggered this snapshot.
     - version (integer) (required) — History version number, incrementing from 1.
@@ -417,7 +417,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Rules, newest-created first.
-    - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description, up to 512 characters.
     - filters (array<array<object>>) (required) — The rule's filter conditions.
       - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
@@ -426,7 +426,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - rule_id (string) (required) — Rule ID.
     - rule_name (string) (required) — Rule name, 1-128 characters. Not required to be unique within the application.
     - status (string) (required) — Current status of the rule. [enabled, disabled]
-    - updated_at (string) (required) — Unix timestamp in milliseconds when the rule was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Unix timestamp in milliseconds when the rule was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum error-ingestion-rules-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,

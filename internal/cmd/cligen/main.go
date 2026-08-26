@@ -886,7 +886,7 @@ var wireTypeOverride = map[reflect.Type]string{
 	reflect.TypeOf(flashduty.TimestampMilli(0)): timestampOverrideNote,
 }
 
-const timestampOverrideNote = "CLI `--json` renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0."
+const timestampOverrideNote = "CLI `--json` renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null."
 
 // applyWireTypeOverride corrects f's Type/Desc in place when fieldGoType is a
 // type in wireTypeOverride, appending the note to any existing spec

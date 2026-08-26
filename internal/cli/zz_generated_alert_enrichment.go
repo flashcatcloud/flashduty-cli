@@ -24,7 +24,7 @@ Request fields:
   --integration-id int (required) — Integration ID to query enrichment rules for. Must be greater than 0. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
   - integration_id (integer) (required) — Integration ID.
   - rules (array<object>) (required) — Ordered enrichment rules.
@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
       - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
   - status (string) (required) — Rule set status.
-  - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
@@ -99,7 +99,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Enrichment rule sets.
-    - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
     - integration_id (integer) (required) — Integration ID.
     - rules (array<object>) (required) — Ordered enrichment rules.
@@ -121,7 +121,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
         - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
     - status (string) (required) — Rule set status.
-    - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),
@@ -244,10 +244,10 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
   - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
-  - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Optional free-text description. (≤499 chars)
   - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
   - field_id (string) (required) — Field ID — 24-character hex ObjectID.
@@ -255,7 +255,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
   - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
   - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
-  - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
   - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
@@ -316,10 +316,10 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — All non-deleted custom fields for the account. No pagination.
     - account_id (integer) (required) — Owning account ID.
-    - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
     - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
-    - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Optional free-text description. (≤499 chars)
     - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
     - field_id (string) (required) — Field ID — 24-character hex ObjectID.
@@ -327,7 +327,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
     - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
     - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
-    - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
     - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
@@ -592,7 +592,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - api_id (string) (required) — API ID (MongoDB ObjectID hex).
   - api_name (string) (required) — API name.
-  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
   - description (string) (required) — Description.
   - headers (object) (required) — Custom request headers.
@@ -601,7 +601,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — API status.
   - team_id (integer) (required) — Owning team ID.
   - timeout (integer) (required) — Request timeout in seconds.
-  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
   - url (string) (required) — Endpoint URL.
 `,
@@ -653,7 +653,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Mapping APIs.
     - api_id (string) (required) — API ID (MongoDB ObjectID hex).
     - api_name (string) (required) — API name.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
     - description (string) (required) — Description.
     - headers (object) (required) — Custom request headers.
@@ -662,7 +662,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) (required) — API status.
     - team_id (integer) (required) — Owning team ID.
     - timeout (integer) (required) — Request timeout in seconds.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
     - url (string) (required) — Endpoint URL.
   - total (integer) (required) — Total API count.
@@ -998,10 +998,10 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether more pages exist.
   - items (array<object>) (required) — Data rows.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - fields (object) — All label key-value pairs for this row.
     - key (string) — Composite key derived from source label values.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - search_after_ctx (string) — Cursor token for the next page.
   - total (integer) (required) — Total matching rows.
 `,
@@ -1290,7 +1290,7 @@ Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
   - description (string) (required) — Schema description.
   - result_labels (array<string>) (required) — Output label names.
@@ -1299,7 +1299,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - source_labels (array<string>) (required) — Lookup key label names.
   - status (string) (required) — Schema status.
   - team_id (integer) (required) — Owning team ID.
-  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
@@ -1348,7 +1348,7 @@ API: POST /enrichment/mapping/schema/list (mapping-schema-read-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Mapping schemas.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
     - description (string) (required) — Schema description.
     - result_labels (array<string>) (required) — Output label names.
@@ -1357,7 +1357,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - source_labels (array<string>) (required) — Lookup key label names.
     - status (string) (required) — Schema status.
     - team_id (integer) (required) — Owning team ID.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
   - total (integer) (required) — Total schema count.
 `,

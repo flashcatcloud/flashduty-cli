@@ -34,7 +34,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
   - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
@@ -56,7 +56,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
@@ -131,7 +131,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - can_edit (boolean) (required) — Whether the caller may edit this server.
     - command (string) — Executable command (stdio transport only).
     - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
-    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the server.
     - description (string) (required) — Server description.
     - env (object) — Environment variables (stdio transport). Secret values are masked.
@@ -153,7 +153,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - input_schema (object) — JSON Schema describing the tool's input parameters.
       - name (string) (required) — Tool name.
     - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
-    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - url (string) — Server URL (sse / streamable-http transport).
   - total (integer) (required) — Total number of matching servers.
 `,
@@ -272,7 +272,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
   - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
@@ -294,7 +294,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
 		Example: `  flashduty safari mcp-server-create --data '{"description":"Query Prometheus metrics and alerts.","server_name":"prometheus","status":"enabled","transport":"streamable-http","url":"https://mcp.example.com/prometheus"}'`,
@@ -598,7 +598,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller may edit this server.
   - command (string) — Executable command (stdio transport only).
   - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
@@ -620,7 +620,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - input_schema (object) — JSON Schema describing the tool's input parameters.
     - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
