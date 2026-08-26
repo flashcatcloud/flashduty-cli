@@ -443,6 +443,7 @@ func TestCommandIncidentLifecycleHelpDocumentsSafetyAndLookupHints(t *testing.T)
 			want: []string{
 				"up to 100 incidents",
 				"1024 characters",
+				"wc -m",
 			},
 		},
 	}
@@ -596,8 +597,12 @@ func TestCommandIncidentCommentRejectsOver1024Runes(t *testing.T) {
 	if err == nil {
 		t.Fatal("[incident-comment-too-long] expected an error, got nil")
 	}
-	if !strings.Contains(err.Error(), "1024 characters") {
-		t.Fatalf("[incident-comment-too-long] unexpected error: %v", err)
+	// The error must name the actual character count and the limit, so whoever
+	// (or whatever) wrote the over-long comment knows how much to trim.
+	for _, want := range []string{"1025 characters", "limit is 1024"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("[incident-comment-too-long] error missing %q: %v", want, err)
+		}
 	}
 }
 
