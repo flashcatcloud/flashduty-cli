@@ -2,22 +2,15 @@ package output
 
 import (
 	"reflect"
-	"time"
 )
 
-// instantLike mirrors go-flashduty's Timestamp/TimestampMilli by method set so
-// the JSON printer can recognise SDK timestamp fields without importing the
-// SDK. The Time method excludes time.Time itself, whose zero value already
-// marshals as a (consistently typed) RFC3339 string.
-type instantLike interface {
-	Time() time.Time
-	Unix() int64
-	IsZero() bool
-}
-
+// instantType reflects the shared instant interface (table.go) so the JSON
+// printer can recognise go-flashduty's Timestamp/TimestampMilli fields without
+// importing the SDK. The Time method excludes time.Time itself, whose zero
+// value already marshals as a (consistently typed) RFC3339 string.
 var (
-	instantLikeType = reflect.TypeOf((*instantLike)(nil)).Elem()
-	anyType         = reflect.TypeOf((*any)(nil)).Elem()
+	instantType = reflect.TypeOf((*instant)(nil)).Elem()
+	anyType     = reflect.TypeOf((*any)(nil)).Elem()
 )
 
 // NullUnsetInstants returns a copy of v in which every unset (zero) SDK
@@ -79,7 +72,7 @@ func (t *instantTransform) value(rv reflect.Value) reflect.Value {
 		if rv.Kind() == reflect.Ptr && rv.IsNil() {
 			return rv // already null on the wire
 		}
-		if rv.Interface().(instantLike).IsZero() {
+		if rv.Interface().(instant).IsZero() {
 			return reflect.Zero(anyType)
 		}
 		return rv
@@ -210,5 +203,5 @@ func (t *instantTransform) xformStruct(rt reflect.Type) xformed {
 }
 
 func isInstant(rt reflect.Type) bool {
-	return rt.Implements(instantLikeType)
+	return rt.Implements(instantType)
 }
