@@ -1600,6 +1600,167 @@ type readerFunc func([]byte) (int, error)
 func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
 
 // ---------------------------------------------------------------------------
+// Structured list truncation indicator
+// ---------------------------------------------------------------------------
+
+// TestCommandAlertListStructuredAnnouncesTruncation pins that a structured
+// list page which doesn't cover the server-reported total says so on stderr:
+// stdout is reserved for the jq/toon pipeline, so without the note a consumer
+// sees the default --limit page as the whole set. Table mode keeps its
+// "Showing N results" footer on stdout and emits no stderr note.
+func TestCommandAlertListStructuredAnnouncesTruncation(t *testing.T) {
+	twoOfFive := map[string]any{"items": []any{alertRow(), alertRow()}, "total": 5}
+
+	t.Run("json page short of total", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = twoOfFive
+
+		out, stderrText, err := execCommandSplit("alert", "list", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
+			t.Fatalf("stdout must stay parseable JSON: %v\n%s", err, out)
+		}
+		if len(rows) != 2 {
+			t.Fatalf("got %d rows, want the 2 the page carries", len(rows))
+		}
+		if !strings.Contains(stderrText, "note: showing 2 of 5 total results (page 1)") {
+			t.Errorf("truncated structured page should announce itself on stderr, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("json page covers total", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{alertRow(), alertRow()}, "total": 2}
+
+		_, stderrText, err := execCommandSplit("alert", "list", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if strings.Contains(stderrText, "note: showing") {
+			t.Errorf("a page covering the total must not cry truncation, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("table keeps the footer on stdout", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = twoOfFive
+
+		out, stderrText, err := execCommandSplit("alert", "list")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(out, "Showing 2 results (page 1, total 5).") {
+			t.Errorf("table mode should keep the stdout footer, got:\n%s", out)
+		}
+		if strings.Contains(stderrText, "note: showing") {
+			t.Errorf("table mode already footers the count; no stderr note wanted, got:\n%s", stderrText)
+		}
+	})
+
+	// The truncation judgment must account for the page offset: page 2 of a
+	// total 40 at --limit 20 IS the last page — there is no rest, so no note.
+	fullPage := make([]any, 20)
+	for i := range fullPage {
+		fullPage[i] = alertRow()
+	}
+	lastPage := map[string]any{"items": fullPage, "total": 40}
+
+	t.Run("json last page prints no note", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = lastPage
+
+		_, stderrText, err := execCommandSplit("alert", "list", "--limit", "20", "--page", "2", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if strings.Contains(stderrText, "note: showing") {
+			t.Errorf("the last page has no rest to page for; no note wanted, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("json first page of same total still notes", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = lastPage
+
+		_, stderrText, err := execCommandSplit("alert", "list", "--limit", "20", "--page", "1", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "note: showing 20 of 40 total results (page 1)") {
+			t.Errorf("page 1 with a page 2 beyond it should announce itself on stderr, got:\n%s", stderrText)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Projection overflow is a hard failure
+// ---------------------------------------------------------------------------
+
+// TestCommandListProjectionOverflowFails pins that a compact list projection
+// which cannot fit the byte budget fails the command instead of emitting
+// anything: Execute returns the error and stdout stays empty, so a pipeline
+// reading stdout sees a failed call, never an empty page masquerading as
+// "no data".
+func TestCommandListProjectionOverflowFails(t *testing.T) {
+	t.Run("incident list", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		items := make([]any, 100)
+		for i := range items {
+			row := incidentRow()
+			row["incident_id"] = fmt.Sprintf("inc-%024d", i)
+			row["title"] = strings.Repeat("x", 200)
+			items[i] = row
+		}
+		stub.data = map[string]any{"items": items, "total": len(items)}
+
+		out, stderrText, err := execCommandSplit("incident", "list", "--limit", "100", "--output-format", "json")
+		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
+			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
+		}
+		if out != "" {
+			t.Errorf("a failed projection must write nothing to stdout, got %d bytes", len(out))
+		}
+		if strings.Contains(stderrText, "exceeds the") {
+			t.Errorf("the error is returned for the entrypoint to report, not printed mid-run, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("alert-event list", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		items := make([]any, 100)
+		for i := range items {
+			items[i] = map[string]any{
+				"event_id":       fmt.Sprintf("%024x", i),
+				"alert_id":       fmt.Sprintf("%024x", i+1_000_000),
+				"event_severity": "Warning",
+				"event_status":   "Triggered",
+				"event_time":     1712000000 + i,
+				"title":          strings.Repeat("x", 200),
+			}
+		}
+		stub.data = map[string]any{"items": items, "total": len(items)}
+
+		out, _, err := execCommandSplit("alert-event", "list", "--limit", "100", "--output-format", "json")
+		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
+			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
+		}
+		if out != "" {
+			t.Errorf("a failed projection must write nothing to stdout, got %d bytes", len(out))
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

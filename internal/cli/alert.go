@@ -93,7 +93,7 @@ func newAlertListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
+					return ctx.PrintList(proj, nil, len(result.Items), page, limit, int(result.Total))
 				}
 
 				cols := []output.Column{
@@ -106,7 +106,7 @@ func newAlertListCmd() *cobra.Command {
 					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertItem).StartTime) }},
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}

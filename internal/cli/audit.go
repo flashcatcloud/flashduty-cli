@@ -96,7 +96,7 @@ func newAuditSearchCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintList(result.Docs, cols, len(result.Docs), page, int(result.Total))
+				return ctx.PrintList(result.Docs, cols, len(result.Docs), page, limit, int(result.Total))
 			})
 		},
 	}

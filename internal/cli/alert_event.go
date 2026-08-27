@@ -102,10 +102,10 @@ func newAlertEventListCmd() *cobra.Command {
 						return err
 					}
 					noteProjectionShortening(cmd.ErrOrStderr(), note)
-					return ctx.PrintList(proj, nil, len(result.Items), page, int(result.Total))
+					return ctx.PrintList(proj, nil, len(result.Items), page, limit, int(result.Total))
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}

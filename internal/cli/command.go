@@ -48,13 +48,23 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 }
 
 // PrintList prints items as a table and appends a "Showing N results (page P, total T)." footer.
-func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, total int) error {
+// In structured mode the footer is suppressed to keep stdout byte-pure for
+// jq/toon pipelines, so a page with more rows beyond it is announced on
+// stderr instead — without it a consumer sees a partial page
+// (e.g. the default --limit 20 of a far larger total) as the whole set. The
+// judgment accounts for the page offset: on the last page
+// ((page-1)*limit+count reaches total) there is no rest, so no note.
+func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, limit, total int) error {
 	if err := ctx.Printer.Print(items, cols); err != nil {
 		return err
 	}
-	if !ctx.Structured() {
-		_, _ = fmt.Fprintf(ctx.Writer, "Showing %d results (page %d, total %d).\n", count, page, total)
+	if ctx.Structured() {
+		if (page-1)*limit+count < total {
+			_, _ = fmt.Fprintf(ctx.Cmd.ErrOrStderr(), "note: showing %d of %d total results (page %d); raise --limit or use --page for the rest\n", count, total, page)
+		}
+		return nil
 	}
+	_, _ = fmt.Fprintf(ctx.Writer, "Showing %d results (page %d, total %d).\n", count, page, total)
 	return nil
 }
 
