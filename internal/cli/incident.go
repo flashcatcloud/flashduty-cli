@@ -894,7 +894,9 @@ shell, so backticks, $(...), and quotes inside it reach the API exactly as
 written. Leading/trailing whitespace is trimmed before sending — matching how
 the server stores it, so a bash heredoc's trailing newline (the pattern this
 CLI's own skill card recommends) does not fail verification below. The
-trimmed text must be non-empty and at most 1024 characters. Use --mute-reply
+trimmed text must be non-empty and at most 1024 characters. The limit counts
+characters (Unicode runes), not bytes, so multibyte text (e.g. Chinese) is not
+penalized — measure with 'wc -m', not 'wc -c'. Use --mute-reply
 when the comment should not trigger webhook reply behavior.
 
 After writing, the command reads back every incident's timeline and verifies
@@ -926,8 +928,8 @@ success.`,
 			if comment == "" {
 				return fmt.Errorf("--comment-file must not be empty")
 			}
-			if len([]rune(comment)) > 1024 {
-				return fmt.Errorf("--comment-file content must be at most 1024 characters")
+			if n := len([]rune(comment)); n > 1024 {
+				return fmt.Errorf("--comment-file content is %d characters, limit is 1024", n)
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
