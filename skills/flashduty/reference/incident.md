@@ -15,6 +15,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | look up by 6-char UI num | `info --num <num>` |
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
+| responders with resolved names + ack state | `detail <id> --json \| jq '.responders[]'` (schema in Gotchas) |
 | contributing alerts | `alerts <id>` |
 | full event history (short) | `timeline <id>` |
 | paginated event history | `feed <id>` |
@@ -501,6 +502,7 @@ Update a work item
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
 - **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
+- **Responders live in the `responders` array on `detail` / `get` / `list` records — names come resolved, no `member list` join needed.** Canonical extraction: `fduty incident detail <id> --json | jq -r '.responders[] | "\(.person_name) <\(.email)>"'`. On `get` the same array sits one level down because `get` prints a top-level array: `jq -r '.[0].responders[] | ...'`. Each responder object carries `person_id`, `person_name` (server-resolved display name), `email`, `assigned_at`, `acknowledged_at` (`0` until acknowledged), and `as` (role label). Two selection traps: `list` omits `responders` from its default compact projection — add it via `--fields ...,responders`; and `detail --fields` projects only what you name — include `responders` in the list or the key is absent (absent ≠ empty). In plain-text mode both `detail` and single-id `get` already print a `Responders: name1, name2` line.
 
 ## Worked example
 
