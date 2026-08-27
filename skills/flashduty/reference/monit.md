@@ -20,16 +20,7 @@ Key IDs are shared across all of them: **rule ID (int)** from `rule-list-basic`;
 
 Read verbs are free. Mutating verbs change state — confirm before running; each card flags its own, and marks the irreversible ones.
 
-`preview-sync` (preview a query before saving it into a rule) is the one verb belonging to no surface, so it renders here.
-
 <!-- GENERATED:monit START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
-### preview-sync
-Preview datasource query
-- `--delay-seconds` int64 — Shift the query window backward by this many seconds to compensate for data ingestion latency.
-- `--ds-name` string (required) — Datasource display name as configured in the account.
-- `--ds-type` string (required) — Datasource type, e.g. 'prometheus', 'loki', 'elasticsearch'.
-- `--expr` string (required) — Query expression. Format depends on 'ds_type' (PromQL for Prometheus, LogQL for Loki, etc.).
-- body-only (`--data`): args (object)
 
 <!-- GENERATED:monit END -->

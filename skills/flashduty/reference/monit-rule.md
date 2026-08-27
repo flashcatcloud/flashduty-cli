@@ -19,26 +19,24 @@ Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit s
 | delete one or many rules | `rule-delete` / `rule-delete-batch` |
 | move rules to another folder | `rule-move` |
 | toggle enabled/channels in bulk | `rule-update-fields` |
-| rule trigger status by folder | `rule-status` / `rule-counter-status` |
+| rule trigger status for top-level folders | `rule-counter-status` |
 | rule change history | `rule-audits` → detail via `rule-audit-detail` |
 | export / import rules (backup/migrate) | `rule-export` / `rule-import` |
 | what datasource types support rules | `rule-dstypes` |
 | per-channel / per-node / total counters | `rule-counter-channel` / `rule-counter-node` / `rule-counter-total` |
 
-## Hot flow — enumerate configured rules (and its hard limit)
+## Hot flow — inspect configured rules
 
-`rule-list-basic --folder-id <id>` lists only the rules **directly in that folder**, NOT its sub-folders; `--folder-id 0` or omitting it **400s "Folder not found"**. There is no "all rules" call, so enumeration means walking the folder tree:
+`rule-list-basic --folder-id <id>` lists only the rules **directly in that folder**, NOT its sub-folders; `--folder-id 0` or omitting it **400s "Folder not found"**. Start from the top-level summary:
 
 ```bash
 # 1. top-level folders, each with its whole-subtree rule_total
 fduty monit rule-counter-status --output-format toon
-# 2. descend a folder to its DIRECT child folders (recurse until a folder has no children)
-fduty monit rule-status --folder-id <folder-id> --output-format toon
-# 3. list the rules sitting directly in each folder you reach
+# 2. list rules sitting directly in a known folder
 fduty monit rule-list-basic --folder-id <node-id> --output-format toon
 ```
 
-**Hard limit — large accounts cannot be fully enumerated.** `rule-counter-status` / `rule-status` abort with 400 "too many rules" past a server cap (default 100 rules; "too many folders" past 500), and no account-wide rule list exists. When you hit that cap you **cannot** enumerate every configured rule from the CLI — say so plainly ("cannot fully enumerate configured rules on this account") instead of fabricating a completeness percentage.
+There is no public CLI operation for listing direct child folders after `rule-status` was retired. Unless the user or another trusted context supplies child folder IDs, the CLI cannot recursively enumerate every configured rule. Say so plainly instead of treating the top-level direct-rule lists as complete.
 
 **CONFIGURED ≠ FIRED.** Never infer rule coverage from *fired* alerts (`insight top-alerts`, alert feeds): "not fired in 90d" does **not** mean "not configured", and reporting a rule as missing on that basis is confidently wrong. Fired-alert queries answer "what is noisy", not "what is monitored".
 
@@ -56,21 +54,22 @@ fduty monit rule-list-basic --folder-id <node-id> --output-format toon
 ## Gotchas
 
 - **`rule_configs` and nested arrays require `--data`.** The queries, thresholds, enabled_times, and labels objects cannot be expressed as flat flags — pass them as inline JSON via `--data '{"rule_configs":{...}}'`. Typed scalar flags (`--name`, `--enabled`, `--cron-pattern`, `--ds-type`) override matching `--data` keys.
-- **`folder-id 0` is not a universal "all rules" sentinel.** If the API says "Folder not found", believe it. For global inventory use `rule-counter-status` / `rule-counter-node` first, then run `rule-list-basic` against real folder IDs only.
+- **`folder-id 0` is not a universal "all rules" sentinel.** If the API says "Folder not found", believe it. Use `rule-counter-status` / `rule-counter-node` for top-level totals, then run `rule-list-basic` only against real folder IDs you actually know.
 - **"全量规则 / full rules" means exported monitor alert-rule definitions.** The concrete verb is `rule-export --ids ...`, usually after `rule-list-basic` selected the IDs. It does not mean dumping incidents or alerts.
 - **For rule counts, prefer the counter verbs over list pagination.** `rule-counter-status`, `rule-counter-node`, and `rule-counter-total` are the authoritative aggregation surfaces; do not infer counts by walking `rule-list-basic` pages.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
-- **`rule-list-basic` and `rule-status` both need a REAL `--folder-id`; neither accepts `0`.** `--folder-id 0` / omitting it 400s "Folder not found" on either verb — the generated `--folder-id` help text below ("0 to list all accessible rules" on `rule-list-basic`, "0 for all" on `rule-status`) is a known SDK/OpenAPI bug on both; ignore it. `rule-list-basic` returns only that folder's *direct* rules; `rule-status` returns trigger counts for that folder and its descendants. Enumerate by walking the tree (`rule-counter-status` → `rule-status` → `rule-list-basic`); past the server cap the counters 400 "too many rules" and full enumeration isn't possible from the CLI — report that limit, never substitute fired alerts (see the enumerate hot flow).
+- **`rule-list-basic` needs a REAL `--folder-id`; it does not accept `0`.** Its generated help text saying "0 to list all accessible rules" is a known SDK/OpenAPI bug; ignore it. The command returns only that folder's *direct* rules. Without known child folder IDs the CLI cannot recursively enumerate the subtree; never substitute fired alerts as configured-rule inventory.
 
 ## Worked example — inspect a firing rule then batch-disable it
 
 ```bash
 # 1. find a folder with triggered rules (top-level folders + subtree counts)
 fduty monit rule-counter-status --output-format toon
-# 2. list the rules directly in a chosen folder (descend with rule-status if empty)
+# 2. list rules directly in a chosen top-level folder
 fduty monit rule-list-basic --folder-id <folder-id> --output-format toon
-# look at triggered=true rows; note their ids
+# if this is empty while rule_total is non-zero, rules live in unknown child folders;
+# the public CLI cannot descend without their IDs
 
 # 3. get full config of one rule
 fduty monit rule-info --id <rule-id> --output-format toon
@@ -169,11 +168,6 @@ Move alert rules to folder
 - `--dest-folder-id` int64 (required) — Destination folder ID. Obtainable via 'POST /monit/folder/list'.
 - `--ids` intSlice (required) — Rule IDs to move.
 - response: same shape as `rule-import` above
-
-### rule-status
-Get rule trigger status under folder
-- `--folder-id` int64 — Folder ID to summarize. Obtainable via 'POST /monit/folder/list'. Trigger statistics are returned grouped by direct child folder.
-- response: same shape as `rule-counter-status` above
 
 ### rule-update
 Update alert rule
