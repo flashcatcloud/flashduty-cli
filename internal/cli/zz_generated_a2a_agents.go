@@ -37,7 +37,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller may edit this agent.
   - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
   - card_url (string) (required) — URL of the remote agent card.
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the agent.
   - environment_id (string) (required) — BYOC runner ID. Set only when 'environment_kind=byoc'; empty otherwise.
   - environment_kind (string) (required) — Execution environment binding. Empty selects automatic routing; 'byoc' pins the agent to a specific runner named by 'environment_id'. [byoc]
@@ -48,7 +48,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - streaming (boolean) (required) — Whether the remote agent supports streaming responses.
   - task_timeout (integer) (required) — Single-task execution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-get --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D"}'`,
@@ -123,7 +123,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - can_edit (boolean) (required) — Whether the caller may edit this agent.
     - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
     - card_url (string) (required) — URL of the remote agent card.
-    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the agent.
     - environment_id (string) (required) — BYOC runner ID. Set only when 'environment_kind=byoc'; empty otherwise.
     - environment_kind (string) (required) — Execution environment binding. Empty selects automatic routing; 'byoc' pins the agent to a specific runner named by 'environment_id'. [byoc]
@@ -134,7 +134,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - streaming (boolean) (required) — Whether the remote agent supports streaming responses.
     - task_timeout (integer) (required) — Single-task execution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total number of matching agents.
 `,
 		Example: `  flashduty safari a2a-agent-list --data '{"include_account":true,"limit":20,"offset":0}'`,

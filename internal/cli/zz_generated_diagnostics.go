@@ -364,7 +364,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - edge_ipport (string) — Edge instance address ('ip:port'), surfaced for diagnostics.
     - target_kind (string) — Target kind, e.g. 'host', 'mysql'. Filtering by kind is not supported in v1.
     - target_locator (string) — Target identifier; the list is sorted by this field ascending.
-    - updated_at (string) — Last route-projection upsert time, Unix seconds. Treat as 'most recently observed', not a live-online indicator. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last route-projection upsert time, Unix seconds. Treat as 'most recently observed', not a live-online indicator. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - next_cursor (string) — Opaque cursor for the next page. Absent / empty means this is the last page.
   - total (integer) — Total matches for the current '(account_id, keyword)' pair, independent of 'cursor'.
 `,

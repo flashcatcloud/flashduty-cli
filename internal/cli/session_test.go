@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -509,6 +510,61 @@ func TestCommandSessionExportMapsErrorEnvelope(t *testing.T) {
 	if !strings.Contains(err.Error(), "access_denied") && !strings.Contains(err.Error(), "not your session") {
 		t.Errorf("[session-export-err] error = %v, want the access_denied envelope", err)
 	}
+}
+
+// TestWriteSessionListNullsUnsetInstants is the regression guard for the
+// session-list bypass: writeSessionList marshals SDK structs directly, so
+// without output.NullUnsetInstants an unset archived_at (0 = not archived)
+// would leak as the bare integer 0 while a set one renders as an RFC3339
+// string — the mixed-type defect, on both the json envelope and jsonl paths.
+func TestWriteSessionListNullsUnsetInstants(t *testing.T) {
+	const archivedMs = 1779432894000
+	sessions := []flashduty.SessionItem{
+		{SessionID: "sess-live"}, // archived_at unset
+		{SessionID: "sess-arch", ArchivedAt: flashduty.TimestampMilli(archivedMs)}, // archived
+	}
+
+	t.Run("json envelope", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := writeSessionList(&buf, sessionFormatJSON, sessions, 2); err != nil {
+			t.Fatalf("writeSessionList(json): %v", err)
+		}
+		var envelope struct {
+			Sessions []map[string]any `json:"sessions"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json output is not valid JSON: %v\n%s", err, buf.String())
+		}
+		if v := envelope.Sessions[0]["archived_at"]; v != nil {
+			t.Errorf("live session archived_at = %#v, want nil (JSON null)", v)
+		}
+		if v, ok := envelope.Sessions[1]["archived_at"].(string); !ok {
+			t.Errorf("archived session archived_at = %#v, want RFC3339 string", envelope.Sessions[1]["archived_at"])
+		} else if _, err := time.Parse(time.RFC3339, v); err != nil {
+			t.Errorf("archived_at = %q, not RFC3339: %v", v, err)
+		}
+	})
+
+	t.Run("jsonl", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := writeSessionList(&buf, sessionFormatJSONL, sessions, 2); err != nil {
+			t.Fatalf("writeSessionList(jsonl): %v", err)
+		}
+		lines := nonEmptyLines(buf.String())
+		if len(lines) != 2 {
+			t.Fatalf("expected 2 jsonl lines, got %d:\n%s", len(lines), buf.String())
+		}
+		var live map[string]any
+		if err := json.Unmarshal([]byte(lines[0]), &live); err != nil {
+			t.Fatalf("line 0 is not valid JSON: %v", err)
+		}
+		if v := live["archived_at"]; v != nil {
+			t.Errorf("live session archived_at = %#v, want nil (JSON null)", v)
+		}
+		if strings.Contains(lines[0], `"archived_at":0`) {
+			t.Errorf("jsonl line leaked the bare integer 0: %s", lines[0])
+		}
+	})
 }
 
 func nonEmptyLines(s string) []string {

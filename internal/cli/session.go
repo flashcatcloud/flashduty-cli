@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
 
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
@@ -229,13 +230,16 @@ func filterSessionsSince(sessions []flashduty.SessionItem, sinceUnix int64) []fl
 
 // writeSessionList renders the session rows in the requested format. jsonl emits
 // one SessionItem per line; json emits the whole SessionListResponse envelope;
-// toon emits the compact encoding of that envelope.
+// toon emits the compact encoding of that envelope. The json/jsonl paths route
+// through output.NullUnsetInstants so unset SDK timestamps (e.g. archived_at
+// on a live session) render as null instead of the bare integer 0, matching
+// every other --json surface.
 func writeSessionList(w io.Writer, format string, sessions []flashduty.SessionItem, total int64) error {
 	switch format {
 	case sessionFormatJSONL:
 		enc := json.NewEncoder(w)
 		for i := range sessions {
-			if err := enc.Encode(sessions[i]); err != nil {
+			if err := enc.Encode(output.NullUnsetInstants(sessions[i])); err != nil {
 				return fmt.Errorf("failed to encode session: %w", err)
 			}
 		}
@@ -249,7 +253,7 @@ func writeSessionList(w io.Writer, format string, sessions []flashduty.SessionIt
 		if format == sessionFormatTOON {
 			out, err = toon.Marshal(envelope)
 		} else {
-			out, err = json.MarshalIndent(envelope, "", "  ")
+			out, err = json.MarshalIndent(output.NullUnsetInstants(envelope), "", "  ")
 		}
 		if err != nil {
 			return fmt.Errorf("failed to marshal sessions: %w", err)

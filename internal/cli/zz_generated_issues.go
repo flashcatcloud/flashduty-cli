@@ -27,24 +27,24 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
   - application_id (string) — ID of the RUM application this issue belongs to.
   - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
-  - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - error (object) — Representative error of this issue, taken from the error event that created it.
     - message (string) — Normalized error message, truncated to at most 512 characters.
     - type (string) — Error type, from the error event's 'error_type' field as reported by the SDK.
   - error_count (integer) — Total error occurrences.
   - first_seen (object) — Information about the issue's first occurrence (time and application version).
-    - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (string) — Application version at first occurrence; empty string when the event carries no version.
   - is_crash (boolean) — Whether the error caused an app crash.
   - issue_id (string) — Unique issue ID.
   - last_seen (object) — Information about the issue's most recent occurrence (time and application version).
-    - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
   - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-    - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - regressed_at_version (string) — Application version in which the regression was observed.
-    - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
   - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
   - session_count (integer) — Affected user sessions.
@@ -56,7 +56,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - source (string) — Origin of the cause: 'auto' for system-determined, 'user' for manually set. [auto, user]
     - value (string) — Suspected cause category. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
   - team_id (integer) — ID of the team owning this issue, copied from the owning application's 'team_id' at issue creation.
-  - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - versions (array<string>) — Deduplicated list of application versions in which this issue has occurred; may contain an empty string for events without version info.
 `,
 		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
@@ -141,24 +141,24 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
     - application_id (string) — ID of the RUM application this issue belongs to.
     - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
-    - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - error (object) — Representative error of this issue, taken from the error event that created it.
       - message (string) — Normalized error message, truncated to at most 512 characters.
       - type (string) — Error type, from the error event's 'error_type' field as reported by the SDK.
     - error_count (integer) — Total error occurrences.
     - first_seen (object) — Information about the issue's first occurrence (time and application version).
-      - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - timestamp (string) — Client time of the first error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - version (string) — Application version at first occurrence; empty string when the event carries no version.
     - is_crash (boolean) — Whether the error caused an app crash.
     - issue_id (string) — Unique issue ID.
     - last_seen (object) — Information about the issue's most recent occurrence (time and application version).
-      - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
     - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-      - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - regressed_at_version (string) — Application version in which the regression was observed.
-      - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
     - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
     - session_count (integer) — Affected user sessions.
@@ -170,7 +170,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - source (string) — Origin of the cause: 'auto' for system-determined, 'user' for manually set. [auto, user]
       - value (string) — Suspected cause category. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
     - team_id (integer) — ID of the team owning this issue, copied from the owning application's 'team_id' at issue creation.
-    - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Time the issue was last updated, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - versions (array<string>) — Deduplicated list of application versions in which this issue has occurred; may contain an empty string for events without version info.
   - total (integer) — Total number of issues matching the filter conditions.
 `,

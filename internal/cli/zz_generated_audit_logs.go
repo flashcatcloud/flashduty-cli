@@ -83,7 +83,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - docs (array<object>) — Audit log entries for this page.
     - account_id (integer) (required) — ID of the account.
     - body (string) (required) — JSON-encoded request body (may be truncated at 10 KB).
-    - created_at (string) (required) — Timestamp of the operation in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Timestamp of the operation in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ip (string) (required) — Client IP address of the caller.
     - is_dangerous (boolean) (required) — True if this is flagged as a high-risk operation.
     - is_write (boolean) (required) — True for mutating operations; false for read-only ones.

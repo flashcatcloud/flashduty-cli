@@ -52,14 +52,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
-    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
     - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
     - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
@@ -69,7 +69,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
-    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - search_after_ctx (string) — Cursor for the next page — the ObjectID of the last event on this page; pass it back as 'search_after_ctx'. Omitted when there are no more results or the result is empty.
   - total (integer) — Total number of matching events, capped at 1000.
 `,
@@ -182,14 +182,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
-    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
     - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
     - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
@@ -199,7 +199,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
-    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page.
   - total (integer) (required) — Total matching event count.
 `,
@@ -281,7 +281,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) — Whether a next page exists.
   - items (array<object>) — Alert feed records on the current page.
     - account_id (integer) (required) — Account ID.
-    - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
     - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
       - comment (string) — Comment body.
@@ -289,7 +289,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Severity level. [Ok, Critical, Warning, Info]
     - ref_id (string) (required) — ObjectID of the alert this entry references.
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_update' | Alert updated by an incoming event (e.g. severity or status change). | | 'a_merge' | Alert merged. | | 'a_comm' | Comment added on the alert. | | 'a_m_silence' | Alert muted by a silence rule. | | 'a_m_inhibit' | Alert muted by an inhibit rule. | | 'a_close' | Alert closed (historical data only; no longer produced). | [a_new, a_update, a_merge, a_comm, a_m_silence, a_m_inhibit, a_close]
-    - updated_at (string) (required) — Last update timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
@@ -368,27 +368,27 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_id (integer) — ID of the channel the alert belongs to.
   - channel_name (string) — Display name of the channel.
   - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
-  - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
   - data_source_name (string) — Deprecated. Use 'integration_name' instead.
   - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
   - data_source_type (string) — Deprecated. Use 'integration_type' instead.
   - description (string) — Alert description.
-  - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - event_cnt (integer) — Total number of raw events received by this alert.
   - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
-    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
     - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
     - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
       - href (string) — Optional link URL when the image is clicked.
@@ -398,7 +398,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
-    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - ever_muted (boolean) — True if this alert has ever been silenced.
   - images (array<object>) — Images attached to the alert.
     - alt (string) — Alt text.
@@ -413,13 +413,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - integration_ref_id (string) — External reference ID of the integration.
   - integration_type (string) — Type/plugin key of the integration.
   - labels (object) — Label key-value pairs.
-  - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - responder_email (string) — Email of the current responder (from the associated incident).
   - responder_name (string) — Display name of the current responder (from the associated incident).
-  - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - title (string) — Alert title.
   - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
-  - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert info --data '{"alert_id":"663a1b2c3d4e5f6789abcdef"}'`,
@@ -510,27 +510,27 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) — ID of the channel the alert belongs to.
     - channel_name (string) — Display name of the channel.
     - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
-    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
     - data_source_name (string) — Deprecated. Use 'integration_name' instead.
     - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
     - data_source_type (string) — Deprecated. Use 'integration_type' instead.
     - description (string) — Alert description.
-    - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
-      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
       - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
       - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
         - href (string) — Optional link URL when the image is clicked.
@@ -540,7 +540,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
-      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) — True if this alert has ever been silenced.
     - images (array<object>) — Images attached to the alert.
       - alt (string) — Alt text.
@@ -555,13 +555,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_ref_id (string) — External reference ID of the integration.
     - integration_type (string) — Type/plugin key of the integration.
     - labels (object) — Label key-value pairs.
-    - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - responder_email (string) — Email of the current responder (from the associated incident).
     - responder_name (string) — Display name of the current responder (from the associated incident).
-    - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
-    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - search_after_ctx (string) — Cursor for the next page.
   - total (integer) — Total matching alerts.
 `,
@@ -686,27 +686,27 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) — ID of the channel the alert belongs to.
     - channel_name (string) — Display name of the channel.
     - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
-    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
     - data_source_name (string) — Deprecated. Use 'integration_name' instead.
     - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
     - data_source_type (string) — Deprecated. Use 'integration_type' instead.
     - description (string) — Alert description.
-    - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
-      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
       - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
       - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
-      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
         - href (string) — Optional link URL when the image is clicked.
@@ -716,7 +716,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
-      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+      - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) — True if this alert has ever been silenced.
     - images (array<object>) — Images attached to the alert.
       - alt (string) — Alt text.
@@ -731,13 +731,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_ref_id (string) — External reference ID of the integration.
     - integration_type (string) — Type/plugin key of the integration.
     - labels (object) — Label key-value pairs.
-    - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - responder_email (string) — Email of the current responder (from the associated incident).
     - responder_name (string) — Display name of the current responder (from the associated incident).
-    - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
-    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - search_after_ctx (string) — Cursor for the next page.
   - total (integer) — Total matching alerts.
 `,
@@ -790,7 +790,7 @@ Request fields:
   --integration-id int (required) — Integration ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) — Member ID who created the pipeline.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
@@ -809,7 +809,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - title (string) — New title template. Supports Golang template syntax referencing alert fields.
   - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
-  - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) — Member ID who last updated the pipeline.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
@@ -862,7 +862,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Alert pipeline configuration of each requested integration, one item per configured integration.
-    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Member ID who created the pipeline.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
@@ -878,7 +878,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
         - title (string) — New title template. Supports Golang template syntax referencing alert fields.
     - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
-    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Member ID who last updated the pipeline.
 `,
 		Args:    requireBodyFieldOrArgs("integration_ids", "integration-ids"),

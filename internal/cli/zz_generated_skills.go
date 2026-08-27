@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - checksum (string) — SHA-256 checksum of the skill zip.
   - content (string) — Full SKILL.md content. Omitted in list responses.
   - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
   - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
@@ -94,7 +94,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
   - update_available (boolean) (required) — True when the marketplace has a newer template version.
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
@@ -165,7 +165,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - checksum (string) — SHA-256 checksum of the skill zip.
     - content (string) — Full SKILL.md content. Omitted in list responses.
     - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
-    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the skill.
     - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
     - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
@@ -181,7 +181,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
     - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
     - update_available (boolean) (required) — True when the marketplace has a newer template version.
-    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (string) — Skill version from the frontmatter.
   - total (integer) (required) — Total number of matching skills.
 `,
@@ -362,7 +362,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - checksum (string) — SHA-256 checksum of the skill zip.
   - content (string) — Full SKILL.md content. Omitted in list responses.
   - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
   - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
@@ -378,7 +378,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
   - update_available (boolean) (required) — True when the marketplace has a newer template version.
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
@@ -444,7 +444,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - checksum (string) — SHA-256 checksum of the skill zip.
   - content (string) — Full SKILL.md content. Omitted in list responses.
   - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
   - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
@@ -460,7 +460,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
   - update_available (boolean) (required) — True when the marketplace has a newer template version.
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (string) — Skill version from the frontmatter.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {

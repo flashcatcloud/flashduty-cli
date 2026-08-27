@@ -595,8 +595,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - aggr_window (integer) (required) — Delay window in seconds.
   - channel_id (integer) (required) — Channel the rule belongs to.
   - channel_name (string) — Channel name, populated for cross-channel listing responses.
-  - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-  - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Rule description.
   - filters (object) (required)
   - layers (array<object>) (required) — Escalation levels in order.
@@ -628,7 +628,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - is_off (boolean) — When true, match days marked as days-off in the calendar.
     - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
     - start (string) — Start of the window in 'HH:MM'.
-  - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
 		Example: `  flashduty channel escalate-rule-info --data '{"channel_id":1001,"rule_id":"6621b23f4a2c5e0012ab34d0"}'`,
@@ -685,8 +685,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - aggr_window (integer) (required) — Delay window in seconds.
     - channel_id (integer) (required) — Channel the rule belongs to.
     - channel_name (string) — Channel name, populated for cross-channel listing responses.
-    - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
-    - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
     - filters (object) (required)
     - layers (array<object>) (required) — Escalation levels in order.
@@ -712,7 +712,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - is_off (boolean) — When true, match days marked as days-off in the calendar.
       - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
       - start (string) — Start of the window in 'HH:MM'.
-    - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -879,10 +879,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - auto_resolve_timeout (integer) — Auto-resolve timeout in seconds. 0 disables auto-resolve.
   - channel_id (integer) — Channel ID.
   - channel_name (string) — Channel name.
-  - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) — Member ID who created the channel.
   - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
-  - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Free-form description.
   - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
   - disable_outlier_detection (boolean) — When true, outlier incident detection is disabled.
@@ -906,7 +906,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - is_external_report_enabled (boolean) — Whether external reporters can file incidents into this channel.
   - is_private (boolean) — When true, the channel is visible only to its managing teams.
   - is_starred (boolean) — Whether the current user has starred this channel.
-  - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - managing_team_ids (array<integer>) — Additional teams that can manage the channel.
   - progress_to_incident_cnts (object)
     - Processing (integer) (required) — Count of processing incidents in the last 30 days.
@@ -914,7 +914,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) — Channel status. 'enabled' receives and processes events normally; 'disabled' drops incoming events outright; 'deleted' is returned only when fetching a channel by ID — list endpoints never return it. [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
   - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
-  - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Aliases: []string{"get", "detail"},
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -1269,7 +1269,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — All inhibit rules of the channel, excluding deleted ones, ordered by creation time ascending.
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
-    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
     - equals (array<string>) (required) — Label keys used to pair source and target alerts.
     - is_directly_discard (boolean) (required) — When true, the inhibited target alert is discarded outright; when false, the alert is still created but muted — no incident is triggered and no notification is sent.
@@ -1278,7 +1278,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - source_filters (object) (required)
     - status (string) (required) — Rule status: 'enabled' or 'disabled'; deleted rules never appear in the list. [enabled, disabled]
     - target_filters (object) (required)
-    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — ID of the user who last updated the rule.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -1442,10 +1442,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - auto_resolve_timeout (integer) — Auto-resolve timeout in seconds. 0 disables auto-resolve.
     - channel_id (integer) — Channel ID.
     - channel_name (string) — Channel name.
-    - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Member ID who created the channel.
     - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
-    - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Free-form description.
     - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
     - disable_outlier_detection (boolean) — When true, outlier incident detection is disabled.
@@ -1469,7 +1469,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - is_external_report_enabled (boolean) — Whether external reporters can file incidents into this channel.
     - is_private (boolean) — When true, the channel is visible only to its managing teams.
     - is_starred (boolean) — Whether the current user has starred this channel.
-    - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - managing_team_ids (array<integer>) — Additional teams that can manage the channel.
     - progress_to_incident_cnts (object)
       - Processing (integer) (required) — Count of processing incidents in the last 30 days.
@@ -1477,7 +1477,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) — Channel status. 'enabled' receives and processes events normally; 'disabled' drops incoming events outright; 'deleted' is returned only when fetching a channel by ID — list endpoints never return it. [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
-    - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total matching channels.
 `,
 		Example: `  flashduty channel list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
@@ -1833,7 +1833,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — All silence rules of the channel, excluding deleted ones, ordered by creation time ascending.
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
-    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
     - filters (object) (required)
     - from_incident_id (string) — Source incident ID when the silence was created from an incident.
@@ -1852,7 +1852,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - is_off (boolean) — When true, match days marked as days-off in the calendar.
       - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
       - start (string) — Start of the window in 'HH:MM'.
-    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — ID of the user who last updated the rule.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -2231,13 +2231,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — All drop (unsubscribe) rules of the channel, excluding deleted ones, ordered by creation time ascending.
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
-    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
     - filters (object) (required)
     - rule_id (string) (required) — Rule ID (MongoDB ObjectID).
     - rule_name (string) (required) — Rule name.
     - status (string) (required) — Rule status: 'enabled' or 'disabled'; deleted rules never appear in the list. [enabled, disabled]
-    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — ID of the user who last updated the rule.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -2498,17 +2498,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - vals (array<string>) (required) — Values to compare against. Each value may be a literal string, a wildcard ('*', '?'), a regular expression wrapped in slashes ('/pattern/'), a CIDR ('cidr:10.0.0.0/8'), or a numeric comparison ('num:lt:100').
     - name_mapping_label (string) — Label key whose value is used as the target channel name. Required when 'routing_mode' is 'name_mapping'.
     - routing_mode (string) — Routing mode. 'standard' (default, also used when left empty) routes to the fixed channel IDs; 'name_mapping' resolves channels by reading a label value from the alert event. [standard, name_mapping]
-  - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — ID of the person who created the rule.
   - default (object) — Default branch used when no case matches (or all matched cases yield no valid channels).
     - channel_ids (array<integer>) — Channel IDs to fall back to.
-  - deleted_at (string) — Soft-delete timestamp, Unix seconds. Omitted when the rule is active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - deleted_at (string) — Soft-delete timestamp, Unix seconds. Omitted when the rule is active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - integration_id (integer) — Integration the rule belongs to.
   - sections (array<object>) — Optional sections that visually group cases.
     - name (string) (required) — Section name. Must be unique within the rule.
     - position (integer) (required) — Index in 'cases' where this section starts. Must be between 0 and the length of 'cases'.
   - status (string) — Route status. 'enabled' means active; 'deleted' means removed, visible only in historical versions. [enabled, deleted]
-  - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — ID of the person who performed the last update.
   - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,
@@ -2571,17 +2571,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - vals (array<string>) (required) — Values to compare against. Each value may be a literal string, a wildcard ('*', '?'), a regular expression wrapped in slashes ('/pattern/'), a CIDR ('cidr:10.0.0.0/8'), or a numeric comparison ('num:lt:100').
       - name_mapping_label (string) — Label key whose value is used as the target channel name. Required when 'routing_mode' is 'name_mapping'.
       - routing_mode (string) — Routing mode. 'standard' (default, also used when left empty) routes to the fixed channel IDs; 'name_mapping' resolves channels by reading a label value from the alert event. [standard, name_mapping]
-    - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — ID of the person who created the rule.
     - default (object) — Default branch used when no case matches (or all matched cases yield no valid channels).
       - channel_ids (array<integer>) — Channel IDs to fall back to.
-    - deleted_at (string) — Soft-delete timestamp, Unix seconds. Omitted when the rule is active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - deleted_at (string) — Soft-delete timestamp, Unix seconds. Omitted when the rule is active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - integration_id (integer) — Integration the rule belongs to.
     - sections (array<object>) — Optional sections that visually group cases.
       - name (string) (required) — Section name. Must be unique within the rule.
       - position (integer) (required) — Index in 'cases' where this section starts. Must be between 0 and the length of 'cases'.
     - status (string) — Route status. 'enabled' means active; 'deleted' means removed, visible only in historical versions. [enabled, deleted]
-    - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — ID of the person who performed the last update.
     - version (integer) (required) — Monotonic version number, incremented on each update. Use it for optimistic concurrency control.
 `,

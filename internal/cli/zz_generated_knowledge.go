@@ -34,7 +34,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - pack_id (string) (required) — ID of the knowledge pack that contains the file.
     - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
 `,
 		Example: `  flashduty safari knowledge-file-get --data '{"rel_path":"tmp/openapi-example.md"}'`,
@@ -99,7 +99,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - pack_id (string) (required) — ID of the knowledge pack that contains the file.
     - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
   - total (integer) (required) — Total number of files in the pack.
 `,
@@ -235,7 +235,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - pack_id (string) (required) — ID of the knowledge pack that contains the file.
     - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
   - warnings (array<object>) — Non-blocking warnings after a successful write; 'code=unresolved_reference' means an @ref in the file content points to a file that does not exist in the pack. Absent when there are no warnings (omitempty).
     - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the pack; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the pack; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
@@ -302,12 +302,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - pack_id (string) (required) — ID of the knowledge pack that contains the file.
     - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
   - pack (object) (required) — A knowledge pack — a versioned file tree staged into every AI SRE sandbox at session start. One pack exists per (account, scope, scope_id).
     - account_id (integer) (required) — Account that owns the pack.
     - can_edit (boolean) (required) — Whether the caller can edit this pack.
-    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Person ID of the member who created the pack.
     - file_count (integer) (required) — Number of files in the pack.
     - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
@@ -315,7 +315,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
     - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
     - total_bytes (integer) (required) — Total size of all files in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (integer) (required) — Pack version, incremented on every file change.
 `,
 		Example: `  flashduty safari knowledge-get --data '{}'`,
@@ -371,7 +371,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - packs (array<object>) (required) — Array of visible knowledge packs after filtering (current page), used with 'total' for pagination.
     - account_id (integer) (required) — Account that owns the pack.
     - can_edit (boolean) (required) — Whether the caller can edit this pack.
-    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Person ID of the member who created the pack.
     - file_count (integer) (required) — Number of files in the pack.
     - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
@@ -379,7 +379,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
     - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
     - total_bytes (integer) (required) — Total size of all files in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (integer) (required) — Pack version, incremented on every file change.
   - total (integer) (required) — Total number of packs after filtering, before pagination.
 `,
@@ -507,7 +507,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account that owns the pack.
   - can_edit (boolean) (required) — Whether the caller can edit this pack.
-  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Person ID of the member who created the pack.
   - file_count (integer) (required) — Number of files in the pack.
   - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
@@ -515,7 +515,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
   - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
   - total_bytes (integer) (required) — Total size of all files in bytes.
-  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (integer) (required) — Pack version, incremented on every file change.
 `,
 		Example: `  flashduty safari knowledge-pack-ensure --data '{"scope":"team","scope_id":2477033058131}'`,
@@ -573,7 +573,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account that owns the pack.
   - can_edit (boolean) (required) — Whether the caller can edit this pack.
-  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Person ID of the member who created the pack.
   - file_count (integer) (required) — Number of files in the pack.
   - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
@@ -581,7 +581,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
   - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
   - total_bytes (integer) (required) — Total size of all files in bytes.
-  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value stays the bare integer 0.
+  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (integer) (required) — Pack version, incremented on every file change.
 `,
 		Args:    requireBodyFieldOrExactArg("pack_id", "pack-id"),
