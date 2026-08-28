@@ -924,6 +924,185 @@ func TestBoundProjectedListErrorNamesLargestFields(t *testing.T) {
 	}
 }
 
+// escalateRuleRow is a full EscalateRuleItem stub payload, including the
+// nested layers/time_filters blobs that bloat the full dump — the same shape
+// that made the raw generated command's toon output oversized per rule.
+func escalateRuleRow() map[string]any {
+	return map[string]any{
+		"account_id":   1001,
+		"aggr_window":  0,
+		"channel_id":   4201,
+		"channel_name": "payments",
+		"created_at":   1712000000,
+		"deleted_at":   0,
+		"description":  "page the primary on-call, then the team",
+		"filters": []any{
+			[]any{map[string]any{"key": "incident_severity", "oper": "IN", "vals": []any{"Critical"}}},
+		},
+		"layers": []any{
+			map[string]any{
+				"escalate_window": 30,
+				"max_times":       3,
+				"notify_step":     5,
+				"target":          map[string]any{"person_ids": []any{101}, "by": map[string]any{"critical": []any{"voice", "sms"}}},
+			},
+		},
+		"priority":    10,
+		"rule_id":     "6621b23f4a2c5e0012ab34d0",
+		"rule_name":   "P1 on-call",
+		"status":      "enabled",
+		"template_id": "6630c34f5b3d6e0012cd45e1",
+		"time_filters": []any{
+			map[string]any{"start": "09:00", "end": "18:00", "repeat": []any{1, 2, 3}},
+		},
+		"updated_at": 1712100000,
+		"updated_by": 101,
+	}
+}
+
+// TestChannelEscalateRuleListStructuredProjection mirrors
+// TestIncidentListStructuredDefaultUsesCompactProjection for the curated
+// channel escalate-rule-list: json/toon mode must default to the compact
+// projection (announced on stderr) instead of dumping the full nested rule
+// record, an explicit --fields must override it, and table mode keeps its
+// explicit columns without the note.
+func TestChannelEscalateRuleListStructuredProjection(t *testing.T) {
+	t.Run("json default", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		out, stderrText, err := execCommandSplit("channel", "escalate-rule-list", "4201", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+
+		assertProjectedJSONFields(t, out, []string{"rule_id", "rule_name", "status", "priority", "filters"})
+		if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+			t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
+		}
+		for _, key := range []string{"layers", "template_id"} {
+			if strings.Contains(out, key) {
+				t.Errorf("default json output should not contain full-record key %q, got:\n%s", key, out)
+			}
+		}
+	})
+
+	t.Run("toon default", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		out, stderrText, err := execCommandSplit("channel", "escalate-rule-list", "4201", "--output-format", "toon")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+
+		// Positive keys must come from stdout alone: the stderr note embeds the
+		// same field names, so a merged capture would satisfy this vacuously.
+		for _, key := range []string{"rule_id", "rule_name", "status", "priority", "filters"} {
+			if !strings.Contains(out, key) {
+				t.Errorf("default toon output missing compact key %q, got:\n%s", key, out)
+			}
+		}
+		if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
+			t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
+		}
+		for _, key := range []string{"layers", "template_id", "description"} {
+			if strings.Contains(out, key) {
+				t.Errorf("default toon output should not contain full-record key %q, got:\n%s", key, out)
+			}
+		}
+	})
+
+	t.Run("explicit fields win", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		out, err := execCommand("channel", "escalate-rule-list", "4201", "--fields", "rule_id,layers", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommand: %v", err)
+		}
+
+		assertProjectedJSONFields(t, out, []string{"rule_id", "layers"})
+	})
+
+	t.Run("explicit empty fields errors", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		_, err := execCommand("channel", "escalate-rule-list", "4201", "--fields", "", "--output-format", "json")
+		if err == nil {
+			t.Fatal("expected an error for empty --fields, got nil")
+		}
+		if !strings.Contains(err.Error(), "--fields") {
+			t.Errorf("error should name --fields, got: %v", err)
+		}
+	})
+
+	t.Run("unknown field errors", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		_, err := execCommand("channel", "escalate-rule-list", "4201", "--fields", "not_a_field", "--output-format", "json")
+		if err == nil {
+			t.Fatal("expected an error for an unknown field, got nil")
+		}
+		if !strings.Contains(err.Error(), "not_a_field") {
+			t.Errorf("error should name the bad field, got: %v", err)
+		}
+	})
+
+	t.Run("table mode headers without note", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{escalateRuleRow()}}
+
+		out, stderrText, err := execCommandSplit("channel", "escalate-rule-list", "4201")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		for _, h := range []string{"ID", "NAME", "STATUS", "PRIORITY", "UPDATED"} {
+			if !strings.Contains(out, h) {
+				t.Errorf("table output missing header %q, got:\n%s", h, out)
+			}
+		}
+		if strings.Contains(stderrText, "note: rows projected") {
+			t.Errorf("table mode must not print the projection note, got:\n%s", stderrText)
+		}
+	})
+
+	t.Run("channel id folding", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			args []string
+			want float64
+		}{
+			{"positional", []string{"channel", "escalate-rule-list", "4201"}, 4201},
+			{"flag", []string{"channel", "escalate-rule-list", "--channel-id", "4202"}, 4202},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				saveAndResetGlobals(t)
+				stub := newGFStub(t)
+				stub.data = map[string]any{"items": []any{}}
+
+				if _, err := execCommand(tc.args...); err != nil {
+					t.Fatalf("execCommand: %v", err)
+				}
+				if stub.lastPath != "/channel/escalate/rule/list" {
+					t.Fatalf("expected /channel/escalate/rule/list, got %q", stub.lastPath)
+				}
+				if stub.lastBody["channel_id"] != tc.want {
+					t.Fatalf("channel_id = %#v, want %v", stub.lastBody["channel_id"], tc.want)
+				}
+			})
+		}
+	})
+}
+
 // TestBoundProjectedListNeverShortensIdentifierFields pins the identifier
 // exemption: keys ending in _id/_key carry values a consumer matches,
 // filters, or passes back verbatim (a jq exact-match over --json output, a

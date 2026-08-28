@@ -74,8 +74,9 @@ Get escalation rule detail
 
 ### escalate-rule-list <channel-id>
 List escalation rules
-- `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
+- `<channel-id>` (positional, required) int64
+- `--fields` string
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### escalate-rule-update
 Update escalation rule
