@@ -180,13 +180,25 @@ func boundProjectedDetail(row map[string]any, maxBytes int) error {
 		len(encoded), maxBytes, largest)
 }
 
+// isIdentifierField reports whether a projected field is an identifier:
+// keys ending in _id or _key (incident_id, alert_key, …). Identifier values
+// are matched, filtered, and passed back verbatim by the consumer — a jq
+// exact-match over --json output, or a follow-up detail call — so clipping
+// one silently defeats that consumer: an identifier either survives a
+// projection intact or the projection errors out.
+func isIdentifierField(key string) bool {
+	return strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_key")
+}
+
 // boundProjectedList shortens a list projection's string values fairly when
 // the compact rows themselves overflow the budget: it finds the largest
 // per-field byte cap that still makes everything fit, then applies that one
-// cap to every string value across every row. A field already shorter than
-// the cap is left completely untouched — only the field(s) actually
-// responsible for the overflow (typically a long title) get shortened, each
-// marked with "...". The cap never drops low enough to make the "..."
+// cap to every shortenable string value across every row. A field already
+// shorter than the cap is left completely untouched — only the field(s)
+// actually responsible for the overflow (typically a long title) get
+// shortened, each marked with "...". Identifier fields (keys ending in _id
+// or _key) are exempt at every step — sizing, fitting, and applying — so
+// they survive byte-intact. The cap never drops low enough to make the "..."
 // marker itself disappear, so a shortened value is always distinguishable
 // from a genuinely short one; if no cap at or above that floor fits, the
 // command fails with a small error instead of emitting values that look
@@ -213,7 +225,10 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 
 	maxLen := 0
 	for _, row := range rows {
-		for _, value := range row {
+		for key, value := range row {
+			if isIdentifierField(key) {
+				continue
+			}
 			if text, ok := value.(string); ok && len(text) > maxLen {
 				maxLen = len(text)
 			}
@@ -228,7 +243,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 		for i, row := range rows {
 			trialRow := make(map[string]any, len(row))
 			for key, value := range row {
-				if text, ok := value.(string); ok {
+				if text, ok := value.(string); ok && !isIdentifierField(key) {
 					trialRow[key] = truncateUTF8Bytes(text, limit)
 				} else {
 					trialRow[key] = value
@@ -280,6 +295,9 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 	fields := map[string]bool{}
 	for _, row := range rows {
 		for key, value := range row {
+			if isIdentifierField(key) {
+				continue
+			}
 			text, ok := value.(string)
 			if !ok {
 				continue
