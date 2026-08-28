@@ -262,80 +262,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
-func genDiagnosticsQueryRowsCmd() *cobra.Command {
-	var dataJSON string
-	var fAccountID int64
-	var fDelaySeconds int64
-	var fDsName string
-	var fDsType string
-	var fExpr string
-	cmd := &cobra.Command{
-		Use:        "query-rows",
-		Short:      "Query data source rows",
-		Deprecated: "use 'monit-query data' instead",
-		Long: `Query data source rows.
-
-Deprecated. Run a synchronous ad-hoc query and return the historical flattened rows shape. Existing consumers should migrate to '/monit/query/data', which preserves frames, records, and samples without forcing every result into legacy rows.
-
-API: POST /monit/query/rows (monit-read-query-rows)
-
-Request fields:
-  --account-id int — Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.
-  --delay-seconds int — Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.
-  --ds-name string (required) — Data source name; must match a configured data source under the tenant.
-  --ds-type string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
-  --expr string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
-  args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings, and keys are always namespaced by source (e.g. 'sls.project', 'loki.type'). Validation depends on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'. Elasticsearch accepts 'es.type' of 'sql', or omitted — any other value is rejected. Loki and VictoriaLogs accept '<source>.type' of 'stats', 'raw', or omitted; 'raw' additionally requires a time range, either '<source>.start' + '<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit' (unit one of 's', 'm', 'h', 'd'). Prometheus and the remaining SQL sources ignore 'args' entirely.
-
-Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - fields (object) — String-valued fields (labels, log fields, SQL columns).
-  - values (object) — Numeric fields. For metric queries the canonical key is '__value__'. May be 'null' for detail-oriented sources.
-`,
-		Example: `  flashduty monit query-rows --data '{"account_id":10001,"delay_seconds":30,"ds_name":"prod-prom","ds_type":"prometheus","expr":"up"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("account-id") {
-						body["account_id"] = fAccountID
-					}
-					if cmd.Flags().Changed("delay-seconds") {
-						body["delay_seconds"] = fDelaySeconds
-					}
-					if cmd.Flags().Changed("ds-name") {
-						body["ds_name"] = fDsName
-					}
-					if cmd.Flags().Changed("ds-type") {
-						body["ds_type"] = fDsType
-					}
-					if cmd.Flags().Changed("expr") {
-						body["expr"] = fExpr
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.QueryRowsRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.Diagnostics.QueryRows(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.")
-	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.")
-	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name; must match a configured data source under the tenant. (required)")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'. (required)")
-	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.). (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genDiagnosticsTargetsListCmd() *cobra.Command {
 	var dataJSON string
 	var fAccountID int64
@@ -562,7 +488,6 @@ func registerGeneratedDiagnostics(root *cobra.Command) {
 	gMonit := genGroup(root, "monit", "Monitors API")
 	genAddLeaf(gMonit, genDiagnosticsQueryDataCmd())
 	genAddLeaf(gMonit, genDiagnosticsQueryDiagnoseCmd())
-	genAddLeaf(gMonit, genDiagnosticsQueryRowsCmd())
 	genAddLeaf(gMonit, genDiagnosticsTargetsListCmd())
 	genAddLeaf(gMonit, genDiagnosticsToolsCatalogCmd())
 	genAddLeaf(gMonit, genDiagnosticsToolsInvokeCmd())

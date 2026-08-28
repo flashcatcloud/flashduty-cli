@@ -1211,56 +1211,6 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	return cmd
 }
 
-func genAlertRulesWriteStatusCmd() *cobra.Command {
-	var dataJSON string
-	var fFolderID int64
-	cmd := &cobra.Command{
-		Use:   "rule-status",
-		Short: "Get rule trigger status under folder",
-		Long: `Get rule trigger status under folder.
-
-Return the rule trigger summary for all rules under a folder node and its descendants.
-
-API: POST /monit/rule/status (monit-rule-write-status)
-
-Request fields:
-  --folder-id int — Folder ID to summarize. Obtainable via 'POST /monit/folder/list'. Trigger statistics are returned grouped by direct child folder.
-
-Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - folder_id (integer) (required) — ID of the folder (grouping node).
-  - folder_name (string) — Folder name; omitted by some endpoints ('omitempty').
-  - rule_total (integer) (required) — Total rules in the folder family.
-  - triggered_rule_count (integer) (required) — Rules with active alerts.
-`,
-		Example: `  flashduty monit rule-status --data '{"folder_id":100}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("folder-id") {
-						body["folder_id"] = fFolderID
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.RuleFolderIDRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.AlertRules.WriteStatus(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID to summarize. Obtainable via 'POST /monit/folder/list'. Trigger statistics are returned grouped by direct child folder.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genAlertRulesWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fAccountID int64
@@ -1582,6 +1532,5 @@ func registerGeneratedAlertRules(root *cobra.Command) {
 	genAddLeaf(gMonit, genAlertRulesWriteFieldsUpdateCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteImportCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteMoveCmd())
-	genAddLeaf(gMonit, genAlertRulesWriteStatusCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteUpdateCmd())
 }

@@ -24,6 +24,14 @@ var curatedOperationIDs = map[string]bool{
 	"automation-trigger-write-fire": true,
 }
 
+// retiredOperationIDs bridges the release window where the server-side route
+// is gone but the CLI still compiles against the previous released SDK spec.
+var retiredOperationIDs = map[string]bool{
+	"monit-preview-sync":      true,
+	"monit-read-query-rows":   true,
+	"monit-rule-write-status": true,
+}
+
 // loadSpecOps reads every public GET/POST operation from the openapi spec
 // shipped in the linked go-flashduty module — the same spec cligen generates
 // against — recording each op's id, path, and whether its 200 response is a
@@ -80,6 +88,9 @@ func loadSpecPaths(t *testing.T) map[string]string {
 	t.Helper()
 	ids := map[string]string{}
 	for _, op := range loadSpecOps(t) {
+		if retiredOperationIDs[op.id] {
+			continue
+		}
 		ids[op.id] = op.path
 	}
 	return ids
@@ -158,6 +169,9 @@ func TestGeneratorTargetsFullSpec(t *testing.T) {
 	curated := map[string]bool{}
 	wantGenerated := map[string]bool{}
 	for _, op := range ops {
+		if retiredOperationIDs[op.id] {
+			continue
+		}
 		if op.streaming {
 			streaming[op.id] = true
 			continue
