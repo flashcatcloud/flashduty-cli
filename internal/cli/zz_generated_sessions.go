@@ -83,7 +83,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (string) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - pinned_at (string) (required) — Caller's per-user pin time as a Unix timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
@@ -180,7 +180,7 @@ Request fields:
   --limit int — Page size, 1–100. (1-100)
   --search-after-ctx string
   --app-name string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
-  --asc bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
+  --asc bool — Ascending order when true, descending when false. Only honored together with 'orderby'; when 'orderby' is omitted the sort is always 'updated_at' descending.
   --entry-kinds []string — Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]
   --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
   --keyword string — Filter by session-name keyword. (≤64 chars)
@@ -224,7 +224,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (string) (required) — Caller's per-user pin timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - pinned_at (string) (required) — Caller's per-user pin time as a Unix timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
@@ -306,7 +306,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true, descending when false. Only honored together with 'orderby'; when 'orderby' is omitted the sort is always 'updated_at' descending.")
 	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]")
 	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")

@@ -75,21 +75,21 @@ fduty enrichment info <integration-id> --output-format toon
 ### info <integration-id>
 Get enrichment rules
 - `<integration-id>` (positional, required) int64 — Integration ID to query enrichment rules for. Must be greater than 0. (min 1)
-- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); deleted_at (string); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
 
 ### list <integration-id> [<id2>...]
 List enrichment rules
-- `<integration-ids>` (positional, required) intSlice — List of integration IDs to query.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
+- `<integration-ids>` (positional, required) intSlice — List of integration IDs to query. Must contain at least one ID.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); deleted_at (string); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
 
 ### mapping-api-create
 Create mapping API
 - `--api-name` string (required) — Unique API name (max 199 chars). (≤199 chars)
-- `--description` string — Optional description.
+- `--description` string — Optional description. Values longer than 500 characters are silently truncated.
 - `--insecure-skip-verify` bool — Skip TLS certificate verification. Default 'false'.
-- `--retry-count` int64 — Number of retries on failure (0–1). Default 0.
+- `--retry-count` int64 — Number of retries on failure (0–1). Default 0. (0-1)
 - `--team-id` int64 — Owning team ID; obtain it from 'POST /team/list'.
-- `--timeout` int64 — Request timeout in seconds (1–3). Default 2.
+- `--timeout` int64 — Request timeout in seconds (1–3). Default 2. (1-3)
 - `--url` string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
 - body-only (`--data`): headers (object)
 - response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string)
@@ -101,11 +101,11 @@ Delete mapping API
 ### mapping-api-info <api-id>
 Get mapping API detail
 - `<api-id>` (positional, required) string — Mapping API ID (MongoDB ObjectID hex).
-- response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string); created_at (string); creator_id (integer); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (string); updated_by (integer); url (string)
+- response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string); created_at (string); creator_id (integer); deleted_at (string); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (string); updated_by (integer); url (string)
 
 ### mapping-api-list
 List mapping APIs
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: api_id (string); api_name (string); created_at (string); creator_id (integer); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (string); updated_by (integer); url (string)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: api_id (string); api_name (string); created_at (string); creator_id (integer); deleted_at (string); description (string); headers (object); insecure_skip_verify (boolean); retry_count (integer); status (string); team_id (integer); timeout (integer); updated_at (string); updated_by (integer); url (string)
 
 ### mapping-api-update <api-id>
 Update mapping API
@@ -113,9 +113,9 @@ Update mapping API
 - `--api-name` string — New API name (max 199 chars). (≤199 chars)
 - `--description` string — New description.
 - `--insecure-skip-verify` bool — New TLS skip-verify setting.
-- `--retry-count` int64 — New retry count.
+- `--retry-count` int64 — New retry count. (0-1)
 - `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
-- `--timeout` int64 — New timeout in seconds.
+- `--timeout` int64 — New timeout in seconds. (1-3)
 - `--url` string — New endpoint URL (max 500 chars). (≤500 chars)
 - body-only (`--data`): headers (object)
 
@@ -131,11 +131,11 @@ Download mapping data as CSV
 ### mapping-data-list <schema-id>
 List mapping data
 - `--asc` bool — Sort ascending when 'true'.
-- `--limit` int64 — Page size (1–100, default 20).
-- `--orderby` string — Sort field. · enum: created_at | updated_at
-- `--page` int64 — Page number (1-based). Used for offset-based pagination.
+- `--limit` int64 — Page size (0–100); defaults to 20 when omitted, 'null', or 0. (0-100)
+- `--orderby` string — Sort field. Defaults to 'updated_at'. · enum: created_at | updated_at
+- `--page` int64 — Page number (1-based) for offset pagination; defaults to 1 when omitted, 'null', or 0. Ignored when 'search_after_ctx' is set. Page-based navigation can reach at most 10,000 rows ('p * limit <= 10000'). (min 0)
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
-- `--search-after-ctx` string — Opaque cursor token for cursor-based pagination.
+- `--search-after-ctx` string — Opaque cursor for cursor-based pagination — pass the 'search_after_ctx' value from the previous response. Must be a MongoDB ObjectID hex string; when set, 'p' is ignored.
 - body-only (`--data`): query (object)
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); fields (object); key (string); updated_at (string)
 
@@ -143,10 +143,11 @@ List mapping data
 Truncate mapping data
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
 
-### mapping-data-upload
+### mapping-data-upload --schema-id <id> --file <csv>
 Upload mapping data via CSV
-- `--file` string — CSV file to upload.
-- `--schema-id` string — Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.
+- `--do-not-truncate-first` bool
+- `--file` string
+- `--schema-id` string
 
 ### mapping-data-upsert <schema-id>
 Upsert mapping data rows
@@ -157,9 +158,9 @@ Upsert mapping data rows
 ### mapping-schema-create
 Create mapping schema
 - `--description` string — Optional description (max 500 chars). (≤500 chars)
-- `--result-labels` stringSlice (required) — Output label names (1–10). Must not overlap with 'source_labels'.
+- `--result-labels` stringSlice (required) — Output label names written on a match (1–10). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'source_labels'.
 - `--schema-name` string (required) — Unique schema name (max 39 chars). (≤39 chars)
-- `--source-labels` stringSlice (required) — Lookup key label names (1–3). Must not overlap with 'result_labels'.
+- `--source-labels` stringSlice (required) — Lookup key label names (1–3). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'result_labels'.
 - `--team-id` int64 — Owning team ID. '0' means no team.
 - response: single object (`data` unwrapped to the top level) — fields: schema_id (string); schema_name (string)
 
@@ -170,11 +171,11 @@ Delete mapping schema
 ### mapping-schema-info <schema-id>
 Get mapping schema detail
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
-- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (string); updated_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); deleted_at (string); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (string); updated_by (integer)
 
 ### mapping-schema-list
 List mapping schemas
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (string); updated_by (integer)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); deleted_at (string); description (string); result_labels (array<string>); schema_id (string); schema_name (string); source_labels (array<string>); status (string); team_id (integer); updated_at (string); updated_by (integer)
 
 ### mapping-schema-update <schema-id>
 Update mapping schema
@@ -209,7 +210,7 @@ Each rule may have an optional `if` AND-filter: `[{"key":"env","oper":"IN","vals
 - **`mapping-data-upsert` requires `docs` via `--data`** — this array cannot be expressed as flat flags. Each doc must include all `source_labels` AND all `result_labels` fields for the schema, or the row is rejected.
 - **`mapping-schema-create` requires Pro plan** — creating a schema on a free account returns a plan-gate error, not a 404.
 - **`mapping-data-truncate` wipes all rows immediately** — there is no undo. Use `mapping-data-download` to export a backup CSV first if the data matters.
-- **`mapping-data-upload` truncates existing schema data before loading the new CSV rows** — this is the documented default behavior, and there is no append/no-truncate flag. Treat it like `mapping-data-truncate` followed by a bulk load; use `mapping-data-download` to back up first if the data matters.
+- **`mapping-data-upload` truncates existing schema data before loading the new CSV rows** — pass `--do-not-truncate-first` to append instead. Treat the default like `mapping-data-truncate` followed by a bulk load; use `mapping-data-download` to back up first if the data matters.
 - **`mapping-data-delete` accepts at most 100 keys per call** — batch larger deletes into multiple calls.
 - **`source-labels` and `result-labels` must not overlap** on `mapping-schema-create`; max 3 source labels, max 10 result labels. Violating either constraint 400s.
 

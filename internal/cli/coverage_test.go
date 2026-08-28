@@ -15,29 +15,27 @@ import (
 type specOpMeta struct {
 	id        string
 	path      string
-	streaming bool // 200 body is not application/json (e.g. application/x-ndjson)
+	streaming bool // 200 body is application/x-ndjson with no JSON variant
 }
 
 var curatedOperationIDs = map[string]bool{
 	// Uses a path parameter plus bearer trigger token instead of the app_key
 	// generated command runtime. Served by a hand-written path command.
 	"automation-trigger-write-fire": true,
-}
-
-// retiredOperationIDs bridges the release window where the server-side route
-// is gone but the CLI still compiles against the previous released SDK spec.
-var retiredOperationIDs = map[string]bool{
-	"monit-preview-sync":      true,
-	"monit-read-query-rows":   true,
-	"monit-rule-write-status": true,
+	// Multipart/form-data file uploads cannot be assembled from --data/flags;
+	// both are served by curated commands built on the hand-written SDK
+	// upload methods (see upload.go).
+	"mapping-data-write-upload": true,
+	"skill-write-upload":        true,
 }
 
 // loadSpecOps reads every public GET/POST operation from the openapi spec
 // shipped in the linked go-flashduty module — the same spec cligen generates
-// against — recording each op's id, path, and whether its 200 response is a
-// non-JSON streaming body. Streaming ops are served by curated commands (the
-// generated typed-response template cannot model an io.ReadCloser), so the
-// generator-coverage check excludes them.
+// against — recording each op's id, path, and whether its 200 response is an
+// ndjson stream. Streaming ops are served by curated commands (the generated
+// typed-response template cannot model an io.ReadCloser), so the
+// generator-coverage check excludes them. Bounded binary downloads (csv,
+// octet-stream) are NOT streams: the generated command streams Response.Raw.
 func loadSpecOps(t *testing.T) []specOpMeta {
 	t.Helper()
 	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/flashcatcloud/go-flashduty").Output()
@@ -73,27 +71,14 @@ func loadSpecOps(t *testing.T) []specOpMeta {
 			}
 			streaming := false
 			if resp, ok := op.Responses["200"]; ok && len(resp.Content) > 0 {
-				if _, hasJSON := resp.Content["application/json"]; !hasJSON {
-					streaming = true
-				}
+				_, hasJSON := resp.Content["application/json"]
+				_, hasNDJSON := resp.Content["application/x-ndjson"]
+				streaming = !hasJSON && hasNDJSON
 			}
 			ops = append(ops, specOpMeta{id: op.OperationID, path: path, streaming: streaming})
 		}
 	}
 	return ops
-}
-
-// loadSpecPaths returns operationId -> path for every public GET/POST operation.
-func loadSpecPaths(t *testing.T) map[string]string {
-	t.Helper()
-	ids := map[string]string{}
-	for _, op := range loadSpecOps(t) {
-		if retiredOperationIDs[op.id] {
-			continue
-		}
-		ids[op.id] = op.path
-	}
-	return ids
 }
 
 // pathCommand derives the path-is-king command for an API path: the first
@@ -139,7 +124,10 @@ func leafCommandPaths() map[string]bool {
 // the operation without guessing — generated commands provide the path-name and
 // curated commands win the exact name when they already own it.
 func TestEveryOperationHasPathCommand(t *testing.T) {
-	specPaths := loadSpecPaths(t)
+	specPaths := map[string]string{}
+	for _, op := range loadSpecOps(t) {
+		specPaths[op.id] = op.path
+	}
 	leaves := leafCommandPaths()
 	var missing []string
 	for _, apiPath := range specPaths {
@@ -157,21 +145,18 @@ func TestEveryOperationHasPathCommand(t *testing.T) {
 
 // TestGeneratorTargetsFullSpec asserts the generator emitted a command for every
 // non-streaming spec operation (no gaps, no phantom manifest entries from a
-// stale run). Streaming ops (200 body is not application/json) are deliberately
+// stale run). Streaming ops (200 body is application/x-ndjson) are deliberately
 // excluded from generation — they cannot be modeled by the typed-response
 // template and are served by curated commands instead — so the manifest must NOT
 // contain them and they are not required to be generated. A small number of
 // non-streaming operations can also be curated when the generated app_key
-// runtime cannot model their auth or path shape.
+// runtime cannot model their auth, path, or multipart-body shape.
 func TestGeneratorTargetsFullSpec(t *testing.T) {
 	ops := loadSpecOps(t)
 	streaming := map[string]bool{}
 	curated := map[string]bool{}
 	wantGenerated := map[string]bool{}
 	for _, op := range ops {
-		if retiredOperationIDs[op.id] {
-			continue
-		}
 		if op.streaming {
 			streaming[op.id] = true
 			continue
@@ -186,13 +171,12 @@ func TestGeneratorTargetsFullSpec(t *testing.T) {
 	gen := map[string]bool{}
 	for _, id := range generatedOpIDs {
 		gen[id] = true
-		if streaming[id] {
+		switch {
+		case streaming[id]:
 			t.Errorf("manifest op %q is streaming and must not be generated (curated only)", id)
-		}
-		if curated[id] {
+		case curated[id]:
 			t.Errorf("manifest op %q is curated and must not be generated", id)
-		}
-		if !wantGenerated[id] && !streaming[id] && !curated[id] {
+		case !wantGenerated[id]:
 			t.Errorf("manifest op %q is not in the current spec (regenerate cligen)", id)
 		}
 	}

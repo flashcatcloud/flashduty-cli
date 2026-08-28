@@ -16,7 +16,7 @@ func genMcpServersReadServerGetCmd() *cobra.Command {
 		Short: "Get MCP server detail",
 		Long: `Get MCP server detail.
 
-Get one MCP server and run a live probe of its tool list.
+Get one MCP server as a pure database read — no live probe is performed.
 
 API: POST /safari/mcp/server/get (mcp-read-server-get)
 
@@ -25,9 +25,9 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
-  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
-  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -38,23 +38,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
-  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
-  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
+  - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
-  - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within the account.
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
   - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
   - status (string) (required) — Server status. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-  - tool_count (integer) — Number of tools in the live list.
-  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
-    - description (string) (required) — Tool description.
-    - input_schema (object) — JSON Schema describing the tool's input parameters.
-    - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
@@ -122,9 +115,9 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - servers (array<object>) (required) — MCP servers on this page.
     - account_id (integer) (required) — Owning account ID.
-    - ai_description (string) — LLM-generated description, preferred over 'description' when present.
-    - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
-    - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
+    - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
+    - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
+    - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
     - args (array<string>) — Command arguments (stdio transport).
     - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
     - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -135,23 +128,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID that created the server.
     - description (string) (required) — Server description.
     - env (object) — Environment variables (stdio transport). Secret values are masked.
-    - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
-    - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
+    - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
     - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
-    - list_error (string) — Error message when the live tool list failed.
     - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
     - proxy_url (string) — Outbound proxy URL used to reach the server.
     - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
     - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-    - server_name (string) (required) — MCP server name, unique within the account.
+    - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
     - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
     - status (string) (required) — Server status. [enabled, disabled]
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-    - tool_count (integer) — Number of tools in the live list.
-    - tools (array<object>) — Live tool list; populated by the get/test endpoints.
-      - description (string) (required) — Tool description.
-      - input_schema (object) — JSON Schema describing the tool's input parameters.
-      - name (string) (required) — Tool name.
     - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
     - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - url (string) — Server URL (sse / streamable-http transport).
@@ -220,8 +206,7 @@ func genMcpServersWriteServerCreateCmd() *cobra.Command {
 	var fCommand string
 	var fConnectTimeout int64
 	var fDescription string
-	var fEnvironmentID string
-	var fEnvironmentKind string
+	var fEnvironments []string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fServerName string
@@ -248,11 +233,10 @@ Request fields:
   --command string — Executable command (stdio transport).
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string (required) — Server description. (1-1024 chars)
-  --environment-id string — Runner ID; required when environment_kind is byoc.
-  --environment-kind string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). [byoc]
+  --environments []string — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
-  --server-name string (required) — MCP server name, unique within the account. (1-255 chars)
+  --server-name string (required) — MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team), case-insensitive. (1-255 chars)
   --source-template-name string — Marketplace template name when created from a connector template.
   --status string — Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]
   --team-id int — Team scope: 0 = account-wide; >0 = team.
@@ -263,9 +247,9 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
-  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
-  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -276,23 +260,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
-  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
-  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
+  - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
-  - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within the account.
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
   - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
   - status (string) (required) — Server status. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-  - tool_count (integer) — Number of tools in the live list.
-  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
-    - description (string) (required) — Tool description.
-    - input_schema (object) — JSON Schema describing the tool's input parameters.
-    - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
@@ -325,11 +302,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
-					if cmd.Flags().Changed("environment-id") {
-						body["environment_id"] = fEnvironmentID
-					}
-					if cmd.Flags().Changed("environment-kind") {
-						body["environment_kind"] = fEnvironmentKind
+					if cmd.Flags().Changed("environments") {
+						body["environments"] = fEnvironments
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -380,11 +354,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Server description. (required) (1-1024 chars)")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID; required when environment_kind is byoc.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). [byoc]")
+	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
-	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name, unique within the account. (required) (1-255 chars)")
+	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team), case-insensitive. (required) (1-255 chars)")
 	cmd.Flags().StringVar(&fSourceTemplateName, "source-template-name", "", "Marketplace template name when created from a connector template.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope: 0 = account-wide; >0 = team.")
@@ -548,8 +521,7 @@ func genMcpServersWriteServerUpdateCmd() *cobra.Command {
 	var fCommand string
 	var fConnectTimeout int64
 	var fDescription string
-	var fEnvironmentID string
-	var fEnvironmentKind string
+	var fEnvironments []string
 	var fOauthMetadata string
 	var fSecretSchema string
 	var fServerID string
@@ -575,8 +547,7 @@ Request fields:
   --command string — Executable command (stdio transport).
   --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
   --description string — New description; omitted or empty leaves it unchanged. (1-1024 chars)
-  --environment-id string — Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.
-  --environment-kind string — Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.
+  --environments []string — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
   --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
@@ -584,14 +555,14 @@ Request fields:
   --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
   --transport string — Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. [stdio, sse, streamable-http]
   --url string — Server URL (sse / streamable-http transport).
-  env (object, via --data) — Environment variables ('stdio' transport); replaces the whole map, but masked secret values sent back as-is keep their stored values; omit to leave unchanged.
-  headers (object, via --data) — HTTP headers (sse / streamable-http).
+  env (object, via --data) — Environment variables ('stdio' transport); replaces the whole map, but a sensitive key sent back masked or as an empty string keeps its stored value; omit to leave unchanged.
+  headers (object, via --data) — HTTP headers ('sse' / 'streamable-http' transport); replaces the whole map, with the same masked/empty-value preservation as 'env'; omit to leave unchanged.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - ai_description (string) — LLM-generated description, preferred over 'description' when present.
-  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only.
-  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only.
+  - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
+  - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
+  - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
   - args (array<string>) — Command arguments (stdio transport).
   - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
   - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
@@ -602,23 +573,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
   - env (object) — Environment variables (stdio transport). Secret values are masked.
-  - environment_id (string) (required) — Runner ID when environment_kind is byoc; empty otherwise.
-  - environment_kind (string) (required) — Runtime environment kind: empty for automatic selection, or 'byoc' when pinned to a specific runner. 'cloud' cannot be bound to an MCP server. [byoc]
+  - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
   - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
-  - list_error (string) — Error message when the live tool list failed.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - proxy_url (string) — Outbound proxy URL used to reach the server.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within the account.
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
   - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
   - status (string) (required) — Server status. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-  - tool_count (integer) — Number of tools in the live list.
-  - tools (array<object>) — Live tool list; populated by the get/test endpoints.
-    - description (string) (required) — Tool description.
-    - input_schema (object) — JSON Schema describing the tool's input parameters.
-    - name (string) (required) — Tool name.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - url (string) — Server URL (sse / streamable-http transport).
@@ -655,11 +619,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
 					}
-					if cmd.Flags().Changed("environment-id") {
-						body["environment_id"] = fEnvironmentID
-					}
-					if cmd.Flags().Changed("environment-kind") {
-						body["environment_kind"] = fEnvironmentKind
+					if cmd.Flags().Changed("environments") {
+						body["environments"] = fEnvironments
 					}
 					if cmd.Flags().Changed("oauth-metadata") {
 						body["oauth_metadata"] = fOauthMetadata
@@ -707,8 +668,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
 	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description; omitted or empty leaves it unchanged. (1-1024 chars)")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.")
+	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")

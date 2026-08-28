@@ -144,7 +144,7 @@ func TestRenderGenericTable_DetailVertical(t *testing.T) {
 	}
 }
 
-func TestRenderGenericTable_McpServerItemWithEmptyToolsRendersDetail(t *testing.T) {
+func TestRenderGenericTable_McpServerItemRendersDetail(t *testing.T) {
 	var buf bytes.Buffer
 	item := &flashduty.McpServerItem{
 		ServerID:    "mcp_test",
@@ -154,14 +154,13 @@ func TestRenderGenericTable_McpServerItemWithEmptyToolsRendersDetail(t *testing.
 		Status:      "enabled",
 		Transport:   "streamable-http",
 		URL:         "https://mcp.example.com/github",
-		Tools:       []flashduty.McpToolInfo{},
 	}
 	if err := renderGenericTable(tableCtx(&buf), item); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
 	if strings.Contains(got, "No results.") {
-		t.Fatalf("single MCP server item with empty tools was rendered as an empty list:\n%s", got)
+		t.Fatalf("single MCP server item was rendered as an empty list:\n%s", got)
 	}
 	for _, want := range []string{"FIELD", "VALUE", "SERVER_ID", "mcp_test", "SERVER_NAME", "github"} {
 		if !strings.Contains(got, want) {

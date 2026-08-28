@@ -84,8 +84,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - endpoint (string) (required) — Destination URL.
   - error_message (string) — Error message when delivery failed.
   - event_id (string) (required) — Event ID.
-  - event_time (string) (required) — Event time as a formatted timestamp string.
-  - event_type (string) (required) — Event type.
+  - event_time (string) (required) — Event time formatted as 'YYYY-MM-DD HH:MM:SS.ffffff'.
+  - event_type (string) (required) — Event type code. 'i_*' values are incident events (for example 'i_new' = incident created); 'a_*' values are alert events (for example 'a_new' = alert triggered).
   - integration_id (integer) (required) — Integration ID.
   - ref_id (string) — Source object ID.
   - ref_title (string) — Title of the source incident or alert, resolved at query time.
@@ -95,7 +95,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - response_headers (string) — Serialized response headers.
   - status (string) (required) — Delivery outcome. [success, failed]
   - status_code (integer) (required) — HTTP status code.
-  - webhook_type (string) (required) — Source object kind. 'incident' or 'alert'.
+  - webhook_type (string) (required) — Source object kind: 'incident' or 'alert'. [incident, alert]
 `,
 		Example: `  flashduty webhook history-detail --data '{"event_id":"20260412Xatt9hrXsgmFkBR78WF655","integration_id":6113996590131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -171,8 +171,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - endpoint (string) (required) — Destination URL.
     - error_message (string) — Error message when delivery failed.
     - event_id (string) (required) — Unique event identifier for the delivery attempt.
-    - event_time (string) (required) — Event time as a formatted timestamp string.
-    - event_type (string) (required) — Event type (e.g. 'created', 'acknowledged', 'closed').
+    - event_time (string) (required) — Event time formatted as 'YYYY-MM-DD HH:MM:SS.ffffff'.
+    - event_type (string) (required) — Event type code. 'i_*' values are incident events (for example 'i_new' = incident created); 'a_*' values are alert events (for example 'a_new' = alert triggered).
     - integration_id (integer) (required) — Integration ID that triggered the webhook.
     - ref_id (string) — Source object ID (incident ID or alert ID).
     - request_body (string) — Outbound request body payload.
@@ -181,7 +181,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - response_headers (string) — Serialized response headers from the destination.
     - status (string) (required) — Delivery outcome. [success, failed]
     - status_code (integer) (required) — HTTP status code returned by the destination.
-    - webhook_type (string) (required) — Source object kind. 'incident' or 'alert'.
+    - webhook_type (string) (required) — Source object kind: 'incident' or 'alert'. [incident, alert]
   - search_after_ctx (string) (required) — Cursor to pass as 'search_after_ctx' to fetch the next page. Empty when no further pages are available.
   - total (integer) (required) — Total number of matching records.
 `,

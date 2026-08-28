@@ -63,12 +63,12 @@ fduty rum application-create <team_id> \
 
 ### application-create <team-id>
 Create application
-- `--application-name` string (required) — Application name. 1–40 characters.
+- `--application-name` string (required) — Application name. 1–40 characters. (1-40 chars)
 - `--is-private` bool — Restrict access to team members only.
 - `--no-geo` bool — Do not infer geographic location.
 - `--no-ip` bool — Do not collect IP addresses.
 - `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'.
-- `--type` string (required) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
+- `--type` string (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 - response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
 
@@ -90,9 +90,9 @@ Batch get applications
 List applications
 - `--asc` bool — Sort ascending if 'true'.
 - `--is-my-team` bool — If 'true', return only applications belonging to the current user's teams.
-- `--limit` int64 — Page size. Range: 1–100. Default: 20.
-- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. · enum: created_at | updated_at
-- `--page` int64 — Page number (1-based). Default: 1.
+- `--limit` int64 — Page size. Range: 1–100. Default: 20. (1-100)
+- `--orderby` string — Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. · enum: created_at | updated_at
+- `--page` int64 — Page number (1-based). Default: 1. (min 1)
 - `--query` string — Substring match on the application name.
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
@@ -101,12 +101,12 @@ List applications
 ### application-update <application-id>
 Update application
 - `<application-id>` (positional, required) string — Application ID to update. Get application IDs via 'POST /rum/application/list'.
-- `--application-name` string — New application name, 1–40 characters. Omit to leave unchanged.
+- `--application-name` string — New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)
 - `--is-private` bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
 - `--no-geo` bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
 - `--no-ip` bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
 - `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
-- `--type` string — Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
+- `--type` string — Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); tracing (object)
 
 ### application-webhook-test <application-id>
@@ -177,18 +177,41 @@ Count facet value distribution
 - `--dql` string — RUM DQL filter expression applied before counting.
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
 - `--facet-key` string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
+- `--kind` string — Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. · enum: mapping | native
 - `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
 - `--scope` string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
 - `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- `--type` string — Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | · enum: browser | web | javascript | android | ios | miniprogram | harmony | flutter | electron | react-native
 - body-only (`--data`): facet_value (any)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: count (integer); facet_value (any)
 
 ### field-list
 List RUM fields
 - `--is-facet` bool — When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.
-- `--scopes` stringSlice — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
+- `--scopes` stringSlice — Filter by RUM data scopes; unknown values are rejected with a parameter error. Omit to list fields of all scopes. | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
+
+### issue-export
+Export issues as CSV
+- `--application-ids` stringSlice — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
+- `--asc` bool — Sort ascending when 'true'; descending by default.
+- `--by-intersection` bool — When 'true', match by time-range overlap: export issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' exports only issues created inside the window.
+- `--console-origin` string — Console origin used to build the 'issue_url' column, e.g. 'https://console.flashcat.cloud'. The service cannot infer it (SaaS, on-premises and dev releases answer on different origins).
+- `--dql` string — DQL query for advanced filtering. Cannot be used with 'sql'.
+- `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
+- `--error-required` bool — If 'true', only export issues with at least one associated error event.
+- `--export-fields` stringSlice — CSV columns to export, in the order they appear. Unknown keys are rejected with a parameter error; an empty array uses the default column set. | Value | Column content | |---|---| | 'issue_id' | Issue ID | | 'issue_url' | Console URL of the issue detail page (built from 'console_origin') | | 'application_name' | Owning application name | | 'service' | Service name | | 'error_type' | Error type | | 'error_message' | Error message | | 'status' | Triage status | | 'severity' | Severity | | 'is_crash' | Whether the error caused a crash | | 'error_count' | Error occurrence count | | 'session_count' | Affected session count | | 'first_seen_at' | First occurrence time (rendered in 'time_zone') | | 'first_seen_version' | Application version at first occurrence | | 'last_seen_at' | Most recent occurrence time (rendered in 'time_zone') | | 'last_seen_version' | Application version at the most recent occurrence | | 'versions' | All affected versions | | 'suspected_cause' | Suspected cause category | | 'resolved_at' | Resolution time (rendered in 'time_zone') | · enum: issue_id | issue_url | application_name | service | error_type | error_message | status | severity | is_crash | error_count | session_count | first_seen_at | first_seen_version | last_seen_at | last_seen_version | versions | suspected_cause | resolved_at
+- `--limit` int64 — Page size (1–100). Ignored by the export — the row cap is fixed at 100. (1-100)
+- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
+- `--page` int64 — Page number (1-based). Ignored by the export — the first 100 matching rows are always read. (min 1)
+- `--search-after-ctx` string
+- `--sql` string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
+- `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
+- `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+- `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
+- `--time-zone` string — IANA time zone used to render timestamps in the CSV, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'.
 
 ### issue-info <issue-id>
 Get issue detail
@@ -201,16 +224,16 @@ List issues
 - `--asc` bool — Sort ascending when 'true'; descending by default.
 - `--by-intersection` bool — When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.
 - `--dql` string — DQL query for advanced filtering. Cannot be used with 'sql'.
-- `--end-time` int64 (required) — End of time range, millisecond timestamp. Maximum range: 183 days.
+- `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
 - `--error-required` bool — If 'true', only return issues with at least one associated error event.
-- `--limit` int64 — Page size. Range: 1–100. Default: 20.
-- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. · enum: created_at | updated_at | session_count | error_count
-- `--page` int64 — Page number (1-based). Default: 1.
+- `--limit` int64 — Page size. Range: 1–100. Default: 20. (1-100)
+- `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
+- `--page` int64 — Page number (1-based). Default: 1. (min 1)
 - `--search-after-ctx` string
 - `--sql` string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
-- `--statuses` stringSlice — Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. · enum: for_review | reviewed | ignored | resolved
-- `--suspected-causes` stringSlice — Filter by suspected cause; see the enum for valid values. · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
+- `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
+- `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
@@ -276,7 +299,7 @@ Update preset severity rule
 ### issue-update <issue-id>
 Update issue
 - `<issue-id>` (positional, required) string — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
-- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. · enum: for_review | reviewed | ignored | resolved
+- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-cause` string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 
 ### resource-info

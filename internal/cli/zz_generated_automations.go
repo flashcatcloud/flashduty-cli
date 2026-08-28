@@ -33,20 +33,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
-  - http_post_trigger_id (string) — HTTP POST trigger ID.
-  - http_post_trigger_url (string) — HTTP POST trigger path.
+  - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
+  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
-  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
-  - schedule_trigger_id (string) — Schedule trigger ID.
+  - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -105,7 +105,7 @@ API: POST /safari/automation/rule/list (automation-rule-read-list)
 
 Request fields:
   --page int — Page number, 1-based.
-  --limit int — Page size. (max 100)
+  --limit int — Page size.
   --search-after-ctx string
   --enabled bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
   --include-person bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
@@ -124,20 +124,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
     - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
     - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
-    - http_post_trigger_id (string) — HTTP POST trigger ID.
-    - http_post_trigger_url (string) — HTTP POST trigger path.
+    - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
+    - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
     - name (string) (required) — Rule name.
-    - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-    - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+    - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
+    - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
     - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
-    - oncall_incident_trigger_id (string) — On-call incident trigger ID.
+    - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
     - owner_id (integer) (required) — Creator person ID.
     - prompt (string) (required) — Task prompt.
     - rule_id (string) (required) — Rule ID.
     - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
     - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
-    - schedule_trigger_id (string) — Schedule trigger ID.
+    - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
     - team_id (integer) (required) — Scope team ID; 0 means personal rule.
     - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -189,7 +189,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (max 100)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.")
 	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Compatibility field; when scope is empty and this is false, behaves like team scope.")
@@ -236,7 +236,7 @@ Request fields:
   --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
-  --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
+  --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)
   --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -249,20 +249,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
-  - http_post_trigger_id (string) — HTTP POST trigger ID.
-  - http_post_trigger_url (string) — HTTP POST trigger path.
+  - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
+  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
-  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
-  - schedule_trigger_id (string) — Schedule trigger ID.
+  - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -338,7 +338,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -483,7 +483,7 @@ API: POST /safari/automation/rule/update (automation-rule-write-update)
 Request fields:
   --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
   --name string — New rule name. (≤255 chars)
-  --team-id int — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
+  --team-id int — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
   --enabled bool — Whether the rule is enabled.
   --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled.
@@ -506,20 +506,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
-  - http_post_trigger_id (string) — HTTP POST trigger ID.
-  - http_post_trigger_url (string) — HTTP POST trigger path.
+  - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
+  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
   - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
+  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
-  - oncall_incident_trigger_id (string) — On-call incident trigger ID.
+  - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
   - owner_id (integer) (required) — Creator person ID.
   - prompt (string) (required) — Task prompt.
   - rule_id (string) (required) — Rule ID.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
-  - schedule_trigger_id (string) — Schedule trigger ID.
+  - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -593,7 +593,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&fName, "name", "", "New rule name. (≤255 chars)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Only the current value is accepted; personal/team scope is immutable after creation. (min 0)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
 	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled.")
@@ -630,12 +630,12 @@ API: POST /safari/automation/run/list (automation-run-read-list)
 
 Request fields:
   --page int — Page number, 1-based.
-  --limit int — Page size. (max 100)
+  --limit int — Page size.
   --search-after-ctx string
   --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
-  --started-after-ms int — Start-time lower bound, Unix milliseconds.
-  --started-before-ms int — Start-time upper bound, Unix milliseconds.
-  --status string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
+  --started-after-ms int — Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)
+  --started-before-ms int — Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)
+  --status string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
   --trigger-kind string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -645,16 +645,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - completed_at (string) (required) — Completion time, Unix milliseconds. 0 means not completed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - duration_ms (integer) (required) — Duration in milliseconds.
-    - error_code (string) — Error code.
-    - error_message (string) — Error message.
-    - kind (string) (required) — Run kind.
+    - error_code (string) (required) — Error code; empty when the run did not fail.
+    - error_message (string) (required) — Error message; empty when the run did not fail.
+    - kind (string) (required) — Run kind; runs listed for a rule are always 'automation_rule'. [automation_rule]
     - occurrence_key (string) (required) — Idempotency key for this occurrence.
-    - result_json (any) — Run result JSON.
+    - result_json (object) (required) — Raw run result JSON (carries the run's 'session_id' once started); null when empty.
     - rule_id (string) (required) — Rule ID.
     - run_id (string) (required) — Run ID.
+    - session_id (string) — Session created for this run, extracted from 'result_json'. Omitted when the run has not (yet) started a session.
+    - session_name (string) — Display name of the run's session, stamped via a batch lookup. Omitted when empty or when the lookup fails.
     - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - stats_json (any) — Run stats JSON.
-    - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]
+    - stats_json (object) (required) — Raw run statistics JSON; null when empty.
+    - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | | 'blocked' | Terminal: the run produced output but ended with a connector waiting on a human to complete authorization (distinct from 'failed') | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
     - trigger_kind (string) (required) — Trigger kind. One of: | Value | Meaning | | --- | --- | | 'schedule' | Fired by the rule's schedule trigger | | 'debug' | Debug run (reserved; current rule runs never carry this kind) | | 'manual' | Triggered manually by a user | | 'http_post' | Fired via the rule's HTTP POST webhook | | 'oncall_incident' | Fired by an on-call incident event | [schedule, debug, manual, http_post, oncall_incident]
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total count.
@@ -709,12 +711,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (max 100)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
-	cmd.Flags().Int64Var(&fStartedAfterMs, "started-after-ms", 0, "Start-time lower bound, Unix milliseconds.")
-	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned]")
+	cmd.Flags().Int64Var(&fStartedAfterMs, "started-after-ms", 0, "Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)")
+	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]")
 	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -738,7 +740,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - templates (array<object>) (required) — Array of built-in automation templates, with display text localized by the request 'locale' (falling back to request headers).
     - description (string) (required) — Template description.
-    - enabled (boolean) (required) — Whether the template is enabled.
+    - enabled (boolean) (required) — Whether a rule created from this template starts out enabled (prefill value).
     - icon (string) (required) — Icon identifier.
     - name (string) (required) — Template name.
     - prompt (string) (required) — Template prompt.

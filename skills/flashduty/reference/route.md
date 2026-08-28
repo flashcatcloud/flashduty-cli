@@ -62,7 +62,7 @@ List routing rules
 ### upsert <integration-id>
 Upsert routing rule
 - `<integration-id>` (positional, required) int64 — Integration the rule belongs to.
-- `--version` int64 — Expected current version for optimistic concurrency control. Pass the value returned by the latest read.
+- `--version` int64 — Reserved for optimistic concurrency control; currently ignored — the server increments 'version' automatically on every upsert.
 - body-only (`--data`): cases (array<object>); default (object); sections (array<object>)
 
 <!-- GENERATED:route END -->

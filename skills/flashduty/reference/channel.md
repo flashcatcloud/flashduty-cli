@@ -51,7 +51,7 @@ Create channel
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
 - `--plugin-ids` intSlice — IDs of plugins (integrations) subscribed to this channel.
 - `--team-id` int64 (required) — Owning team ID; obtain it from 'POST /team/list'.
-- body-only (`--data`): escalate_rule (object); flapping (object); group (object)
+- body-only (`--data`): escalate_rule (object); event_group (object); flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: channel_id (integer); channel_name (string); external_report_token (string)
 
 ### delete <channel-id>
@@ -69,7 +69,7 @@ Enable channel
 ### info <channel-id>
 Get channel detail
 - `<channel-id>` (positional, required) int64 — ID of the channel to query; obtain it from 'POST /channel/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); event_group (object); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
 
 ### infos <channel-id> [<id2>...]
 Batch get channels
@@ -80,11 +80,11 @@ Batch get channels
 List channels
 - `--name` string
 - `--team-ids` int64Slice
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); event_group (object); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
 
 ### update <channel-id>
 Update channel
-- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. · enum: trigger | update
+- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. Applied only when 'auto_resolve_timeout' is also present in the request. · enum: trigger | update
 - `--auto-resolve-timeout` int64 — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
 - `<channel-id>` (positional, required) int64 — ID of the channel to update; obtain it from 'POST /channel/list'.
 - `--channel-name` string — New channel name. 1 to 59 characters. (1-59 chars)
@@ -95,7 +95,7 @@ Update channel
 - `--is-private` bool — When true, the channel is visible only to its managing teams.
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
 - `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
-- body-only (`--data`): flapping (object); group (object)
+- body-only (`--data`): event_group (object); flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: external_report_token (string)
 
 <!-- GENERATED:channel END -->

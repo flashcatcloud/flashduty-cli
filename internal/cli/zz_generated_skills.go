@@ -86,7 +86,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
   - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
-  - skill_name (string) (required) — Skill name, unique within the account.
+  - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
   - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
@@ -95,6 +95,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
   - update_available (boolean) (required) — True when the marketplace has a newer template version.
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
@@ -173,7 +174,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - license (string) — Skill license.
     - s3_key (string) — Object-storage key of the skill zip.
     - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
-    - skill_name (string) (required) — Skill name, unique within the account.
+    - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
     - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
     - source_template_version (string) — Template version at install time.
     - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
@@ -182,6 +183,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
     - update_available (boolean) (required) — True when the marketplace has a newer template version.
     - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
     - version (string) — Skill version from the frontmatter.
   - total (integer) (required) — Total number of matching skills.
 `,
@@ -370,7 +372,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
   - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
-  - skill_name (string) (required) — Skill name, unique within the account.
+  - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
   - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
@@ -379,6 +381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
   - update_available (boolean) (required) — True when the marketplace has a newer template version.
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
@@ -426,64 +429,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
-func genSkillsWriteUploadCmd() *cobra.Command {
-	var dataJSON string
-	cmd := &cobra.Command{
-		Use:   "skill-upload",
-		Short: "Upload skill",
-		Long: `Upload skill.
-
-Upload a skill archive (.skill/.zip/.tar.gz/.tgz) to create or replace a skill.
-
-API: POST /safari/skill/upload (skill-write-upload)
-
-Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Owning account ID.
-  - author (string) — Skill author.
-  - can_edit (boolean) (required) — Whether the caller may edit this skill.
-  - checksum (string) — SHA-256 checksum of the skill zip.
-  - content (string) — Full SKILL.md content. Omitted in list responses.
-  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
-  - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - created_by (integer) (required) — Member ID that created the skill.
-  - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
-  - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
-  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
-  - license (string) — Skill license.
-  - s3_key (string) — Object-storage key of the skill zip.
-  - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
-  - skill_name (string) (required) — Skill name, unique within the account.
-  - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
-  - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
-  - tags (array<string>) — Tags parsed from the frontmatter.
-  - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
-  - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
-  - update_available (boolean) (required) — True when the marketplace has a newer template version.
-  - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - version (string) — Skill version from the frontmatter.
-`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				_ = body
-				out, _, err := ctx.Client.Skills.WriteUpload(cmdContext(ctx.Cmd))
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func registerGeneratedSkills(root *cobra.Command) {
 	gSafari := genGroup(root, "safari", "AI SRE API")
 	genAddLeaf(gSafari, genSkillsReadEnableCmd())
@@ -492,5 +437,4 @@ func registerGeneratedSkills(root *cobra.Command) {
 	genAddLeaf(gSafari, genSkillsWriteDeleteCmd())
 	genAddLeaf(gSafari, genSkillsWriteDisableCmd())
 	genAddLeaf(gSafari, genSkillsWriteUpdateCmd())
-	genAddLeaf(gSafari, genSkillsWriteUploadCmd())
 }

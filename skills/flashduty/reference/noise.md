@@ -58,8 +58,8 @@ fduty channel silence-rule-list <channel-id> --output-format toon
 Create inhibit rule
 - `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
-- `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
+- `--equals` stringSlice (required) — Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'.
+- `--is-directly-discard` bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): source_filters (array<array<object>>); target_filters (array<array<object>>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
@@ -82,14 +82,14 @@ Enable inhibit rule
 ### inhibit-rule-list <channel-id>
 List inhibit rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); description (string); equals (array<string>); is_directly_discard (boolean); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (string); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); deleted_at (string); description (string); equals (array<string>); is_directly_discard (boolean); rule_id (string); rule_name (string); source_filters (object); status (string); target_filters (object); updated_at (string); updated_by (integer)
 
 ### inhibit-rule-update
 Update inhibit rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--equals` stringSlice (required) — Label keys used to pair source and target alerts.
-- `--is-directly-discard` bool — When true, suppressed target alerts are dropped instead of merged.
+- `--equals` stringSlice (required) — Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'.
+- `--is-directly-discard` bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
 - `--rule-id` string (required) — Inhibit rule ID (MongoDB ObjectID).
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): source_filters (object); target_filters (object)
@@ -98,9 +98,9 @@ Update inhibit rule
 Create silence rule
 - `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--from-incident-id` string — Source incident ID when the silence was created from an incident.
+- `--from-incident-id` string — Incident ID (ObjectID hex) to attach the rule to. Optional; when set, only one enabled silence rule may exist per incident.
 - `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-- `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
+- `--is-directly-discard` bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array<object>>); time_filter (object); time_filters (array<object>)
 - response: same shape as `inhibit-rule-create <channel-id>` above
@@ -123,14 +123,14 @@ Enable silence rule
 ### silence-rule-list <channel-id>
 List silence rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (string); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); deleted_at (string); description (string); filters (object); from_incident_id (string); is_auto_delete (boolean); is_directly_discard (boolean); is_effective (boolean); rule_id (string); rule_name (string); status (string); time_filter (object); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### silence-rule-update
 Update silence rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
 - `--is-auto-delete` bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-- `--is-directly-discard` bool — When true, silenced alerts are dropped instead of suppressed into incidents.
+- `--is-directly-discard` bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
 - `--rule-id` string (required) — Silence rule ID (MongoDB ObjectID).
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (object); time_filter (object); time_filters (array<object>)
@@ -139,7 +139,6 @@ Update silence rule
 Create drop rule
 - `<channel-id>` (positional, required) int64 — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (array<array<object>>)
 - response: same shape as `inhibit-rule-create <channel-id>` above
@@ -162,13 +161,12 @@ Enable drop rule
 ### unsubscribe-rule-list <channel-id>
 List drop rules
 - `<channel-id>` (positional, required) int64 — Channel to list rules for.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); description (string); filters (object); rule_id (string); rule_name (string); status (string); updated_at (string); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); channel_id (integer); created_at (string); deleted_at (string); description (string); filters (object); rule_id (string); rule_name (string); status (string); updated_at (string); updated_by (integer)
 
 ### unsubscribe-rule-update
 Update drop rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
 - `--rule-id` string (required) — Drop rule ID (MongoDB ObjectID).
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
 - body-only (`--data`): filters (object)

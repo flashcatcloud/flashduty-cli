@@ -8,6 +8,156 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genIssuesReadExportCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fApplicationIDs []string
+	var fAsc bool
+	var fByIntersection bool
+	var fConsoleOrigin string
+	var fDql string
+	var fEndTime int64
+	var fErrorRequired bool
+	var fExportFields []string
+	var fOrderby string
+	var fSql string
+	var fStartTime int64
+	var fStatuses []string
+	var fSuspectedCauses []string
+	var fTeamIDs []int
+	var fTimeZone string
+	cmd := &cobra.Command{
+		Use:   "issue-export",
+		Short: "Export issues as CSV",
+		Long: `Export issues as CSV.
+
+Export the filtered RUM error tracking issues as a CSV file. The response is a 'text/csv' stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope; non-console callers can read the 'X-Export-Total' and 'X-Export-Truncated' response headers.
+
+API: POST /rum/issue/export (rum-issue-read-export)
+
+Request fields:
+  --page int — Page number (1-based). Ignored by the export — the first 100 matching rows are always read. (min 1)
+  --limit int — Page size (1–100). Ignored by the export — the row cap is fixed at 100. (1-100)
+  --search-after-ctx string
+  --application-ids []string — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
+  --asc bool — Sort ascending when 'true'; descending by default.
+  --by-intersection bool — When 'true', match by time-range overlap: export issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' exports only issues created inside the window.
+  --console-origin string — Console origin used to build the 'issue_url' column, e.g. 'https://console.flashcat.cloud'. The service cannot infer it (SaaS, on-premises and dev releases answer on different origins).
+  --dql string — DQL query for advanced filtering. Cannot be used with 'sql'.
+  --end-time int (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
+  --error-required bool — If 'true', only export issues with at least one associated error event.
+  --export-fields []string — CSV columns to export, in the order they appear. Unknown keys are rejected with a parameter error; an empty array uses the default column set. | Value | Column content | |---|---| | 'issue_id' | Issue ID | | 'issue_url' | Console URL of the issue detail page (built from 'console_origin') | | 'application_name' | Owning application name | | 'service' | Service name | | 'error_type' | Error type | | 'error_message' | Error message | | 'status' | Triage status | | 'severity' | Severity | | 'is_crash' | Whether the error caused a crash | | 'error_count' | Error occurrence count | | 'session_count' | Affected session count | | 'first_seen_at' | First occurrence time (rendered in 'time_zone') | | 'first_seen_version' | Application version at first occurrence | | 'last_seen_at' | Most recent occurrence time (rendered in 'time_zone') | | 'last_seen_version' | Application version at the most recent occurrence | | 'versions' | All affected versions | | 'suspected_cause' | Suspected cause category | | 'resolved_at' | Resolution time (rendered in 'time_zone') | [issue_id, issue_url, application_name, service, error_type, error_message, status, severity, is_crash, error_count, session_count, first_seen_at, first_seen_version, last_seen_at, last_seen_version, versions, suspected_cause, resolved_at]
+  --orderby string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | [created_at, updated_at, session_count, error_count, severity]
+  --sql string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
+  --start-time int (required) — Start of the time range, Unix epoch milliseconds.
+  --statuses []string — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
+  --suspected-causes []string — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
+  --time-zone string — IANA time zone used to render timestamps in the CSV, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'.
+`,
+		Example: `  flashduty rum issue-export --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD"],"console_origin":"https://console.flashcat.cloud","end_time":1775961914595,"export_fields":["issue_id","error_type","error_message","status","error_count","session_count","last_seen_at"],"orderby":"updated_at","start_time":1772611200000,"statuses":["for_review"],"time_zone":"Asia/Shanghai"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("application-ids") {
+						body["application_ids"] = fApplicationIDs
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("by-intersection") {
+						body["by_intersection"] = fByIntersection
+					}
+					if cmd.Flags().Changed("console-origin") {
+						body["console_origin"] = fConsoleOrigin
+					}
+					if cmd.Flags().Changed("dql") {
+						body["dql"] = fDql
+					}
+					if cmd.Flags().Changed("end-time") {
+						body["end_time"] = fEndTime
+					}
+					if cmd.Flags().Changed("error-required") {
+						body["error_required"] = fErrorRequired
+					}
+					if cmd.Flags().Changed("export-fields") {
+						body["export_fields"] = fExportFields
+					}
+					if cmd.Flags().Changed("orderby") {
+						body["orderby"] = fOrderby
+					}
+					if cmd.Flags().Changed("sql") {
+						body["sql"] = fSql
+					}
+					if cmd.Flags().Changed("start-time") {
+						body["start_time"] = fStartTime
+					}
+					if cmd.Flags().Changed("statuses") {
+						body["statuses"] = fStatuses
+					}
+					if cmd.Flags().Changed("suspected-causes") {
+						body["suspected_causes"] = fSuspectedCauses
+					}
+					if cmd.Flags().Changed("team-ids") {
+						body["team_ids"] = fTeamIDs
+					}
+					if cmd.Flags().Changed("time-zone") {
+						body["time_zone"] = fTimeZone
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.RUMIssueExportRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Issues.ReadExport(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /rum/issue/export")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Ignored by the export — the first 100 matching rows are always read. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1–100). Ignored by the export — the row cap is fixed at 100. (1-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
+	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Filter by application IDs. Get IDs via 'POST /rum/application/list'.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; descending by default.")
+	cmd.Flags().BoolVar(&fByIntersection, "by-intersection", false, "When 'true', match by time-range overlap: export issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' exports only issues created inside the window.")
+	cmd.Flags().StringVar(&fConsoleOrigin, "console-origin", "", "Console origin used to build the 'issue_url' column, e.g. 'https://console.flashcat.cloud'. The service cannot infer it (SaaS, on-premises and dev releases answer on different origins).")
+	cmd.Flags().StringVar(&fDql, "dql", "", "DQL query for advanced filtering. Cannot be used with 'sql'.")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days. (required)")
+	cmd.Flags().BoolVar(&fErrorRequired, "error-required", false, "If 'true', only export issues with at least one associated error event.")
+	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV columns to export, in the order they appear. Unknown keys are rejected with a parameter error; an empty array uses the default column set. | Value | Column content | |---|---| | 'issue_id' | Issue ID | | 'issue_url' | Console URL of the issue detail page (built from 'console_origin') | | 'application_name' | Owning application name | | 'service' | Service name | | 'error_type' | Error type | | 'error_message' | Error message | | 'status' | Triage status | | 'severity' | Severity | | 'is_crash' | Whether the error caused a crash | | 'error_count' | Error occurrence count | | 'session_count' | Affected session count | | 'first_seen_at' | First occurrence time (rendered in 'time_zone') | | 'first_seen_version' | Application version at first occurrence | | 'last_seen_at' | Most recent occurrence time (rendered in 'time_zone') | | 'last_seen_version' | Application version at the most recent occurrence | | 'versions' | All affected versions | | 'suspected_cause' | Suspected cause category | | 'resolved_at' | Resolution time (rendered in 'time_zone') | [issue_id, issue_url, application_name, service, error_type, error_message, status, severity, is_crash, error_count, session_count, first_seen_at, first_seen_version, last_seen_at, last_seen_version, versions, suspected_cause, resolved_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | [created_at, updated_at, session_count, error_count, severity]")
+	cmd.Flags().StringVar(&fSql, "sql", "", "SQL-style query for advanced filtering. Cannot be used with 'dql'.")
+	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
+	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. Get team IDs via 'POST /team/list'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone used to render timestamps in the CSV, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIssuesReadInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fIssueID string
@@ -24,7 +174,7 @@ Request fields:
   --issue-id string (required) — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
+  - age (integer) — Time span between the first and most recent occurrence, in seconds.
   - application_id (string) — ID of the RUM application this issue belongs to.
   - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
   - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -41,15 +191,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
   - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-    - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - regressed_at (string) — Time the regression was detected, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - regressed_at_version (string) — Application version in which the regression was observed.
     - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
   - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
   - session_count (integer) — Affected user sessions.
-  - severity (string) — Issue severity level.
-  - status (string) — Triage status of the issue: 'for_review', 'reviewed', 'ignored', or 'resolved'; soft-deleted ('deleted') issues are never returned. [for_review, reviewed, ignored, resolved]
+  - severity (string) — Issue severity: 'Critical', 'Warning', or 'Info'. Empty string on legacy issues created before severity existed. [Critical, Warning, Info]
+  - status (string) — Triage status of the issue; soft-deleted ('deleted') issues are never returned. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
   - suspected_cause (object) — Suspected root cause analysis, determined automatically (rules or AI) or set manually by a user.
     - person_id (integer) — Person ID of the user who manually set the cause; 0 when 'source' is 'auto'.
     - reason (string) — Explanation for the cause determination, generated only by AI analysis; empty string when AI is disabled or analysis has not run.
@@ -119,26 +269,26 @@ Return a paginated list of RUM error tracking issues matching the given filters.
 API: POST /rum/issue/list (rum-issue-read-list)
 
 Request fields:
-  --page int — Page number (1-based). Default: 1.
-  --limit int — Page size. Range: 1–100. Default: 20.
+  --page int — Page number (1-based). Default: 1. (min 1)
+  --limit int — Page size. Range: 1–100. Default: 20. (1-100)
   --search-after-ctx string
   --application-ids []string — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
   --asc bool — Sort ascending when 'true'; descending by default.
   --by-intersection bool — When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.
   --dql string — DQL query for advanced filtering. Cannot be used with 'sql'.
-  --end-time int (required) — End of time range, millisecond timestamp. Maximum range: 183 days.
+  --end-time int (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
   --error-required bool — If 'true', only return issues with at least one associated error event.
-  --orderby string — Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at, session_count, error_count]
+  --orderby string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | [created_at, updated_at, session_count, error_count, severity]
   --sql string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
   --start-time int (required) — Start of the time range, Unix epoch milliseconds.
-  --statuses []string — Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. [for_review, reviewed, ignored, resolved]
-  --suspected-causes []string — Filter by suspected cause; see the enum for valid values. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
+  --statuses []string — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
+  --suspected-causes []string — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
   --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
   - items (array<object>) — Issues of the current page.
-    - age (integer) — Time span between the first and most recent occurrence, in seconds. Note: the struct comment at 'model/issue/issue.go:40' says millisecond, but the value is computed and consumed (severity rules) in seconds — the comment is stale.
+    - age (integer) — Time span between the first and most recent occurrence, in seconds.
     - application_id (string) — ID of the RUM application this issue belongs to.
     - application_name (string) — Name of the owning application, resolved by 'application_id' at query time (reflects the application's current name).
     - created_at (string) — Issue creation time (client time of the first error event), Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -155,15 +305,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - timestamp (string) — Client time of the most recent error event, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - version (string) — Application version at the most recent occurrence; empty string when the event carries no version.
     - regression (object) — Regression metadata. Present only when a previously resolved issue re-occurred.
-      - regressed_at (string) — Timestamp when the regression was detected. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - regressed_at (string) — Time the regression was detected, Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - regressed_at_version (string) — Application version in which the regression was observed.
       - resolved_at (string) — When the issue was resolved before this regression, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - resolved_at (string) — Time the issue was marked resolved, Unix timestamp in milliseconds; 0 while unresolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - resolved_by (integer) — Person ID of the user who marked the issue resolved; 0 while unresolved.
     - service (string) — Name of the service that produced this issue, taken from the error event's 'service' field.
     - session_count (integer) — Affected user sessions.
-    - severity (string) — Issue severity level.
-    - status (string) — Triage status of the issue: 'for_review', 'reviewed', 'ignored', or 'resolved'; soft-deleted ('deleted') issues are never returned. [for_review, reviewed, ignored, resolved]
+    - severity (string) — Issue severity: 'Critical', 'Warning', or 'Info'. Empty string on legacy issues created before severity existed. [Critical, Warning, Info]
+    - status (string) — Triage status of the issue; soft-deleted ('deleted') issues are never returned. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
     - suspected_cause (object) — Suspected root cause analysis, determined automatically (rules or AI) or set manually by a user.
       - person_id (integer) — Person ID of the user who manually set the cause; 0 when 'source' is 'auto'.
       - reason (string) — Explanation for the cause determination, generated only by AI analysis; empty string when AI is disabled or analysis has not run.
@@ -240,20 +390,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Filter by application IDs. Get IDs via 'POST /rum/application/list'.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; descending by default.")
 	cmd.Flags().BoolVar(&fByIntersection, "by-intersection", false, "When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.")
 	cmd.Flags().StringVar(&fDql, "dql", "", "DQL query for advanced filtering. Cannot be used with 'sql'.")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of time range, millisecond timestamp. Maximum range: 183 days. (required)")
+	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days. (required)")
 	cmd.Flags().BoolVar(&fErrorRequired, "error-required", false, "If 'true', only return issues with at least one associated error event.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at, session_count, error_count]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | [created_at, updated_at, session_count, error_count, severity]")
 	cmd.Flags().StringVar(&fSql, "sql", "", "SQL-style query for advanced filtering. Cannot be used with 'dql'.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
-	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by status; only the enum values are accepted — any other value is rejected with a parameter error. [for_review, reviewed, ignored, resolved]")
-	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause; see the enum for valid values. [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
+	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -275,7 +425,7 @@ API: POST /rum/issue/update (rum-issue-write-update)
 
 Request fields:
   --issue-id string (required) — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
-  --status string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. [for_review, reviewed, ignored, resolved]
+  --status string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
   --suspected-cause string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
 `,
 		Args:    requireBodyFieldOrExactArg("issue_id", "issue-id"),
@@ -317,7 +467,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIssueID, "issue-id", "", "Issue ID to update. Get issue IDs via 'POST /rum/issue/list'. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. One of 'for_review' (pending triage), 'reviewed', 'ignored', 'resolved'. [for_review, reviewed, ignored, resolved]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringVar(&fSuspectedCause, "suspected-cause", "", "New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -325,6 +475,7 @@ Request fields:
 
 func registerGeneratedIssues(root *cobra.Command) {
 	gRUM := genGroup(root, "rum", "RUM API")
+	genAddLeaf(gRUM, genIssuesReadExportCmd())
 	genAddLeaf(gRUM, genIssuesReadInfoCmd())
 	genAddLeaf(gRUM, genIssuesReadListCmd())
 	genAddLeaf(gRUM, genIssuesWriteUpdateCmd())

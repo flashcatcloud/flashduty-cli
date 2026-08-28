@@ -16,23 +16,23 @@ Return the current account's profile and settings.
 API: POST /account/info (account-read-info)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) — Account identifier.
-  - account_name (string) — Account name.
-  - avatar (string) — Account avatar URL.
-  - country_code (string) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
-  - created_at (string) — Account creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - domain (string) — Primary account domain (login subdomain).
-  - email (string) — Account contact email.
-  - extra_domains (array<string>) — Additional account domains.
-  - locale (string) — Account language preference (e.g. zh-CN, en-US).
-  - mp_account_id (string) — Account identifier on the cloud marketplace platform (present only for marketplace accounts).
-  - mp_plat (string) — Cloud marketplace platform the account was provisioned from (present only for marketplace accounts).
-  - phone (string) — Account contact phone, masked for privacy.
-  - restrictions (object) — Account access restrictions (present only when configured).
+  - account_id (integer) (required) — Account identifier.
+  - account_name (string) (required) — Account name.
+  - avatar (string) (required) — Account avatar URL.
+  - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
+  - created_at (string) (required) — Account creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - domain (string) (required) — Primary account domain (login subdomain).
+  - email (string) (required) — Account contact email.
+  - extra_domains (array<string>) (required) — Additional account domains.
+  - locale (string) (required) — Account language preference (e.g. zh-CN, en-US).
+  - mp_account_id (string) — Account identifier on the marketplace platform. Omitted together with 'mp_plat'.
+  - mp_plat (string) — Cloud marketplace platform the account was provisioned from. Omitted when the account did not come from a marketplace.
+  - phone (string) (required) — Account contact phone, masked for privacy.
+  - restrictions (object) — Account access restrictions. Omitted when none are configured.
     - allow_subdomain (boolean) — Whether subdomains of the allowed email domains are also accepted.
     - email_domains (array<string>) — Allowed login email domains.
     - ips (array<string>) — Allowed source IP/CIDR whitelist.
-  - time_zone (string) — Account default timezone (IANA name, e.g. Asia/Shanghai).
+  - time_zone (string) (required) — Account default timezone (IANA name, e.g. Asia/Shanghai).
 `,
 		Example: `  flashduty account info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -25,7 +25,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — ID of the account that owns the rule.
-  - action (string) (required) — Action performed, e.g. 'create', 'update'.
+  - action (string) (required) — Action performed: 'create' = rule created; 'update' = rule updated (covers full updates, field-batch updates, imports and moves). [create, update]
   - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
   - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
   - created_at (string) (required) — When this audit record was produced, as a Unix timestamp in seconds; equals the rule's 'updated_at' at change time. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -79,7 +79,7 @@ Request fields:
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — ID of the account that owns the rule.
-  - action (string) (required) — Action performed, e.g. 'create', 'update'.
+  - action (string) (required) — Action performed: 'create' = rule created; 'update' = rule updated (covers full updates, field-batch updates, imports and moves). [create, update]
   - alert_rule_id (integer) (required) — ID of the alert rule this record belongs to.
   - content (string) — JSON string of the full rule snapshot at audit time. Populated on '/monit/rule/audit/detail', omitted on list responses.
   - created_at (string) (required) — When this audit record was produced, as a Unix timestamp in seconds; equals the rule's 'updated_at' at change time. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -361,11 +361,13 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -434,7 +436,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - description (string) — Rule description, in Markdown.
   - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
-  - ds_list (array<string>) — Data source name patterns (supports wildcards).
+  - ds_list (array<string>) — Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.
   - ds_type (string) (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
   - enabled (boolean) (required) — Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.
   - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
@@ -447,7 +449,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - name (string) (required) — Rule name. Must be unique within the same folder.
   - repeat_interval (integer) — Notification repeat interval in seconds.
   - repeat_total (integer) — Max number of repeat notifications.
-  - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
+  - rule_configs (object) (required) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
       - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
       - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
@@ -474,11 +476,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -525,6 +529,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genAlertRulesReadListCmd() *cobra.Command {
 	var dataJSON string
 	var fFolderID int64
+	var fIncludeDescendants bool
+	var fLimit int64
+	var fQuery string
 	cmd := &cobra.Command{
 		Use:   "rule-list-basic",
 		Short: "List alert rules",
@@ -535,23 +542,28 @@ Return the basic information of all alert rules in a folder. For full rule detai
 API: POST /monit/rule/list/basic (monit-rule-read-list)
 
 Request fields:
-  --folder-id int — Folder ID. 0 to list all accessible rules.
+  --folder-id int — Folder ID. Must be an existing folder; '0' is rejected with a 'folder_not_found' error.
+  --include-descendants bool — Also include rules from all descendant folders. When 'true', each returned item carries only 'id', 'folder_id' and 'name'; combine with 'query' / 'limit' for rule-picker scenarios.
+  --limit int — Max number of rules returned; only effective when 'include_descendants' is 'true'. Defaults to 50, capped at 100. (max 100)
+  --query string — Rule name fuzzy filter; only effective when 'include_descendants' is 'true'.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — Account ID.
+  - active_alert_count (integer) (required) — Number of currently active (unrecovered) alerts fired by this rule. 'triggered' equals 'active_alert_count > 0'.
   - created_at (string) (required) — Creation time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — ID of the user who created the rule.
   - creator_name (string) (required) — Name of the user who created the rule.
-  - cron_pattern (string) (required) — 5-field cron schedule, e.g. '* * * * *'. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
+  - cron_pattern (string) (required) — Schedule expression: a 6-field cron with seconds, e.g. '0 * * * * *', or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) (required) — Whether debug logging is enabled.
   - delay_seconds (integer) (required) — Evaluation delay in seconds.
   - ds_type (string) (required) — Data source type, e.g. 'prometheus'.
   - enabled (boolean) (required) — Whether the rule is enabled.
   - folder_id (integer) (required) — Folder ID.
   - id (integer) (required) — Unique rule ID.
-  - labels (object) — Custom labels.
+  - labels (object) (required) — Custom labels.
   - name (string) (required) — Rule name.
-  - timezone (string) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
+  - runtime_state (string) — Runtime evaluation state, derived from edge heartbeats and the edge-reported rule status. Omitted when the state is unavailable. | Value | Meaning | |---|---| | 'disabled' | The rule is disabled. | | 'offline' | The edge instance or cluster owning this rule is offline. | | 'abnormal' | The edge reports evaluation errors. | | 'stale' | The edge's runtime status report is outdated. | | 'no_datasource' | No datasource currently matches the rule's 'ds_list' / 'ds_ids'. | | 'config_pending' | The latest rule config has not been delivered to the edge yet. | | 'waiting' | Enabled, but the edge has not reported runtime status yet. | | 'normal' | Evaluating normally. | [disabled, offline, abnormal, stale, no_datasource, config_pending, waiting, normal]
+  - timezone (string) (required) — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
   - triggered (boolean) (required) — True if the rule currently has active alerts.
   - updated_at (string) (required) — Last modification time, as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updater_id (integer) (required) — ID of the user who last modified the rule.
@@ -563,6 +575,15 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("folder-id") {
 						body["folder_id"] = fFolderID
+					}
+					if cmd.Flags().Changed("include-descendants") {
+						body["include_descendants"] = fIncludeDescendants
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("query") {
+						body["query"] = fQuery
 					}
 					return nil
 				})
@@ -581,7 +602,10 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. 0 to list all accessible rules.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder ID. Must be an existing folder; '0' is rejected with a 'folder_not_found' error.")
+	cmd.Flags().BoolVar(&fIncludeDescendants, "include-descendants", false, "Also include rules from all descendant folders. When 'true', each returned item carries only 'id', 'folder_id' and 'name'; combine with 'query' / 'limit' for rule-picker scenarios.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Max number of rules returned; only effective when 'include_descendants' is 'true'. Defaults to 50, capped at 100. (max 100)")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Rule name fuzzy filter; only effective when 'include_descendants' is 'true'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -612,7 +636,7 @@ func genAlertRulesWriteCreateCmd() *cobra.Command {
 	var fUpdaterID int64
 	var fUpdaterName string
 	cmd := &cobra.Command{
-		Use:   "rule-create",
+		Use:   "rule-create <folder-id>",
 		Short: "Create alert rule",
 		Long: `Create alert rule.
 
@@ -626,18 +650,18 @@ Request fields:
   --created-at string — Creation time as a Unix timestamp in seconds. Generated by the server; do not provide. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --creator-id int — Creator user ID. Filled by the server from the current user; do not provide.
   --creator-name string — Creator name. Filled by the server; do not provide.
-  --cron-pattern string — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
+  --cron-pattern string (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   --debug-log-enabled bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   --delay-seconds int — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   --description string — Rule description, in Markdown.
   --description-type string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   --ds-ids []int — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
-  --ds-list []string — Data source name patterns (supports wildcards).
-  --ds-type string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
+  --ds-list []string — Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.
+  --ds-type string (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
   --enabled bool — Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.
-  --folder-id int — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
+  --folder-id int (required) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
   --id int — Rule ID. Required for update; omit for create (assigned by the server).
-  --name string — Rule name. Must be unique within the same folder.
+  --name string (required) — Rule name. Must be unique within the same folder.
   --repeat-interval int — Notification repeat interval in seconds.
   --repeat-total int — Max number of repeat notifications.
   --timezone string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
@@ -650,7 +674,7 @@ Request fields:
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
   labels (object, via --data) — Custom labels.
-  rule_configs (object, via --data) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
+  rule_configs (object, via --data) (required) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
       - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
       - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
@@ -677,11 +701,13 @@ Request fields:
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -699,26 +725,26 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) — Creation time as a Unix timestamp in seconds. Generated by the server; do not provide.
   - creator_id (integer) — Creator user ID. Filled by the server from the current user; do not provide.
   - creator_name (string) — Creator name. Filled by the server; do not provide.
-  - cron_pattern (string) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
+  - cron_pattern (string) (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   - delay_seconds (integer) — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   - description (string) — Rule description, in Markdown.
   - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
-  - ds_list (array<string>) — Data source name patterns (supports wildcards).
-  - ds_type (string) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
+  - ds_list (array<string>) — Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.
+  - ds_type (string) (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
   - enabled (boolean) — Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.
   - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
-  - folder_id (integer) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
+  - folder_id (integer) (required) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
   - id (integer) — Rule ID. Required for update; omit for create (assigned by the server).
   - labels (object) — Custom labels.
-  - name (string) — Rule name. Must be unique within the same folder.
+  - name (string) (required) — Rule name. Must be unique within the same folder.
   - repeat_interval (integer) — Notification repeat interval in seconds.
   - repeat_total (integer) — Max number of repeat notifications.
-  - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
+  - rule_configs (object) (required) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
       - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
       - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
@@ -745,11 +771,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -764,7 +792,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updater_id (integer) — Last updater user ID. Filled by the server; do not provide.
   - updater_name (string) — Last updater name. Filled by the server; do not provide.
 `,
-		Example: `  flashduty monit rule-create --data '{"channel_ids":[20001],"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"check_threshold":{"alerting_check_times":1,"critical":"A","enabled":true,"push_recovery_event":true,"recovery":{"mode":"invert"},"recovery_check_times":1},"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}'`,
+		Args:    requireBodyFieldOrExactArg("folder_id", "folder-id"),
+		Example: `  flashduty monit rule-create --data '{"channel_ids":[20001],"cron_pattern":"0 * * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"check_threshold":{"alerting_check_times":1,"critical":"A","enabled":true,"push_recovery_event":true,"recovery":{"mode":"invert"},"recovery_check_times":1},"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				vCreatedAt, okCreatedAt, err := genParseTimeFlag(cmd, "created-at", fCreatedAt)
@@ -776,6 +805,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "folder_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -867,18 +899,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fCreatedAt, "created-at", "", "Creation time as a Unix timestamp in seconds. Generated by the server; do not provide. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Creator user ID. Filled by the server from the current user; do not provide.")
 	cmd.Flags().StringVar(&fCreatorName, "creator-name", "", "Creator name. Filled by the server; do not provide.")
-	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.")
+	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead. (required)")
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Seconds to shift the evaluation query window backward, compensating for data ingestion latency.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, in Markdown.")
 	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.")
-	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').")
+	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.")
+	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch'). (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. Required for update; omit for create (assigned by the server).")
-	cmd.Flags().StringVar(&fName, "name", "", "Rule name. Must be unique within the same folder.")
+	cmd.Flags().StringVar(&fName, "name", "", "Rule name. Must be unique within the same folder. (required)")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Notification repeat interval in seconds.")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Max number of repeat notifications.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.")
@@ -1026,11 +1058,17 @@ Request fields:
   --repeat-total int — Maximum number of repeated notifications. Effective only when 'fields' includes 'repeat_total'.
   --timezone string — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
   annotations (object, via --data) — Annotation key-value pairs delivered with alert events; keys must not start with '$' (reserved for query fields). Effective only when 'fields' includes 'annotations'.
+  annotations_patch (object, via --data) — Partial annotation update. Effective only when 'fields' includes 'annotations'; takes precedence over 'annotations' when both are sent.
+    - delete (array<string>) — Keys to remove.
+    - set (object) — Keys to insert or replace.
   enabled_times (array<object>, via --data) — Time windows during which the rule is in effect; element structure see 'EnabledTime'. Effective only when 'fields' includes 'enabled_times'.
     - days (array<integer>) — Days of week, 0 = Sunday.
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
   labels (object, via --data) — Custom label key-value pairs; replaces existing labels as a whole. Effective only when 'fields' includes 'labels'.
+  labels_patch (object, via --data) — Partial label update. Effective only when 'fields' includes 'labels'; takes precedence over 'labels' when both are sent.
+    - delete (array<string>) — Keys to remove.
+    - set (object) — Keys to insert or replace.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - message (string) (required) — Empty on success, error message on failure.
@@ -1132,7 +1170,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
   - message (string) (required) — Empty on success, error message on failure.
   - name (string) (required) — Rule name.
 `,
-		Example: `  flashduty monit rule-import --data '[{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}]'`,
+		Example: `  flashduty monit rule-import --data '[{"cron_pattern":"0 * * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}]'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1237,7 +1275,7 @@ func genAlertRulesWriteUpdateCmd() *cobra.Command {
 	var fUpdaterID int64
 	var fUpdaterName string
 	cmd := &cobra.Command{
-		Use:   "rule-update",
+		Use:   "rule-update <folder-id>",
 		Short: "Update alert rule",
 		Long: `Update alert rule.
 
@@ -1251,18 +1289,18 @@ Request fields:
   --created-at string — Creation time as a Unix timestamp in seconds. Generated by the server; do not provide. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --creator-id int — Creator user ID. Filled by the server from the current user; do not provide.
   --creator-name string — Creator name. Filled by the server; do not provide.
-  --cron-pattern string — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
+  --cron-pattern string (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   --debug-log-enabled bool — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   --delay-seconds int — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   --description string — Rule description, in Markdown.
   --description-type string — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   --ds-ids []int — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
-  --ds-list []string — Data source name patterns (supports wildcards).
-  --ds-type string — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
+  --ds-list []string — Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.
+  --ds-type string (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
   --enabled bool — Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.
-  --folder-id int — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
+  --folder-id int (required) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
   --id int — Rule ID. Required for update; omit for create (assigned by the server).
-  --name string — Rule name. Must be unique within the same folder.
+  --name string (required) — Rule name. Must be unique within the same folder.
   --repeat-interval int — Notification repeat interval in seconds.
   --repeat-total int — Max number of repeat notifications.
   --timezone string — Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.
@@ -1275,7 +1313,7 @@ Request fields:
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
   labels (object, via --data) — Custom labels.
-  rule_configs (object, via --data) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
+  rule_configs (object, via --data) (required) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
       - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
       - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
@@ -1302,11 +1340,13 @@ Request fields:
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -1324,26 +1364,26 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (integer) — Creation time as a Unix timestamp in seconds. Generated by the server; do not provide.
   - creator_id (integer) — Creator user ID. Filled by the server from the current user; do not provide.
   - creator_name (string) — Creator name. Filled by the server; do not provide.
-  - cron_pattern (string) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
+  - cron_pattern (string) (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.
   - debug_log_enabled (boolean) — Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.
   - delay_seconds (integer) — Seconds to shift the evaluation query window backward, compensating for data ingestion latency.
   - description (string) — Rule description, in Markdown.
   - description_type (string) — Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]
   - ds_ids (array<integer>) — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.
-  - ds_list (array<string>) — Data source name patterns (supports wildcards).
-  - ds_type (string) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
+  - ds_list (array<string>) — Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.
+  - ds_type (string) (required) — Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').
   - enabled (boolean) — Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.
   - enabled_times (array<object>) — Time windows when the rule is active. Defaults to all days from 00:00 to 23:59 when omitted or empty.
     - days (array<integer>) — Days of week (0=Sunday).
     - etime (string) — End time, e.g. '18:00'.
     - stime (string) — Start time, e.g. '09:00'.
-  - folder_id (integer) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
+  - folder_id (integer) (required) — ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.
   - id (integer) — Rule ID. Required for update; omit for create (assigned by the server).
   - labels (object) — Custom labels.
-  - name (string) — Rule name. Must be unique within the same folder.
+  - name (string) (required) — Rule name. Must be unique within the same folder.
   - repeat_interval (integer) — Notification repeat interval in seconds.
   - repeat_total (integer) — Max number of repeat notifications.
-  - rule_configs (object) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
+  - rule_configs (object) (required) — Check configuration: query list plus trigger/recovery conditions. Structure see 'RuleConfigs'.
     - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
       - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
       - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
@@ -1370,11 +1410,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - info (string) — Info threshold expression, same syntax as 'critical'.
       - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
       - recovery (object) — Recovery evaluation configuration for threshold checks.
+        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
         - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
         - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
+        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
       - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
       - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
+    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
       - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
       - expr (string) — Query expression.
       - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
@@ -1389,7 +1431,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - updater_id (integer) — Last updater user ID. Filled by the server; do not provide.
   - updater_name (string) — Last updater name. Filled by the server; do not provide.
 `,
-		Example: `  flashduty monit rule-update --data '{"cron_pattern":"* * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"id":50001,"name":"CPU High v2","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 5","name":"A"}]}}'`,
+		Args:    requireBodyFieldOrExactArg("folder_id", "folder-id"),
+		Example: `  flashduty monit rule-update --data '{"cron_pattern":"0 * * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"id":50001,"name":"CPU High v2","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 5","name":"A"}]}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				vCreatedAt, okCreatedAt, err := genParseTimeFlag(cmd, "created-at", fCreatedAt)
@@ -1401,6 +1444,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "folder_id", "int"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("account-id") {
 						body["account_id"] = fAccountID
 					}
@@ -1492,18 +1538,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fCreatedAt, "created-at", "", "Creation time as a Unix timestamp in seconds. Generated by the server; do not provide. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Creator user ID. Filled by the server from the current user; do not provide.")
 	cmd.Flags().StringVar(&fCreatorName, "creator-name", "", "Creator name. Filled by the server; do not provide.")
-	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead.")
+	cmd.Flags().StringVar(&fCronPattern, "cron-pattern", "", "Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor. Must not start with 'CRON_TZ=' or 'TZ='; use the 'timezone' field instead. (required)")
 	cmd.Flags().BoolVar(&fDebugLogEnabled, "debug-log-enabled", false, "Whether to enable debug logging; the edge emits detailed evaluation logs, useful for troubleshooting rules that do not trigger as expected.")
 	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Seconds to shift the evaluation query window backward, compensating for data ingestion latency.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, in Markdown.")
 	cmd.Flags().StringVar(&fDescriptionType, "description-type", "", "Format for the description. Defaults to 'text' when omitted or empty. 'text' = plain text; 'markdown' = Markdown, rendered as Markdown in alert details. [text, markdown]")
 	cmd.Flags().IntSliceVar(&fDsIDs, "ds-ids", nil, "Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. At least one of 'ds_list' and 'ds_ids' must be provided.")
-	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards).")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch').")
+	cmd.Flags().StringSliceVar(&fDsList, "ds-list", nil, "Data source name patterns (supports wildcards). At least one of 'ds_list' / 'ds_ids' must be non-empty; the two are merged to decide which datasources the rule monitors.")
+	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier; allowed values are listed by 'POST /monit/rule/dstypes' (e.g. 'prometheus', 'elasticsearch'). (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled. Updating to 'false' makes the server clean up the rule's active alerts.")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'.")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "ID of the folder the rule belongs to. Obtainable via 'POST /monit/folder/list'. (required)")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Rule ID. Required for update; omit for create (assigned by the server).")
-	cmd.Flags().StringVar(&fName, "name", "", "Rule name. Must be unique within the same folder.")
+	cmd.Flags().StringVar(&fName, "name", "", "Rule name. Must be unique within the same folder. (required)")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Notification repeat interval in seconds.")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Max number of repeat notifications.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone in which the rule executes. Determines how the cron schedule and effective time windows are interpreted. Only IANA timezone names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); shortcuts and offsets such as 'Local', 'UTC+8', or 'CST' are rejected. Treated as 'Asia/Shanghai' if empty.")

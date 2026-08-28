@@ -46,7 +46,7 @@ Create field
 - `--description` string — Optional free-text description. (≤499 chars)
 - `--display-name` string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
 - `--field-name` string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
-- `--field-type` string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. · enum: checkbox | multi_select | single_select | text
+- `--field-type` string (required) — Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | · enum: checkbox | multi_select | single_select | text
 - `--options` stringSlice — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
 - `--value-type` string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. · enum: string | bool | float
 - body-only (`--data`): default_value (any)
@@ -59,19 +59,19 @@ Delete field
 ### info <field-id>
 Get field detail
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (string); updated_by (integer); value_type (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); value_type (string)
 
 ### list
 List custom fields
 - `--name` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (any); status (string); updated_at (string); updated_by (integer); value_type (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); value_type (string)
 
 ### update <field-id>
 Update field
 - `--description` string — New description.
 - `--display-name` string — New display name. Must remain unique within the account. (≤39 chars)
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
-- `--options` stringSlice — Replacement options list. Must obey the same per-type rules as create.
+- `--options` stringSlice — Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.
 - body-only (`--data`): default_value (any)
 
 <!-- GENERATED:field END -->

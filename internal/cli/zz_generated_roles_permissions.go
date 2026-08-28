@@ -69,6 +69,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genRolesPermissionsReadListCmd() *cobra.Command {
 	var dataJSON string
 	var fAsc bool
+	var fNoGlobal bool
 	var fOrderby string
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -81,6 +82,7 @@ API: POST /role/list (role-read-list)
 
 Request fields:
   --asc bool — Ascending sort order. Default: false (descending).
+  --no-global bool — When true, exclude the built-in global roles (Admin, Responder, Viewer) and return only custom roles. Default: false.
   --orderby string — Sort field. Default: 'updated_at'. [created_at, updated_at]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -101,6 +103,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("no-global") {
+						body["no_global"] = fNoGlobal
 					}
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
@@ -123,6 +128,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order. Default: false (descending).")
+	cmd.Flags().BoolVar(&fNoGlobal, "no-global", false, "When true, exclude the built-in global roles (Admin, Responder, Viewer) and return only custom roles. Default: false.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [created_at, updated_at]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -147,14 +153,17 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Array of permission items: system-level permissions plus the caller's account-scoped custom-menu permissions (never other tenants' rows).
+    - account_id (integer) — Owning account ID. Omitted when 0, i.e. for system-level permissions.
     - class (string) (required) — Permission class (e.g., 'On-call', 'Organization').
     - description (string) (required) — Human-readable permission description.
     - id (integer) (required) — Unique permission ID.
-    - is_granted (boolean) — Present when with_all is true. Indicates whether this permission is granted to the requested roles.
+    - is_granted (boolean) (required) — Whether this permission is granted to the roles given in 'role_ids'. Always present in this endpoint's response; 'false' entries only appear when 'with_all' is true.
     - permission_name (string) (required) — Permission display name.
     - permission_type (string) (required) — Whether this is a read or manage permission. 'read': view-only permission (read/list/query); 'manage': administrative permission covering mutations (create, update, delete, configure). [read, manage]
-    - scope (string) (required) — Permission scope (e.g., 'on-call', 'organization').
-    - status (string) (required) — Permission status. [enabled, disabled]
+    - scope (string) (required) — Functional scope the permission applies to. | value | meaning | | --- | --- | | 'account' | Account settings and API keys | | 'organization' | Members, teams, roles, audit | | 'on-call' | On-call incident management | | 'monit' | Monitoring | | 'rum' | Real user monitoring | | 'ai-sre' | AI SRE features | | 'custom_menu' | Account-defined custom menu pages (on-premises only) | [account, organization, on-call, monit, rum, ai-sre, custom_menu]
+    - source (string) (required) — Origin of the permission. 'system' — seeded built-in permission; 'account' — dynamic permission created for this account (e.g. custom menus). [system, account]
+    - source_ref (string) — Primary key of the source object (e.g. the custom menu ID) for account-scoped permissions. Omitted when empty.
+    - status (string) (required) — Permission status. 'enabled' — active; 'deleted' — removed (deleted permissions are filtered out and never returned). [enabled, deleted]
 `,
 		Example: `  flashduty role permission-list --data '{"role_ids":[150],"with_all":true}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -197,7 +206,7 @@ func genRolesPermissionsReadListPermissionFactorCmd() *cobra.Command {
 		Short: "List permission factors",
 		Long: `List permission factors.
 
-Return all permission factors (API, button, menu, URL, visit) optionally filtered by type.
+Return all permission factors (API, button, menu, URL, visit) granted to the calling member, optionally filtered by type. Requires a member-scoped credential — calls authenticated as the account principal (e.g. an account-level app key) are rejected with a 400, because the account principal implicitly holds every permission.
 
 API: POST /role/permission/factor/list (role-read-list-permission-factor)
 
@@ -207,6 +216,8 @@ Request fields:
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - factor_name (string) (required) — Factor identifier (e.g., 'template:read:info').
   - factor_type (string) (required) — Factor type. 'api': backend API factor — 'factor_name' is the API name (e.g. 'skill:write:upload'), enforced at the gateway; 'button': UI action factor, used by the role-config page to render action toggles; 'visit': page-visit factor (custom menu pages use this type); 'menu': menu-visibility factor (legacy, no current seed data); 'url': page route-path factor (legacy, no current seed data). [api, button, visit, menu, url]
+  - source (string) — Origin of the factor. 'system' — seeded built-in factor; 'account' — dynamic factor created for this account (e.g. custom menus). [system, account]
+  - source_ref (string) — Primary key of the source object (e.g. the custom menu ID) for account-scoped factors. Omitted when empty.
 `,
 		Example: `  flashduty role permission-factor-list --data '{"factor_types":["api"]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -239,18 +250,20 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 
 func genRolesPermissionsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
+	var fIsForce bool
 	var fRoleID int64
 	cmd := &cobra.Command{
 		Use:   "delete <role-id>",
 		Short: "Delete a role",
 		Long: `Delete a role.
 
-Permanently delete a custom role and revoke it from all members.
+Delete a custom role. While members still hold the role, the call fails with 'ReferenceExist' unless 'is_force' is true.
 
 API: POST /role/delete (role-write-delete)
 
 Request fields:
-  --role-id int (required) — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
+  --is-force bool — When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.
+  --role-id int (required) — Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
 		Example: `  flashduty role delete --data '{"role_id":150}'`,
@@ -260,6 +273,9 @@ Request fields:
 					if err := genFoldPositional(args, body, "role_id", "int"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("is-force") {
+						body["is_force"] = fIsForce
+					}
 					if cmd.Flags().Changed("role-id") {
 						body["role_id"] = fRoleID
 					}
@@ -268,7 +284,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				req := new(flashduty.RoleIDRequest)
+				req := new(flashduty.RoleDeleteRequest)
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
@@ -284,7 +300,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
+	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -407,7 +424,7 @@ Assign a role to one or more members, giving them its permissions.
 API: POST /role/member/grant (role-write-grant-role)
 
 Request fields:
-  --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
+  --member-ids []int (required) — Member IDs to grant/revoke the role.
   --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
@@ -445,7 +462,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -465,7 +482,7 @@ Remove a role from one or more members, revoking the permissions it granted.
 API: POST /role/member/revoke (role-write-revoke-role)
 
 Request fields:
-  --member-ids []int (required) — Member IDs to grant/revoke the role. Max 100.
+  --member-ids []int (required) — Member IDs to grant/revoke the role.
   --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
@@ -503,7 +520,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. Max 100. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

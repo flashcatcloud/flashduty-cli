@@ -77,7 +77,7 @@ Get team detail
 
 ### infos <team-id> [<id2>...]
 Batch get teams
-- `<team-ids>` (positional, required) intSlice — List of team IDs to look up. Max 100.
+- `<team-ids>` (positional, required) intSlice — List of team IDs to look up.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_ids (array<integer>); team_id (integer); team_name (string)
 
 ### list
@@ -105,9 +105,9 @@ Create or update a team
 - `--description` string — Free-form description. (≤500 chars)
 - `--emails` stringSlice — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
 - `--person-ids` intSlice — Member IDs to set as team members. Replaces the existing member list.
-- `--phones` stringSlice — Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.
+- `--phones` stringSlice — Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.
 - `--ref-id` string — External reference ID for HR system integration.
-- `--reset-if-name-exist` bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
+- `--reset-if-name-exist` bool — When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.
 - `--team-id` int64 — Team ID. Omit or set to 0 to create a new team.
 - `--team-name` string (required) — Team display name. 1–39 characters. (1-39 chars)
 - response: single object (`data` unwrapped to the top level) — fields: team_id (integer); team_name (string)

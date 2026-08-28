@@ -68,17 +68,17 @@ List alert events
 
 ### feed <alert-id>
 List alert activity feed
-- `<alert-id>` (positional, required) string — Alert ID; obtain it from 'POST /alert/list'.
+- `<alert-id>` (positional, required) string — Alert ID (ObjectID hex string); obtain it from 'POST /alert/list'.
 - `--asc` bool — Sort ascending.
-- `--limit` int64 — Page size, max 100, default 20.
-- `--page` int64 — Page number, starting at 1.
+- `--limit` int64 — Page size, max 100, default 20. (1-100)
+- `--page` int64 — Page number, starting at 1. (min 1)
 - `--search-after-ctx` string
-- `--types` stringSlice — Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').
-- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); detail (object); ref_id (string); type (string); updated_at (string)
+- `--types` stringSlice — Filter by feed type codes — see the 'type' field of the response items for the full list (e.g. 'a_new', 'a_comm', 'a_merge').
+- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
 
 ### get <alert_id>
 Get alert detail
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### info <alert-id>
 Get alert detail
@@ -98,12 +98,12 @@ List alerts
 - `--severity` string
 - `--since` string
 - `--until` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### list-by-ids <alert-id> [<id2>...]
 List alerts by IDs
-- `<alert-ids>` (positional, required) stringSlice — List of alert IDs (ObjectID hex strings).
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
+- `<alert-ids>` (positional, required) stringSlice — Alert IDs (ObjectID hex strings) to fetch.
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### merge <alert-id> [<id2>...]
 Merge alerts into an incident
@@ -115,13 +115,13 @@ Merge alerts into an incident
 
 ### pipeline-info <integration-id>
 Get alert pipeline
-- `<integration-id>` (positional, required) int64 — Integration ID.
-- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
+- `<integration-id>` (positional, required) int64 — Integration ID. Must be greater than 0.
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); creator_id (integer); deleted_at (string); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
 
 ### pipeline-list <integration-id> [<id2>...]
 List alert pipelines
-- `<integration-ids>` (positional, required) intSlice — Integration IDs.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
+- `<integration-ids>` (positional, required) intSlice — Integration IDs. At least one entry is required.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); deleted_at (string); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
 
 ### pipeline-upsert <integration-id>
 Create or update alert pipeline
@@ -132,7 +132,7 @@ Create or update alert pipeline
 View alert timeline
 - `--limit` int
 - `--page` int
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); detail (object); ref_id (string); type (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
 
 <!-- GENERATED:alert END -->
 

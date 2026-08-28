@@ -63,27 +63,27 @@ fduty insight team-export      --start-time 30d --end-time now > teams.csv
 ### account
 Get account-level insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (string)
@@ -95,25 +95,25 @@ Get top-K alerts grouped by check or resource
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--k` int64 — Number of top entries to return, between 1 and 100.
+- `--k` int64 — Number of top entries to return, between 1 and 100. Defaults to 20. (1-100)
 - `--label` string (required) — Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). · enum: check | resource
-- `--orderby` string — Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count. · enum: total_alert_cnt | total_alert_event_cnt
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count (default). · enum: total_alert_cnt | total_alert_event_cnt
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: hours (string); label (string); total_alert_cnt (integer); total_alert_event_cnt (integer)
@@ -121,27 +121,27 @@ Get top-K alerts grouped by check or resource
 ### channel
 Get channel insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
@@ -149,27 +149,27 @@ Get channel insight
 ### channel-export
 Export channel insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 
@@ -198,29 +198,29 @@ Export insight incidents
 
 ### incident-list
 List insight incidents
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--limit` int64 — Page size, between 1 and 100. Defaults to 20. (1-100)
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--page` int64 — Page number, starting at 1. Defaults to 1. (min 1)
-- `--query` string — Full-text query applied to incident title and description.
+- `--limit` int64 — Page size, max 100, default 20. (0-100)
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--page` int64 — Page number, starting at 1. Used when 'search_after_ctx' is not provided; 'p * limit' must stay within 10,000 records. (min 0)
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--search-after-ctx` string — Cursor token returned by a previous page. Pass it back to fetch the next page.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--search-after-ctx` string — Cursor token returned by a previous page (the incident ID of its last row). Pass it back to fetch the next page.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgements (integer); active_alert_cnt (integer); alert_cnt (integer); alert_event_cnt (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (string); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
@@ -236,27 +236,27 @@ Query incidents with performance metrics
 ### responder
 Get responder insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (string)
@@ -264,54 +264,54 @@ Get responder insight
 ### responder-export
 Export responder insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 
 ### team
 Get team insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
@@ -319,27 +319,27 @@ Get team insight
 ### team-export
 Export team insight
 - `--aggregate-unit` string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. · enum: day | week | month
-- `--asc` bool — Sort ascending when 'true', descending otherwise.
+- `--asc` bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
 - `--channel-ids` intSlice — Filter by channel IDs. At most 100 entries.
 - `--description-html-to-text` bool — Strip HTML markup from the description column when exporting.
 - `--end-time` string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--export-fields` stringSlice — Subset of CSV column keys to include in the export. At most 50 entries. Only used by the export endpoints. · enum: incident_id | title | severity | progress | channel_id | channel_name | team_id | team_name | created_at | seconds_to_ack | seconds_to_close | closed_by | engaged_seconds | hours | notifications | interruptions | acknowledgements | assignments | reassignments | escalations | manual_escalations | timeout_escalations | assigned_to | responders | description | labels | fields | creator_id | creator_name
+- `--export-fields` stringSlice — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
 - `--incident-ids` stringSlice — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
 - `--include-ever-muted` bool — Include incidents that have ever been muted. By default, they are excluded.
 - `--is-my-team` bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-- `--orderby` string — Sort field of the underlying incident set. Currently only 'created_at' (incident creation time) is supported. · enum: created_at
-- `--query` string — Full-text query applied to incident title and description.
+- `--orderby` string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. · enum: created_at
+- `--query` string — Substring match on the incident title (SQL 'LIKE %query%').
 - `--responder-ids` intSlice — Filter by responder person IDs. At most 100 entries.
-- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds.
-- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set.
-- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds.
-- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set.
+- `--seconds-to-ack-from` int64 — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
+- `--seconds-to-ack-to` int64 — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+- `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
+- `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
 - `--severities` stringSlice — Filter by severity. At most 3 entries. · enum: Critical | Warning | Info | Ok
 - `--since` string
 - `--split-hours` bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
-- `--time-zone` string — IANA time zone name used to interpret the time range (e.g. 'Asia/Shanghai'). Defaults to the account time zone.
+- `--time-zone` string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
 - `--until` string
 - body-only (`--data`): fields (object); labels (object)
 

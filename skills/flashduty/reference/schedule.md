@@ -101,6 +101,7 @@ fduty schedule create --schedule-name "SRE Weekly" --team-id <team-id> \
 ### create
 Create schedule
 - `--description` string — Schedule description. Max 500 characters. (≤500 chars)
+- `--disabled` int64 — 0 = enabled, 1 = disabled. Defaults to enabled when omitted.
 - `--end` string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--name` string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
 - `--schedule-id` int64 — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
@@ -119,12 +120,12 @@ Get schedule info
 - `--end` string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `<schedule-id>` (positional, required) int64 — Schedule ID; obtain it from 'POST /schedule/list'.
 - `--start` string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (any); disabled (any); end (string); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (string); status (any); team_id (any); update_at (string); update_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (string); disabled (integer); end (string); field (string); final_schedule (object); group_id (integer); id (integer); layer_schedules (array<object>); layers (array<object>); name (string); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (string); start (string); status (integer); team_id (integer); update_at (string); update_by (integer)
 
 ### infos <schedule-id> [<id2>...]
 Batch get schedules
 - `<schedule-ids>` (positional, required) intSlice — Schedule ID list; obtain IDs from 'POST /schedule/list'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (any); disabled (any); end (string); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (string); status (any); team_id (any); update_at (string); update_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (string); disabled (integer); end (string); field (string); final_schedule (object); group_id (integer); id (integer); layer_schedules (array<object>); layers (array<object>); name (string); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (string); start (string); status (integer); team_id (integer); update_at (string); update_by (integer)
 
 ### list
 List schedules
@@ -133,15 +134,16 @@ List schedules
 - `--is-my-team` bool — Only return schedules whose owning team the current user belongs to.
 - `--limit` int64 — Page size. Default 10, max 100. (max 100)
 - `--page` int64 — Page number (1-indexed).
-- `--query` string — Search keyword matched against schedule names.
+- `--query` string — Search keyword matched against schedule name or description.
 - `--search-after-ctx` string
 - `--start` string — When set together with end, computed layer schedules are returned. Span must be less than 45 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs.
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (any); disabled (any); end (string); field (string); final_schedule (object); group_id (any); id (any); layer_schedules (array<object>); layers (array<object>); name (any); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (any); start (string); status (any); team_id (any); update_at (string); update_by (integer)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (object); description (string); disabled (integer); end (string); field (string); final_schedule (object); group_id (integer); id (integer); layer_schedules (array<object>); layers (array<object>); name (string); next_oncall (object); notify (object); schedule_id (integer); schedule_layers (array<object>); schedule_name (string); start (string); status (integer); team_id (integer); update_at (string); update_by (integer)
 
 ### preview
 Preview schedule
 - `--description` string — Schedule description. Max 500 characters. (≤500 chars)
+- `--disabled` int64 — 0 = enabled, 1 = disabled. Defaults to enabled when omitted.
 - `--end` string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--name` string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
 - `--schedule-id` int64 — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
@@ -153,13 +155,14 @@ Preview schedule
 
 ### self
 List my schedules
-- `--end` string — Window end (Unix seconds, 10 digits). Must be within 30 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--start` string — Window start (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--end` string (required) — Window end (Unix seconds, 10 digits). Required. Must be within 45 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--start` string (required) — Window start (Unix seconds, 10 digits). Required. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - response: same shape as `infos <schedule-id> [<id2>...]` above
 
 ### update
 Update schedule
 - `--description` string — Schedule description. Max 500 characters. (≤500 chars)
+- `--disabled` int64 — 0 = enabled, 1 = disabled. Defaults to enabled when omitted.
 - `--end` string — Preview window end (Unix seconds, 10 digits). Required for /schedule/preview. Max 45 days after start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--name` string — Legacy schedule name field. Used when schedule_name is empty. (≤40 chars)
 - `--schedule-id` int64 — Schedule ID, required on update; obtain it from 'POST /schedule/list'.

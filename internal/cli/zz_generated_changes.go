@@ -15,9 +15,12 @@ func genChangesListCmd() *cobra.Command {
 	var fSearchAfterCtx string
 	var fAsc bool
 	var fChannelIDs []int
+	var fDataSourceID int64
+	var fDataSourceIDs []int
 	var fEndTime string
 	var fUntil string
 	var fIncludeEvents bool
+	var fIntegrationID int64
 	var fIntegrationIDs []int
 	var fOrderby string
 	var fQuery string
@@ -36,14 +39,21 @@ Request fields:
   --page int — Page number, starting at 1. (min 1)
   --limit int — Number of items per page. (1-100)
   --search-after-ctx string
-  --asc bool — Sort in ascending order when true.
+  --asc bool — Sort in ascending order when true; default is descending.
   --channel-ids []int — Filter by channel IDs.
-  --end-time string — Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --data-source-id int — Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)
+  --data-source-ids []int — Deprecated: use 'integration_ids' instead. At least 1 entry when provided.
+  --end-time string — End of the query window, Unix epoch seconds. See 'start_time' for defaults and constraints. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --include-events bool — Include the underlying change events for each change when true.
-  --integration-ids []int — Filter by reporting integration IDs.
-  --orderby string — Field to sort the result by. [start_time, last_time]
-  --query string — Free-text or regular-expression search over change fields.
-  --start-time string — Unix timestamp in seconds for the start of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --integration-id int — Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)
+  --integration-ids []int — Filter by reporting integration IDs. At least 1 entry when provided.
+  --orderby string — Sort field: 'start_time' or 'last_time'. Defaults to 'start_time'. [start_time, last_time]
+  --query string — Case-insensitive substring or regular-expression match over the change title, change_key, and description. An invalid regular expression falls back to a literal match.
+  --start-time string — Start of the query window, Unix epoch seconds. Optional — when both 'start_time' and 'end_time' are omitted or 0, the window defaults to the last hour. Must be less than 'end_time', with a span of at most 31 days. A change matches when its [start_time, last_time] window overlaps the query window. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  filters (array<object>, via --data) — Structured filters ANDed onto the query (e.g. on labels). Keys prefixed with 'incident' are ignored.
+    - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+    - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+    - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether more pages are available after this one.
@@ -51,10 +61,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account this change belongs to.
     - change_id (string) — Change ID, a MongoDB ObjectID hex string.
     - change_key (string) — Stable key that groups events belonging to the same change.
-    - change_status (string) — Current lifecycle status of the change.
+    - change_status (string) — Current lifecycle status of the change. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | [Planned, Ready, Processing, Canceled, Done]
     - channel_id (integer) — Collaboration channel this change is routed to.
     - channel_name (string) — Name of the collaboration channel.
-    - channel_status (string) — Status of the collaboration channel.
+    - channel_status (string) — Status of the collaboration channel: 'enabled' or 'disabled'. [enabled, disabled]
     - description (string) — Change description.
     - end_time (string) — Unix timestamp in seconds when the change ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - events (array<object>) — Underlying change events, returned only when include_events is true.
@@ -63,7 +73,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - change_status (string) — Lifecycle status of the change event, reported by the change source as execution progresses. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | [Planned, Ready, Processing, Canceled, Done]
       - channel_id (integer) — Collaboration channel this change event is routed to.
       - created_at (string) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) — Change event description.
       - event_id (string) — Change event ID, a MongoDB ObjectID hex string.
       - event_time (string) — Unix timestamp in seconds when the change event occurred. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -108,11 +118,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("channel-ids") {
 						body["channel_ids"] = fChannelIDs
 					}
+					if cmd.Flags().Changed("data-source-id") {
+						body["data_source_id"] = fDataSourceID
+					}
+					if cmd.Flags().Changed("data-source-ids") {
+						body["data_source_ids"] = fDataSourceIDs
+					}
 					if okEndTime {
 						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("include-events") {
 						body["include_events"] = fIncludeEvents
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
 					}
 					if cmd.Flags().Changed("integration-ids") {
 						body["integration_ids"] = fIntegrationIDs
@@ -146,15 +165,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of items per page. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort in ascending order when true.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort in ascending order when true; default is descending.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Unix timestamp in seconds for the end of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().Int64Var(&fDataSourceID, "data-source-id", 0, "Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)")
+	cmd.Flags().IntSliceVar(&fDataSourceIDs, "data-source-ids", nil, "Deprecated: use 'integration_ids' instead. At least 1 entry when provided.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the query window, Unix epoch seconds. See 'start_time' for defaults and constraints. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "Include the underlying change events for each change when true.")
-	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by reporting integration IDs.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field to sort the result by. [start_time, last_time]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text or regular-expression search over change fields.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Unix timestamp in seconds for the start of the query window. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)")
+	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by reporting integration IDs. At least 1 entry when provided.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'start_time' or 'last_time'. Defaults to 'start_time'. [start_time, last_time]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring or regular-expression match over the change title, change_key, and description. An invalid regular expression falls back to a literal match.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the query window, Unix epoch seconds. Optional — when both 'start_time' and 'end_time' are omitted or 0, the window defaults to the last hour. Must be less than 'end_time', with a span of at most 31 days. A change matches when its [start_time, last_time] window overlaps the query window. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

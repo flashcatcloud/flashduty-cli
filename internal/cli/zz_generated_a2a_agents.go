@@ -25,23 +25,22 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - agent_card_name (string) — Agent name resolved from the remote card.
-  - agent_card_skills (array<string>) — Skills advertised by the remote card.
+  - agent_card_name (string) — Agent name resolved from the remote card. Omitted until the card has been fetched.
+  - agent_card_skills (array<string>) — Skills advertised by the remote card. Omitted until the card has been fetched.
   - agent_id (string) (required) — Unique A2A agent ID (prefix 'a2a_').
   - agent_name (string) (required) — Agent display name.
   - allow_insecure_oauth_http (boolean) — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this agent's endpoint.
-  - auth_config (object) — Authentication config; sensitive values ('api_key', 'token', 'client_secret') are masked.
+  - auth_config (object) — Authentication config key-values. Values under credential-looking keys (name containing KEY, SECRET, TOKEN, PASSWORD, etc.) are masked. Omitted when empty.
   - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-  - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
+  - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'. Rows created before validation was tightened may return an empty string, equivalent to 'none'. [none, api_key, bearer]
   - can_edit (boolean) (required) — Whether the caller may edit this agent.
   - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
   - card_url (string) (required) — URL of the remote agent card.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the agent.
-  - environment_id (string) (required) — BYOC runner ID. Set only when 'environment_kind=byoc'; empty otherwise.
-  - environment_kind (string) (required) — Execution environment binding. Empty selects automatic routing; 'byoc' pins the agent to a specific runner named by 'environment_id'. [byoc]
-  - instructions (string) (required) — Natural-language instructions for the remote agent (formerly named 'description'). (≤2000 chars)
+  - environments (array<string>) (required) — Execution environments this agent is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
+  - instructions (string) (required) — Natural-language instructions for the remote agent (formerly named 'description'). (≤51200 chars)
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - status (string) (required) — Agent status. [enabled, disabled]
@@ -111,23 +110,22 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — A2A agents on this page.
     - account_id (integer) (required) — Owning account ID.
-    - agent_card_name (string) — Agent name resolved from the remote card.
-    - agent_card_skills (array<string>) — Skills advertised by the remote card.
+    - agent_card_name (string) — Agent name resolved from the remote card. Omitted until the card has been fetched.
+    - agent_card_skills (array<string>) — Skills advertised by the remote card. Omitted until the card has been fetched.
     - agent_id (string) (required) — Unique A2A agent ID (prefix 'a2a_').
     - agent_name (string) (required) — Agent display name.
     - allow_insecure_oauth_http (boolean) — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS.
     - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this agent's endpoint.
-    - auth_config (object) — Authentication config; sensitive values ('api_key', 'token', 'client_secret') are masked.
+    - auth_config (object) — Authentication config key-values. Values under credential-looking keys (name containing KEY, SECRET, TOKEN, PASSWORD, etc.) are masked. Omitted when empty.
     - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-    - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
+    - auth_type (string) (required) — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'. Rows created before validation was tightened may return an empty string, equivalent to 'none'. [none, api_key, bearer]
     - can_edit (boolean) (required) — Whether the caller may edit this agent.
     - card_resolve_timeout (integer) (required) — Card-resolution timeout in seconds. Always 0 today — the API does not yet expose a way to set it.
     - card_url (string) (required) — URL of the remote agent card.
     - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the agent.
-    - environment_id (string) (required) — BYOC runner ID. Set only when 'environment_kind=byoc'; empty otherwise.
-    - environment_kind (string) (required) — Execution environment binding. Empty selects automatic routing; 'byoc' pins the agent to a specific runner named by 'environment_id'. [byoc]
-    - instructions (string) (required) — Natural-language instructions for the remote agent (formerly named 'description'). (≤2000 chars)
+    - environments (array<string>) (required) — Execution environments this agent is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
+    - instructions (string) (required) — Natural-language instructions for the remote agent (formerly named 'description'). (≤51200 chars)
     - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
     - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
     - status (string) (required) — Agent status. [enabled, disabled]
@@ -194,8 +192,7 @@ func genA2aAgentsWriteCreateCmd() *cobra.Command {
 	var fAuthMode string
 	var fAuthType string
 	var fCardURL string
-	var fEnvironmentID string
-	var fEnvironmentKind string
+	var fEnvironments []string
 	var fInstructions string
 	var fOauthMetadata string
 	var fSecretSchema string
@@ -215,21 +212,20 @@ Request fields:
   --allow-insecure-oauth-http bool — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS. Defaults to false.
   --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification when connecting to this agent's endpoint (self-signed/private certs). Defaults to false.
   --auth-mode string — Authentication mode: 'shared' (default) shares one credential across all users; 'per_user_secret' requires 'secret_schema.header_name'; 'per_user_oauth' runs per-user OAuth.
-  --auth-type string — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
+  --auth-type string — Authentication type for reaching the remote agent: 'none' (default when omitted), 'api_key', or 'bearer'. [none, api_key, bearer]
   --card-url string (required) — URL of the remote agent card. Must be an absolute 'http' or 'https' URL with a non-empty host; reachability is enforced by the execution environment, not at creation time.
-  --environment-id string — BYOC runner ID. Required when 'environment_kind=byoc'; the runner must belong to the account or a team the caller belongs to.
-  --environment-kind string — Execution environment binding. Omit or send empty for automatic routing; 'byoc' pins the agent to a specific runner given by 'environment_id'. 'cloud' is not accepted — configured A2A agents need a persistent runner, not a disposable cloud sandbox. [byoc]
-  --instructions string (required) — Natural-language instructions for the remote agent. Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (≤2000 chars)
+  --environments []string — Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.
+  --instructions string (required) — Natural-language instructions for the remote agent: a Markdown document with optional 'summary' frontmatter and a non-empty body, at most 50 KiB (51200 bytes). Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (≤51200 chars)
   --oauth-metadata string — JSON-encoded OAuth metadata; populated by the OAuth discovery flow for 'per_user_oauth' mode.
   --secret-schema string — JSON-encoded secret schema, e.g. '{"header_name":"X-Api-Key"}'; required when 'auth_mode=per_user_secret'.
   --streaming bool — Whether the remote agent supports streaming.
   --team-id int — Team scope: 0 = account-wide; >0 = team. Creating at account scope requires the owner/admin role; creating into a team requires actual membership in that team.
-  auth_config (object, via --data) — Authentication config key-values, e.g. the API key or bearer token. Values for sensitive keys ('api_key', 'token', 'client_secret') are masked back in responses.
+  auth_config (object, via --data) — Authentication config key-values, e.g. the API key or bearer token. Values under credential-looking keys (name containing KEY, SECRET, TOKEN, PASSWORD, etc.) are masked back in responses.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - agent_id (string) (required) — ID of the newly created agent.
 `,
-		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"deploy-bot","auth_type":"bearer","card_url":"https://agents.example.com/deploy-bot/card","environment_id":"env_8s7Hn2kLpQ3xYbVc4Wd2m","environment_kind":"byoc","instructions":"Inspect deployment pipelines and propose rollbacks when a canary fails health checks.","streaming":true,"team_id":0}'`,
+		Example: `  flashduty safari a2a-agent-create --data '{"agent_name":"deploy-bot","auth_type":"bearer","card_url":"https://agents.example.com/deploy-bot/card","environments":["env_8s7Hn2kLpQ3xYbVc4Wd2m"],"instructions":"Inspect deployment pipelines and propose rollbacks when a canary fails health checks.","streaming":true,"team_id":0}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -251,11 +247,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("card-url") {
 						body["card_url"] = fCardURL
 					}
-					if cmd.Flags().Changed("environment-id") {
-						body["environment_id"] = fEnvironmentID
-					}
-					if cmd.Flags().Changed("environment-kind") {
-						body["environment_kind"] = fEnvironmentKind
+					if cmd.Flags().Changed("environments") {
+						body["environments"] = fEnvironments
 					}
 					if cmd.Flags().Changed("instructions") {
 						body["instructions"] = fInstructions
@@ -293,11 +286,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS. Defaults to false.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification when connecting to this agent's endpoint (self-signed/private certs). Defaults to false.")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: 'shared' (default) shares one credential across all users; 'per_user_secret' requires 'secret_schema.header_name'; 'per_user_oauth' runs per-user OAuth.")
-	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.")
+	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "Authentication type for reaching the remote agent: 'none' (default when omitted), 'api_key', or 'bearer'. [none, api_key, bearer]")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "URL of the remote agent card. Must be an absolute 'http' or 'https' URL with a non-empty host; reachability is enforced by the execution environment, not at creation time. (required)")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC runner ID. Required when 'environment_kind=byoc'; the runner must belong to the account or a team the caller belongs to.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Execution environment binding. Omit or send empty for automatic routing; 'byoc' pins the agent to a specific runner given by 'environment_id'. 'cloud' is not accepted — configured A2A agents need a persistent runner, not a disposable cloud sandbox. [byoc]")
-	cmd.Flags().StringVar(&fInstructions, "instructions", "", "Natural-language instructions for the remote agent. Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (required) (≤2000 chars)")
+	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.")
+	cmd.Flags().StringVar(&fInstructions, "instructions", "", "Natural-language instructions for the remote agent: a Markdown document with optional 'summary' frontmatter and a non-empty body, at most 50 KiB (51200 bytes). Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (required) (≤51200 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON-encoded OAuth metadata; populated by the OAuth discovery flow for 'per_user_oauth' mode.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON-encoded secret schema, e.g. '{\"header_name\":\"X-Api-Key\"}'; required when 'auth_mode=per_user_secret'.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Whether the remote agent supports streaming.")
@@ -459,8 +451,7 @@ func genA2aAgentsWriteUpdateCmd() *cobra.Command {
 	var fAuthMode string
 	var fAuthType string
 	var fCardURL string
-	var fEnvironmentID string
-	var fEnvironmentKind string
+	var fEnvironments []string
 	var fInstructions string
 	var fOauthMetadata string
 	var fSecretSchema string
@@ -481,16 +472,15 @@ Request fields:
   --allow-insecure-oauth-http bool — Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.
   --allow-insecure-tls-skip-verify bool — Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.
   --auth-mode string — New auth mode: shared, per_user_secret, or per_user_oauth. Changing it always rewrites secret_schema together with it.
-  --auth-type string — New auth type. Omit to leave unchanged.
+  --auth-type string — New auth type: 'none', 'api_key', or 'bearer'. Omit to leave unchanged. [none, api_key, bearer]
   --card-url string — New card URL. Omit to leave unchanged.
-  --environment-id string — New BYOC runner ID. Required alongside 'environment_kind=byoc'. Omit to leave unchanged.
-  --environment-kind string — New execution environment binding: empty for automatic, 'byoc' for a specific runner. 'cloud' is rejected. Omit to leave unchanged.
-  --instructions string — New instructions. Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤2000 chars)
+  --environments []string — Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.
+  --instructions string — New instructions document (same contract as create: optional 'summary' frontmatter, non-empty body, at most 50 KiB). Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤51200 chars)
   --oauth-metadata string — New JSON OAuth metadata. If omitted while auth_mode changes, it is cleared to empty.
   --secret-schema string — New JSON secret schema.
   --streaming bool — Toggle streaming support. Omit to leave unchanged.
   --team-id int — Reassign team scope. Omit to leave unchanged. Reassigning requires rights on the destination team; if the team changes without also sending a new environment binding, the existing runner binding must remain selectable by the caller or the update is rejected.
-  auth_config (object, via --data) — Replace the auth config. Omit to leave unchanged. Sending back the masked value (or an empty string) for a sensitive key keeps the stored secret instead of overwriting it.
+  auth_config (object, via --data) — Replace the whole auth config; omit to leave unchanged. Keys missing from the map are dropped. For a sensitive key, sending back the masked value keeps the stored secret, while sending an empty string clears it.
 `,
 		Args:    requireBodyFieldOrExactArg("agent_id", "agent-id"),
 		Example: `  flashduty safari a2a-agent-update --data '{"agent_id":"a2a_6mWqZ2pK9nLcR3tY8uVb4D","instructions":"Inspect deployment pipelines and propose rollbacks."}'`,
@@ -521,11 +511,8 @@ Request fields:
 					if cmd.Flags().Changed("card-url") {
 						body["card_url"] = fCardURL
 					}
-					if cmd.Flags().Changed("environment-id") {
-						body["environment_id"] = fEnvironmentID
-					}
-					if cmd.Flags().Changed("environment-kind") {
-						body["environment_kind"] = fEnvironmentKind
+					if cmd.Flags().Changed("environments") {
+						body["environments"] = fEnvironments
 					}
 					if cmd.Flags().Changed("instructions") {
 						body["instructions"] = fInstructions
@@ -564,11 +551,10 @@ Request fields:
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New auth mode: shared, per_user_secret, or per_user_oauth. Changing it always rewrites secret_schema together with it.")
-	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New auth type. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fAuthType, "auth-type", "", "New auth type: 'none', 'api_key', or 'bearer'. Omit to leave unchanged. [none, api_key, bearer]")
 	cmd.Flags().StringVar(&fCardURL, "card-url", "", "New card URL. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "New BYOC runner ID. Required alongside 'environment_kind=byoc'. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "New execution environment binding: empty for automatic, 'byoc' for a specific runner. 'cloud' is rejected. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fInstructions, "instructions", "", "New instructions. Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤2000 chars)")
+	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.")
+	cmd.Flags().StringVar(&fInstructions, "instructions", "", "New instructions document (same contract as create: optional 'summary' frontmatter, non-empty body, at most 50 KiB). Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤51200 chars)")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New JSON OAuth metadata. If omitted while auth_mode changes, it is cleared to empty.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New JSON secret schema.")
 	cmd.Flags().BoolVar(&fStreaming, "streaming", false, "Toggle streaming support. Omit to leave unchanged.")

@@ -349,7 +349,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - latest_collection_authoritative (boolean) (required) — False when 'graph_role=last_known_good', i.e. the most recent collection attempt was not authoritative.
   - latest_health_at_ms (string) — Unix timestamp in milliseconds of the most recent non-authoritative health signal, when more recent than the current graph. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - neighbors (array<object>) (required) — Up to 12 outbound relations, most informative first.
-    - active_connections (any) — Active connection count for this relation, when the underlying agent reports it.
+    - active_connections (integer) — Active connection count for this relation, when the underlying agent reports it.
     - destination_ip (string) — Destination IP address.
     - destination_port (integer) — Destination port.
     - destination_protocol (string) — Transport protocol of the destination. 'tcp' = TCP connection; 'udp' = UDP session. Collectors currently only report 'tcp'; 'udp' is reserved. [tcp, udp]

@@ -16,6 +16,7 @@ func genSourcemapsListCmd() *cobra.Command {
 	var fAsc bool
 	var fBuildID string
 	var fEndTime int64
+	var fKind string
 	var fOrderby string
 	var fQuery string
 	var fServices []string
@@ -37,29 +38,33 @@ Request fields:
   --limit int — Page size. Maximum 100. Default 20. (max 100)
   --search-after-ctx string
   --asc bool — Sort ascending. Default false (descending).
-  --build-id string — Android only. Filter by Gradle plugin build identifier. Max 200 characters.
+  --build-id string — Android only. Filter by Gradle plugin build identifier. Max 200 characters. (≤200 chars)
   --end-time int (required) — End of upload time range, Unix epoch milliseconds. Maximum window: 365 days.
+  --kind string — Symbol type filter, Android and HarmonyOS only (ignored for other platforms): 'mapping' (default) lists ProGuard/R8 mappings or ArkTS sourcemaps, 'native' lists native .so symbols. [mapping, native]
   --orderby string — Sort field; defaults to 'created_at' descending when omitted. [created_at, updated_at]
-  --query string — Substring match on the minified URL (browser) or build ID (android). Max 200 characters.
+  --query string — Free-text substring match. Matches 'minified_url' for the JS stores (browser/react-native/harmony/miniprogram), 'build_id' for android/flutter/electron and harmony with 'kind=native', or 'uuid' for ios (case-insensitive, hyphens ignored). (≤200 chars)
   --services []string — Filter by service names. Up to 100 values.
   --start-time int (required) — Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'.
-  --type string — Platform type. Defaults to 'browser' when omitted. One of 'browser' (JavaScript sourcemaps), 'android' (ProGuard/R8 mappings or NDK native symbols, distinguishable via 'kind'), 'ios' (dSYM symbol files). [browser, android, ios]
-  --uuid string — iOS only. Filter by dSYM bundle UUID. Max 200 characters.
+  --type string — Platform whose symbol store to list. Defaults to 'browser' when omitted; any other value returns an empty list. | Value | Store listed | |---|---| | 'browser' | JavaScript sourcemaps (shared store; excludes HarmonyOS ArkTS and React Native rows) | | 'android' | ProGuard/R8 mapping files; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbol files | | 'miniprogram' | WeChat mini program sourcemaps | | 'react-native' | React Native JS sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | [browser, android, ios, miniprogram, react-native, harmony, flutter, electron]
+  --uuid string — iOS only. Filter by dSYM bundle UUID. Max 200 characters. (≤200 chars)
   --versions []string — Filter by version strings. Up to 100 values.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — Sourcemap records of the current page (including iOS dSYM and miniprogram symbol files).
+  - items (array<object>) — Sourcemap records of the current page. Omitted when empty.
     - created_at (string) — Upload timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - git_commit_sha (string) — Git commit SHA for this build.
     - git_repository_url (string) — Git repository URL associated with this build.
     - key (string) — Storage key uniquely identifying this sourcemap file.
-    - metadata (object) — Free-form key-value metadata attached to the sourcemap. Shape depends on the upload client; common keys include 'git_repository_url' and 'git_commit_sha' (though those are also promoted to top-level fields).
+    - metadata (object) — Platform-specific metadata: 'minified_url' (browser/react-native/harmony/miniprogram); 'build_id', 'variant', 'version_code' (android mappings), plus 'arch', 'lib_name', 'code_id' (android/harmony/electron native symbols); 'uuid' (ios); 'build_id', 'platform', 'arch', 'flavor', 'code_id', 'debug_id' (flutter); 'subpackage', 'minified_url' (miniprogram). Omitted when empty.
+    - minified_path (string) — Deprecated. Storage path of the minified file; present only on JavaScript records.
+    - minified_url (string) — Deprecated. URL of the minified file; present only on JavaScript and miniprogram records. New integrations should read 'metadata.minified_url'.
     - service (string) — Application or service name.
     - size (integer) — File size in bytes.
-    - type (string) — Platform type: 'browser', 'android', or 'ios'. [browser, android, ios]
+    - sourcemap_path (string) — Deprecated. Storage path of the sourcemap file; present only on JavaScript and miniprogram records.
+    - type (string) — Platform store this record belongs to. JavaScript rows always report 'browser' (including HarmonyOS ArkTS and React Native uploads); native-symbol rows always report 'android' (including HarmonyOS native and Electron uploads). | Value | Store | |---|---| | 'browser' | JavaScript sourcemap store | | 'android' | Android mapping store, or the shared native symbol store | | 'ios' | iOS dSYM store | | 'miniprogram' | WeChat mini program sourcemap store | | 'flutter' | Flutter Dart AOT symbol store | [browser, android, ios, miniprogram, flutter]
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (string) — Application version string.
-  - total (integer) (required) — Total number of matching records.
+  - total (integer) — Total number of matching records. Omitted when 0.
 `,
 		Example: `  flashduty sourcemap list --data '{"end_time":1712700000000,"limit":20,"p":1,"services":["my-web-app"],"start_time":1712000000000,"type":"browser"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -82,6 +87,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("end-time") {
 						body["end_time"] = fEndTime
+					}
+					if cmd.Flags().Changed("kind") {
+						body["kind"] = fKind
 					}
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
@@ -125,14 +133,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Maximum 100. Default 20. (max 100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending. Default false (descending).")
-	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android only. Filter by Gradle plugin build identifier. Max 200 characters.")
+	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android only. Filter by Gradle plugin build identifier. Max 200 characters. (≤200 chars)")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of upload time range, Unix epoch milliseconds. Maximum window: 365 days. (required)")
+	cmd.Flags().StringVar(&fKind, "kind", "", "Symbol type filter, Android and HarmonyOS only (ignored for other platforms): 'mapping' (default) lists ProGuard/R8 mappings or ArkTS sourcemaps, 'native' lists native .so symbols. [mapping, native]")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'created_at' descending when omitted. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the minified URL (browser) or build ID (android). Max 200 characters.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text substring match. Matches 'minified_url' for the JS stores (browser/react-native/harmony/miniprogram), 'build_id' for android/flutter/electron and harmony with 'kind=native', or 'uuid' for ios (case-insensitive, hyphens ignored). (≤200 chars)")
 	cmd.Flags().StringSliceVar(&fServices, "services", nil, "Filter by service names. Up to 100 values.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Platform type. Defaults to 'browser' when omitted. One of 'browser' (JavaScript sourcemaps), 'android' (ProGuard/R8 mappings or NDK native symbols, distinguishable via 'kind'), 'ios' (dSYM symbol files). [browser, android, ios]")
-	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Filter by dSYM bundle UUID. Max 200 characters.")
+	cmd.Flags().StringVar(&fType, "type", "", "Platform whose symbol store to list. Defaults to 'browser' when omitted; any other value returns an empty list. | Value | Store listed | |---|---| | 'browser' | JavaScript sourcemaps (shared store; excludes HarmonyOS ArkTS and React Native rows) | | 'android' | ProGuard/R8 mapping files; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbol files | | 'miniprogram' | WeChat mini program sourcemaps | | 'react-native' | React Native JS sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | [browser, android, ios, miniprogram, react-native, harmony, flutter, electron]")
+	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Filter by dSYM bundle UUID. Max 200 characters. (≤200 chars)")
 	cmd.Flags().StringSliceVar(&fVersions, "versions", nil, "Filter by version strings. Up to 100 values.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -144,6 +153,7 @@ func genSourcemapsStackEnrichCmd() *cobra.Command {
 	var fBuildID string
 	var fNear int64
 	var fNoCache bool
+	var fPlatform string
 	var fService string
 	var fSourceType string
 	var fStack string
@@ -164,10 +174,11 @@ Request fields:
   --build-id string — Android build ID for Gradle plugin 1.13.0 and later.
   --near int — Number of nearby meaningful source lines to return around converted frames. (1-20)
   --no-cache bool — Skip cached enrich results. Intended for debugging.
+  --platform string — Narrows a 'react-native' enrich to the app's native platform: 'ios' for the iOS native layer, 'android' for the Android native layer (the console derives it from the event's OS). Ignored for other 'type' values. [ios, android]
   --service string (required) — Application or service name used when the sourcemap was uploaded.
   --source-type string — Android error source type. Use 'ndk' with 'arch' for native symbolication.
   --stack string — Raw stack trace to parse and enrich.
-  --type string — Source platform. Defaults to 'browser' when omitted. One of 'browser' (JS stacks, sourcemap-based), 'android' (mapping/NDK symbolication), 'ios' (dSYM symbolication), 'miniprogram' (WeChat mini program, sourcemap-based), 'harmony' (HarmonyOS, sourcemap/native symbolication), 'flutter' (Flutter stack symbolication), 'electron' (Electron, sourcemap-based). [browser, android, ios, miniprogram, harmony, flutter, electron]
+  --type string — Source platform whose symbol store is used. Defaults to 'browser' when omitted. | Value | Symbolication | |---|---| | 'browser' | JavaScript stacks via sourcemaps | | 'android' | Java/Kotlin stacks via ProGuard/R8 mappings; native stacks via NDK symbols (send 'source_type=ndk' with 'arch') | | 'ios' | iOS crash stacks via dSYM (send 'binary_images') | | 'miniprogram' | WeChat mini program stacks via sourcemaps | | 'harmony' | HarmonyOS stacks via ArkTS sourcemaps or native symbols | | 'flutter' | Flutter/Dart stacks via Dart AOT symbols | | 'electron' | Electron JavaScript stacks via sourcemaps; minidump native frames via Breakpad symbols (derived from 'source_type') | | 'react-native' | React Native JS stacks via sourcemaps; narrow the lookup with 'platform' | [browser, android, ios, miniprogram, harmony, flutter, electron, react-native]
   --variant string — Android build variant used by older Gradle plugin versions.
   --version string (required) — Application version used when the sourcemap was uploaded.
   binary_images (array<object>, via --data) — Loaded binary images from an iOS crash report.
@@ -182,7 +193,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - frames (array<object>) (required) — Error stack frames after symbolication (via sourcemap, dSYM, NDK symbol tables, etc.).
     - address (string) — iOS or native memory address.
     - class_name (string) — Android Java/Kotlin class name.
-    - code_snippets (array<object>) — Source-code snippets around this frame.
+    - code_snippets (array<object>) — Source-code snippets around this frame. Omitted when no snippet was extracted (for example the source content was unavailable or 'near' was not requested).
       - code (string) (required) — Source code on that line.
       - line (integer) (required) — Source line number.
     - column (integer) — Column number for JavaScript or Flutter frames.
@@ -194,7 +205,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - module (string) — iOS Swift/Objective-C module name.
     - native_address (string) — Unity IL native address.
     - offset (integer) — Symbol offset from function start.
-    - original_frame (object) — Parsed stack frame fields shared across platforms.
+    - original_frame (object) — The original minified/obfuscated frame before enrichment. Omitted when the processor did not retain one.
       - address (string) — iOS or native memory address.
       - class_name (string) — Android Java/Kotlin class name.
       - column (integer) — Column number for JavaScript or Flutter frames.
@@ -205,7 +216,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - module (string) — iOS Swift/Objective-C module name.
       - native_address (string) — Unity IL native address.
       - offset (integer) — Symbol offset from function start.
-    - third_party (boolean) — Whether the frame is from third-party or system libraries.
+    - third_party (boolean) — Whether the frame is from third-party or system libraries (Android and native symbolication only). Omitted when 'false'.
 `,
 		Example: `  flashduty sourcemap stack-enrich --data '{"near":3,"service":"my-web-app","stack":"TypeError: Cannot read properties of undefined\n    at render (https://cdn.example.com/app.min.js:1:2345)","type":"browser","version":"1.0.0"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -222,6 +233,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("no-cache") {
 						body["no_cache"] = fNoCache
+					}
+					if cmd.Flags().Changed("platform") {
+						body["platform"] = fPlatform
 					}
 					if cmd.Flags().Changed("service") {
 						body["service"] = fService
@@ -262,10 +276,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fBuildID, "build-id", "", "Android build ID for Gradle plugin 1.13.0 and later.")
 	cmd.Flags().Int64Var(&fNear, "near", 0, "Number of nearby meaningful source lines to return around converted frames. (1-20)")
 	cmd.Flags().BoolVar(&fNoCache, "no-cache", false, "Skip cached enrich results. Intended for debugging.")
+	cmd.Flags().StringVar(&fPlatform, "platform", "", "Narrows a 'react-native' enrich to the app's native platform: 'ios' for the iOS native layer, 'android' for the Android native layer (the console derives it from the event's OS). Ignored for other 'type' values. [ios, android]")
 	cmd.Flags().StringVar(&fService, "service", "", "Application or service name used when the sourcemap was uploaded. (required)")
 	cmd.Flags().StringVar(&fSourceType, "source-type", "", "Android error source type. Use 'ndk' with 'arch' for native symbolication.")
 	cmd.Flags().StringVar(&fStack, "stack", "", "Raw stack trace to parse and enrich.")
-	cmd.Flags().StringVar(&fType, "type", "", "Source platform. Defaults to 'browser' when omitted. One of 'browser' (JS stacks, sourcemap-based), 'android' (mapping/NDK symbolication), 'ios' (dSYM symbolication), 'miniprogram' (WeChat mini program, sourcemap-based), 'harmony' (HarmonyOS, sourcemap/native symbolication), 'flutter' (Flutter stack symbolication), 'electron' (Electron, sourcemap-based). [browser, android, ios, miniprogram, harmony, flutter, electron]")
+	cmd.Flags().StringVar(&fType, "type", "", "Source platform whose symbol store is used. Defaults to 'browser' when omitted. | Value | Symbolication | |---|---| | 'browser' | JavaScript stacks via sourcemaps | | 'android' | Java/Kotlin stacks via ProGuard/R8 mappings; native stacks via NDK symbols (send 'source_type=ndk' with 'arch') | | 'ios' | iOS crash stacks via dSYM (send 'binary_images') | | 'miniprogram' | WeChat mini program stacks via sourcemaps | | 'harmony' | HarmonyOS stacks via ArkTS sourcemaps or native symbols | | 'flutter' | Flutter/Dart stacks via Dart AOT symbols | | 'electron' | Electron JavaScript stacks via sourcemaps; minidump native frames via Breakpad symbols (derived from 'source_type') | | 'react-native' | React Native JS stacks via sourcemaps; narrow the lookup with 'platform' | [browser, android, ios, miniprogram, harmony, flutter, electron, react-native]")
 	cmd.Flags().StringVar(&fVariant, "variant", "", "Android build variant used by older Gradle plugin versions.")
 	cmd.Flags().StringVar(&fVersion, "version", "", "Application version used when the sourcemap was uploaded. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

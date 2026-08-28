@@ -62,7 +62,8 @@ fduty role upsert --role-id <role-id> --role-name "Incident Responder" \
 
 ### delete <role-id>
 Delete a role
-- `<role-id>` (positional, required) int64 — Role ID to operate on. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
+- `--is-force` bool — When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.
+- `<role-id>` (positional, required) int64 — Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 ### disable <role-id>
 Disable a role
@@ -80,29 +81,30 @@ Get role detail
 ### list
 List roles
 - `--asc` bool — Ascending sort order. Default: false (descending).
+- `--no-global` bool — When true, exclude the built-in global roles (Admin, Responder, Viewer) and return only custom roles. Default: false.
 - `--orderby` string — Sort field. Default: 'updated_at'. · enum: created_at | updated_at
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); description (string); editable (boolean); permission_ids (array<integer>); role_id (integer); role_name (string); status (string); updated_at (string)
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members
-- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role. Max 100.
+- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role.
 - `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### member-revoke <member-id> [<id2>...]
 Revoke role from members
-- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role. Max 100.
+- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role.
 - `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### permission-factor-list
 List permission factors
 - `--factor-types` stringSlice — Filter by factor type. · enum: api | button | visit | menu | url
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: factor_name (string); factor_type (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: factor_name (string); factor_type (string); source (string); source_ref (string)
 
 ### permission-list
 List permissions
 - `--role-ids` intSlice — Filter to permissions granted to these roles.
 - `--with-all` bool — If true, return all permissions with is_granted set to indicate which are granted.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); source (string); source_ref (string); status (string)
 
 ### upsert
 Create or update a role

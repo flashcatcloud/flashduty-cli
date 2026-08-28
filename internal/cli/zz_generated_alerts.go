@@ -33,17 +33,17 @@ Return a cursor-paginated list of raw alert events across all alerts, with filte
 API: POST /alert-event/list (alert-event-read-list)
 
 Request fields:
-  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
-  --limit int — Page size, max 100, default 20.
+  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided. (min 0)
+  --limit int — Page size, max 100, default 20. (0-100)
   --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — Sort ascending when 'true'.
-  --channel-ids []int — Filter by channel IDs. Max 100.
-  --end-time string — End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --channel-ids []int — Filter by channel IDs. At most 100 entries.
+  --end-time string — End of the search window, Unix epoch seconds. Must be greater than 'start_time' when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --integration-ids []int — Filter by integration IDs.
   --integration-types []string — Filter by integration types (plugin keys).
   --orderby string — Sort field; only 'event_time' is supported. [event_time]
-  --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'.
-  --start-time string — Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.
+  --start-time string — Start of the search window, Unix epoch seconds. Must be greater than 0 when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists (probed by fetching limit+1 rows).
@@ -54,11 +54,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) — Channel ID the event is routed to.
     - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the event is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
-    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
-    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_severity (string) — Severity of this event: 'Critical', 'Warning', or 'Info'. An event never carries 'Ok' as severity — 'Ok' appears only as 'event_status'. [Critical, Warning, Info]
+    - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
@@ -70,7 +70,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for the next page — the ObjectID of the last event on this page; pass it back as 'search_after_ctx'. Omitted when there are no more results or the result is empty.
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID of the last event on this page; pass it back as 'search_after_ctx'. Omitted when the page is empty; in cursor mode also omitted when there is no next page.
   - total (integer) — Total number of matching events, capped at 1000.
 `,
 		Example: `  flashduty alert-event list --data '{"end_time":1712707200,"limit":20,"severities":"Critical","start_time":1712620800}'`,
@@ -135,18 +135,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
-	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. Max 100.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time' when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; only 'event_time' is supported. [event_time]")
-	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0 when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -184,11 +184,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_id (integer) — Channel ID the event is routed to.
     - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the event is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
-    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
-    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_severity (string) — Severity of this event: 'Critical', 'Warning', or 'Info'. An event never carries 'Ok' as severity — 'Ok' appears only as 'event_status'. [Critical, Warning, Info]
+    - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
@@ -200,8 +200,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page.
-  - total (integer) (required) — Total matching event count.
+  - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' for the next page. Omitted when the page is empty; in cursor mode also omitted when there is no next page.
+  - total (integer) (required) — Total matching event count, capped at 1000.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert event-list --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","limit":20}'`,
@@ -270,12 +270,12 @@ Return the activity feed (comments, state changes, merges, silence events) for a
 API: POST /alert/feed (alert-read-feed)
 
 Request fields:
-  --page int — Page number, starting at 1.
-  --limit int — Page size, max 100, default 20.
+  --page int — Page number, starting at 1. (min 1)
+  --limit int — Page size, max 100, default 20. (1-100)
   --search-after-ctx string
-  --alert-id string (required) — Alert ID; obtain it from 'POST /alert/list'.
+  --alert-id string (required) — Alert ID (ObjectID hex string); obtain it from 'POST /alert/list'.
   --asc bool — Sort ascending.
-  --types []string — Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').
+  --types []string — Filter by feed type codes — see the 'type' field of the response items for the full list (e.g. 'a_new', 'a_comm', 'a_merge').
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists.
@@ -283,12 +283,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
-    - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'.
+    - deleted_at (string) — Soft-delete time, Unix epoch milliseconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - detail (object) (required) — Type-specific payload; the concrete shape is determined by 'type'. May be 'null' for entries stored without detail.
       - comment (string) — Comment body.
+      - in_secs (integer) — Window in seconds over which the state changes were counted. Omitted when zero.
+      - max_changes (integer) — State-change count threshold that triggered flapping detection. Omitted when zero.
+      - mute_secs (integer) — Mute duration in seconds. Omitted when zero.
+      - owner_id (integer) — New owner member ID set on the target incident. Omitted when unchanged.
+      - rule_id (string) — Silence rule ID that muted the alert. Omitted when empty.
+      - rule_name (string) — Silence rule name, resolved at read time. Omitted when empty.
       - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - source_alert_id (string) — ID of the source alert that triggered the inhibition. Omitted when empty.
+      - source_alert_title (string) — Title of the source alert, resolved at read time. Omitted when empty.
+      - source_alerts (array<object>) — Source alerts merged into the target incident. Omitted when empty.
+        - alert_id (string) — Alert ID (ObjectID hex string).
+        - title (string) — Alert title, resolved at read time. Omitted when empty.
       - status (string) — Severity level. [Ok, Critical, Warning, Info]
+      - target_incident (object) — Incident the alerts were merged into. Omitted when not recorded.
+        - incident_id (string) — Incident ID (ObjectID hex string).
+        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - title (string) — Incident title.
+      - title (string) — New title set on the target incident. Omitted when unchanged.
     - ref_id (string) (required) — ObjectID of the alert this entry references.
-    - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered. | | 'a_update' | Alert updated by an incoming event (e.g. severity or status change). | | 'a_merge' | Alert merged. | | 'a_comm' | Comment added on the alert. | | 'a_m_silence' | Alert muted by a silence rule. | | 'a_m_inhibit' | Alert muted by an inhibit rule. | | 'a_close' | Alert closed (historical data only; no longer produced). | [a_new, a_update, a_merge, a_comm, a_m_silence, a_m_inhibit, a_close]
+    - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered by an incoming event. | | 'a_update' | Alert severity or status changed on an incoming event. | | 'a_comm' | Comment added on the alert. | | 'a_merge' | Alert merged into an incident. | | 'a_m_silence' | Alert muted by a silence rule. | | 'a_m_inhibit' | Alert muted by an inhibit rule. | | 'a_m_flapping' | Alert muted by flapping detection (historical data only; no longer produced). | | 'a_ack' | Alert acknowledged (historical data only; alert-level acknowledgement has been removed). | | 'a_unack' | Alert acknowledgement revoked (historical data only). | | 'a_close' | Alert closed (historical data only; no longer produced). | [a_new, a_update, a_comm, a_merge, a_m_silence, a_m_inhibit, a_m_flapping, a_ack, a_unack, a_close]
     - updated_at (string) (required) — Last update timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
@@ -334,12 +351,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID; obtain it from 'POST /alert/list'. (required)")
+	cmd.Flags().StringVar(&fAlertID, "alert-id", "", "Alert ID (ObjectID hex string); obtain it from 'POST /alert/list'. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending.")
-	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Filter by feed type codes (e.g. 'a_new', 'a_close', 'a_ack').")
+	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Filter by feed type codes — see the 'type' field of the response items for the full list (e.g. 'a_new', 'a_comm', 'a_merge').")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -363,31 +380,32 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) — Account ID.
   - alert_id (string) — Unique alert ID (ObjectID hex string).
   - alert_key (string) — Deduplication key.
-  - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
-  - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+  - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
+  - alert_status (string) — Current status: 'Critical'/'Warning'/'Info' while firing, 'Ok' once recovered. [Critical, Warning, Info, Ok]
   - channel_id (integer) — ID of the channel the alert belongs to.
   - channel_name (string) — Display name of the channel.
-  - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+  - channel_status (string) — Status of the channel: 'enabled' or 'disabled'. [enabled, disabled]
   - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
-  - data_source_name (string) — Deprecated. Use 'integration_name' instead.
-  - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
-  - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+  - data_source_id (integer) — Deprecated: use 'integration_id' instead.
+  - data_source_name (string) — Deprecated: use 'integration_name' instead.
+  - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
+  - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+  - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Alert description.
   - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - event_cnt (integer) — Total number of raw events received by this alert.
-  - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+  - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
     - account_id (integer) — Account ID.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
     - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-    - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the event is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Event description.
     - event_id (string) — Event ID (MongoDB ObjectID).
-    - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
-    - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+    - event_severity (string) — Severity of this event: 'Critical', 'Warning', or 'Info'. An event never carries 'Ok' as severity — 'Ok' appears only as 'event_status'. [Critical, Warning, Info]
+    - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
       - alt (string) — Alt text.
@@ -414,8 +432,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - integration_type (string) — Type/plugin key of the integration.
   - labels (object) — Label key-value pairs.
   - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - responder_email (string) — Email of the current responder (from the associated incident).
-  - responder_name (string) — Display name of the current responder (from the associated incident).
+  - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
+  - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
   - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - title (string) — Alert title.
   - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
@@ -470,7 +488,6 @@ func genAlertsReadListCmd() *cobra.Command {
 	var fEverMuted bool
 	var fIntegrationIDs []int
 	var fIsActive bool
-	var fOrderby string
 	var fStartTime string
 	var fSince string
 	cmd := &cobra.Command{
@@ -483,20 +500,19 @@ Return a cursor-paginated list of alerts matching the given filters.
 API: POST /alert/list (alert-read-list)
 
 Request fields:
-  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided.
-  --limit int — Page size. Max 100, default 20.
+  --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided; 'p * limit' must stay within 10,000 records. (min 0)
+  --limit int — Page size. Max 100, default 20. (0-100)
   --search-after-ctx string — Opaque cursor from the previous response for the next page.
-  --alert-ids []string — Filter to specific alert IDs (ObjectID hex strings).
+  --alert-ids []string — Filter to specific alert IDs (ObjectID hex strings). Invalid IDs are ignored; if none are valid, the result is empty.
   --alert-keys []string — Filter by alert deduplication keys.
   --alert-severity string — Comma-separated severity filter, e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'.
-  --asc bool — Sort ascending when 'true'. Default descending.
+  --asc bool — Sort ascending by 'start_time' when 'true'; default is descending.
   --by-updated-at bool — When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.
   --channel-ids []int — Filter by channel IDs.
-  --end-time string (required) — End of the search window, Unix epoch seconds. Max span 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days and must lie within the account's data retention period. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --ever-muted bool — Filter by whether the alert has ever been silenced.
   --integration-ids []int — Filter by integration IDs.
-  --is-active bool — Filter by active ('true') or resolved ('false') status.
-  --orderby string — Sort field. [created_at, updated_at]
+  --is-active bool — Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.
   --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -505,31 +521,32 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account ID.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
-    - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
-    - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+    - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
+    - alert_status (string) — Current status: 'Critical'/'Warning'/'Info' while firing, 'Ok' once recovered. [Critical, Warning, Info, Ok]
     - channel_id (integer) — ID of the channel the alert belongs to.
     - channel_name (string) — Display name of the channel.
-    - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+    - channel_status (string) — Status of the channel: 'enabled' or 'disabled'. [enabled, disabled]
     - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
-    - data_source_name (string) — Deprecated. Use 'integration_name' instead.
-    - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
-    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - data_source_id (integer) — Deprecated: use 'integration_id' instead.
+    - data_source_name (string) — Deprecated: use 'integration_name' instead.
+    - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
+    - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
-    - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+    - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
       - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the event is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
-      - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
-      - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+      - event_severity (string) — Severity of this event: 'Critical', 'Warning', or 'Info'. An event never carries 'Ok' as severity — 'Ok' appears only as 'event_status'. [Critical, Warning, Info]
+      - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
@@ -556,14 +573,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_type (string) — Type/plugin key of the integration.
     - labels (object) — Label key-value pairs.
     - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - responder_email (string) — Email of the current responder (from the associated incident).
-    - responder_name (string) — Display name of the current responder (from the associated incident).
+    - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
+    - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
     - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for the next page.
-  - total (integer) — Total matching alerts.
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Present only when 'has_next_page' is true.
+  - total (integer) — Total matching alerts, capped at 1000.
 `,
 		Example: `  flashduty alert list --data '{"end_time":1712707200,"is_active":true,"limit":20,"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -616,9 +633,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("is-active") {
 						body["is_active"] = fIsActive
 					}
-					if cmd.Flags().Changed("orderby") {
-						body["orderby"] = fOrderby
-					}
 					if okStartTime {
 						body["start_time"] = vStartTime
 					}
@@ -639,21 +653,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max 100, default 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided; 'p * limit' must stay within 10,000 records. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Max 100, default 20. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor from the previous response for the next page.")
-	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Filter to specific alert IDs (ObjectID hex strings).")
+	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Filter to specific alert IDs (ObjectID hex strings). Invalid IDs are ignored; if none are valid, the result is empty.")
 	cmd.Flags().StringSliceVar(&fAlertKeys, "alert-keys", nil, "Filter by alert deduplication keys.")
 	cmd.Flags().StringVar(&fAlertSeverity, "alert-severity", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'. Default descending.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending by 'start_time' when 'true'; default is descending.")
 	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Max span 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days and must lie within the account's data retention period. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "Filter by whether the alert has ever been silenced.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
-	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by active ('true') or resolved ('false') status.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -668,12 +681,12 @@ func genAlertsReadListByIDsCmd() *cobra.Command {
 		Short: "List alerts by IDs",
 		Long: `List alerts by IDs.
 
-Return the details of multiple alerts by their IDs in a single request.
+Return the details of multiple alerts by their IDs in a single request. Note: this endpoint does not paginate — 'total' and 'has_next_page' are always '0'/'false' and 'search_after_ctx' is never set.
 
 API: POST /alert/list-by-ids (alert-read-list-by-ids)
 
 Request fields:
-  --alert-ids []string (required) — List of alert IDs (ObjectID hex strings).
+  --alert-ids []string (required) — Alert IDs (ObjectID hex strings) to fetch.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — True if more pages are available.
@@ -681,31 +694,32 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account ID.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
-    - alert_severity (string) — Current severity. [Critical, Warning, Info, Ok]
-    - alert_status (string) — Current status. [Critical, Warning, Info, Ok]
+    - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
+    - alert_status (string) — Current status: 'Critical'/'Warning'/'Info' while firing, 'Ok' once recovered. [Critical, Warning, Info, Ok]
     - channel_id (integer) — ID of the channel the alert belongs to.
     - channel_name (string) — Display name of the channel.
-    - channel_status (string) — Status of the channel (e.g. 'enabled', 'disabled').
+    - channel_status (string) — Status of the channel: 'enabled' or 'disabled'. [enabled, disabled]
     - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - data_source_id (integer) — Deprecated. Use 'integration_id' instead. Deprecated: use 'integration_id' instead.
-    - data_source_name (string) — Deprecated. Use 'integration_name' instead.
-    - data_source_ref_id (string) — Deprecated. Use 'integration_ref_id' instead.
-    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - data_source_id (integer) — Deprecated: use 'integration_id' instead.
+    - data_source_name (string) — Deprecated: use 'integration_name' instead.
+    - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
+    - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
-    - events (array<object>) — Recent raw events attached to this alert. Populated only by some endpoints.
+    - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
       - account_id (integer) — Account ID.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
       - created_at (string) — Record creation time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
-      - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the event is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) — Event description.
       - event_id (string) — Event ID (MongoDB ObjectID).
-      - event_severity (string) — Severity of this event. [Critical, Warning, Info, Ok]
-      - event_status (string) — Status of this event. [Critical, Warning, Info, Ok]
+      - event_severity (string) — Severity of this event: 'Critical', 'Warning', or 'Info'. An event never carries 'Ok' as severity — 'Ok' appears only as 'event_status'. [Critical, Warning, Info]
+      - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
         - alt (string) — Alt text.
@@ -732,14 +746,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - integration_type (string) — Type/plugin key of the integration.
     - labels (object) — Label key-value pairs.
     - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - responder_email (string) — Email of the current responder (from the associated incident).
-    - responder_name (string) — Display name of the current responder (from the associated incident).
+    - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
+    - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
     - start_time (string) — First-seen time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for the next page.
-  - total (integer) — Total matching alerts.
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Present only when 'has_next_page' is true.
+  - total (integer) — Total matching alerts, capped at 1000.
 `,
 		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
@@ -769,7 +783,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "List of alert IDs (ObjectID hex strings). (required)")
+	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs (ObjectID hex strings) to fetch. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -787,28 +801,29 @@ Return the alert processing pipeline configured for a specific integration.
 API: POST /alert/pipeline/info (alert-read-pipeline-info)
 
 Request fields:
-  --integration-id int (required) — Integration ID.
+  --integration-id int (required) — Integration ID. Must be greater than 0.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) — Member ID who created the pipeline.
+  - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
-    - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+    - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
       - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
       - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
       - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-    - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
       - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
+      - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
         - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
         - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
         - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - title (string) — New title template. Supports Golang template syntax referencing alert fields.
-  - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
+  - status (string) — Pipeline status. Always 'enabled' in these responses — deleted pipelines are filtered out. [enabled]
   - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) — Member ID who last updated the pipeline.
 `,
@@ -840,7 +855,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. Must be greater than 0. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -858,26 +873,27 @@ Return the alert processing pipelines configured for multiple integrations.
 API: POST /alert/pipeline/list (alert-read-pipeline-list)
 
 Request fields:
-  --integration-ids []int (required) — Integration IDs.
+  --integration-ids []int (required) — Integration IDs. At least one entry is required.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Alert pipeline configuration of each requested integration, one item per configured integration.
     - created_at (string) — Creation timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Member ID who created the pipeline.
+    - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
-      - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+      - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
         - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
         - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
         - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-      - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+      - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
         - description (string) — New description template.
         - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
         - severity (string) — Target severity level. [Critical, Warning, Info]
-        - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
+        - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
         - title (string) — New title template. Supports Golang template syntax referencing alert fields.
-    - status (string) — Pipeline status. Possible values: 'enabled', 'disabled'.
+    - status (string) — Pipeline status. Always 'enabled' in these responses — deleted pipelines are filtered out. [enabled]
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Member ID who last updated the pipeline.
 `,
@@ -909,7 +925,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Integration IDs. (required)")
+	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Integration IDs. At least one entry is required. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -931,11 +947,11 @@ Associate one or more alerts with an existing incident. If a source alert previo
 API: POST /alert/merge (alert-write-merge)
 
 Request fields:
-  --alert-ids []string (required) — Alert IDs to merge; obtain them from 'POST /alert/list'.
-  --comment string — Optional comment on the merge action.
-  --incident-id string (required) — Target incident ID; obtain it from 'POST /incident/list'.
+  --alert-ids []string (required) — Alert IDs to merge (ObjectID hex strings); obtain them from 'POST /alert/list'. Every ID must belong to the caller's account.
+  --comment string — Optional comment recorded on the merge feed entry. At most 1024 characters. (≤1024 chars)
+  --incident-id string (required) — Target incident ID (ObjectID hex string); obtain it from 'POST /incident/list'.
   --owner-id int — Member ID of the new owner for the target incident; obtain it from 'POST /member/list'.
-  --title string — Optional new title for the target incident.
+  --title string — Optional new title for the target incident. At most 512 characters. (≤512 chars)
 `,
 		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert merge --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"],"incident_id":"663a000000000000deadbeef"}'`,
@@ -981,11 +997,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs to merge; obtain them from 'POST /alert/list'. (required)")
-	cmd.Flags().StringVar(&fComment, "comment", "", "Optional comment on the merge action.")
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Target incident ID; obtain it from 'POST /incident/list'. (required)")
+	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs to merge (ObjectID hex strings); obtain them from 'POST /alert/list'. Every ID must belong to the caller's account. (required)")
+	cmd.Flags().StringVar(&fComment, "comment", "", "Optional comment recorded on the merge feed entry. At most 1024 characters. (≤1024 chars)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Target incident ID (ObjectID hex string); obtain it from 'POST /incident/list'. (required)")
 	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Member ID of the new owner for the target incident; obtain it from 'POST /member/list'.")
-	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident.")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident. At most 512 characters. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1004,24 +1020,24 @@ API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 
 Request fields:
   --integration-id int (required) — Integration ID to configure.
-  rules (array<object>, via --data) (required) — Rules to apply. Max 50.
-    - if (array<array<object>>) — Optional OR-of-AND filter. When omitted, the rule applies to all alerts.
+  rules (array<object>, via --data) (required) — Rules to apply, evaluated in array order. Between 1 and 50 entries.
+    - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
       - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
       - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
       - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-    - kind (string) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
       - description (string) — New description template.
       - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
       - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<array<object>>) — Filter that identifies the source alerts to inhibit.
+      - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
         - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
         - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
         - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
       - title (string) — New title template. Supports Golang template syntax referencing alert fields.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
-		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
+		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":[{"key":"labels.env","oper":"IN","vals":["prod"]}],"kind":"title_reset","settings":{"title":"[TPL]{{.Labels.service}} / {{.Labels.check}}"}},{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {

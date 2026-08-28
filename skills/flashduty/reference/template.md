@@ -112,7 +112,7 @@ Create a template
 
 ### delete <template-id>
 Delete a template
-- `<template-id>` (positional, required) string — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+- `<template-id>` (positional, required) string — Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset.
 
 ### functions
 List available template functions
@@ -125,7 +125,7 @@ Get the preset template for a channel
 
 ### info <template-id>
 Get template detail
-- `<template-id>` (positional, required) string — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+- `<template-id>` (positional, required) string — Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset.
 - response: same shape as `get-preset` above
 
 ### list
@@ -145,7 +145,7 @@ List templates
 Preview template
 - `--content` string (required) — Template content to render.
 - `--incident-id` string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
-- `--type` string (required) — Template channel type that selects the rendering engine.
+- `--type` string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
 - body-only (`--data`): incident_card_hidden_fields (object)
 - response: single object (`data` unwrapped to the top level) — fields: content (string); fixed_fields (array<object>); message (string); success (boolean)
 

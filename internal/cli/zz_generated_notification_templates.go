@@ -21,7 +21,7 @@ Return a single notification template by ID.
 API: POST /template/info (template-read-info)
 
 Request fields:
-  --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+  --template-id string (required) — Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — ID of the owning account.
@@ -35,7 +35,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
   - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
-  - incident_card_hidden_fields (object) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
+  - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -80,7 +80,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -130,7 +130,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
     - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
-    - incident_card_hidden_fields (object) — Incident-card fields to hide, keyed by IM app type. Only supported IM app types and field names are accepted.
+    - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
@@ -146,7 +146,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - wecom (string) (required) — WeCom robot message template source.
     - wecom_app (string) (required) — WeCom app message template source.
     - zoom (string) (required) — Zoom bot message template source.
-  - total (integer) (required) — Total number of templates matching the filter, across all pages.
+  - total (integer) (required) — Total number of templates matching the filter, across all pages (including the built-in preset template).
 `,
 		Example: `  flashduty template list --data '{"asc":false,"is_my_team":false,"limit":20,"orderby":"updated_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -226,16 +226,16 @@ API: POST /template/preview (template-read-preview)
 Request fields:
   --content string (required) — Template content to render.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
-  --type string (required) — Template channel type that selects the rendering engine.
+  --type string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
   incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app when previewing.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - content (string) — Rendered template output, present when success is true.
+  - content (string) (required) — Rendered template output, present when success is true.
   - fixed_fields (array<object>) — Fixed incident-card fields returned for supported IM previews after the requested hiding rules are applied.
     - field (string) (required) — Incident-card field name. | Value | Meaning | |---|---| | 'channel' | Name of the alert channel that produced the incident; returned only when non-empty. | | 'snoozed_before' | Snooze-until timestamp formatted as 'YYYY-MM-DD HH:MM:SS'; returned only while the incident is snoozed. | | 'severity' | Incident severity label; returned only when non-empty. | | 'responders' | Names of the current responders, separated by spaces; returned only when the incident has responders. | | 'aggregate_alert_count' | Number of alerts aggregated into the incident; returned only when greater than 1. | [channel, snoozed_before, severity, responders, aggregate_alert_count]
     - value (string) (required) — Rendered display value for the fixed field.
-  - message (string) — Error message describing why rendering failed, present when success is false.
-  - success (boolean) — Whether the template rendered without errors.
+  - message (string) (required) — Error message describing why rendering failed, present when success is false.
+  - success (boolean) (required) — Whether the template rendered without errors.
 `,
 		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_card_hidden_fields":{"feishu_app":["responders"]},"incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -269,7 +269,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fContent, "content", "", "Template content to render. (required)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.")
-	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -438,7 +438,7 @@ Soft-delete a template by ID.
 API: POST /template/delete (template-write-delete)
 
 Request fields:
-  --template-id string (required) — Target template ID. Pass '000000000000000000000001' to address the built-in preset.
+  --template-id string (required) — Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
 		Example: `  flashduty template delete --data '{"template_id":"6605a1b2c3d4e5f6a7b8c9d0"}'`,
@@ -472,7 +472,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '000000000000000000000001' to address the built-in preset. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID. Pass '6321aad26c12104586a88916' to address the built-in preset. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

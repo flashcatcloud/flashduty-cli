@@ -25,28 +25,37 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Account ID.
-  - alerting (object) — Alert settings for the application.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (any) — Whether alerting is enabled.
-    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+  - alerting (object) — Alerting configuration of the application.
+    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+    - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
+    - enabled (boolean) (required) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
   - application_id (string) — Unique application ID.
   - application_name (string) — Application display name.
   - client_token (string) — Token used to initialize the RUM SDK.
   - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) — Creator member ID.
   - is_private (boolean) — If 'true', the application is only accessible to team members.
-  - links (object) — External link integration settings for the application.
-    - enabled (boolean) — Whether external link integration is enabled.
-    - systems (any) — External systems whose URL templates can be opened from matching RUM events.
+  - links (object) — External-link integration configuration.
+    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
+      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
+      - icon_color (string) — Display color for the link icon.
+      - icon_text (string) — Short text shown in the link icon.
+      - id (string) — Stable client-side identifier for this external system.
+      - name (string) (required) — Display name of the external system.
+      - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
   - no_ip (boolean) — If 'true', IP addresses are not collected.
   - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
-  - tracing (object) — APM tracing integration settings.
-    - enabled (boolean) — Whether tracing integration is enabled.
-    - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-  - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  - tracing (object) — APM tracing integration configuration.
+    - enabled (boolean) (required) — Whether tracing integration is enabled.
+    - endpoint (string) (required) — Trace endpoint URL (http or https).
+    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+  - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) — Last updater member ID.
 `,
@@ -101,28 +110,37 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Application info items matching the requested 'application_ids' (max 200, deduplicated).
     - account_id (integer) — Account ID.
-    - alerting (object) — Alert settings for the application.
-      - channel_ids (array<integer>) — Channel IDs to send alerts to.
-      - enabled (any) — Whether alerting is enabled.
-      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - alerting (object) — Alerting configuration of the application.
+      - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+      - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
+      - enabled (boolean) (required) — Whether alerting is enabled.
+      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
+      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
     - client_token (string) — Token used to initialize the RUM SDK.
     - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) — Creator member ID.
     - is_private (boolean) — If 'true', the application is only accessible to team members.
-    - links (object) — External link integration settings for the application.
-      - enabled (boolean) — Whether external link integration is enabled.
-      - systems (any) — External systems whose URL templates can be opened from matching RUM events.
+    - links (object) — External-link integration configuration.
+      - enabled (boolean) (required) — Whether external link integration is enabled.
+      - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
+        - enabled (boolean) (required) — Whether this external system link is enabled.
+        - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
+        - icon_color (string) — Display color for the link icon.
+        - icon_text (string) — Short text shown in the link icon.
+        - id (string) — Stable client-side identifier for this external system.
+        - name (string) (required) — Display name of the external system.
+        - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
     - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
-    - tracing (object) — APM tracing integration settings.
-      - enabled (boolean) — Whether tracing integration is enabled.
-      - endpoint (string) — Trace endpoint URL (http or https).
-      - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-    - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+    - tracing (object) — APM tracing integration configuration.
+      - enabled (boolean) (required) — Whether tracing integration is enabled.
+      - endpoint (string) (required) — Trace endpoint URL (http or https).
+      - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Last updater member ID.
 `,
@@ -179,12 +197,12 @@ Return a paginated list of RUM applications accessible to the current user.
 API: POST /rum/application/list (rum-application-read-list)
 
 Request fields:
-  --page int — Page number (1-based). Default: 1.
-  --limit int — Page size. Range: 1–100. Default: 20.
+  --page int — Page number (1-based). Default: 1. (min 1)
+  --limit int — Page size. Range: 1–100. Default: 20. (1-100)
   --search-after-ctx string
   --asc bool — Sort ascending if 'true'.
   --is-my-team bool — If 'true', return only applications belonging to the current user's teams.
-  --orderby string — Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at]
+  --orderby string — Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. [created_at, updated_at]
   --query string — Substring match on the application name.
   --team-id int — Filter by team ID. Get team IDs via 'POST /team/list'.
 
@@ -192,28 +210,37 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
   - items (array<object>) — RUM applications of the current page.
     - account_id (integer) — Account ID.
-    - alerting (object) — Alert settings for the application.
-      - channel_ids (array<integer>) — Channel IDs to send alerts to.
-      - enabled (any) — Whether alerting is enabled.
-      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - alerting (object) — Alerting configuration of the application.
+      - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+      - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
+      - enabled (boolean) (required) — Whether alerting is enabled.
+      - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
+      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
     - application_id (string) — Unique application ID.
     - application_name (string) — Application display name.
     - client_token (string) — Token used to initialize the RUM SDK.
     - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) — Creator member ID.
     - is_private (boolean) — If 'true', the application is only accessible to team members.
-    - links (object) — External link integration settings for the application.
-      - enabled (boolean) — Whether external link integration is enabled.
-      - systems (any) — External systems whose URL templates can be opened from matching RUM events.
+    - links (object) — External-link integration configuration.
+      - enabled (boolean) (required) — Whether external link integration is enabled.
+      - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
+        - enabled (boolean) (required) — Whether this external system link is enabled.
+        - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
+        - icon_color (string) — Display color for the link icon.
+        - icon_text (string) — Short text shown in the link icon.
+        - id (string) — Stable client-side identifier for this external system.
+        - name (string) (required) — Display name of the external system.
+        - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
     - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
-    - tracing (object) — APM tracing integration settings.
-      - enabled (boolean) — Whether tracing integration is enabled.
-      - endpoint (string) — Trace endpoint URL (http or https).
-      - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-    - type (string) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. Note: the create API also accepts 'miniprogram', 'harmony', and 'electron', and applications of those types appear in responses too (see Enum gaps). [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+    - tracing (object) — APM tracing integration configuration.
+      - enabled (boolean) (required) — Whether tracing integration is enabled.
+      - endpoint (string) (required) — Trace endpoint URL (http or https).
+      - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Last updater member ID.
   - total (integer) — Total number of applications matching the filter conditions.
@@ -263,12 +290,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if 'true'.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If 'true', return only applications belonging to the current user's teams.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; defaults to 'updated_at' when omitted. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the application name.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -352,23 +379,32 @@ Create a new RUM application. Returns the generated 'application_id' and 'client
 API: POST /rum/application/create (rum-application-write-create)
 
 Request fields:
-  --application-name string (required) — Application name. 1–40 characters.
+  --application-name string (required) — Application name. 1–40 characters. (1-40 chars)
   --is-private bool — Restrict access to team members only.
   --no-geo bool — Do not infer geographic location.
   --no-ip bool — Do not collect IP addresses.
   --team-id int (required) — Owning team ID. Get team IDs via 'POST /team/list'.
-  --type string (required) — Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  --type string (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration; defaults to disabled ('enabled: false') when omitted.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (any) — Whether alerting is enabled.
-    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+    - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
+    - enabled (boolean) (required) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
   links (object, via --data) — Optional external-link integration configuration.
-    - enabled (boolean) — Whether external link integration is enabled.
-    - systems (any) — External systems whose URL templates can be opened from matching RUM events.
+    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
+      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
+      - icon_color (string) — Display color for the link icon.
+      - icon_text (string) — Short text shown in the link icon.
+      - id (string) — Stable client-side identifier for this external system.
+      - name (string) (required) — Display name of the external system.
+      - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   tracing (object, via --data) — Optional APM tracing integration configuration.
-    - enabled (boolean) — Whether tracing integration is enabled.
-    - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - enabled (boolean) (required) — Whether tracing integration is enabled.
+    - endpoint (string) (required) — Trace endpoint URL (http or https).
+    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - application_id (string) — Auto-generated unique application ID.
@@ -418,12 +454,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "Application name. 1–40 characters. (required)")
+	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "Application name. 1–40 characters. (required) (1-40 chars)")
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to team members only.")
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "Do not infer geographic location.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. (required)")
-	cmd.Flags().StringVar(&fType, "type", "", "Application type. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
+	cmd.Flags().StringVar(&fType, "type", "", "Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -500,23 +536,32 @@ API: POST /rum/application/update (rum-application-write-update)
 
 Request fields:
   --application-id string (required) — Application ID to update. Get application IDs via 'POST /rum/application/list'.
-  --application-name string — New application name, 1–40 characters. Omit to leave unchanged.
+  --application-name string — New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)
   --is-private bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
   --no-geo bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
   --no-ip bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
   --team-id int — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
-  --type string — Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  --type string — Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration. Omit to leave unchanged.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to.
-    - enabled (any) — Whether alerting is enabled.
-    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned).
+    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+    - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
+    - enabled (boolean) (required) — Whether alerting is enabled.
+    - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
   links (object, via --data) — External-link integration configuration. Omit to leave unchanged.
-    - enabled (boolean) — Whether external link integration is enabled.
-    - systems (any) — External systems whose URL templates can be opened from matching RUM events.
+    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
+      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
+      - icon_color (string) — Display color for the link icon.
+      - icon_text (string) — Short text shown in the link icon.
+      - id (string) — Stable client-side identifier for this external system.
+      - name (string) (required) — Display name of the external system.
+      - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   tracing (object, via --data) — APM tracing integration configuration. Omit to leave unchanged.
-    - enabled (boolean) — Whether tracing integration is enabled.
-    - endpoint (string) — Trace endpoint URL (http or https).
-    - open_type (string) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+    - enabled (boolean) (required) — Whether tracing integration is enabled.
+    - endpoint (string) (required) — Trace endpoint URL (http or https).
+    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2","links":{"enabled":true,"systems":[{"enabled":true,"event_types":["crash","error"],"icon_color":"#0F766E","icon_text":"S3","id":"s3-crash-logs","name":"S3 Crash Logs","url":"https://s3.example.com/logs?app=${application_id}\u0026trace=${trace_id}"}]}}'`,
@@ -569,12 +614,12 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "Application ID to update. Get application IDs via 'POST /rum/application/list'. (required)")
-	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name, 1–40 characters. Omit to leave unchanged.")
+	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)")
 	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. Platform identifier, one of 'browser' (web), 'ios', 'android', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity', 'miniprogram' (WeChat mini program), 'harmony' (HarmonyOS), 'electron'. [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
+	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -50,11 +50,10 @@ Create A2A agent
 - `--allow-insecure-oauth-http` bool — Allow non-loopback HTTP OAuth discovery/metadata endpoints for this agent instead of requiring HTTPS. Defaults to false.
 - `--allow-insecure-tls-skip-verify` bool — Skip TLS certificate verification when connecting to this agent's endpoint (self-signed/private certs). Defaults to false.
 - `--auth-mode` string — Authentication mode: 'shared' (default) shares one credential across all users; 'per_user_secret' requires 'secret_schema.header_name'; 'per_user_oauth' runs per-user OAuth.
-- `--auth-type` string — Authentication type for reaching the remote agent: 'none', 'api_key', or 'bearer'.
+- `--auth-type` string — Authentication type for reaching the remote agent: 'none' (default when omitted), 'api_key', or 'bearer'. · enum: none | api_key | bearer
 - `--card-url` string (required) — URL of the remote agent card. Must be an absolute 'http' or 'https' URL with a non-empty host; reachability is enforced by the execution environment, not at creation time.
-- `--environment-id` string — BYOC runner ID. Required when 'environment_kind=byoc'; the runner must belong to the account or a team the caller belongs to.
-- `--environment-kind` string — Execution environment binding. Omit or send empty for automatic routing; 'byoc' pins the agent to a specific runner given by 'environment_id'. 'cloud' is not accepted — configured A2A agents need a persistent runner, not a disposable cloud sandbox. · enum: byoc
-- `--instructions` string (required) — Natural-language instructions for the remote agent. Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (≤2000 chars)
+- `--environments` stringSlice — Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.
+- `--instructions` string (required) — Natural-language instructions for the remote agent: a Markdown document with optional 'summary' frontmatter and a non-empty body, at most 50 KiB (51200 bytes). Required — a deprecated 'description' field is still accepted for legacy clients and, if both are sent, must exactly match 'instructions'. (≤51200 chars)
 - `--oauth-metadata` string — JSON-encoded OAuth metadata; populated by the OAuth discovery flow for 'per_user_oauth' mode.
 - `--secret-schema` string — JSON-encoded secret schema, e.g. '{"header_name":"X-Api-Key"}'; required when 'auth_mode=per_user_secret'.
 - `--streaming` bool — Whether the remote agent supports streaming.
@@ -77,7 +76,7 @@ Enable A2A agent
 ### a2a-agent-get <agent-id>
 Get A2A agent detail
 - `<agent-id>` (positional, required) string — Target agent ID, from the list returned by 'POST /safari/a2a-agent/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (string); created_by (integer); environment_id (string); environment_kind (string); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (string); created_by (integer); environments (array<string>); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (string)
 
 ### a2a-agent-list
 List A2A agents
@@ -87,7 +86,7 @@ List A2A agents
 - `--query` string — Case-insensitive substring search across agent name, instructions, card URL, agent ID, and the resolved card name. (≤128 chars)
 - `--scope` string — Visibility scope: 'all' (account-scope plus the caller's visible teams), 'account' (account-scope only), or 'team' (team-scoped rows across the caller's visible teams). · enum: all | account | team
 - `--team-ids` intSlice — Filter to these team IDs; empty = the caller's visible set.
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (string); created_by (integer); environment_id (string); environment_kind (string); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (string)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); agent_card_name (string); agent_card_skills (array<string>); agent_id (string); agent_name (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); auth_config (object); auth_mode (string); auth_type (string); can_edit (boolean); card_resolve_timeout (integer); card_url (string); created_at (string); created_by (integer); environments (array<string>); instructions (string); oauth_metadata (string); secret_schema (string); status (string); streaming (boolean); task_timeout (integer); team_id (integer); updated_at (string)
 
 ### a2a-agent-update <agent-id>
 Update A2A agent
@@ -96,11 +95,10 @@ Update A2A agent
 - `--allow-insecure-oauth-http` bool — Toggle non-loopback HTTP OAuth discovery for this agent. Omit to leave unchanged.
 - `--allow-insecure-tls-skip-verify` bool — Toggle TLS certificate verification skipping for this agent. Omit to leave unchanged.
 - `--auth-mode` string — New auth mode: shared, per_user_secret, or per_user_oauth. Changing it always rewrites secret_schema together with it.
-- `--auth-type` string — New auth type. Omit to leave unchanged.
+- `--auth-type` string — New auth type: 'none', 'api_key', or 'bearer'. Omit to leave unchanged. · enum: none | api_key | bearer
 - `--card-url` string — New card URL. Omit to leave unchanged.
-- `--environment-id` string — New BYOC runner ID. Required alongside 'environment_kind=byoc'. Omit to leave unchanged.
-- `--environment-kind` string — New execution environment binding: empty for automatic, 'byoc' for a specific runner. 'cloud' is rejected. Omit to leave unchanged.
-- `--instructions` string — New instructions. Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤2000 chars)
+- `--environments` stringSlice — Execution environments this agent is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.
+- `--instructions` string — New instructions document (same contract as create: optional 'summary' frontmatter, non-empty body, at most 50 KiB). Omit to leave unchanged. A deprecated 'description' field is also accepted; if both are sent they must match. (≤51200 chars)
 - `--oauth-metadata` string — New JSON OAuth metadata. If omitted while auth_mode changes, it is cleared to empty.
 - `--secret-schema` string — New JSON secret schema.
 - `--streaming` bool — Toggle streaming support. Omit to leave unchanged.
@@ -120,7 +118,7 @@ Create Automation rule
 - `--oncall-incident-trigger-enabled` bool — Whether the On-call incident trigger is enabled.
 - `--prompt` string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
-- `--team-id` int64 — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Immutable after creation. (min 0)
+- `--team-id` int64 — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)
 - `--timezone` string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
 
@@ -138,7 +136,7 @@ List Automation rules
 - `--enabled` bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
 - `--include-person` bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
 - `--keyword` string — Filter by name keyword. (≤64 chars)
-- `--limit` int64 — Page size. (max 100)
+- `--limit` int64 — Page size.
 - `--page` int64 — Page number, 1-based.
 - `--scope` string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. · enum: all | personal | team
 - `--search-after-ctx` string
@@ -165,18 +163,18 @@ Update Automation rule
 - `--rotate-http-post-trigger-token` bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
-- `--team-id` int64 — Only the current value is accepted; personal/team scope is immutable after creation. (min 0)
+- `--team-id` int64 — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
 - response: same shape as `automation-rule-create` above
 
 ### automation-run-list <rule-id>
 List Automation runs
-- `--limit` int64 — Page size. (max 100)
+- `--limit` int64 — Page size.
 - `--page` int64 — Page number, 1-based.
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--search-after-ctx` string
-- `--started-after-ms` int64 — Start-time lower bound, Unix milliseconds.
-- `--started-before-ms` int64 — Start-time upper bound, Unix milliseconds.
-- `--status` string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system); omit for no filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned
+- `--started-after-ms` int64 — Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)
+- `--started-before-ms` int64 — Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)
+- `--status` string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned | blocked
 - `--trigger-kind` string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. · enum: schedule | debug | manual | http_post | oncall_incident
 - response: single object (`data` unwrapped to the top level) — fields: runs (array<object>); total (integer)
 
@@ -205,15 +203,15 @@ Get knowledge file
 
 ### knowledge-file-list
 List knowledge files
-- `--limit` int64 — Page size.
+- `--limit` int64 — Page size. Accepted but currently ignored — the response always contains the full file list.
 - `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
-- `--page` int64 — Page number, 1-based.
+- `--page` int64 — Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.
 - `--search-after-ctx` string
 - response: single object (`data` unwrapped to the top level) — fields: files (array<object>); total (integer)
 
 ### knowledge-file-put
 Upload knowledge file
-- `--content-b64` string — Base64-encoded file content; must decode to valid UTF-8 text.
+- `--content-b64` string — Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.
 - `--content-type` string — MIME type; inferred from the file extension when omitted.
 - `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
 - `--rel-path` string (required) — Destination path relative to the pack root; existing files are overwritten.
@@ -232,14 +230,14 @@ Delete knowledge pack
 Ensure knowledge pack
 - `--scope` string (required) — Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). · enum: account | team
 - `--scope-id` int64 — Team ID; required for 'team' scope, ignored for 'account' scope.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at_ms (string); created_by (integer); file_count (integer); pack_id (string); scope (string); scope_id (integer); team_name (string); total_bytes (integer); updated_at_ms (string); version (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at_ms (string); created_by (integer); duty_version (integer); file_count (integer); pack_id (string); scope (string); scope_id (integer); team_name (string); total_bytes (integer); updated_at_ms (string); version (integer)
 
 ### knowledge-pack-list
 List knowledge packs
 - `--include-account` bool — Include the account-scope pack; defaults to true.
 - `--limit` int64 — Page size.
 - `--page` int64 — Page number, 1-based; returns all results when both 'p' and 'limit' are unset.
-- `--query` string — Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)
+- `--query` string — Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)
 - `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
@@ -262,18 +260,17 @@ Create MCP server
 - `--command` string — Executable command (stdio transport).
 - `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
 - `--description` string (required) — Server description. (1-1024 chars)
-- `--environment-id` string — Runner ID; required when environment_kind is byoc.
-- `--environment-kind` string — Pin the server to a specific BYOC runner ('environment_id' required). Omit or send empty for automatic selection; 'cloud' is not supported for MCP servers. The only accepted value: 'byoc' (a self-hosted BYOC runner in the account; the MCP server process runs on the customer's own infrastructure). · enum: byoc
+- `--environments` stringSlice — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.
 - `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
-- `--server-name` string (required) — MCP server name, unique within the account. (1-255 chars)
+- `--server-name` string (required) — MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team), case-insensitive. (1-255 chars)
 - `--source-template-name` string — Marketplace template name when created from a connector template.
 - `--status` string — Initial status: 'enabled' (default) or 'disabled' (created but kept off). · enum: enabled | disabled
 - `--team-id` int64 — Team scope: 0 = account-wide; >0 = team.
 - `--transport` string (required) — Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. · enum: stdio | sse | streamable-http
 - `--url` string — Server URL (sse / streamable-http transport).
 - body-only (`--data`): env (object); headers (object)
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (string); created_by (integer); description (string); env (object); environment_id (string); environment_kind (string); headers (object); list_error (string); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); tool_count (integer); tools (array<object>); transport (string); updated_at (string); url (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); ai_description (string); allow_insecure_oauth_http (boolean); allow_insecure_tls_skip_verify (boolean); args (array<string>); auth_mode (string); call_timeout (integer); can_edit (boolean); command (string); connect_timeout (integer); created_at (string); created_by (integer); description (string); env (object); environments (array<string>); headers (object); oauth_metadata (string); proxy_url (string); secret_schema (string); server_id (string); server_name (string); source_template_name (string); status (string); team_id (integer); transport (string); updated_at (string); url (string)
 
 ### mcp-server-delete <server-id>
 Delete MCP server
@@ -313,8 +310,7 @@ Update MCP server
 - `--command` string — Executable command (stdio transport).
 - `--connect-timeout` int64 — Connection timeout in seconds. 0 = default (10s).
 - `--description` string — New description; omitted or empty leaves it unchanged. (1-1024 chars)
-- `--environment-id` string — Runner ID paired with environment_kind=byoc. Omit (null) to leave the current binding unchanged.
-- `--environment-kind` string — Reassign the runner binding: 'byoc' (with environment_id) or empty string to reset to automatic selection. Omit (null) to leave the current binding unchanged.
+- `--environments` stringSlice — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.
 - `--oauth-metadata` string — JSON OAuth metadata; reserved for per_user_oauth.
 - `--secret-schema` string — JSON secret schema; required when auth_mode=per_user_secret.
 - `<server-id>` (positional, required) string — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
@@ -345,7 +341,7 @@ Get session detail
 ### session-list
 List sessions
 - `--app-name` string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | · enum: ask-ai | support | support-website | support-flashcat | ai-sre | template-assistant | swe
-- `--asc` bool — Ascending order when true, descending when false; also applies when 'orderby' is omitted (sorted by 'updated_at').
+- `--asc` bool — Ascending order when true, descending when false. Only honored together with 'orderby'; when 'orderby' is omitted the sort is always 'updated_at' descending.
 - `--entry-kinds` stringSlice — Restrict to sessions produced by these surfaces; empty returns every kind. · enum: web | im | api | automation
 - `--include-subagent-sessions` bool — Include subagent-dispatched sessions in the list.
 - `--keyword` string — Filter by session-name keyword. (≤64 chars)
@@ -373,7 +369,7 @@ Enable skill
 ### skill-get <skill-id>
 Get skill detail
 - `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (string); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (string); version (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); author (string); can_edit (boolean); checksum (string); content (string); created (boolean); created_at (string); created_by (integer); description (string); description_en (string); is_modified (boolean); license (string); s3_key (string); skill_id (string); skill_name (string); source_template_name (string); source_template_version (string); status (string); tags (array<string>); team_id (integer); tools (array<string>); update_available (boolean); updated_at (string); venues (array<string>); version (string)
 
 ### skill-list
 List skills
@@ -394,9 +390,12 @@ Update skill
 - `--team-id` int64 — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
 - response: same shape as `skill-get <skill-id>` above
 
-### skill-upload
-Upload skill
-- response: same shape as `skill-get <skill-id>` above
+### skill-upload --file <archive>
+Upload a skill archive
+- `--file` string
+- `--replace` bool
+- `--skill-id` string
+- `--team-id` int64
 
 <!-- GENERATED:safari END -->
 

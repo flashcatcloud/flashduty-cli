@@ -13,10 +13,12 @@ func genFacetsFacetCountCmd() *cobra.Command {
 	var fDql string
 	var fEndTime int64
 	var fFacetKey string
+	var fKind string
 	var fLimit int64
 	var fScope string
 	var fSql string
 	var fStartTime int64
+	var fType string
 	cmd := &cobra.Command{
 		Use:   "facet-count",
 		Short: "Count facet value distribution",
@@ -30,10 +32,12 @@ Request fields:
   --dql string — RUM DQL filter expression applied before counting.
   --end-time int (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
   --facet-key string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
+  --kind string — Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. [mapping, native]
   --limit int — Maximum number of top values to return. Default 100, maximum 100. (max 100)
   --scope string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | [session, view, action, error, resource, long_task, vital, issue, sourcemap]
   --sql string — SQL WHERE clause (no SELECT) for additional filtering.
   --start-time int (required) — Start of the time range, Unix epoch milliseconds.
+  --type string — Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | [browser, web, javascript, android, ios, miniprogram, harmony, flutter, electron, react-native]
   facet_value (any, via --data) — When set, filter events where 'facet_key' equals this value before counting. Accepts string, number, or boolean.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -54,6 +58,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("facet-key") {
 						body["facet_key"] = fFacetKey
 					}
+					if cmd.Flags().Changed("kind") {
+						body["kind"] = fKind
+					}
 					if cmd.Flags().Changed("limit") {
 						body["limit"] = fLimit
 					}
@@ -65,6 +72,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("start-time") {
 						body["start_time"] = fStartTime
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
 					}
 					return nil
 				})
@@ -86,10 +96,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fDql, "dql", "", "RUM DQL filter expression applied before counting.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Maximum 31-day span. (required)")
 	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'. (required)")
+	cmd.Flags().StringVar(&fKind, "kind", "", "Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. [mapping, native]")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of top values to return. Default 100, maximum 100. (max 100)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | (required) [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
 	cmd.Flags().StringVar(&fSql, "sql", "", "SQL WHERE clause (no SELECT) for additional filtering.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
+	cmd.Flags().StringVar(&fType, "type", "", "Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | [browser, web, javascript, android, ios, miniprogram, harmony, flutter, electron, react-native]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -109,7 +121,7 @@ API: POST /rum/field/list (rum-read-field-list)
 
 Request fields:
   --is-facet bool — When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.
-  --scopes []string — Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.
+  --scopes []string — Filter by RUM data scopes; unknown values are rejected with a parameter error. Omit to list fields of all scopes. | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | [session, view, action, error, resource, long_task, vital, issue, sourcemap]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — RUM field definitions matching the 'scopes' / 'is_facet' filters, with names and descriptions localized to the request locale.
@@ -157,7 +169,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().BoolVar(&fIsFacet, "is-facet", false, "When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.")
-	cmd.Flags().StringSliceVar(&fScopes, "scopes", nil, "Filter by RUM data scopes. Valid values: 'session', 'view', 'action', 'error', 'resource', 'long_task', 'vital', 'issue', 'sourcemap'.")
+	cmd.Flags().StringSliceVar(&fScopes, "scopes", nil, "Filter by RUM data scopes; unknown values are rejected with a parameter error. Omit to list fields of all scopes. | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -101,7 +101,7 @@ func genMembersMemberGrantRoleCmd() *cobra.Command {
 		Short: "Grant role to member",
 		Long: `Grant role to member.
 
-Add a role assignment to a member.
+Add role assignments to a member. Role IDs that do not exist are silently ignored; if none resolve, the call is a no-op success.
 
 API: POST /member/role/grant (memberGrantRole)
 
@@ -157,31 +157,33 @@ func genMembersMemberInfoCmd() *cobra.Command {
 		Short: "Get current member info",
 		Long: `Get current member info.
 
-Return the current session member's full profile.
+Return the profile of the member the credential belongs to. Requires a member-scoped credential — calls authenticated as the account principal (e.g. an account-level app key) are rejected with a 400.
 
 API: POST /member/info (memberInfo)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_avatar (string) — Account avatar URL
-  - account_email (string) — Account email
-  - account_id (integer) — Account ID
-  - account_locale (string) — Account-level locale preference (e.g. zh-CN or en-US)
-  - account_name (string) — Account name
-  - account_role_ids (array<integer>) — Assigned role IDs
-  - account_time_zone (string) — Account-level time zone (e.g. Asia/Shanghai)
-  - avatar (string) — Member avatar URL
-  - country_code (string) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
-  - domain (string) — Account domain
-  - email (string) — Email address
-  - email_verified (boolean) — Whether email is verified
-  - is_external (boolean) — Whether provisioned via SSO
-  - locale (string) — Locale preference
-  - member_id (integer) — Member ID
-  - member_name (string) — Member display name
-  - phone (string) — Masked phone number
-  - phone_verified (boolean) — Whether phone is verified
-  - status (string) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
-  - time_zone (string) — Time zone
+  - account_avatar (string) (required) — Account avatar URL
+  - account_email (string) (required) — Account email
+  - account_id (integer) (required) — Account ID
+  - account_locale (string) — Account-level locale preference (e.g. zh-CN or en-US). Omitted when the account has none set.
+  - account_name (string) (required) — Account name
+  - account_role_ids (array<integer>) (required) — Assigned role IDs
+  - account_time_zone (string) — Account-level time zone (e.g. Asia/Shanghai). Omitted when the account has none set.
+  - avatar (string) (required) — Member avatar URL
+  - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
+  - created_at (string) (required) — Member creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - domain (string) (required) — Account domain
+  - email (string) (required) — Email address
+  - email_verified (boolean) (required) — Whether email is verified
+  - is_external (boolean) (required) — Whether provisioned via SSO
+  - locale (string) — Member's locale preference. Omitted when the member has none set.
+  - member_id (integer) (required) — Member ID
+  - member_name (string) (required) — Member display name
+  - mp_account_id (string) — Account identifier on the marketplace platform. Omitted together with 'mp_plat'.
+  - mp_plat (string) — Cloud marketplace platform the account was provisioned from. Omitted when the account did not come from a marketplace.
+  - phone (string) (required) — Masked phone number
+  - phone_verified (boolean) (required) — Whether phone is verified
+  - time_zone (string) — Member's IANA time zone. Omitted when the member has none set.
 `,
 		Example: `  flashduty member info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -219,12 +221,12 @@ API: POST /member/invite (memberInvite)
 
 Request fields:
   --from string — Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow
-  members (array<object>, via --data) (required) — Members to invite (max 20)
+  members (array<object>, via --data) (required) — Members to invite in one call (at least 1). Each entry needs either an 'email', or 'member_name' + 'phone' together.
     - country_code (string) — ISO 3166-1 alpha-2 region code for 'phone' (e.g. "CN"). Validated and normalized to upper case before storage; invalid values are rejected with a 400. Also the parsing hint when 'phone' has no "+" prefix (defaults to "CN").
-    - email (string) — Email address
+    - email (string) — Email address. Required when 'phone' is not provided.
     - locale (string) — Locale. One of: 'zh-CN' (Simplified Chinese), 'en-US' (English); other values are rejected with a 400. [zh-CN, en-US]
-    - member_name (string) — Display name (2-39 chars)
-    - phone (string) — Phone number
+    - member_name (string) — Display name, 2–39 characters. Required when 'email' is not provided; derived from the email prefix when omitted. (2-39 chars)
+    - phone (string) — Phone number. Required when 'email' is not provided.
     - ref_id (string) — External reference ID
     - role_ids (array<integer>) — Role IDs to assign
     - time_zone (string) — Time zone
@@ -291,7 +293,7 @@ Request fields:
   --role-id int — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Member items
+  - items (array<object>) (required) — Member items
     - account_id (integer) (required) — Account ID
     - account_role_ids (array<integer>) (required) — Role IDs
     - avatar (string) (required) — Avatar URL
@@ -300,18 +302,18 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - email (string) (required) — Email address
     - email_verified (boolean) (required) — Email verified
     - is_external (boolean) (required) — Provisioned via SSO
-    - locale (string) — Locale
+    - locale (string) — Member's locale preference (e.g. 'zh-CN'). Omitted when empty — the list endpoint does not populate it.
     - member_id (integer) (required) — Member ID
     - member_name (string) (required) — Display name
     - phone (string) (required) — Masked phone number
     - phone_verified (boolean) (required) — Phone verified
     - ref_id (string) (required) — External reference ID
     - status (string) (required) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
-    - time_zone (string) — Time zone
+    - time_zone (string) — Member's IANA time zone (e.g. 'Asia/Shanghai'). Omitted when empty — the list endpoint does not populate it.
     - updated_at (string) (required) — Update timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - limit (integer) — Page size
-  - p (integer) — Current page
-  - total (integer) — Total count
+  - limit (integer) (required) — Page size
+  - p (integer) (required) — Current page
+  - total (integer) (required) — Total count
 `,
 		Example: `  flashduty member list --data '{"limit":5,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -469,7 +471,7 @@ func genMembersMemberRevokeRoleCmd() *cobra.Command {
 		Short: "Revoke role from member",
 		Long: `Revoke role from member.
 
-Remove a role assignment from a member.
+Remove role assignments from a member. Role IDs that do not exist are silently ignored; if none resolve, the call is a no-op success.
 
 API: POST /member/role/revoke (memberRevokeRole)
 
@@ -523,24 +525,24 @@ func genMembersMemberUpdateRoleCmd() *cobra.Command {
 	var fMemberID int64
 	var fRoleIDs []int
 	cmd := &cobra.Command{
-		Use:   "role-update <role-id> [<id2>...]",
+		Use:   "role-update <member-id>",
 		Short: "Update member roles",
 		Long: `Update member roles.
 
-Replace all role assignments for a member at once.
+Replace all role assignments for a member at once. Role IDs that do not exist are silently dropped; an empty 'role_ids' resets the member to the built-in Viewer role (ID 8).
 
 API: POST /member/role/update (memberUpdateRole)
 
 Request fields:
   --member-id int (required) — Member ID
-  --role-ids []int (required) — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
+  --role-ids []int — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
 `,
-		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
+		Args:    requireBodyFieldOrExactArg("member_id", "member-id"),
 		Example: `  flashduty member role-update --data '{"member_id":5068740052131,"role_ids":[2,6]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if err := genFoldPositional(args, body, "role_ids", "intslice"); err != nil {
+					if err := genFoldPositional(args, body, "member_id", "int"); err != nil {
 						return err
 					}
 					if cmd.Flags().Changed("member-id") {
@@ -571,7 +573,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
-	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8) (required)")
+	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -592,20 +594,19 @@ Request fields:
   --person-ids []int (required) — Person IDs to look up — these are member IDs (get them from 'POST /member/list'). Passing the account ID returns the account principal; unknown IDs are ignored
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Person profiles
+  - items (array<object>) (required) — Person profiles
     - account_id (integer) (required) — Account ID
-    - as (string) — Login role (account/member)
-    - avatar (string) — Avatar URL
-    - country_code (string) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
-    - email (string) — Email address
+    - as (string) — Principal kind: 'account' — the account owner principal; 'member' — an organization member. [account, member]
+    - avatar (string) — Avatar URL. Omitted when empty.
+    - email (string) — Email address. Omitted when empty.
     - email_verified (boolean) (required) — Email verified
-    - locale (string) — Locale
+    - locale (string) — Locale. Omitted when empty.
     - person_id (integer) (required) — Person ID
-    - person_name (string) — Display name
-    - phone (string) — Phone number
-    - phone_verified (boolean) (required) — Phone verified
-    - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. [enabled, pending, deleted]
-    - time_zone (string) — Time zone
+    - person_name (string) — Display name. Omitted when empty.
+    - phone (string) — Phone number. Omitted when empty — this endpoint never populates it.
+    - phone_verified (boolean) (required) — Whether the phone is verified. Always false in this endpoint's response.
+    - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. Omitted when empty. [enabled, pending, deleted]
+    - time_zone (string) — Time zone. Omitted when empty.
 `,
 		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty person infos --data '{"person_ids":[2476444212131,3790925372131]}'`,

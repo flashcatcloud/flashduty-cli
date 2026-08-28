@@ -86,8 +86,8 @@ List the files in a knowledge pack with metadata such as size and checksum.
 API: POST /safari/knowledge/file/list (knowledge-file-read-list)
 
 Request fields:
-  --page int — Page number, 1-based.
-  --limit int — Page size.
+  --page int — Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.
+  --limit int — Page size. Accepted but currently ignored — the response always contains the full file list.
   --search-after-ctx string
   --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
 
@@ -136,8 +136,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Accepted but currently ignored — the response always contains the full file list.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -222,7 +222,7 @@ Create or overwrite a file in a knowledge pack with base64-encoded content.
 API: POST /safari/knowledge/file/put (knowledge-file-write-put)
 
 Request fields:
-  --content-b64 string — Base64-encoded file content; must decode to valid UTF-8 text.
+  --content-b64 string — Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.
   --content-type string — MIME type; inferred from the file extension when omitted.
   --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
   --rel-path string (required) — Destination path relative to the pack root; existing files are overwritten.
@@ -275,7 +275,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fContentB64, "content-b64", "", "Base64-encoded file content; must decode to valid UTF-8 text.")
+	cmd.Flags().StringVar(&fContentB64, "content-b64", "", "Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.")
 	cmd.Flags().StringVar(&fContentType, "content-type", "", "MIME type; inferred from the file extension when omitted.")
 	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
 	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Destination path relative to the pack root; existing files are overwritten. (required)")
@@ -309,11 +309,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - can_edit (boolean) (required) — Whether the caller can edit this pack.
     - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Person ID of the member who created the pack.
+    - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
     - file_count (integer) (required) — Number of files in the pack.
     - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
     - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
-    - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
+    - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
     - total_bytes (integer) (required) — Total size of all files in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (integer) (required) — Pack version, incremented on every file change.
@@ -363,7 +364,7 @@ Request fields:
   --limit int — Page size.
   --search-after-ctx string
   --include-account bool — Include the account-scope pack; defaults to true.
-  --query string — Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)
+  --query string — Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)
   --scope string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]
   --team-ids []int — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
 
@@ -373,11 +374,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - can_edit (boolean) (required) — Whether the caller can edit this pack.
     - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Person ID of the member who created the pack.
+    - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
     - file_count (integer) (required) — Number of files in the pack.
     - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
     - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
-    - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
+    - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
     - total_bytes (integer) (required) — Total size of all files in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - version (integer) (required) — Pack version, incremented on every file change.
@@ -429,7 +431,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include the account-scope pack; defaults to true.")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring filter over pack ID, scope, and team name. (≤128 chars)")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to these team IDs; for non-admins the list is intersected with their own teams.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -509,11 +511,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller can edit this pack.
   - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Person ID of the member who created the pack.
+  - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
   - file_count (integer) (required) — Number of files in the pack.
   - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
   - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
-  - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
+  - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
   - total_bytes (integer) (required) — Total size of all files in bytes.
   - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (integer) (required) — Pack version, incremented on every file change.
@@ -575,11 +578,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - can_edit (boolean) (required) — Whether the caller can edit this pack.
   - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Person ID of the member who created the pack.
+  - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
   - file_count (integer) (required) — Number of files in the pack.
   - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
   - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
-  - team_name (string) — Display name of the owning team (team scope only); empty for account scope.
+  - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
   - total_bytes (integer) (required) — Total size of all files in bytes.
   - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - version (integer) (required) — Pack version, incremented on every file change.

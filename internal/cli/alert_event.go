@@ -41,8 +41,8 @@ func newAlertEventListCmd() *cobra.Command {
 				}
 
 				input := &flashduty.AlertEventGlobalListRequest{
-					StartTime: startTime,
-					EndTime:   endTime,
+					StartTime: flashduty.Int64(startTime),
+					EndTime:   flashduty.Int64(endTime),
 				}
 				input.Limit = limit
 				input.Page = page

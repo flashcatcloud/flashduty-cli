@@ -245,11 +245,7 @@ func newOncallScheduleGetCmd() *cobra.Command {
 							return output.FormatTime(v.(flashduty.ScheduleCalculatedSchedule).End)
 						}},
 						{Header: "GROUP", MaxWidth: 30, Field: func(v any) string {
-							g := v.(flashduty.ScheduleCalculatedSchedule).Group
-							if g.GroupName != "" {
-								return g.GroupName
-							}
-							return g.Name
+							return scheduleGroupName(v.(flashduty.ScheduleCalculatedSchedule).Group)
 						}},
 					}
 
@@ -301,6 +297,18 @@ func scheduleLayerCount(s flashduty.ScheduleItem) string {
 	}
 }
 
+// scheduleGroupName resolves a schedule group's display name: the nullable
+// group_name when set, else the legacy name, else a placeholder.
+func scheduleGroupName(g flashduty.ScheduleGroup) string {
+	if g.GroupName != nil && *g.GroupName != "" {
+		return *g.GroupName
+	}
+	if g.Name != "" {
+		return g.Name
+	}
+	return "-"
+}
+
 // formatOncallMembers renders an on-call group's members as display names,
 // resolving person IDs through nameByID (best-effort, falling back to the
 // numeric ID), and finally to the group name when no members are present.
@@ -319,14 +327,7 @@ func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup, nameByID map[int
 		}
 	}
 	if len(names) == 0 {
-		name := oncall.Group.GroupName
-		if name == "" {
-			name = oncall.Group.Name
-		}
-		if name != "" {
-			return name
-		}
-		return "-"
+		return scheduleGroupName(oncall.Group)
 	}
 	return strings.Join(names, ", ")
 }

@@ -26,29 +26,29 @@ Request fields:
   --ts int — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - application (object)
+  - application (object) — Application the session belongs to.
     - id (string) — RUM application ID the session belongs to.
-  - device (object)
+  - device (object) — Device that recorded the session.
     - type (string) — Device type recorded for the session, e.g. 'desktop', 'mobile', 'tablet'.
   - foreground_periods (array<object>) — Foreground periods across the session (mobile sessions only; empty for web).
     - end (string) — Unix timestamp in milliseconds when the foreground period ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - start (string) — Unix timestamp in milliseconds when the foreground period started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - view_id (string) — View ID active during this foreground period.
-  - session (object)
+  - session (object) — Session bounds and state.
     - end (string) — Unix timestamp in milliseconds when the session ended (or was last updated, if still active). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - is_active (boolean) — Whether the session was still active as of the last recorded event.
     - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
-    - source (string) — SDK platform that recorded the session. Platform identifier, one of 'browser', 'android', 'ios', 'miniprogram', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. [browser, android, ios, miniprogram, react-native, flutter, kotlin-multiplatform, roku, unity]
+    - source (string) — SDK platform that recorded the session. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - start (string) — Unix timestamp in milliseconds when the session started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - views (array<object>) — Every view recorded during the session, in chronological order.
-    - container_source (string) — SDK platform of the container app, when this view is embedded (e.g. a WebView inside a native app).
-    - container_view_id (string) — View ID of the containing view, when this view is embedded.
+    - container_source (string) — SDK platform of the container app, when this view is embedded (e.g. a WebView inside a native app). Omitted when the view is not embedded.
+    - container_view_id (string) — View ID of the containing view, when this view is embedded. Omitted when the view is not embedded.
     - end (string) — Unix timestamp in milliseconds when the view ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - is_active (boolean) — Whether the view was still active as of the last recorded event.
     - loading_type (string) — How the view was entered, e.g. 'initial_load', 'route_change'.
     - name (string) — View name, typically the route or screen name.
     - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
-    - source (string) — SDK platform that recorded the view. Platform identifier, one of 'browser', 'android', 'ios', 'miniprogram', 'react-native', 'flutter', 'kotlin-multiplatform', 'roku', 'unity'. [browser, android, ios, miniprogram, react-native, flutter, kotlin-multiplatform, roku, unity]
+    - source (string) — SDK platform that recorded the view. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - start (string) — Unix timestamp in milliseconds when the view started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - url (string) — URL (web) or screen identifier (mobile) associated with the view.
     - view_id (string) — Unique ID of the view within the session.

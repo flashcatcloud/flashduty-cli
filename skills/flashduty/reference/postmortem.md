@@ -57,7 +57,7 @@ fduty incident post-mortem-status-reset <post-mortem-id> --status published
 ### post-mortem-basics-reset <post-mortem-id>
 Update post-mortem basics
 - `--incidents-earliest-start-seconds` string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--incidents-highest-severity` string (required) — Highest severity among linked incidents.
+- `--incidents-highest-severity` string (required) — Highest severity among linked incidents: 'Critical', 'Warning', 'Info', or 'Ok'. · enum: Critical | Warning | Info | Ok
 - `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
@@ -100,7 +100,7 @@ List post-mortems
 - `--order-by` string — Field used to order results. · enum: created_at_seconds | updated_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- `--status` string — Post-mortem status filter; the server defaults to 'published' when omitted. 'drafting' returns only drafts; 'published' returns only published post-mortems. · enum: drafting | published
+- `--status` string — Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (string); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (string)
 

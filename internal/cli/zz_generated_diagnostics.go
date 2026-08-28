@@ -283,15 +283,38 @@ Request fields:
   --keyword string — Prefix match against 'target_locator'. ASCII only, no whitespace, no '|', max 256 bytes. Substring search is not supported.
   --limit int — Page size. Default 50, max 200. (max 200)
 
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - items (array<object>) — The current page of invocable targets, sorted ascending by 'target_locator'.
     - agent_version (string) — Most recently observed Agent version.
     - cluster_name (string) — Edge cluster name.
     - edge_ipport (string) — Edge instance address ('ip:port'), surfaced for diagnostics.
+    - host_id (string) — ID of the host agent reporting this target. Omitted when the target is not associated with a host.
+    - servicemap (object) — ServiceMap capability and latest status of the target's host. Omitted when the reporting agent has no ServiceMap capability.
+      - authoritative (boolean) (required) — True if the current status derives from an authoritative graph snapshot.
+      - capability_status (string) — Agent-reported capability status, e.g. 'running', 'disabled', 'starting', 'failed', 'unsupported'. Omitted when the agent has not reported one.
+      - capture_mode (string) — Capture mode, e.g. 'ebpf' or 'polling'. Omitted when unknown.
+      - edge_count (integer) (required) — Number of edges in the host's current graph.
+      - enabled (boolean) (required) — Whether ServiceMap collection is enabled on the agent.
+      - error_code (string) — Set to 'status_unavailable' when the live status could not be read; other fields then fall back to inventory-derived values. Omitted otherwise.
+      - freshness_status (string) — Freshness classification of the host's graph. 'fresh' = the latest snapshot was received within 2x the report interval; 'stale' = no new snapshot within that window; 'unknown' = not yet classified. Omitted when unknown. [fresh, stale, unknown]
+      - graph_available (boolean) (required) — True if a current graph can be fetched for this host right now.
+      - max_age_ms (integer) — Maximum snapshot age in milliseconds tolerated before it counts as stale. Omitted when not applicable.
+      - node_count (integer) (required) — Number of nodes in the host's current graph.
+      - observed_at_ms (string) — Unix timestamp in milliseconds when the agent last observed graph generation. Omitted when unknown. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - reason_codes (array<string>) — Machine-readable codes explaining the current capability status. Omitted when empty.
+      - received_at_ms (string) — Unix timestamp in milliseconds when the server last received a snapshot. Omitted when unknown. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - report_interval_ms (integer) — Configured reporting interval in milliseconds. Omitted when unknown.
+      - snapshot_ready (boolean) (required) — True if the agent has produced at least one full snapshot.
+      - status (string) (required) — ServiceMap collection status of the host. | Value | Meaning | |---|---| | 'active' | Collection healthy: a fresh snapshot exists with no degradation. | | 'degraded' | Collecting but quality is impaired: health reports are newer than the snapshot, the snapshot is truncated/degraded, or collection is failing. | | 'stale' | A snapshot exists but is outdated (no update within 2x the report interval). | | 'initializing' | The agent reported the capability but the first snapshot is not ready yet. | | 'disabled' | Topology collection is disabled on this host. | | 'unsupported' | The agent or kernel does not support collection. | | 'no_data' | No snapshot or health data received yet. | [active, degraded, stale, initializing, disabled, unsupported, no_data]
     - target_kind (string) — Target kind, e.g. 'host', 'mysql'. Filtering by kind is not supported in v1.
     - target_locator (string) — Target identifier; the list is sorted by this field ascending.
     - updated_at (string) — Last route-projection upsert time, Unix seconds. Treat as 'most recently observed', not a live-online indicator. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - next_cursor (string) — Opaque cursor for the next page. Absent / empty means this is the last page.
+  - servicemap_coverage (object) — ServiceMap status-fetch coverage for this page. Omitted when no item on the page carries ServiceMap data.
+    - failed (integer) (required) — Items whose live ServiceMap status read failed ('servicemap.error_code' set).
+    - partial (boolean) (required) — True when at least one item's status read failed.
+    - requested (integer) (required) — Items on this page that carry ServiceMap data.
+    - succeeded (integer) (required) — Items whose live ServiceMap status was read successfully.
   - total (integer) — Total matches for the current '(account_id, keyword)' pair, independent of 'cursor'.
 `,
 		Example: `  flashduty monit targets --data '{"keyword":"db-prod","limit":50}'`,

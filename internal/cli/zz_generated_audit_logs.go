@@ -69,31 +69,34 @@ Return a cursor-paginated list of audit log entries within a time range.
 API: POST /audit/search (audit-read-search)
 
 Request fields:
-  --end-time string (required) — End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Inclusive. Must be after 'start_time'; maximum span 90 days. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --is-dangerous bool — When true, return only high-risk (dangerous) operations.
   --is-write bool — When true, return only write operations; when false, return only read operations.
-  --limit int — Page size. Minimum 0, maximum 99. (0-99)
+  --limit int — Page size, 0–99. Omit or set to 0 for no page-size cap — all matching rows in the window are returned. (0-99)
   --operations []string — Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.
   --person-id int — Filter by the operator's member ID (get IDs from 'POST /member/list'). Pass the account ID to match actions performed by the account principal itself.
   --request-id string — Filter to a single request by its unique request ID.
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
-  --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --start-time string (required) — Start of the search window, Unix epoch seconds. Exclusive — entries at exactly this second are not included. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - docs (array<object>) — Audit log entries for this page.
+  - docs (array<object>) — Audit log entries for this page, newest first. Omitted when the page is empty.
     - account_id (integer) (required) — ID of the account.
-    - body (string) (required) — JSON-encoded request body (may be truncated at 10 KB).
+    - body (string) (required) — JSON-encoded request body. Bodies containing sensitive fields are base64url-encoded instead; bodies over 10 KB are replaced by a truncation placeholder.
     - created_at (string) (required) — Timestamp of the operation in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - credential_id (integer) (required) — ID of the credential (the app key ID) when 'credential_type' is 'app_key'; 0 otherwise.
+    - credential_type (string) (required) — Credential type used for the call. 'app_key' when authenticated with an app key; empty string for member sessions.
     - ip (string) (required) — Client IP address of the caller.
     - is_dangerous (boolean) (required) — True if this is flagged as a high-risk operation.
     - is_write (boolean) (required) — True for mutating operations; false for read-only ones.
-    - member_id (integer) (required) — ID of the member who performed the action.
-    - member_name (string) (required) — Display name of the member.
+    - member_id (integer) (required) — ID of the member who performed the action. 0 when the action was performed by the account principal itself.
+    - member_name (string) (required) — Display name of the member. Empty when 'member_id' is 0.
     - operation (string) (required) — Stable machine-readable operation name, e.g. 'template:write:create'.
-    - operation_name (string) (required) — Human-readable operation label in the account's locale.
+    - operation_name (string) (required) — Human-readable Chinese label of the operation (e.g. '创建模板').
     - params (array<object>) (required) — URL path parameters as an array of key-value pairs, or an empty array when none.
       - Key (string) — Name of a URL path parameter (the ':xxx' placeholder in the route).
       - Value (string) — The actual value of that path parameter in this request.
+    - principal_kind (string) (required) — Kind of the caller. 'member' — an interactive member session; 'service' — an app key credential. [member, service]
     - request_id (string) (required) — Unique request ID for correlation.
   - search_after_ctx (string) (required) — Opaque cursor for the next page. Empty string when there are no more results.
   - total (integer) (required) — Total matching entries in the search window.
@@ -154,16 +157,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be after 'start_time'. Maximum span 90 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Inclusive. Must be after 'start_time'; maximum span 90 days. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIsDangerous, "is-dangerous", false, "When true, return only high-risk (dangerous) operations.")
 	cmd.Flags().BoolVar(&fIsWrite, "is-write", false, "When true, return only write operations; when false, return only read operations.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Minimum 0, maximum 99. (0-99)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 0–99. Omit or set to 0 for no page-size cap — all matching rows in the window are returned. (0-99)")
 	cmd.Flags().StringSliceVar(&fOperations, "operations", nil, "Filter to specific operation names. Use 'POST /audit/operation/list' to get the valid set.")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the operator's member ID (get IDs from 'POST /member/list'). Pass the account ID to match actions performed by the account principal itself.")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Exclusive — entries at exactly this second are not included. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

@@ -151,6 +151,11 @@ func init() {
 	// operation stays reachable at safari session-export.
 	attachSafariSessionExport(rootCmd)
 	attachSafariAutomationTriggerFire(rootCmd)
+
+	// Multipart uploads are excluded from generation (non-JSON request body);
+	// attach their curated leaves to the generated path groups.
+	attachEnrichmentMappingDataUpload(rootCmd)
+	attachSafariSkillUpload(rootCmd)
 }
 
 // Execute runs the root command.

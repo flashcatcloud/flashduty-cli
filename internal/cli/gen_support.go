@@ -31,21 +31,30 @@ var stdinReader io.Reader = os.Stdin
 // the conflict.
 var stdinConsumedBy string
 
+// claimStdin marks stdin as consumed by flag and returns the reader WITHOUT
+// reading it — for callers that stream (e.g. multipart upload), where
+// buffering the whole stream the way readStdin does would defeat the point.
+// The single-consumer rule is identical to readStdin's; both funnel through
+// this one claim site.
+func claimStdin(flag string) (io.Reader, error) {
+	if stdinConsumedBy != "" {
+		return nil, fmt.Errorf("only one flag can read from stdin: %s and %s were both set to \"-\"", stdinConsumedBy, flag)
+	}
+	stdinConsumedBy = flag
+	return stdinReader, nil
+}
+
 // readStdin is the single function through which every --*-file-style flag's
 // "-" value reads stdin. flag is the calling flag's canonical spelling (e.g.
 // "--data"), used only to label it in the already-consumed error below. A
 // second flag trying to read stdin after an earlier one already claimed it
 // errors instead of silently returning empty bytes.
 func readStdin(flag string) ([]byte, error) {
-	if stdinConsumedBy != "" {
-		return nil, fmt.Errorf("only one flag can read from stdin: %s and %s were both set to \"-\"", stdinConsumedBy, flag)
-	}
-	b, err := io.ReadAll(stdinReader)
+	r, err := claimStdin(flag)
 	if err != nil {
 		return nil, err
 	}
-	stdinConsumedBy = flag
-	return b, nil
+	return io.ReadAll(r)
 }
 
 // readPathOrStdin reads the raw bytes at path, or from stdin (via readStdin)

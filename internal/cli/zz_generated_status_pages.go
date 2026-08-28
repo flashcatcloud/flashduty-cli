@@ -20,42 +20,42 @@ List all status pages owned by the account, including their components and secti
 API: GET /status-page/list (status-page-read-page-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Status pages owned by the account.
-    - components (array<object>) — Components tracked on the status page.
-      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_id (string) — Component ID.
-      - description (string) — Component description.
-      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+  - items (array<object>) (required) — Status pages owned by the account.
+    - components (array<object>) (required) — Components tracked on the status page.
+      - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_id (string) — Component ID. Omitted when empty.
+      - description (string) — Component description. Omitted when empty.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
       - name (string) (required) — Component display name.
-      - order_id (integer) — Display order within its section.
-      - section_id (string) — Parent section ID.
-    - contact_info (string) — Get-in-touch contact, a mailto or website URL.
-    - custom_domain (string) — Custom domain pointing to the status page.
-    - custom_links (array<object>) — Custom navigation links shown on the status page.
-    - dark_logo (string) — Dark-mode logo image of the status page.
-    - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
-    - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. [chart_and_percentage, chart, none]
-    - favicon (string) — Favicon of the status page.
-    - logo (string) — Logo image of the status page.
-    - logo_url (string) — URL opened when the logo is clicked.
-    - name (string) — Display name of the status page.
-    - page_footer (string) — Footer content of the status page.
-    - page_header (string) — Header content of the status page.
-    - page_id (integer) — Status page ID.
-    - sections (array<object>) — Sections grouping the components.
-      - description (string) — Section description.
-      - hide_all (boolean) — Whether the section and its components are hidden from summary endpoints.
-      - hide_uptime (boolean) — Whether uptime data is hidden from summary responses.
-      - name (string) — Section name.
-      - order_id (integer) — Display order of the section.
-      - section_id (string) — Section ID.
-    - subscription (object)
-      - email (boolean) — Whether email subscription is enabled.
-      - im (boolean) — Whether IM subscription is enabled.
-    - template_preference (string) — Preferred change-event template type.
-    - type (string) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
-    - url_name (string) — URL-safe slug, unique per account.
+      - order_id (integer) — Display order within its section. Omitted when 0.
+      - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
+    - contact_info (string) — Get-in-touch contact, a mailto or website URL. Omitted when not set.
+    - custom_domain (string) — Custom domain pointing to the status page. Omitted when not set.
+    - custom_links (array<object>) — Custom navigation links shown on the status page. Omitted when not set.
+    - dark_logo (string) — Dark-mode logo image of the status page. Omitted when not set.
+    - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. Omitted when not set. [calendar, list]
+    - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. Omitted when not set. [chart_and_percentage, chart, none]
+    - favicon (string) — Favicon of the status page. Omitted when not set.
+    - logo (string) — Logo image of the status page. Omitted when not set.
+    - logo_url (string) — URL opened when the logo is clicked. Omitted when not set.
+    - name (string) (required) — Display name of the status page.
+    - page_footer (string) — Footer content of the status page. Omitted when not set.
+    - page_header (string) — Header content of the status page. Omitted when not set.
+    - page_id (integer) (required) — Status page ID.
+    - sections (array<object>) (required) — Sections grouping the components.
+      - description (string) (required) — Section description.
+      - hide_all (boolean) (required) — Whether the section and its components are hidden from summary endpoints.
+      - hide_uptime (boolean) (required) — Whether uptime data is hidden from summary responses.
+      - name (string) (required) — Section name.
+      - order_id (integer) — Display order of the section. Omitted when 0.
+      - section_id (string) — Section ID. Omitted when empty.
+    - subscription (object) (required) — Subscription channel toggles.
+      - email (boolean) (required) — Whether email subscription is enabled.
+      - im (boolean) (required) — Whether IM subscription is enabled.
+    - template_preference (string) — Preferred event template type: 'pre_defined' or 'message'. Omitted when never set.
+    - type (string) (required) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
+    - url_name (string) (required) — URL-safe slug, unique per account.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -97,36 +97,36 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Status page changes (incidents/maintenances) matching the filters.
-    - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_id (string) — Component ID.
-      - description (string) — Component description.
-      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+    - affected_components (array<object>) — Components currently affected by this event, with their resulting status. Omitted when no components are affected.
+      - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_id (string) — Component ID. Omitted when empty.
+      - description (string) — Component description. Omitted when empty.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
       - name (string) (required) — Component display name.
-      - order_id (integer) — Display order within its section.
-      - section_id (string) — Parent section ID.
+      - order_id (integer) — Display order within its section. Omitted when 0.
+      - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
       - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
-    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window. Omitted when false.
     - change_id (integer) (required) — Event ID.
-    - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) — Event description (Markdown).
-    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
-    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
-    - notify_subscribers (boolean) — Whether subscribers were notified about this event.
-    - page_id (integer) — Parent status page ID.
-    - responder_ids (array<integer>) — Member IDs responsible for this event.
-    - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - close_at_seconds (string) — Event close time in Unix seconds. For maintenances this is the scheduled end time; for closed events, the time the event reached its terminal status ('resolved'/'completed'). Omitted when not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) — Event description (Markdown). Omitted when empty.
+    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one. Omitted when false.
+    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.). Omitted when empty.
+    - notify_subscribers (boolean) — Whether subscribers were notified about this event. Omitted when false.
+    - page_id (integer) — Parent status page ID. Omitted when 0 (never for stored events).
+    - responder_ids (array<integer>) — Member IDs responsible for this event. Omitted when no responders are assigned.
+    - start_at_seconds (string) — Event start time in Unix seconds, derived from the first timeline update. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. Omitted when empty (never for stored events). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
     - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
-    - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-      - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_changes (array<object>) — Component status transitions applied by this update.
+    - updates (array<object>) — Timeline updates attached to this event, ordered by time. Omitted when the event has no timeline updates.
+      - at_seconds (string) (required) — Update timestamp in Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_changes (array<object>) — Component status transitions applied by this update. Omitted when the update changes no component statuses.
         - component_id (string) (required) — Component ID.
-        - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+        - component_name (string) — Component display name. Populated by the backend on read; ignored on write. Omitted when empty.
         - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
-      - description (string) — Update description (Markdown).
+      - description (string) — Update description (Markdown). Omitted when empty.
       - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
@@ -191,24 +191,24 @@ API: POST /status-page/change/create (statusPageChangeCreate)
 
 Request fields:
   --auto-update-by-schedule bool — Maintenance only: automatically advance the status based on the scheduled window.
-  --close-at-seconds string — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --description string — Event description (Markdown). Required by the validator.
+  --close-at-seconds string — Event close time in Unix seconds. Must be greater than or equal to the first update's 'at_seconds'. For retrospective events this is the time the event ended; for maintenances with 'auto_update_by_schedule' it schedules the automatic transition to 'completed' and must be within 30 days from now. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --description string (required) — Event description (Markdown). Must not be empty.
   --is-retrospective bool — Mark this event as a retrospective (historical) one.
   --linked-changes []string — Linked change IDs (related incidents, deployments, etc.).
   --notify-subscribers bool — Notify subscribers about this event and all its updates.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --responders []int — Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.
-  --start-at-seconds string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --responders []int — Member IDs responsible for the event.
+  --start-at-seconds string — Event start time in Unix seconds. The stored start time is always derived from the first update's 'at_seconds' (which defaults to the current time when omitted); for maintenances with 'auto_update_by_schedule', this value schedules the automatic transition to 'ongoing'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --status string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   --title string (required) — Event title, up to 255 characters. (≤255 chars)
   --type string (required) — Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
-  updates (array<object>, via --data) (required) — Timeline updates. Immediate events normally pass one update; retrospective events must pass all historical updates.
-    - at_seconds (integer) — Update timestamp in unix seconds.
+  updates (array<object>, via --data) (required) — Timeline updates. At least one update is required, and at least one of them must contain 'component_changes'. Immediate events normally pass one update; retrospective events must pass all historical updates.
+    - at_seconds (integer) — Update timestamp in Unix seconds. When omitted or 0 on the first update, defaults to the current time.
     - component_changes (array<object>) — Component status transitions applied by this update.
-      - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
+      - component_id (string) (required) — Component ID; obtain it from 'GET /status-page/info'.
       - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
     - description (string) — Update description (Markdown).
-    - status (string) — Change status after this update. May be omitted when the overall status does not change. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - status (string) — Change status after this update. May be omitted (or null) when the overall status does not change. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - update_id (string) — Update ID. Server-assigned on create; supply when replaying historical updates.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -285,14 +285,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().BoolVar(&fAutoUpdateBySchedule, "auto-update-by-schedule", false, "Maintenance only: automatically advance the status based on the scheduled window.")
-	cmd.Flags().StringVar(&fCloseAtSeconds, "close-at-seconds", "", "Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Event description (Markdown). Required by the validator.")
+	cmd.Flags().StringVar(&fCloseAtSeconds, "close-at-seconds", "", "Event close time in Unix seconds. Must be greater than or equal to the first update's 'at_seconds'. For retrospective events this is the time the event ended; for maintenances with 'auto_update_by_schedule' it schedules the automatic transition to 'completed' and must be within 30 days from now. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Event description (Markdown). Must not be empty. (required)")
 	cmd.Flags().BoolVar(&fIsRetrospective, "is-retrospective", false, "Mark this event as a retrospective (historical) one.")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked change IDs (related incidents, deployments, etc.).")
 	cmd.Flags().BoolVar(&fNotifySubscribers, "notify-subscribers", false, "Notify subscribers about this event and all its updates.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.")
-	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for the event.")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Event start time in Unix seconds. The stored start time is always derived from the first update's 'at_seconds' (which defaults to the current time when omitted); for maintenances with 'auto_update_by_schedule', this value schedules the automatic transition to 'ongoing'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Event title, up to 255 characters. (required) (≤255 chars)")
 	cmd.Flags().StringVar(&fType, "type", "", "Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. (required) [incident, maintenance]")
@@ -314,8 +314,8 @@ Delete a status page event.
 API: POST /status-page/change/delete (statusPageChangeDelete)
 
 Request fields:
-  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --change-id int (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
 `,
 		Example: `  flashduty status-page change-delete --data '{"change_id":5821693893131,"page_id":5750613685214}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -348,8 +348,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'GET /status-page/change/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -372,36 +372,36 @@ Request fields:
   --change-id int (required) — Event (change) ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-    - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - component_id (string) — Component ID.
-    - description (string) — Component description.
-    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+  - affected_components (array<object>) — Components currently affected by this event, with their resulting status. Omitted when no components are affected.
+    - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - component_id (string) — Component ID. Omitted when empty.
+    - description (string) — Component description. Omitted when empty.
+    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
     - name (string) (required) — Component display name.
-    - order_id (integer) — Display order within its section.
-    - section_id (string) — Parent section ID.
+    - order_id (integer) — Display order within its section. Omitted when 0.
+    - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
     - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
-  - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+  - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window. Omitted when false.
   - change_id (integer) (required) — Event ID.
-  - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - description (string) — Event description (Markdown).
-  - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
-  - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
-  - notify_subscribers (boolean) — Whether subscribers were notified about this event.
-  - page_id (integer) — Parent status page ID.
-  - responder_ids (array<integer>) — Member IDs responsible for this event.
-  - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  - close_at_seconds (string) — Event close time in Unix seconds. For maintenances this is the scheduled end time; for closed events, the time the event reached its terminal status ('resolved'/'completed'). Omitted when not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - description (string) — Event description (Markdown). Omitted when empty.
+  - is_retrospective (boolean) — Whether this event is a retrospective (historical) one. Omitted when false.
+  - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.). Omitted when empty.
+  - notify_subscribers (boolean) — Whether subscribers were notified about this event. Omitted when false.
+  - page_id (integer) — Parent status page ID. Omitted when 0 (never for stored events).
+  - responder_ids (array<integer>) — Member IDs responsible for this event. Omitted when no responders are assigned.
+  - start_at_seconds (string) — Event start time in Unix seconds, derived from the first timeline update. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. Omitted when empty (never for stored events). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   - title (string) (required) — Event title.
   - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
-  - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-    - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - component_changes (array<object>) — Component status transitions applied by this update.
+  - updates (array<object>) — Timeline updates attached to this event, ordered by time. Omitted when the event has no timeline updates.
+    - at_seconds (string) (required) — Update timestamp in Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - component_changes (array<object>) — Component status transitions applied by this update. Omitted when the update changes no component statuses.
       - component_id (string) (required) — Component ID.
-      - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+      - component_name (string) — Component display name. Populated by the backend on read; ignored on write. Omitted when empty.
       - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
-    - description (string) — Update description (Markdown).
+    - description (string) — Update description (Markdown). Omitted when empty.
     - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - update_id (string) (required) — Update ID.
 `,
@@ -449,49 +449,49 @@ func genStatusPagesChangeListCmd() *cobra.Command {
 		Short: "List status page events",
 		Long: `List status page events.
 
-List status page events with only publicly visible affected components.
+List status page events for console management. Unlike the public display endpoints, the response includes hidden components.
 
 API: GET /status-page/change/list (statusPageChangeList)
 
 Request fields:
   --page-id int (required) — Status page ID.
-  --start-at-seconds string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --end-at-seconds string — Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --start-at-seconds string — Lower bound of the event activity window: only events still open at, or closed at or after, this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-at-seconds string — Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --type string (required) — Event type filter. Required. [incident, maintenance]
-  --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Status page changes (incidents/maintenances) matching the filters.
-    - affected_components (array<object>) — Components currently affected by this event, with their resulting status.
-      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_id (string) — Component ID.
-      - description (string) — Component description.
-      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+    - affected_components (array<object>) — Components currently affected by this event, with their resulting status. Omitted when no components are affected.
+      - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_id (string) — Component ID. Omitted when empty.
+      - description (string) — Component description. Omitted when empty.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
       - name (string) (required) — Component display name.
-      - order_id (integer) — Display order within its section.
-      - section_id (string) — Parent section ID.
+      - order_id (integer) — Display order within its section. Omitted when 0.
+      - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
       - status (string) (required) — Current status of the component affected by the change. Severity increases: 'operational' < 'degraded' = 'under_maintenance' < 'partial_outage' < 'full_outage'; incident-type changes may use the first four, maintenance-type changes only 'operational' and 'under_maintenance'. | Value | Meaning | |---|---| | 'operational' | Operating normally. | | 'degraded' | Degraded performance. | | 'partial_outage' | Partial outage. | | 'full_outage' | Full outage. | | 'under_maintenance' | Under maintenance. | [operational, degraded, partial_outage, full_outage, under_maintenance]
-    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window.
+    - auto_update_by_schedule (boolean) — Maintenance only: whether the status advances automatically based on the scheduled window. Omitted when false.
     - change_id (integer) (required) — Event ID.
-    - close_at_seconds (string) — Scheduled close time in unix seconds. Set for retrospective and maintenance events. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) — Event description (Markdown).
-    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one.
-    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.).
-    - notify_subscribers (boolean) — Whether subscribers were notified about this event.
-    - page_id (integer) — Parent status page ID.
-    - responder_ids (array<integer>) — Member IDs responsible for this event.
-    - start_at_seconds (string) — Event start time in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - close_at_seconds (string) — Event close time in Unix seconds. For maintenances this is the scheduled end time; for closed events, the time the event reached its terminal status ('resolved'/'completed'). Omitted when not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) — Event description (Markdown). Omitted when empty.
+    - is_retrospective (boolean) — Whether this event is a retrospective (historical) one. Omitted when false.
+    - linked_change_ids (array<string>) — Linked event IDs (related incidents, deployments, etc.). Omitted when empty.
+    - notify_subscribers (boolean) — Whether subscribers were notified about this event. Omitted when false.
+    - page_id (integer) — Parent status page ID. Omitted when 0 (never for stored events).
+    - responder_ids (array<integer>) — Member IDs responsible for this event. Omitted when no responders are assigned.
+    - start_at_seconds (string) — Event start time in Unix seconds, derived from the first timeline update. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) — Current event status. Incident statuses: 'investigating'/'identified'/'monitoring'/'resolved'. Maintenance statuses: 'scheduled'/'ongoing'/'completed'. Omitted when empty (never for stored events). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
     - title (string) (required) — Event title.
     - type (string) (required) — Change type. 'incident' is an unplanned outage; 'maintenance' is a planned maintenance. The type determines which status values are valid. [incident, maintenance]
-    - updates (array<object>) — Timeline updates attached to this event, ordered by time.
-      - at_seconds (string) (required) — Update timestamp in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_changes (array<object>) — Component status transitions applied by this update.
+    - updates (array<object>) — Timeline updates attached to this event, ordered by time. Omitted when the event has no timeline updates.
+      - at_seconds (string) (required) — Update timestamp in Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_changes (array<object>) — Component status transitions applied by this update. Omitted when the update changes no component statuses.
         - component_id (string) (required) — Component ID.
-        - component_name (string) — Component display name. Populated by the backend on read; ignored on write.
+        - component_name (string) — Component display name. Populated by the backend on read; ignored on write. Omitted when empty.
         - status (string) (required) — New component status. Incidents support 'operational'/'degraded'/'partial_outage'/'full_outage'; maintenances support 'operational'/'under_maintenance'. [operational, degraded, partial_outage, full_outage, under_maintenance]
-      - description (string) — Update description (Markdown).
+      - description (string) — Update description (Markdown). Omitted when empty.
       - status (string) — Change status after this update. Omitted when the update does not change the overall status. The first four values apply to incident-type changes, the last three to maintenance-type changes. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
       - update_id (string) (required) — Update ID.
 `,
@@ -543,10 +543,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
-	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fEndAtSeconds, "end-at-seconds", "", "Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartAtSeconds, "start-at-seconds", "", "Lower bound of the event activity window: only events still open at, or closed at or after, this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndAtSeconds, "end-at-seconds", "", "Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -568,13 +568,13 @@ Add a timeline update to a status page event.
 API: POST /status-page/change/timeline/create (statusPageChangeTimelineCreate)
 
 Request fields:
-  --at-seconds string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
-  --description string — Update description (Markdown). Required.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --status string (required) — Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  --at-seconds string — Update timestamp in Unix seconds. Defaults to the current time when omitted or 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --change-id int (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
+  --description string (required) — Update description (Markdown). Must not be empty.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --status string (required) — Change status after this update; must be valid for the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
   component_changes (array<object>, via --data) — Component status transitions applied by this update. Component IDs must be unique.
-    - component_id (string) (required) — Component ID; obtain it from 'POST /status-page/info'.
+    - component_id (string) (required) — Component ID; obtain it from 'GET /status-page/info'.
     - status (string) (required) — New component status. 'operational'/'degraded'/'partial_outage'/'full_outage' apply to incidents; 'operational'/'under_maintenance' apply to maintenances. [operational, degraded, partial_outage, full_outage, under_maintenance]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -620,11 +620,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Required.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "Update timestamp in Unix seconds. Defaults to the current time when omitted or 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'GET /status-page/change/list'. (required)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Update description (Markdown). Must not be empty. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Change status after this update; must be valid for the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -644,9 +644,9 @@ Delete a timeline entry from a status page event.
 API: POST /status-page/change/timeline/delete (statusPageChangeTimelineDelete)
 
 Request fields:
-  --change-id int (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --update-id string (required) — Timeline update ID to delete; obtain it from 'POST /status-page/change/info'.
+  --change-id int (required) — Owning change ID; obtain it from 'GET /status-page/change/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --update-id string (required) — Timeline update ID to delete; obtain it from 'GET /status-page/change/info'.
 `,
 		Example: `  flashduty status-page change-timeline-delete --data '{"change_id":5821693893131,"page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -682,9 +682,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'POST /status-page/change/list'. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete; obtain it from 'POST /status-page/change/info'. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'GET /status-page/change/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Timeline update ID to delete; obtain it from 'GET /status-page/change/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -706,11 +706,11 @@ Update a timeline entry for a status page event.
 API: POST /status-page/change/timeline/update (statusPageChangeTimelineUpdate)
 
 Request fields:
-  --at-seconds string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --change-id int (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
+  --at-seconds string — New update timestamp in Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --change-id int (required) — Owning change ID; obtain it from 'GET /status-page/change/list'.
   --description string — New update description (Markdown).
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --update-id string (required) — Target timeline update ID; obtain it from 'POST /status-page/change/info'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --update-id string (required) — Target timeline update ID; obtain it from 'GET /status-page/change/info'.
 `,
 		Example: `  flashduty status-page change-timeline-update --data '{"at_seconds":1712003600,"change_id":5821693893131,"description":"Corrected description: root cause identified in database layer.","page_id":5750613685214,"update_id":"01KP0311872NVYFRRQ82FWXAP4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -756,11 +756,11 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'POST /status-page/change/list'. (required)")
+	cmd.Flags().StringVar(&fAtSeconds, "at-seconds", "", "New update timestamp in Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Owning change ID; obtain it from 'GET /status-page/change/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New update description (Markdown).")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID; obtain it from 'POST /status-page/change/info'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fUpdateID, "update-id", "", "Target timeline update ID; obtain it from 'GET /status-page/change/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -782,9 +782,9 @@ Update an existing status page event.
 API: POST /status-page/change/update (statusPageChangeUpdate)
 
 Request fields:
-  --change-id int (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
+  --change-id int (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
   --linked-changes []string — Linked event IDs. Pass the full replacement list.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
   --responders []int — Member IDs responsible for this event. Pass the full replacement list.
   --title string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 `,
@@ -828,9 +828,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'POST /status-page/change/list'. (required)")
+	cmd.Flags().Int64Var(&fChangeID, "change-id", 0, "Target change ID; obtain it from 'GET /status-page/change/list'. (required)")
 	cmd.Flags().StringSliceVar(&fLinkedChanges, "linked-changes", nil, "Linked event IDs. Pass the full replacement list.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().IntSliceVar(&fResponders, "responders", nil, "Member IDs responsible for this event. Pass the full replacement list.")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -851,8 +851,8 @@ Delete a service component from a status page.
 API: POST /status-page/component/delete (statusPageComponentDelete)
 
 Request fields:
-  --component-ids []string (required) — Component IDs to delete; obtain them from 'POST /status-page/info'.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --component-ids []string (required) — Component IDs to delete; obtain them from 'GET /status-page/info'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
 `,
 		Args:    requireBodyFieldOrArgs("component_ids", "component-ids"),
 		Example: `  flashduty status-page component-delete --data '{"component_ids":["01KP032KMN9YFBMPWANJMFZFG1"],"page_id":5750613685214}'`,
@@ -889,8 +889,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Component IDs to delete; obtain them from 'POST /status-page/info'. (required)")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Component IDs to delete; obtain them from 'GET /status-page/info'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -908,8 +908,9 @@ Create or update a service component on a status page.
 API: POST /status-page/component/upsert (statusPageComponentUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
   components (array<object>, via --data) (required) — Components to create or update.
+    - available_since_seconds (integer) — Time the component became (or becomes) available, in Unix seconds. On create, defaults to the current time; on update, replaces the stored value.
     - component_id (string) — Component ID. Omit to create a new component; supply to update an existing one.
     - description (string) — Component description.
     - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
@@ -949,7 +950,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -988,8 +989,8 @@ Request fields:
   --url-name string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
   custom_links (array<object>, via --data) — Custom navigation links shown on the status page.
   subscription (object, via --data) — Subscription channel toggles.
-    - email (boolean) — Whether email subscription is enabled.
-    - im (boolean) — Whether IM subscription is enabled.
+    - email (boolean) (required) — Whether email subscription is enabled.
+    - im (boolean) (required) — Whether IM subscription is enabled.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - page_id (integer) (required) — Created status page ID.
@@ -1074,7 +1075,7 @@ Delete a status page.
 API: POST /status-page/delete (statusPageDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page delete --data '{"page_id":5750613685214}'`,
@@ -1108,14 +1109,14 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genStatusPagesInfoCmd() *cobra.Command {
 	var dataJSON string
-	var fPageID string
+	var fPageID int64
 	cmd := &cobra.Command{
 		Use:   "info <page-id>",
 		Short: "Get status page detail",
@@ -1126,50 +1127,51 @@ Retrieve detailed configuration for a specific status page.
 API: GET /status-page/info (statusPageInfo)
 
 Request fields:
-  --page-id string (required) — Status page ID
+  --page-id int (required) — Status page ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - components (array<object>) — Components tracked on the status page.
-    - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - component_id (string) — Component ID.
-    - description (string) — Component description.
-    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+  - components (array<object>) (required) — Components tracked on the status page.
+    - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - component_id (string) — Component ID. Omitted when empty.
+    - description (string) — Component description. Omitted when empty.
+    - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+    - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
     - name (string) (required) — Component display name.
-    - order_id (integer) — Display order within its section.
-    - section_id (string) — Parent section ID.
-  - contact_info (string) — Get-in-touch contact, a mailto or website URL.
-  - custom_domain (string) — Custom domain pointing to the status page.
-  - custom_links (array<object>) — Custom navigation links shown on the status page.
-  - dark_logo (string) — Dark-mode logo image of the status page.
-  - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
-  - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. [chart_and_percentage, chart, none]
-  - favicon (string) — Favicon of the status page.
-  - logo (string) — Logo image of the status page.
-  - logo_url (string) — URL opened when the logo is clicked.
-  - name (string) — Display name of the status page.
-  - page_footer (string) — Footer content of the status page.
-  - page_header (string) — Header content of the status page.
-  - page_id (integer) — Status page ID.
-  - sections (array<object>) — Sections grouping the components.
-    - description (string) — Section description.
-    - hide_all (boolean) — Whether the section and its components are hidden from summary endpoints.
-    - hide_uptime (boolean) — Whether uptime data is hidden from summary responses.
-    - name (string) — Section name.
-    - order_id (integer) — Display order of the section.
-    - section_id (string) — Section ID.
-  - subscription (object)
-    - email (boolean) — Whether email subscription is enabled.
-    - im (boolean) — Whether IM subscription is enabled.
-  - template_preference (string) — Preferred change-event template type.
-  - type (string) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
-  - url_name (string) — URL-safe slug, unique per account.
+    - order_id (integer) — Display order within its section. Omitted when 0.
+    - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
+  - contact_info (string) — Get-in-touch contact, a mailto or website URL. Omitted when not set.
+  - custom_domain (string) — Custom domain pointing to the status page. Omitted when not set.
+  - custom_links (array<object>) — Custom navigation links shown on the status page. Omitted when not set.
+  - dark_logo (string) — Dark-mode logo image of the status page. Omitted when not set.
+  - date_view (string) — How the timeline displays change dates. 'calendar' uses a calendar view; 'list' uses a list view. Omitted when not set. [calendar, list]
+  - display_uptime_mode (string) — How uptime is displayed. 'chart_and_percentage' shows both the uptime chart and the percentage figure; 'chart' shows only the chart; 'none' hides uptime entirely. Omitted when not set. [chart_and_percentage, chart, none]
+  - favicon (string) — Favicon of the status page. Omitted when not set.
+  - logo (string) — Logo image of the status page. Omitted when not set.
+  - logo_url (string) — URL opened when the logo is clicked. Omitted when not set.
+  - managed_domain_feature_enabled (boolean) (required) — Whether the managed custom-domain feature is enabled for this page. 'true' for public pages, always 'false' for internal pages.
+  - name (string) (required) — Display name of the status page.
+  - page_footer (string) — Footer content of the status page. Omitted when not set.
+  - page_header (string) — Header content of the status page. Omitted when not set.
+  - page_id (integer) (required) — Status page ID.
+  - sections (array<object>) (required) — Sections grouping the components.
+    - description (string) (required) — Section description.
+    - hide_all (boolean) (required) — Whether the section and its components are hidden from summary endpoints.
+    - hide_uptime (boolean) (required) — Whether uptime data is hidden from summary responses.
+    - name (string) (required) — Section name.
+    - order_id (integer) — Display order of the section. Omitted when 0.
+    - section_id (string) — Section ID. Omitted when empty.
+  - subscription (object) (required) — Subscription channel toggles.
+    - email (boolean) (required) — Whether email subscription is enabled.
+    - im (boolean) (required) — Whether IM subscription is enabled.
+  - template_preference (string) — Preferred event template type: 'pre_defined' or 'message'. Omitted when never set.
+  - type (string) (required) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
+  - url_name (string) (required) — URL-safe slug, unique per account.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if err := genFoldPositional(args, body, "page_id", "string"); err != nil {
+					if err := genFoldPositional(args, body, "page_id", "int"); err != nil {
 						return err
 					}
 					if cmd.Flags().Changed("page-id") {
@@ -1192,7 +1194,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPageID, "page-id", "", "Status page ID (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1273,7 +1275,7 @@ API: POST /status-page/migrate-structure (statusPageMigrateStructure)
 Request fields:
   --api-key string (required) — Atlassian Statuspage API key with access to the source page.
   --source-page-id string (required) — Atlassian Statuspage source page ID.
-  --url-name string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
+  --url-name string — Target URL name for the new status page, normalized to a URL-safe slug (max 255 characters). Omit or pass null to derive it from the source page name; an explicitly empty string is rejected. (≤255 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - job_id (string) (required) — Migration job ID. Use this to poll status or request cancellation.
@@ -1314,7 +1316,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fAPIKey, "api-key", "", "Atlassian Statuspage API key with access to the source page. (required)")
 	cmd.Flags().StringVar(&fSourcePageID, "source-page-id", "", "Atlassian Statuspage source page ID. (required)")
-	cmd.Flags().StringVar(&fURLName, "url-name", "", "Target URL name for the migrated status page. When omitted, the source page's URL name is reused.")
+	cmd.Flags().StringVar(&fURLName, "url-name", "", "Target URL name for the new status page, normalized to a URL-safe slug (max 255 characters). Omit or pass null to derive it from the source page name; an explicitly empty string is rejected. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1332,7 +1334,7 @@ Cancel an in-progress status page migration job. Only jobs currently in the 'run
 API: POST /status-page/migration/cancel (statusPageMigrationCancel)
 
 Request fields:
-  --job-id string (required) — Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'.
+  --job-id string (required) — Migration job ID, returned when the migration job is created; check progress via 'GET /status-page/migration/status'.
 `,
 		Args:    requireBodyFieldOrExactArg("job_id", "job-id"),
 		Example: `  flashduty status-page migration-cancel --data '{"job_id":"01KP0311872NVYFRRQ82FW0001"}'`,
@@ -1366,7 +1368,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'. (required)")
+	cmd.Flags().StringVar(&fJobID, "job-id", "", "Migration job ID, returned when the migration job is created; check progress via 'GET /status-page/migration/status'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1388,8 +1390,8 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owner account ID.
-  - created_at (string) (required) — Job creation time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - error (string) — Terminal error message when 'status' is 'failed'.
+  - created_at (string) (required) — Job creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - error (string) — Terminal error message when 'status' is 'failed'. Omitted when the job has not failed.
   - job_id (string) (required) — Migration job ID.
   - phase (string) (required) — Current migration phase. 'structure' imports the page structure (sections and components); 'history' imports historical incidents, maintenances, and incident templates; 'subscribers' imports email subscribers. [structure, history, subscribers]
   - progress (object) (required) — Per-entity progress counters.
@@ -1402,11 +1404,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - subscribers_skipped (integer) (required) — Number of subscribers skipped (e.g. because they would create duplicates).
     - templates_imported (integer) (required) — Number of incident templates successfully imported; templates that fail are skipped and recorded in 'warnings'.
     - total_steps (integer) (required) — Total steps this job will perform.
-    - warnings (array<string>) — Non-fatal warnings recorded during the job.
+    - warnings (array<string>) — Non-fatal warnings recorded during the job. Omitted when empty.
   - source_page_id (string) (required) — Atlassian Statuspage source page ID.
-  - status (string) (required) — Current job status. | Value | Meaning | |---|---| | 'pending' | Created, waiting to run. | | 'running' | In progress. | | 'completed' | Finished successfully. | | 'failed' | Failed; the 'error' field holds the reason. | | 'cancelled' | Canceled by request. | [pending, running, completed, failed, cancelled]
+  - status (string) (required) — Current job status. | Value | Meaning | |---|---| | 'running' | In progress. | | 'completed' | Finished successfully. | | 'failed' | Failed; the 'error' field holds the reason. | | 'cancelled' | Canceled by request. | [running, completed, failed, cancelled]
   - target_page_id (integer) (required) — Flashduty target status page ID. Set once the job produces one, or supplied up front for subscriber migration.
-  - updated_at (string) (required) — Last status update time, unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) (required) — Last status update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args: requireBodyFieldOrExactArg("job_id", "job-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1454,8 +1456,8 @@ Delete a section from a status page.
 API: POST /status-page/section/delete (statusPageSectionDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --section-ids []string (required) — Section IDs to delete; obtain them from 'POST /status-page/info'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --section-ids []string (required) — Section IDs to delete; obtain them from 'GET /status-page/info'.
 `,
 		Args:    requireBodyFieldOrArgs("section_ids", "section-ids"),
 		Example: `  flashduty status-page section-delete --data '{"page_id":5750613685214,"section_ids":["01KP032J1FV2H8DDGN0QSJ1CAR"]}'`,
@@ -1492,8 +1494,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringSliceVar(&fSectionIDs, "section-ids", nil, "Section IDs to delete; obtain them from 'POST /status-page/info'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringSliceVar(&fSectionIDs, "section-ids", nil, "Section IDs to delete; obtain them from 'GET /status-page/info'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1511,7 +1513,7 @@ Create or update a section on a status page.
 API: POST /status-page/section/upsert (statusPageSectionUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
   sections (array<object>, via --data) (required) — Sections to create or update.
     - description (string) — Section description.
     - hide_all (boolean) — When true, the entire section is hidden from summary endpoints.
@@ -1551,7 +1553,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1571,7 +1573,7 @@ API: POST /status-page/subscriber/export (statusPageSubscriberExport)
 
 Request fields:
   --component-ids []string — Optional component IDs to filter subscribers by.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page subscriber-export --data '{"page_id":5750613685214}'`,
@@ -1596,16 +1598,20 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				out, _, err := ctx.Client.StatusPages.SubscriberExport(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.StatusPages.SubscriberExport(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /status-page/subscriber/export")
+				return nil
 			})
 		},
 	}
 	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Optional component IDs to filter subscribers by.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1619,13 +1625,13 @@ func genStatusPagesSubscriberImportCmd() *cobra.Command {
 		Short: "Import subscribers",
 		Long: `Import subscribers.
 
-Bulk import subscribers for a status page.
+Bulk import subscribers for a status page. The account must be allowlisted for subscriber import; otherwise the call is rejected with an access-denied error.
 
 API: POST /status-page/subscriber/import (statusPageSubscriberImport)
 
 Request fields:
   --method string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. [email, im]
-  --page-id int (required) — Target status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Target status page ID; obtain it from 'GET /status-page/list'.
   subscribers (array<object>, via --data) — Subscribers to import.
     - all (boolean) — When true, the subscriber receives notifications for all components. Must be true when 'component_ids' and 'change_ids' are both empty.
     - change_ids (array<integer>) — Specific event IDs the subscriber should receive notifications for.
@@ -1669,7 +1675,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1700,15 +1706,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Subscribers on the current page.
     - all (boolean) (required) — Whether the subscriber is subscribed to all components.
     - components (array<object>) (required) — Components this subscriber has subscribed to.
-      - available_since_seconds (string) — Timestamp when the component was first available, in unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - component_id (string) — Component ID.
-      - description (string) — Component description.
-      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints.
-      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses.
+      - available_since_seconds (string) — Time the component became available, as a Unix timestamp in seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - component_id (string) — Component ID. Omitted when empty.
+      - description (string) — Component description. Omitted when empty.
+      - hide_all (boolean) — When true, the component is hidden entirely from summary endpoints. Omitted when false.
+      - hide_uptime (boolean) — When true, uptime data is hidden from summary responses. Omitted when false.
       - name (string) (required) — Component display name.
-      - order_id (integer) — Display order within its section.
-      - section_id (string) — Parent section ID.
-    - locale (string) — Preferred locale for notifications.
+      - order_id (integer) — Display order within its section. Omitted when 0.
+      - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
+    - locale (string) — Preferred locale for notifications. Omitted when empty.
     - method (string) (required) — Subscription notification method. 'email' is email subscription (public pages); 'im' is IM subscription (internal pages). Determined by the page type. [email, im]
     - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
   - total (integer) (required) — Total matching subscribers.
@@ -1772,8 +1778,8 @@ Delete an event template from a status page.
 API: POST /status-page/template/delete (statusPageTemplateDelete)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --template-id string (required) — ID of the template to delete; obtain it from 'POST /status-page/template/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --template-id string (required) — ID of the template to delete; obtain it from 'GET /status-page/template/list'.
   --type string (required) — Template kind: 'pre_defined' predefined template, 'message' message template. [pre_defined, message]
 `,
 		Example: `  flashduty status-page template-delete --data '{"page_id":5720156736380,"template_id":"01KP0339G5XDEPM4R86T2B23EP","type":"pre_defined"}'`,
@@ -1810,8 +1816,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "ID of the template to delete; obtain it from 'POST /status-page/template/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "ID of the template to delete; obtain it from 'GET /status-page/template/list'. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Template kind: 'pre_defined' predefined template, 'message' message template. (required) [pre_defined, message]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1833,6 +1839,15 @@ API: GET /status-page/template/list (statusPageTemplateList)
 Request fields:
   --page-id int (required) — Status page ID.
   --type string (required) — Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. [pre_defined, message]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - items (array<any>) (required) — Templates of the requested category.
+    - description (string) — Template body text (Markdown).
+    - messages (object) — Notification text (Markdown) per event status. Keys are change statuses valid for the template's 'type' (for example 'investigating' or 'resolved' for incidents); the value is the text used when the event reaches that status.
+    - status (string) — Change status the template maps to. Incidents use 'investigating'/'identified'/'monitoring'/'resolved'; maintenances use 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - template_id (string) — Template ID. Omit to create a new template; supply to update an existing one.
+    - title (string) — Template title.
+    - type (string) — Change type the template applies to: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1856,15 +1871,11 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				resp, err := ctx.Client.StatusPages.TemplateList(cmdContext(ctx.Cmd), req)
+				out, _, err := ctx.Client.StatusPages.TemplateList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: GET /status-page/template/list")
-				return nil
+				return printGenericResult(ctx, out)
 			})
 		},
 	}
@@ -1888,20 +1899,21 @@ Create or update an event template for a status page.
 API: POST /status-page/template/upsert (statusPageTemplateUpsert)
 
 Request fields:
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
   --type string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. [pre_defined, message]
-  template (object, via --data) (required) — Template content.
+  template (object, via --data) (required) — Template content. Shape depends on 'type': a predefined event template for 'pre_defined', a message template for 'message'.
     - description (string) — Template body text (Markdown).
-    - event_type (string) (required) — Change type this template applies to: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
-    - status (string) (required) — Change status this template maps to. Incidents use 'investigating'/'identified'/'monitoring'/'resolved'; maintenances use 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
-    - template_id (string) — Template ID. Omit to create; supply to update.
-    - title (string) (required) — Template title.
+    - messages (object) — Notification text (Markdown) per event status. Keys are change statuses valid for the template's 'type' (for example 'investigating' or 'resolved' for incidents); the value is the text used when the event reaches that status.
+    - status (string) — Change status the template maps to. Incidents use 'investigating'/'identified'/'monitoring'/'resolved'; maintenances use 'scheduled'/'ongoing'/'completed'. [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+    - template_id (string) — Template ID. Omit to create a new template; supply to update an existing one.
+    - title (string) — Template title.
+    - type (string) — Change type the template applies to: 'incident' unplanned incident, 'maintenance' planned maintenance. [incident, maintenance]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — ID of the created or updated template.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
-		Example: `  flashduty status-page template-upsert --data '{"page_id":5720156736380,"template":{"description":"We are investigating a service disruption affecting some users.","event_type":"incident","status":"investigating","title":"Service Disruption"},"type":"pre_defined"}'`,
+		Example: `  flashduty status-page template-upsert --data '{"page_id":5720156736380,"template":{"description":"We are investigating a service disruption affecting some users.","status":"investigating","title":"Service Disruption","type":"incident"},"type":"pre_defined"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1931,7 +1943,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. (required) [pre_defined, message]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1964,25 +1976,25 @@ Update an existing status page configuration.
 API: POST /status-page/update (statusPageUpdate)
 
 Request fields:
-  --contact-info string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
-  --custom-domain string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
-  --dark-logo string — Dark-mode logo image of the status page. Omit to keep the existing value.
+  --contact-info string — Get-in-touch contact, such as a mailto or website URL. Omit or pass null to keep the existing value.
+  --custom-domain string — Custom domain for a public status page. Omit or pass null to keep the existing value. (≤255 chars)
+  --dark-logo string — Dark-mode logo image of the status page. Omit or pass null to keep the existing value.
   --date-view string — How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]
   --display-uptime-mode string — How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. [chart_and_percentage, chart, none]
-  --favicon string — Favicon of the status page. Omit to keep the existing value.
-  --logo string — Logo image of the status page. Omit to keep the existing value.
-  --logo-url string — URL opened when the logo is clicked. Omit to keep the existing value.
-  --name string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
-  --page-footer string — Footer content shown on the status page. Omit to keep the existing value.
-  --page-header string — Header content shown on the status page. Omit to keep the existing value.
-  --page-id int (required) — Status page ID; obtain it from 'POST /status-page/list'.
-  --page-title string — Browser title shown for the status page. Omit to keep the existing value.
-  --template-preference string — Preferred change-event template type. Omit to keep the existing value.
-  --url-name string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)
-  custom_links (array<object>, via --data) — Custom navigation links shown on the status page. Omit to keep the existing value.
-  subscription (object, via --data) — Subscription channel toggles.
-    - email (boolean) — Whether email subscription is enabled.
-    - im (boolean) — Whether IM subscription is enabled.
+  --favicon string — Favicon of the status page. Omit or pass null to keep the existing value.
+  --logo string — Logo image of the status page. Omit or pass null to keep the existing value.
+  --logo-url string — URL opened when the logo is clicked. Omit or pass null to keep the existing value. (≤255 chars)
+  --name string — Display name of the status page. Omit or pass null to keep the existing value. (≤255 chars)
+  --page-footer string — Footer content shown on the status page. Omit or pass null to keep the existing value.
+  --page-header string — Header content shown on the status page. Omit or pass null to keep the existing value.
+  --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
+  --page-title string — Browser title shown for the status page. Omit or pass null to keep the existing value.
+  --template-preference string — Preferred event template type: 'pre_defined' or 'message'. Omit or pass null to keep the existing value.
+  --url-name string — URL-safe slug, unique per account and page type. Omit or pass null to keep the existing value. (≤255 chars)
+  custom_links (array<object>, via --data) — Custom navigation links shown on the status page. Omit or pass an empty array to keep the current links.
+  subscription (object, via --data) — Subscription channel toggles. Omit or pass null to keep the existing value.
+    - email (boolean) (required) — Whether email subscription is enabled.
+    - im (boolean) (required) — Whether IM subscription is enabled.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page update --data '{"contact_info":"mailto:support@example.com","name":"Flashduty Status Page (Updated)","page_header":"Updated status page header","page_id":5750613685214}'`,
@@ -2058,21 +2070,21 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)")
-	cmd.Flags().StringVar(&fDarkLogo, "dark-logo", "", "Dark-mode logo image of the status page. Omit to keep the existing value.")
+	cmd.Flags().StringVar(&fContactInfo, "contact-info", "", "Get-in-touch contact, such as a mailto or website URL. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fCustomDomain, "custom-domain", "", "Custom domain for a public status page. Omit or pass null to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fDarkLogo, "dark-logo", "", "Dark-mode logo image of the status page. Omit or pass null to keep the existing value.")
 	cmd.Flags().StringVar(&fDateView, "date-view", "", "How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. [calendar, list]")
 	cmd.Flags().StringVar(&fDisplayUptimeMode, "display-uptime-mode", "", "How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. [chart_and_percentage, chart, none]")
-	cmd.Flags().StringVar(&fFavicon, "favicon", "", "Favicon of the status page. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fLogo, "logo", "", "Logo image of the status page. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fLogoURL, "logo-url", "", "URL opened when the logo is clicked. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. Omit to keep the existing value. (≤255 chars)")
-	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page. Omit to keep the existing value.")
-	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'POST /status-page/list'. (required)")
-	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fTemplatePreference, "template-preference", "", "Preferred change-event template type. Omit to keep the existing value.")
-	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fFavicon, "favicon", "", "Favicon of the status page. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fLogo, "logo", "", "Logo image of the status page. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fLogoURL, "logo-url", "", "URL opened when the logo is clicked. Omit or pass null to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name of the status page. Omit or pass null to keep the existing value. (≤255 chars)")
+	cmd.Flags().StringVar(&fPageFooter, "page-footer", "", "Footer content shown on the status page. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fPageHeader, "page-header", "", "Header content shown on the status page. Omit or pass null to keep the existing value.")
+	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
+	cmd.Flags().StringVar(&fPageTitle, "page-title", "", "Browser title shown for the status page. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fTemplatePreference, "template-preference", "", "Preferred event template type: 'pre_defined' or 'message'. Omit or pass null to keep the existing value.")
+	cmd.Flags().StringVar(&fURLName, "url-name", "", "URL-safe slug, unique per account and page type. Omit or pass null to keep the existing value. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

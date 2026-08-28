@@ -46,18 +46,21 @@ Request fields:
     - aggr_window (integer) — Delay window in seconds. 0 disables delay. (0-3600)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
       - by (object) — Per-severity personal notification channels. Required unless 'webhooks' is provided.
-        - critical (array<string>) — Channels for Critical events (e.g. 'voice', 'sms', 'email', 'feishu').
+        - critical (array<string>) — Notify channels used for Critical severity. Personal channels: 'sms', 'voice', 'email', 'push'; IM group-chat channels: 'feishu_app:<chat_id>', 'dingtalk_app:<chat_id>', 'wecom_app:<chat_id>', 'slack_app:<chat_id>', 'teams_app:<chat_id>'.
         - follow_preference (boolean) — When true, use each responder's personal preference instead of the lists below.
-        - info (array<string>) — Channels for Info events.
-        - warning (array<string>) — Channels for Warning events.
+        - info (array<string>) — Notify channels used for Info severity. Values as for 'critical'.
+        - warning (array<string>) — Notify channels used for Warning severity. Values as for 'critical'.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
       - person_ids (array<integer>) — Member IDs to notify directly; obtain member IDs from 'POST /member/list'.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
       - team_ids (array<integer>) — Team IDs to notify; obtain team IDs from 'POST /team/list'.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
-        - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
+        - type (string) (required) — Webhook type, one of 'feishu', 'feishu_app', 'dingtalk', 'dingtalk_app', 'wecom', 'slack', 'slack_app', 'teams_app', 'telegram', 'zoom'.
     - template_id (string) (required) — Notification template ID (MongoDB ObjectID).
+  event_group (object, via --data) — Alert event merge configuration. Omit to use the default (merge enabled, 1440-minute window).
+    - is_enabled (boolean) — When true, repeated events merge into the existing alert; when false, every event creates a separate alert. Defaults to true.
+    - time_window (integer) — Merge window in minutes, 1-1440 (24 h); accounts with the extended limit may use up to 10080 (7 days). Defaults to 1440. (min 1)
   flapping (object, via --data) — Flapping detection configuration.
     - in_mins (integer) — Observation window in minutes. (1-1440)
     - is_disabled (boolean) — Disable flapping detection.
@@ -66,6 +69,11 @@ Request fields:
   group (object, via --data) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
+      - equals (array<string>) (required) — Grouping keys for matching alerts. Supported values: 'title', 'description', 'severity', or any 'labels.<name>'.
+      - if (array<object>) (required) — AND-ed match conditions evaluated against stored alert fields.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
     - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
@@ -157,7 +165,7 @@ func genChannelsChannelDeleteCmd() *cobra.Command {
 		Short: "Delete channel",
 		Long: `Delete channel.
 
-Delete a channel and all associated configuration.
+Delete a channel. Only a 'disabled' channel can be deleted; all of its escalation, silence, drop and inhibit rules are deleted with it. The call fails when an integration route still references the channel.
 
 API: POST /channel/delete (channelDelete)
 
@@ -209,7 +217,7 @@ func genChannelsChannelDisableCmd() *cobra.Command {
 		Short: "Disable channel",
 		Long: `Disable channel.
 
-Disable a channel to stop incident routing without deleting it.
+Disable a channel to stop incident routing without deleting it; a disabled channel discards incoming events. Only an 'enabled' channel can be disabled.
 
 API: POST /channel/disable (channelDisable)
 
@@ -261,7 +269,7 @@ func genChannelsChannelEnableCmd() *cobra.Command {
 		Short: "Enable channel",
 		Long: `Enable channel.
 
-Enable a disabled channel to resume incident routing.
+Enable a channel to resume incident routing. Only a 'disabled' channel can be enabled.
 
 API: POST /channel/enable (channelEnable)
 
@@ -329,7 +337,7 @@ Request fields:
   --priority int — Evaluation priority. Lower runs first. (0-200)
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   --template-id string (required) — Notification template ID (MongoDB ObjectID).
-  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Incident-level match conditions (OR-of-AND tree): the rule is matched against the incident the alert was grouped into, not against the alert itself. Omit or leave empty to apply the rule to all incidents in the channel.
     - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
     - oper (string) (required) — Filter operator. [IN, NOTIN]
     - vals (array<string>) (required) — Values to match.
@@ -340,17 +348,17 @@ Request fields:
     - notify_step (number) — Repeat interval in minutes. (0.5-120)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
       - by (object) — Per-severity personal notification channels. Required unless 'webhooks' is provided.
-        - critical (array<string>) — Channels for Critical events (e.g. 'voice', 'sms', 'email', 'feishu').
+        - critical (array<string>) — Notify channels used for Critical severity. Personal channels: 'sms', 'voice', 'email', 'push'; IM group-chat channels: 'feishu_app:<chat_id>', 'dingtalk_app:<chat_id>', 'wecom_app:<chat_id>', 'slack_app:<chat_id>', 'teams_app:<chat_id>'.
         - follow_preference (boolean) — When true, use each responder's personal preference instead of the lists below.
-        - info (array<string>) — Channels for Info events.
-        - warning (array<string>) — Channels for Warning events.
+        - info (array<string>) — Notify channels used for Info severity. Values as for 'critical'.
+        - warning (array<string>) — Notify channels used for Warning severity. Values as for 'critical'.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
       - person_ids (array<integer>) — Member IDs to notify directly; obtain member IDs from 'POST /member/list'.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
       - team_ids (array<integer>) — Team IDs to notify; obtain team IDs from 'POST /team/list'.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
-        - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
+        - type (string) (required) — Webhook type, one of 'feishu', 'feishu_app', 'dingtalk', 'dingtalk_app', 'wecom', 'slack', 'slack_app', 'teams_app', 'telegram', 'zoom'.
   time_filters (array<object>, via --data) — Optional recurring time windows during which the rule applies.
     - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
     - end (string) — End of the window in 'HH:MM'.
@@ -420,7 +428,7 @@ func genChannelsChannelEscalateRuleDeleteCmd() *cobra.Command {
 		Short: "Delete escalation rule",
 		Long: `Delete escalation rule.
 
-Delete an escalation rule.
+Delete an escalation rule. Only a 'disabled' rule can be deleted.
 
 API: POST /channel/escalate/rule/delete (channelEscalateRuleDelete)
 
@@ -474,7 +482,7 @@ func genChannelsChannelEscalateRuleDisableCmd() *cobra.Command {
 		Short: "Disable escalation rule",
 		Long: `Disable escalation rule.
 
-Disable an escalation rule without deleting it.
+Disable an escalation rule without deleting it. Only an 'enabled' rule can be disabled.
 
 API: POST /channel/escalate/rule/disable (channelEscalateRuleDisable)
 
@@ -528,7 +536,7 @@ func genChannelsChannelEscalateRuleEnableCmd() *cobra.Command {
 		Short: "Enable escalation rule",
 		Long: `Enable escalation rule.
 
-Enable a disabled escalation rule.
+Enable a disabled escalation rule. Only a 'disabled' rule can be enabled.
 
 API: POST /channel/escalate/rule/enable (channelEscalateRuleEnable)
 
@@ -595,10 +603,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - aggr_window (integer) (required) — Delay window in seconds.
   - channel_id (integer) (required) — Channel the rule belongs to.
   - channel_name (string) — Channel name, populated for cross-channel listing responses.
-  - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - deleted_at (string) — Deletion time, Unix timestamp in seconds. Omitted unless the rule is soft-deleted; deleted rules are excluded from list responses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Rule description.
-  - filters (object) (required)
+  - filters (object) (required) — Incident-level match conditions (OR-of-AND tree): the rule is matched against the incident the alert was grouped into, not against the alert itself. Omit or leave empty to apply the rule to all incidents in the channel.
   - layers (array<object>) (required) — Escalation levels in order.
     - escalate_window (integer) — Wait before moving to the next level, in minutes. (0-720)
     - force_escalate (boolean) — When true, always escalate regardless of acknowledgement.
@@ -606,21 +614,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - notify_step (number) — Repeat interval in minutes. (0.5-120)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
       - by (object) — Per-severity personal notification channels. Required unless 'webhooks' is provided.
-        - critical (array<string>) — Channels for Critical events (e.g. 'voice', 'sms', 'email', 'feishu').
+        - critical (array<string>) — Notify channels used for Critical severity. Personal channels: 'sms', 'voice', 'email', 'push'; IM group-chat channels: 'feishu_app:<chat_id>', 'dingtalk_app:<chat_id>', 'wecom_app:<chat_id>', 'slack_app:<chat_id>', 'teams_app:<chat_id>'.
         - follow_preference (boolean) — When true, use each responder's personal preference instead of the lists below.
-        - info (array<string>) — Channels for Info events.
-        - warning (array<string>) — Channels for Warning events.
+        - info (array<string>) — Notify channels used for Info severity. Values as for 'critical'.
+        - warning (array<string>) — Notify channels used for Warning severity. Values as for 'critical'.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
       - person_ids (array<integer>) — Member IDs to notify directly.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
       - team_ids (array<integer>) — Team IDs to notify.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
-        - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
+        - type (string) (required) — Webhook type, one of 'feishu', 'feishu_app', 'dingtalk', 'dingtalk_app', 'wecom', 'slack', 'slack_app', 'teams_app', 'telegram', 'zoom'.
   - priority (integer) (required) — Evaluation priority. Lower runs first.
   - rule_id (string) (required) — Escalation rule ID (MongoDB ObjectID).
   - rule_name (string) (required) — Rule name.
-  - status (string) (required) — Rule status. [enabled, disabled]
+  - status (string) (required) — Rule status: 'enabled' means active, 'disabled' means paused, 'deleted' is soft-deleted (possible only from the detail endpoint; lists never return deleted rules). [enabled, disabled, deleted]
   - template_id (string) (required) — Notification template ID (MongoDB ObjectID).
   - time_filters (array<object>) (required) — Recurring time windows during which the rule applies.
     - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
@@ -628,7 +636,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - is_off (boolean) — When true, match days marked as days-off in the calendar.
     - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
     - start (string) — Start of the window in 'HH:MM'.
-  - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
 		Example: `  flashduty channel escalate-rule-info --data '{"channel_id":1001,"rule_id":"6621b23f4a2c5e0012ab34d0"}'`,
@@ -685,10 +693,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - aggr_window (integer) (required) — Delay window in seconds.
     - channel_id (integer) (required) — Channel the rule belongs to.
     - channel_name (string) — Channel name, populated for cross-channel listing responses.
-    - created_at (string) (required) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - deleted_at (string) — Deletion timestamp (unix seconds). Emitted only for soft-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion time, Unix timestamp in seconds. Omitted unless the rule is soft-deleted; deleted rules are excluded from list responses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
-    - filters (object) (required)
+    - filters (object) (required) — Incident-level match conditions (OR-of-AND tree): the rule is matched against the incident the alert was grouped into, not against the alert itself. Omit or leave empty to apply the rule to all incidents in the channel.
     - layers (array<object>) (required) — Escalation levels in order.
       - escalate_window (integer) — Wait before moving to the next level, in minutes. (0-720)
       - force_escalate (boolean) — When true, always escalate regardless of acknowledgement.
@@ -704,7 +712,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - priority (integer) (required) — Evaluation priority. Lower runs first.
     - rule_id (string) (required) — Escalation rule ID (MongoDB ObjectID).
     - rule_name (string) (required) — Rule name.
-    - status (string) (required) — Rule status. [enabled, disabled]
+    - status (string) (required) — Rule status: 'enabled' means active, 'disabled' means paused, 'deleted' is soft-deleted (possible only from the detail endpoint; lists never return deleted rules). [enabled, disabled, deleted]
     - template_id (string) (required) — Notification template ID (MongoDB ObjectID).
     - time_filters (array<object>) (required) — Recurring time windows during which the rule applies.
       - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
@@ -712,7 +720,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - is_off (boolean) — When true, match days marked as days-off in the calendar.
       - repeat (array<integer>) — Days of the week this window repeats on. Empty means every day.
       - start (string) — Start of the window in 'HH:MM'.
-    - updated_at (string) (required) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID that last updated the rule.
 `,
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -774,7 +782,7 @@ Request fields:
   --rule-id string (required) — Escalation rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   --template-id string (required) — Notification template ID (MongoDB ObjectID).
-  filters (object, via --data) — Match conditions for alerts this rule applies to; omit to apply it to all alerts in the channel.
+  filters (object, via --data) — Incident-level match conditions (OR-of-AND tree): the rule is matched against the incident the alert was grouped into, not against the alert itself. Omit or leave empty to apply the rule to all incidents in the channel.
   layers (array<object>, via --data) (required) — Escalation levels in order. At least one level is required.
     - escalate_window (integer) — Wait before moving to the next level, in minutes. (0-720)
     - force_escalate (boolean) — When true, always escalate regardless of acknowledgement.
@@ -782,17 +790,17 @@ Request fields:
     - notify_step (number) — Repeat interval in minutes. (0.5-120)
     - target (object) (required) — Notification target. At least one of 'person_ids', 'team_ids', 'schedule_to_role_ids', or 'emails' must be set, together with either 'by' or 'webhooks'.
       - by (object) — Per-severity personal notification channels. Required unless 'webhooks' is provided.
-        - critical (array<string>) — Channels for Critical events (e.g. 'voice', 'sms', 'email', 'feishu').
+        - critical (array<string>) — Notify channels used for Critical severity. Personal channels: 'sms', 'voice', 'email', 'push'; IM group-chat channels: 'feishu_app:<chat_id>', 'dingtalk_app:<chat_id>', 'wecom_app:<chat_id>', 'slack_app:<chat_id>', 'teams_app:<chat_id>'.
         - follow_preference (boolean) — When true, use each responder's personal preference instead of the lists below.
-        - info (array<string>) — Channels for Info events.
-        - warning (array<string>) — Channels for Warning events.
+        - info (array<string>) — Notify channels used for Info severity. Values as for 'critical'.
+        - warning (array<string>) — Notify channels used for Warning severity. Values as for 'critical'.
       - emails (array<string>) — Email addresses to notify (push-only scenarios).
       - person_ids (array<integer>) — Member IDs to notify directly.
       - schedule_to_role_ids (object) — Map of schedule ID to the role IDs on that schedule to notify.
       - team_ids (array<integer>) — Team IDs to notify.
       - webhooks (array<object>) — Group chat / webhook targets. Required unless 'by' is provided.
         - settings (object) (required) — Type-specific settings (chat IDs, URLs, etc.).
-        - type (string) (required) — Webhook type (e.g. 'feishu', 'dingtalk_app', 'wecom_app', 'slack', 'teams', 'custom').
+        - type (string) (required) — Webhook type, one of 'feishu', 'feishu_app', 'dingtalk', 'dingtalk_app', 'wecom', 'slack', 'slack_app', 'teams_app', 'telegram', 'zoom'.
   time_filters (array<object>, via --data) — Optional recurring time windows during which the rule applies.
     - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
     - end (string) — End of the window in 'HH:MM'.
@@ -874,19 +882,22 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) — Owning account ID.
-  - active_incident_highest_severity (string) — Highest severity among active incidents in the channel.
+  - active_incident_highest_severity (string) — Highest severity among the channel's active (triggered or processing) incidents: 'Critical', 'Warning' or 'Info'. Omitted when there are no active incidents. [Critical, Warning, Info]
   - auto_resolve_mode (string) — How the auto-resolve timer is reset. 'trigger' (default) starts the timer once when the incident is triggered — later merged alerts do not affect it; 'update' restarts the timer from the latest alert time whenever a new alert merges into the incident. [trigger, update]
   - auto_resolve_timeout (integer) — Auto-resolve timeout in seconds. 0 disables auto-resolve.
   - channel_id (integer) — Channel ID.
   - channel_name (string) — Channel name.
-  - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) — Member ID who created the channel.
   - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
-  - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - deleted_at (string) — Deletion time, Unix timestamp in seconds. Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Free-form description.
   - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
   - disable_outlier_detection (boolean) — When true, outlier incident detection is disabled.
-  - external_report_token (string) — Token granted to external reporters when external reporting is enabled.
+  - event_group (object) — Alert event merge configuration.
+    - is_enabled (boolean) — When true, repeated events merge into the existing alert; when false, every event creates a separate alert. Defaults to true.
+    - time_window (integer) — Merge window in minutes, 1-1440 (24 h); accounts with the extended limit may use up to 10080 (7 days). Defaults to 1440. (min 1)
+  - external_report_token (string) — Token granted to external reporters. Omitted unless external reporting is enabled on the channel.
   - flapping (object) — Flapping detection configuration.
     - in_mins (integer) — Observation window in minutes. (1-1440)
     - is_disabled (boolean) — Disable flapping detection.
@@ -895,6 +906,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - group (object) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
+      - equals (array<string>) (required) — Grouping keys for matching alerts. Supported values: 'title', 'description', 'severity', or any 'labels.<name>'.
+      - if (array<object>) (required) — AND-ed match conditions evaluated against stored alert fields.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
     - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
@@ -905,16 +921,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - window_type (string) — Window type, default 'tumbling'. 'tumbling' is a fixed window counted from incident creation — once it expires, new alerts open a new incident; 'sliding' is a sliding window counted from the incident's most recent alert, extended each time a new alert merges in. [tumbling, sliding]
   - is_external_report_enabled (boolean) — Whether external reporters can file incidents into this channel.
   - is_private (boolean) — When true, the channel is visible only to its managing teams.
-  - is_starred (boolean) — Whether the current user has starred this channel.
-  - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - is_starred (boolean) — Whether the current user has starred this channel. Present only in 'POST /channel/list' responses.
+  - last_incident_at (string) — Time of the most recent incident, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - managing_team_ids (array<integer>) — Additional teams that can manage the channel.
-  - progress_to_incident_cnts (object)
+  - progress_to_incident_cnts (object) — Incident counts by progress over the last 30 days.
     - Processing (integer) (required) — Count of processing incidents in the last 30 days.
     - Triggered (integer) (required) — Count of triggered incidents in the last 30 days.
   - status (string) — Channel status. 'enabled' receives and processes events normally; 'disabled' drops incoming events outright; 'deleted' is returned only when fetching a channel by ID — list endpoints never return it. [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
   - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
-  - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Aliases: []string{"get", "detail"},
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
@@ -969,7 +985,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Brief info for the requested 'channel_ids' that actually exist; IDs not found are ignored.
     - channel_id (integer) (required) — Channel ID.
     - channel_name (string) (required) — Channel name.
-    - status (string) — Channel status. [enabled, disabled]
+    - status (string) — Channel status: 'enabled' processes events normally; 'disabled' discards incoming events; 'deleted' is soft-deleted. [enabled, disabled, deleted]
 `,
 		Args:    requireBodyFieldOrArgs("channel_ids", "channel-ids"),
 		Example: `  flashduty channel infos --data '{"channel_ids":[1001,1002]}'`,
@@ -1023,14 +1039,14 @@ API: POST /channel/inhibit/rule/create (channelInhibitRuleCreate)
 Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
-  --equals []string (required) — Label keys used to pair source and target alerts.
-  --is-directly-discard bool — When true, suppressed target alerts are dropped instead of merged.
+  --equals []string (required) — Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'.
+  --is-directly-discard bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  source_filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  source_filters (array<array<object>>, via --data) — Conditions the source alert must match, evaluated against stored active alerts. Supported keys: 'status', 'incident_status', 'alert_status', 'severity', 'incident_severity', 'alert_severity', 'title', 'description', or any 'labels.<name>'. Empty makes the rule inert.
     - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
     - oper (string) (required) — Filter operator. [IN, NOTIN]
     - vals (array<string>) (required) — Values to match.
-  target_filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  target_filters (array<array<object>>, via --data) — Conditions the incoming target alert event must match to be suppressed; empty means every event is a target.
     - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
     - oper (string) (required) — Filter operator. [IN, NOTIN]
     - vals (array<string>) (required) — Values to match.
@@ -1081,8 +1097,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
-	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Label keys used to pair source and target alerts. (required)")
-	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
+	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'. (required)")
+	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1097,7 +1113,7 @@ func genChannelsChannelInhibitRuleDeleteCmd() *cobra.Command {
 		Short: "Delete inhibit rule",
 		Long: `Delete inhibit rule.
 
-Delete an inhibit rule.
+Delete an inhibit rule. Only a 'disabled' rule can be deleted.
 
 API: POST /channel/inhibit/rule/delete (channelInhibitRuleDelete)
 
@@ -1151,7 +1167,7 @@ func genChannelsChannelInhibitRuleDisableCmd() *cobra.Command {
 		Short: "Disable inhibit rule",
 		Long: `Disable inhibit rule.
 
-Disable an inhibit rule without deleting it.
+Disable an inhibit rule without deleting it. Only an 'enabled' rule can be disabled.
 
 API: POST /channel/inhibit/rule/disable (channelInhibitRuleDisable)
 
@@ -1205,7 +1221,7 @@ func genChannelsChannelInhibitRuleEnableCmd() *cobra.Command {
 		Short: "Enable inhibit rule",
 		Long: `Enable inhibit rule.
 
-Enable a disabled inhibit rule.
+Enable a disabled inhibit rule. Only a 'disabled' rule can be enabled.
 
 API: POST /channel/inhibit/rule/enable (channelInhibitRuleEnable)
 
@@ -1270,14 +1286,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
     - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion time, Unix timestamp in seconds. Omitted unless the rule is soft-deleted; deleted rules are excluded from list responses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
-    - equals (array<string>) (required) — Label keys used to pair source and target alerts.
-    - is_directly_discard (boolean) (required) — When true, the inhibited target alert is discarded outright; when false, the alert is still created but muted — no incident is triggered and no notification is sent.
+    - equals (array<string>) (required) — Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'.
+    - is_directly_discard (boolean) (required) — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
     - rule_id (string) (required) — Rule ID (MongoDB ObjectID).
     - rule_name (string) (required) — Rule name.
-    - source_filters (object) (required)
+    - source_filters (object) (required) — Conditions the source alert must match, evaluated against stored active alerts. Supported keys: 'status', 'incident_status', 'alert_status', 'severity', 'incident_severity', 'alert_severity', 'title', 'description', or any 'labels.<name>'. Empty makes the rule inert.
     - status (string) (required) — Rule status: 'enabled' or 'disabled'; deleted rules never appear in the list. [enabled, disabled]
-    - target_filters (object) (required)
+    - target_filters (object) (required) — Conditions the incoming target alert event must match to be suppressed; empty means every event is a target.
     - updated_at (string) (required) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — ID of the user who last updated the rule.
 `,
@@ -1334,12 +1351,12 @@ API: POST /channel/inhibit/rule/update (channelInhibitRuleUpdate)
 Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
-  --equals []string (required) — Label keys used to pair source and target alerts.
-  --is-directly-discard bool — When true, suppressed target alerts are dropped instead of merged.
+  --equals []string (required) — Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'.
+  --is-directly-discard bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
   --rule-id string (required) — Inhibit rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  source_filters (object, via --data) — Match conditions for source alerts; together with 'equals', determines which target alerts are suppressed.
-  target_filters (object, via --data) — Match conditions for target (suppressed) alerts.
+  source_filters (object, via --data) — Conditions the source alert must match, evaluated against stored active alerts. Supported keys: 'status', 'incident_status', 'alert_status', 'severity', 'incident_severity', 'alert_severity', 'title', 'description', or any 'labels.<name>'. Empty makes the rule inert.
+  target_filters (object, via --data) — Conditions the incoming target alert event must match to be suppressed; empty means every event is a target.
 `,
 		Example: `  flashduty channel inhibit-rule-update --data '{"channel_id":1001,"equals":["labels.cluster"],"rule_id":"6621b23f4a2c5e0012ab34ce","rule_name":"Suppress downstream"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1386,8 +1403,8 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
-	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Label keys used to pair source and target alerts. (required)")
-	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, suppressed target alerts are dropped instead of merged.")
+	cmd.Flags().StringSliceVar(&fEquals, "equals", nil, "Field keys whose values must be equal between the source (inhibiting) alert and the target (suppressed) alert, e.g. 'data_source_id' or 'labels.cluster'. (required)")
+	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Inhibit rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1422,34 +1439,37 @@ Request fields:
   --page int — Page number (1-based). (min 1)
   --limit int — Page size. Defaults to 100 when omitted. (1-100)
   --search-after-ctx string
-  --asc bool — When true, sort ascending.
+  --asc bool — When true, sort ascending; defaults to false (descending).
   --channel-ids []int — Filter by explicit channel IDs.
   --channel-name string — Exact-match filter on channel name. Takes priority over 'query' for name filtering.
-  --is-brief bool — When true, return only brief fields ('channel_id', 'channel_name', 'description', 'status').
+  --is-brief bool — When true, return only 'channel_id', 'channel_name', 'description' and 'status', and return all matches without pagination.
   --is-my-managed bool — When true, return only channels the caller manages.
   --is-my-starred bool — When true, return only channels the caller has starred. Mutually exclusive with 'is_my_team'.
   --is-my-team bool — When true, return channels owned by the caller's teams. Mutually exclusive with 'is_my_starred'.
-  --orderby string — Field used to order results. [ranking, created_at, updated_at, channel_name, last_incident_at]
-  --query string — Free-text query against channel name/description.
+  --orderby string — Field used to order results. Defaults to 'created_at'. [ranking, created_at, updated_at, channel_name, last_incident_at]
+  --query string — Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match.
   --team-ids []int — Filter by team IDs.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether more pages are available.
   - items (array<object>) (required) — Channels on the current page.
     - account_id (integer) — Owning account ID.
-    - active_incident_highest_severity (string) — Highest severity among active incidents in the channel.
+    - active_incident_highest_severity (string) — Highest severity among the channel's active (triggered or processing) incidents: 'Critical', 'Warning' or 'Info'. Omitted when there are no active incidents. [Critical, Warning, Info]
     - auto_resolve_mode (string) — How the auto-resolve timer is reset. 'trigger' (default) starts the timer once when the incident is triggered — later merged alerts do not affect it; 'update' restarts the timer from the latest alert time whenever a new alert merges into the incident. [trigger, update]
     - auto_resolve_timeout (integer) — Auto-resolve timeout in seconds. 0 disables auto-resolve.
     - channel_id (integer) — Channel ID.
     - channel_name (string) — Channel name.
-    - created_at (string) — Creation timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Member ID who created the channel.
     - creator_name (string) — Name of the member who created the channel (resolved from the member directory; empty when unavailable).
-    - deleted_at (string) — Deletion timestamp (unix seconds). Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion time, Unix timestamp in seconds. Non-zero only for soft-deleted channels. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Free-form description.
     - disable_auto_close (boolean) — When true, automatic incident closing is disabled.
     - disable_outlier_detection (boolean) — When true, outlier incident detection is disabled.
-    - external_report_token (string) — Token granted to external reporters when external reporting is enabled.
+    - event_group (object) — Alert event merge configuration.
+      - is_enabled (boolean) — When true, repeated events merge into the existing alert; when false, every event creates a separate alert. Defaults to true.
+      - time_window (integer) — Merge window in minutes, 1-1440 (24 h); accounts with the extended limit may use up to 10080 (7 days). Defaults to 1440. (min 1)
+    - external_report_token (string) — Token granted to external reporters. Omitted unless external reporting is enabled on the channel.
     - flapping (object) — Flapping detection configuration.
       - in_mins (integer) — Observation window in minutes. (1-1440)
       - is_disabled (boolean) — Disable flapping detection.
@@ -1458,6 +1478,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - group (object) — Alert grouping configuration.
       - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
       - cases (array<object>) — Per-filter grouping overrides.
+        - equals (array<string>) (required) — Grouping keys for matching alerts. Supported values: 'title', 'description', 'severity', or any 'labels.<name>'.
+        - if (array<object>) (required) — AND-ed match conditions evaluated against stored alert fields.
       - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
       - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
       - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
@@ -1468,16 +1490,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - window_type (string) — Window type, default 'tumbling'. 'tumbling' is a fixed window counted from incident creation — once it expires, new alerts open a new incident; 'sliding' is a sliding window counted from the incident's most recent alert, extended each time a new alert merges in. [tumbling, sliding]
     - is_external_report_enabled (boolean) — Whether external reporters can file incidents into this channel.
     - is_private (boolean) — When true, the channel is visible only to its managing teams.
-    - is_starred (boolean) — Whether the current user has starred this channel.
-    - last_incident_at (string) — Timestamp of the most recent incident (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - is_starred (boolean) — Whether the current user has starred this channel. Present only in 'POST /channel/list' responses.
+    - last_incident_at (string) — Time of the most recent incident, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - managing_team_ids (array<integer>) — Additional teams that can manage the channel.
-    - progress_to_incident_cnts (object)
+    - progress_to_incident_cnts (object) — Incident counts by progress over the last 30 days.
       - Processing (integer) (required) — Count of processing incidents in the last 30 days.
       - Triggered (integer) (required) — Count of triggered incidents in the last 30 days.
     - status (string) — Channel status. 'enabled' receives and processes events normally; 'disabled' drops incoming events outright; 'deleted' is returned only when fetching a channel by ID — list endpoints never return it. [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - team_name (string) — Owning team name (resolved from the team directory; empty when unavailable).
-    - updated_at (string) — Last update timestamp (unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_at (string) — Last update time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total matching channels.
 `,
 		Example: `  flashduty channel list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
@@ -1543,15 +1565,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100 when omitted. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "When true, sort ascending.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "When true, sort ascending; defaults to false (descending).")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by explicit channel IDs.")
 	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "Exact-match filter on channel name. Takes priority over 'query' for name filtering.")
-	cmd.Flags().BoolVar(&fIsBrief, "is-brief", false, "When true, return only brief fields ('channel_id', 'channel_name', 'description', 'status').")
+	cmd.Flags().BoolVar(&fIsBrief, "is-brief", false, "When true, return only 'channel_id', 'channel_name', 'description' and 'status', and return all matches without pagination.")
 	cmd.Flags().BoolVar(&fIsMyManaged, "is-my-managed", false, "When true, return only channels the caller manages.")
 	cmd.Flags().BoolVar(&fIsMyStarred, "is-my-starred", false, "When true, return only channels the caller has starred. Mutually exclusive with 'is_my_team'.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, return channels owned by the caller's teams. Mutually exclusive with 'is_my_starred'.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field used to order results. [ranking, created_at, updated_at, channel_name, last_incident_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text query against channel name/description.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field used to order results. Defaults to 'created_at'. [ranking, created_at, updated_at, channel_name, last_incident_at]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1577,17 +1599,17 @@ API: POST /channel/silence/rule/create (channelSilenceRuleCreate)
 Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
-  --from-incident-id string — Source incident ID when the silence was created from an incident.
+  --from-incident-id string — Incident ID (ObjectID hex) to attach the rule to. Optional; when set, only one enabled silence rule may exist per incident.
   --is-auto-delete bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-  --is-directly-discard bool — When true, silenced alerts are dropped instead of suppressed into incidents.
+  --is-directly-discard bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Alert event match conditions (OR-of-AND). Required and must contain at least one condition.
     - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
     - oper (string) (required) — Filter operator. [IN, NOTIN]
     - vals (array<string>) (required) — Values to match.
   time_filter (object, via --data) — One-off time window defined by unix seconds.
-    - end_time (integer) (required) — Window end (unix seconds).
-    - start_time (integer) (required) — Window start (unix seconds). Must be less than 'end_time'.
+    - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
+    - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
   time_filters (array<object>, via --data) — Recurring time windows during which silencing applies. Mutually exclusive with 'time_filter'.
     - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
     - end (string) — End of the window in 'HH:MM'.
@@ -1644,9 +1666,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
-	cmd.Flags().StringVar(&fFromIncidentID, "from-incident-id", "", "Source incident ID when the silence was created from an incident.")
+	cmd.Flags().StringVar(&fFromIncidentID, "from-incident-id", "", "Incident ID (ObjectID hex) to attach the rule to. Optional; when set, only one enabled silence rule may exist per incident.")
 	cmd.Flags().BoolVar(&fIsAutoDelete, "is-auto-delete", false, "When true, the silence rule is automatically deleted after its time window expires. Defaults to false.")
-	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, silenced alerts are dropped instead of suppressed into incidents.")
+	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1661,7 +1683,7 @@ func genChannelsChannelSilenceRuleDeleteCmd() *cobra.Command {
 		Short: "Delete silence rule",
 		Long: `Delete silence rule.
 
-Delete a silence rule.
+Delete a silence rule. Only a 'disabled' rule can be deleted.
 
 API: POST /channel/silence/rule/delete (channelSilenceRuleDelete)
 
@@ -1715,7 +1737,7 @@ func genChannelsChannelSilenceRuleDisableCmd() *cobra.Command {
 		Short: "Disable silence rule",
 		Long: `Disable silence rule.
 
-Disable a silence rule without deleting it.
+Disable a silence rule without deleting it. Only an 'enabled' rule can be disabled.
 
 API: POST /channel/silence/rule/disable (channelSilenceRuleDisable)
 
@@ -1769,7 +1791,7 @@ func genChannelsChannelSilenceRuleEnableCmd() *cobra.Command {
 		Short: "Enable silence rule",
 		Long: `Enable silence rule.
 
-Enable a disabled silence rule.
+Enable a disabled silence rule. Only a 'disabled' rule can be enabled.
 
 API: POST /channel/silence/rule/enable (channelSilenceRuleEnable)
 
@@ -1834,19 +1856,20 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
     - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion time, Unix timestamp in seconds. Omitted unless the rule is soft-deleted; deleted rules are excluded from list responses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
-    - filters (object) (required)
-    - from_incident_id (string) — Source incident ID when the silence was created from an incident.
+    - filters (object) (required) — Alert event match conditions; matching events are silenced within the time window.
+    - from_incident_id (string) — Incident the rule is attached to. Always present; the zero ObjectID '000000000000000000000000' means the rule was not created from an incident.
     - is_auto_delete (boolean) — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
     - is_directly_discard (boolean) (required) — When true, silenced alerts are dropped instead of suppressed into incidents.
-    - is_effective (boolean) (required) — Whether the rule is currently in effect.
+    - is_effective (boolean) (required) — Whether the rule's time window covers the current moment, evaluated at response time.
     - rule_id (string) (required) — Rule ID (MongoDB ObjectID).
     - rule_name (string) (required) — Rule name.
     - status (string) (required) — Rule status: 'enabled' or 'disabled'; deleted rules never appear in the list. [enabled, disabled]
-    - time_filter (object) (required) — One-off time window defined by unix seconds.
-      - end_time (integer) (required) — Window end (unix seconds). Must be > 0.
-      - start_time (integer) (required) — Window start (unix seconds). Must be > 0 and less than 'end_time'.
-    - time_filters (array<object>) (required) — Recurring time windows.
+    - time_filter (object) (required) — One-off silence window. Present with zero values when the rule uses recurring 'time_filters' instead.
+      - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
+      - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
+    - time_filters (array<object>) (required) — Recurring silence windows. Empty when the rule uses a one-off 'time_filter'.
       - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
       - end (string) — End of the window in 'HH:MM'.
       - is_off (boolean) — When true, match days marked as days-off in the calendar.
@@ -1909,13 +1932,13 @@ Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
   --is-auto-delete bool — When true, the silence rule is automatically deleted after its time window expires. Defaults to false.
-  --is-directly-discard bool — When true, silenced alerts are dropped instead of suppressed into incidents.
+  --is-directly-discard bool — When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.
   --rule-id string (required) — Silence rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   filters (object, via --data) — Match conditions for the alerts to silence; required and must not be empty.
   time_filter (object, via --data) — One-off silence window. Mutually exclusive with 'time_filters'; exactly one of the two must be set.
-    - end_time (integer) (required) — Window end (unix seconds). Must be > 0.
-    - start_time (integer) (required) — Window start (unix seconds). Must be > 0 and less than 'end_time'.
+    - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
+    - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
   time_filters (array<object>, via --data) — Recurring time windows. Mutually exclusive with 'time_filter'.
     - cal_id (string) — Optional calendar ID; restricts the window to days matching the calendar.
     - end (string) — End of the window in 'HH:MM'.
@@ -1969,7 +1992,7 @@ Request fields:
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
 	cmd.Flags().BoolVar(&fIsAutoDelete, "is-auto-delete", false, "When true, the silence rule is automatically deleted after its time window expires. Defaults to false.")
-	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, silenced alerts are dropped instead of suppressed into incidents.")
+	cmd.Flags().BoolVar(&fIsDirectlyDiscard, "is-directly-discard", false, "When true, matching alert events are discarded entirely; when false, alerts are still recorded but marked as muted by this rule.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Silence rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -1980,7 +2003,6 @@ func genChannelsChannelUnsubscribeRuleCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	var fDescription string
-	var fPriority int64
 	var fRuleName string
 	cmd := &cobra.Command{
 		Use:   "unsubscribe-rule-create <channel-id>",
@@ -1994,9 +2016,8 @@ API: POST /channel/unsubscribe/rule/create (channelUnsubscribeRuleCreate)
 Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
-  --priority int — Evaluation priority. Lower runs first.
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (array<array<object>>, via --data) — Or-of-and filter tree. Each outer element is an AND group; within each group, all conditions must match.
+  filters (array<array<object>>, via --data) — Alert event match conditions (OR-of-AND); matching events are discarded entirely — no alert, incident, or notification is produced. When omitted or empty, the rule matches nothing.
     - key (string) (required) — Field key (e.g. 'alert_severity', 'labels.service').
     - oper (string) (required) — Filter operator. [IN, NOTIN]
     - vals (array<string>) (required) — Values to match.
@@ -2018,9 +2039,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
-					}
-					if cmd.Flags().Changed("priority") {
-						body["priority"] = fPriority
 					}
 					if cmd.Flags().Changed("rule-name") {
 						body["rule_name"] = fRuleName
@@ -2044,7 +2062,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
-	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -2059,7 +2076,7 @@ func genChannelsChannelUnsubscribeRuleDeleteCmd() *cobra.Command {
 		Short: "Delete drop rule",
 		Long: `Delete drop rule.
 
-Delete a drop rule.
+Delete a drop rule. Only a 'disabled' rule can be deleted.
 
 API: POST /channel/unsubscribe/rule/delete (channelUnsubscribeRuleDelete)
 
@@ -2113,7 +2130,7 @@ func genChannelsChannelUnsubscribeRuleDisableCmd() *cobra.Command {
 		Short: "Disable drop rule",
 		Long: `Disable drop rule.
 
-Disable a drop rule without deleting it.
+Disable a drop rule without deleting it. Only an 'enabled' rule can be disabled.
 
 API: POST /channel/unsubscribe/rule/disable (channelUnsubscribeRuleDisable)
 
@@ -2167,7 +2184,7 @@ func genChannelsChannelUnsubscribeRuleEnableCmd() *cobra.Command {
 		Short: "Enable drop rule",
 		Long: `Enable drop rule.
 
-Enable a disabled drop rule.
+Enable a disabled drop rule. Only a 'disabled' rule can be enabled.
 
 API: POST /channel/unsubscribe/rule/enable (channelUnsubscribeRuleEnable)
 
@@ -2232,8 +2249,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — ID of the account the rule belongs to.
     - channel_id (integer) (required) — ID of the channel the rule belongs to.
     - created_at (string) (required) — Creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Deletion time, Unix timestamp in seconds. Omitted unless the rule is soft-deleted; deleted rules are excluded from list responses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Rule description.
-    - filters (object) (required)
+    - filters (object) (required) — Alert event match conditions (OR-of-AND); matching events are discarded entirely. Empty means the rule matches nothing.
     - rule_id (string) (required) — Rule ID (MongoDB ObjectID).
     - rule_name (string) (required) — Rule name.
     - status (string) (required) — Rule status: 'enabled' or 'disabled'; deleted rules never appear in the list. [enabled, disabled]
@@ -2277,7 +2295,6 @@ func genChannelsChannelUnsubscribeRuleUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fChannelID int64
 	var fDescription string
-	var fPriority int64
 	var fRuleID string
 	var fRuleName string
 	cmd := &cobra.Command{
@@ -2292,10 +2309,9 @@ API: POST /channel/unsubscribe/rule/update (channelUnsubscribeRuleUpdate)
 Request fields:
   --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
   --description string — Rule description, up to 500 characters. (≤500 chars)
-  --priority int — Evaluation priority. Lower runs first.
   --rule-id string (required) — Drop rule ID (MongoDB ObjectID).
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-  filters (object, via --data) — Matching alerts are dropped and generate no notification.
+  filters (object, via --data) — Alert event match conditions (OR-of-AND); matching events are discarded entirely. When empty, the rule matches nothing.
 `,
 		Example: `  flashduty channel unsubscribe-rule-update --data '{"channel_id":1001,"filters":[[{"key":"labels.env","oper":"IN","vals":["test"]}]],"rule_id":"6621b23f4a2c5e0012ab34cf","rule_name":"Drop test alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -2306,9 +2322,6 @@ Request fields:
 					}
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
-					}
-					if cmd.Flags().Changed("priority") {
-						body["priority"] = fPriority
 					}
 					if cmd.Flags().Changed("rule-id") {
 						body["rule_id"] = fRuleID
@@ -2339,7 +2352,6 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 500 characters. (≤500 chars)")
-	cmd.Flags().Int64Var(&fPriority, "priority", 0, "Evaluation priority. Lower runs first.")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Drop rule ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1 to 39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -2369,7 +2381,7 @@ Update an existing channel's configuration and settings.
 API: POST /channel/update (channelUpdate)
 
 Request fields:
-  --auto-resolve-mode string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]
+  --auto-resolve-mode string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. Applied only when 'auto_resolve_timeout' is also present in the request. [trigger, update]
   --auto-resolve-timeout int — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
   --channel-id int (required) — ID of the channel to update; obtain it from 'POST /channel/list'.
   --channel-name string — New channel name. 1 to 59 characters. (1-59 chars)
@@ -2380,6 +2392,9 @@ Request fields:
   --is-private bool — When true, the channel is visible only to its managing teams.
   --managing-team-ids []int — Additional teams that can manage the channel. Up to 3 entries.
   --team-id int — New owning team ID; obtain it from 'POST /team/list'.
+  event_group (object, via --data) — Alert event merge configuration. Updated only when present.
+    - is_enabled (boolean) — When true, repeated events merge into the existing alert; when false, every event creates a separate alert. Defaults to true.
+    - time_window (integer) — Merge window in minutes, 1-1440 (24 h); accounts with the extended limit may use up to 10080 (7 days). Defaults to 1440. (min 1)
   flapping (object, via --data) — Flapping detection configuration.
     - in_mins (integer) — Observation window in minutes. (1-1440)
     - is_disabled (boolean) — Disable flapping detection.
@@ -2388,6 +2403,11 @@ Request fields:
   group (object, via --data) — Alert grouping configuration.
     - all_equals_required (boolean) — When true, all listed keys must be present for grouping.
     - cases (array<object>) — Per-filter grouping overrides.
+      - equals (array<string>) (required) — Grouping keys for matching alerts. Supported values: 'title', 'description', 'severity', or any 'labels.<name>'.
+      - if (array<object>) (required) — AND-ed match conditions evaluated against stored alert fields.
+        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
+        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
+        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
     - equals (array<array<string>>) — Groups of label keys whose equality defines a bucket.
     - i_keys (array<string>) — Label keys used for intelligent grouping embeddings.
     - i_score_threshold (number) — Intelligent grouping similarity threshold. (0.5-1)
@@ -2458,7 +2478,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. [trigger, update]")
+	cmd.Flags().StringVar(&fAutoResolveMode, "auto-resolve-mode", "", "Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. Applied only when 'auto_resolve_timeout' is also present in the request. [trigger, update]")
 	cmd.Flags().Int64Var(&fAutoResolveTimeout, "auto-resolve-timeout", 0, "Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)")
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "ID of the channel to update; obtain it from 'POST /channel/list'. (required)")
 	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "New channel name. 1 to 59 characters. (1-59 chars)")
@@ -2490,8 +2510,8 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cases (array<object>) — Ordered list of case branches.
-    - channel_ids (array<integer>) (required) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty).
-    - fallthrough (boolean) (required) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
+    - channel_ids (array<integer>) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty); returned as 'null' for 'name_mapping'.
+    - fallthrough (boolean) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
     - if (array<object>) (required) — List of match conditions that are AND-ed together.
       - key (string) (required) — Field key to match against the alert event (e.g. 'alert_severity', 'labels.service').
       - oper (string) (required) — Match operator. 'IN' matches when the field value is one of 'vals'; 'NOTIN' matches when it is not. [IN, NOTIN]
@@ -2563,8 +2583,8 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Routing rules of the requested integrations. Integrations without a configured rule are omitted.
     - cases (array<object>) — Ordered list of case branches.
-      - channel_ids (array<integer>) (required) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty).
-      - fallthrough (boolean) (required) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
+      - channel_ids (array<integer>) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty); returned as 'null' for 'name_mapping'.
+      - fallthrough (boolean) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
       - if (array<object>) (required) — List of match conditions that are AND-ed together.
         - key (string) (required) — Field key to match against the alert event (e.g. 'alert_severity', 'labels.service').
         - oper (string) (required) — Match operator. 'IN' matches when the field value is one of 'vals'; 'NOTIN' matches when it is not. [IN, NOTIN]
@@ -2633,10 +2653,10 @@ API: POST /route/upsert (routeUpsert)
 
 Request fields:
   --integration-id int (required) — Integration the rule belongs to.
-  --version int — Expected current version for optimistic concurrency control. Pass the value returned by the latest read.
+  --version int — Reserved for optimistic concurrency control; currently ignored — the server increments 'version' automatically on every upsert.
   cases (array<object>, via --data) — Ordered list of case branches. Cases are evaluated top to bottom.
-    - channel_ids (array<integer>) (required) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty).
-    - fallthrough (boolean) (required) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
+    - channel_ids (array<integer>) — Target channel IDs. Required when 'routing_mode' is 'standard' (or empty); returned as 'null' for 'name_mapping'.
+    - fallthrough (boolean) — If 'true', evaluation continues to the next case after this one matches; otherwise matching stops at the first hit.
     - if (array<object>) (required) — List of match conditions that are AND-ed together.
       - key (string) (required) — Field key to match against the alert event (e.g. 'alert_severity', 'labels.service').
       - oper (string) (required) — Match operator. 'IN' matches when the field value is one of 'vals'; 'NOTIN' matches when it is not. [IN, NOTIN]
@@ -2685,7 +2705,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration the rule belongs to. (required)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Expected current version for optimistic concurrency control. Pass the value returned by the latest read.")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Reserved for optimistic concurrency control; currently ignored — the server increments 'version' automatically on every upsert.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -58,14 +58,14 @@ List active status page events
 ### change-create <page-id>
 Create status page event
 - `--auto-update-by-schedule` bool — Maintenance only: automatically advance the status based on the scheduled window.
-- `--close-at-seconds` string — Scheduled close time for retrospective events. Must be greater than 'start_at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--description` string — Event description (Markdown). Required by the validator.
+- `--close-at-seconds` string — Event close time in Unix seconds. Must be greater than or equal to the first update's 'at_seconds'. For retrospective events this is the time the event ended; for maintenances with 'auto_update_by_schedule' it schedules the automatic transition to 'completed' and must be within 30 days from now. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--description` string (required) — Event description (Markdown). Must not be empty.
 - `--is-retrospective` bool — Mark this event as a retrospective (historical) one.
 - `--linked-changes` stringSlice — Linked change IDs (related incidents, deployments, etc.).
 - `--notify-subscribers` bool — Notify subscribers about this event and all its updates.
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
-- `--responders` intSlice — Member IDs responsible for the change; obtain member IDs from 'POST /member/list'.
-- `--start-at-seconds` string — Event start time in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
+- `--responders` intSlice — Member IDs responsible for the event.
+- `--start-at-seconds` string — Event start time in Unix seconds. The stored start time is always derived from the first update's 'at_seconds' (which defaults to the current time when omitted); for maintenances with 'auto_update_by_schedule', this value schedules the automatic transition to 'ongoing'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--title` string (required) — Event title, up to 255 characters. (≤255 chars)
 - `--type` string (required) — Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. · enum: incident | maintenance
@@ -74,8 +74,8 @@ Create status page event
 
 ### change-delete
 Delete status page event
-- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
 
 ### change-info
 Get status page event detail
@@ -85,53 +85,53 @@ Get status page event detail
 
 ### change-list <page-id>
 List status page events
-- `--end-at-seconds` string — Filter events started at or before this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--end-at-seconds` string — Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `<page-id>` (positional, required) int64 — Status page ID.
-- `--start-at-seconds` string — Filter events started at or after this unix timestamp (seconds). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' (e.g. 'investigating'/'identified'/'monitoring'/'resolved' for incidents; 'scheduled'/'ongoing'/'completed' for maintenances). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
+- `--start-at-seconds` string — Lower bound of the event activity window: only events still open at, or closed at or after, this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
 - response: same shape as `change-active-list <page-id>` above
 
 ### change-timeline-create
 Create event timeline entry
-- `--at-seconds` string — Update timestamp in unix seconds. Defaults to now when omitted. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
-- `--description` string — Update description (Markdown). Required.
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `--status` string (required) — Change status after this update; must match the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
+- `--at-seconds` string — Update timestamp in Unix seconds. Defaults to the current time when omitted or 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
+- `--description` string (required) — Update description (Markdown). Must not be empty.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
+- `--status` string (required) — Change status after this update; must be valid for the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - body-only (`--data`): component_changes (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: update_id (string)
 
 ### change-timeline-delete
 Delete event timeline entry
-- `--change-id` int64 (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `--update-id` string (required) — Timeline update ID to delete; obtain it from 'POST /status-page/change/info'.
+- `--change-id` int64 (required) — Owning change ID; obtain it from 'GET /status-page/change/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
+- `--update-id` string (required) — Timeline update ID to delete; obtain it from 'GET /status-page/change/info'.
 
 ### change-timeline-update
 Update event timeline entry
-- `--at-seconds` string — New update timestamp in unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--change-id` int64 (required) — Owning change ID; obtain it from 'POST /status-page/change/list'.
+- `--at-seconds` string — New update timestamp in Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--change-id` int64 (required) — Owning change ID; obtain it from 'GET /status-page/change/list'.
 - `--description` string — New update description (Markdown).
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `--update-id` string (required) — Target timeline update ID; obtain it from 'POST /status-page/change/info'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
+- `--update-id` string (required) — Target timeline update ID; obtain it from 'GET /status-page/change/info'.
 
 ### change-update
 Update status page event
-- `--change-id` int64 (required) — Target change ID; obtain it from 'POST /status-page/change/list'.
+- `--change-id` int64 (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
 - `--linked-changes` stringSlice — Linked event IDs. Pass the full replacement list.
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
 - `--responders` intSlice — Member IDs responsible for this event. Pass the full replacement list.
 - `--title` string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 
 ### component-delete <component-id> [<id2>...]
 Delete status page component
-- `<component-ids>` (positional, required) stringSlice — Component IDs to delete; obtain them from 'POST /status-page/info'.
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
+- `<component-ids>` (positional, required) stringSlice — Component IDs to delete; obtain them from 'GET /status-page/info'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
 
 ### component-upsert <page-id>
 Upsert status page component
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 - body-only (`--data`): components (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: component_ids (array<string>)
 
@@ -152,12 +152,12 @@ Create status page
 
 ### delete <page-id>
 Delete status page
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 
 ### info <page-id>
 Get status page detail
-- `<page-id>` (positional, required) string — Status page ID
-- response: single object (`data` unwrapped to the top level) — fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
+- `<page-id>` (positional, required) int64 — Status page ID.
+- response: single object (`data` unwrapped to the top level) — fields: components (array<object>); contact_info (string); custom_domain (string); custom_links (array<object>); dark_logo (string); date_view (string); display_uptime_mode (string); favicon (string); logo (string); logo_url (string); managed_domain_feature_enabled (boolean); name (string); page_footer (string); page_header (string); page_id (integer); sections (array<object>); subscription (object); template_preference (string); type (string); url_name (string)
 
 ### list
 List status pages
@@ -174,12 +174,12 @@ Migrate email subscribers
 Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
 - `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
-- `--url-name` string — Target URL name for the migrated status page. When omitted, the source page's URL name is reused.
+- `--url-name` string — Target URL name for the new status page, normalized to a URL-safe slug (max 255 characters). Omit or pass null to derive it from the source page name; an explicitly empty string is rejected. (≤255 chars)
 - response: same shape as `migrate-email-subscribers` above
 
 ### migration-cancel <job-id>
 Cancel status page migration
-- `<job-id>` (positional, required) string — Migration job ID, returned when the migration job is created; check progress via 'POST /status-page/migration/status'.
+- `<job-id>` (positional, required) string — Migration job ID, returned when the migration job is created; check progress via 'GET /status-page/migration/status'.
 
 ### migration-status <job-id>
 Get migration status
@@ -188,24 +188,24 @@ Get migration status
 
 ### section-delete <section-id> [<id2>...]
 Delete status page section
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `<section-ids>` (positional, required) stringSlice — Section IDs to delete; obtain them from 'POST /status-page/info'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
+- `<section-ids>` (positional, required) stringSlice — Section IDs to delete; obtain them from 'GET /status-page/info'.
 
 ### section-upsert <page-id>
 Upsert status page section
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 - body-only (`--data`): sections (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: section_ids (array<string>)
 
 ### subscriber-export <page-id>
 Export subscribers
 - `--component-ids` stringSlice — Optional component IDs to filter subscribers by.
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 
 ### subscriber-import <page-id>
 Import subscribers
 - `--method` string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. · enum: email | im
-- `<page-id>` (positional, required) int64 — Target status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Target status page ID; obtain it from 'GET /status-page/list'.
 - body-only (`--data`): subscribers (array<object>)
 
 ### subscriber-list <page-id>
@@ -218,39 +218,40 @@ List status page subscribers
 
 ### template-delete
 Delete status page template
-- `--page-id` int64 (required) — Status page ID; obtain it from 'POST /status-page/list'.
-- `--template-id` string (required) — ID of the template to delete; obtain it from 'POST /status-page/template/list'.
+- `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
+- `--template-id` string (required) — ID of the template to delete; obtain it from 'GET /status-page/template/list'.
 - `--type` string (required) — Template kind: 'pre_defined' predefined template, 'message' message template. · enum: pre_defined | message
 
 ### template-list <page-id>
 List status page templates
 - `<page-id>` (positional, required) int64 — Status page ID.
 - `--type` string (required) — Template category. 'pre_defined' returns predefined event templates; 'message' returns message notification templates. · enum: pre_defined | message
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: description (string); messages (object); status (string); template_id (string); title (string); type (string)
 
 ### template-upsert <page-id>
 Upsert status page template
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 - `--type` string (required) — Template category. 'pre_defined' for predefined event templates; 'message' for notification message templates. · enum: pre_defined | message
 - body-only (`--data`): template (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: template_id (string)
 
 ### update <page-id>
 Update status page
-- `--contact-info` string — Get-in-touch contact, such as a mailto or website URL. Omit to keep the existing value.
-- `--custom-domain` string — Custom domain for a public status page. Omit to keep the existing value. (≤255 chars)
-- `--dark-logo` string — Dark-mode logo image of the status page. Omit to keep the existing value.
+- `--contact-info` string — Get-in-touch contact, such as a mailto or website URL. Omit or pass null to keep the existing value.
+- `--custom-domain` string — Custom domain for a public status page. Omit or pass null to keep the existing value. (≤255 chars)
+- `--dark-logo` string — Dark-mode logo image of the status page. Omit or pass null to keep the existing value.
 - `--date-view` string — How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. · enum: calendar | list
 - `--display-uptime-mode` string — How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. · enum: chart_and_percentage | chart | none
-- `--favicon` string — Favicon of the status page. Omit to keep the existing value.
-- `--logo` string — Logo image of the status page. Omit to keep the existing value.
-- `--logo-url` string — URL opened when the logo is clicked. Omit to keep the existing value.
-- `--name` string — Display name of the status page. Omit to keep the existing value. (≤255 chars)
-- `--page-footer` string — Footer content shown on the status page. Omit to keep the existing value.
-- `--page-header` string — Header content shown on the status page. Omit to keep the existing value.
-- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'POST /status-page/list'.
-- `--page-title` string — Browser title shown for the status page. Omit to keep the existing value.
-- `--template-preference` string — Preferred change-event template type. Omit to keep the existing value.
-- `--url-name` string — URL-safe slug, unique per account and page type. Omit to keep the existing value. (≤255 chars)
+- `--favicon` string — Favicon of the status page. Omit or pass null to keep the existing value.
+- `--logo` string — Logo image of the status page. Omit or pass null to keep the existing value.
+- `--logo-url` string — URL opened when the logo is clicked. Omit or pass null to keep the existing value. (≤255 chars)
+- `--name` string — Display name of the status page. Omit or pass null to keep the existing value. (≤255 chars)
+- `--page-footer` string — Footer content shown on the status page. Omit or pass null to keep the existing value.
+- `--page-header` string — Header content shown on the status page. Omit or pass null to keep the existing value.
+- `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
+- `--page-title` string — Browser title shown for the status page. Omit or pass null to keep the existing value.
+- `--template-preference` string — Preferred event template type: 'pre_defined' or 'message'. Omit or pass null to keep the existing value.
+- `--url-name` string — URL-safe slug, unique per account and page type. Omit or pass null to keep the existing value. (≤255 chars)
 - body-only (`--data`): custom_links (array<object>); subscription (object)
 
 <!-- GENERATED:status-page END -->

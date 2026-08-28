@@ -26,26 +26,27 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
+  - deleted_at (string) — Deletion time, Unix seconds. Omitted when the rule set is not deleted; read endpoints never return soft-deleted rule sets, so this is effectively always omitted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - integration_id (integer) (required) — Integration ID.
   - rules (array<object>) (required) — Ordered enrichment rules.
-    - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
-      - key (string) (required) — Alert label key.
+    - if (array<object>) — Optional AND-filter list; the rule is skipped unless every filter matches. 'null' when the rule has no condition. Filter keys come from the alert/change event vocabulary (e.g. 'title', 'labels.severity').
+      - key (string) (required) — Event key to match on (e.g. 'labels.severity', 'title'). Must be non-empty. (≥1 chars)
       - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
-      - vals (array<string>) (required) — Values to match against.
-    - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+      - vals (array<string>) (required) — Values to match against. Must contain at least one value.
+    - kind (string) (required) — Rule type. | Value | Meaning | |---|---| | 'extraction' | Extract a value from the alert's 'title', 'description', or a 'labels.*' key via regex or GJson, and write it to a label. | | 'composition' | Render a Go 'text/template' against the event and write the result to a label. | | 'mapping' | Look up labels from a mapping schema or an external mapping API. | | 'drop' | Remove the listed labels from the alert. | [extraction, composition, mapping, drop]
     - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
       - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
       - drop_labels (array<string>) — List of label keys to remove from the alert.
       - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
       - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
       - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
-      - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
-      - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
-      - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+      - pattern (string) — RE2 regular expression applied to the source value. Must contain at least one capture group; the captured groups are joined with a space and written to 'result_label'. Mutually exclusive with 'g_json'.
+      - result_label (string) — Destination label key the extracted value is written to. Must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
+      - result_labels (array<string>) — Label keys to populate from the mapping lookup result. Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
       - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
       - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
-      - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
-  - status (string) (required) — Rule set status.
+      - template (string) — Go 'text/template' string (1–500 characters) rendered against the event struct — e.g. '{{.Title}}', '{{.Description}}', '{{.Labels.key}}'. Example: '{{.Labels.region}}-{{.Labels.env}}'. (1-500 chars)
+  - status (string) (required) — Rule set status: 'enabled' (active) or 'deleted' (soft-deleted). Read endpoints exclude soft-deleted rule sets, so responses always carry 'enabled'. [enabled, deleted]
   - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
 `,
@@ -95,32 +96,33 @@ Return the enrichment rule sets for a list of integration IDs.
 API: POST /enrichment/list (enrichment-read-list)
 
 Request fields:
-  --integration-ids []int (required) — List of integration IDs to query.
+  --integration-ids []int (required) — List of integration IDs to query. Must contain at least one ID.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Enrichment rule sets.
     - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
+    - deleted_at (string) — Deletion time, Unix seconds. Omitted when the rule set is not deleted; read endpoints never return soft-deleted rule sets, so this is effectively always omitted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - integration_id (integer) (required) — Integration ID.
     - rules (array<object>) (required) — Ordered enrichment rules.
-      - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
-        - key (string) (required) — Alert label key.
+      - if (array<object>) — Optional AND-filter list; the rule is skipped unless every filter matches. 'null' when the rule has no condition. Filter keys come from the alert/change event vocabulary (e.g. 'title', 'labels.severity').
+        - key (string) (required) — Event key to match on (e.g. 'labels.severity', 'title'). Must be non-empty. (≥1 chars)
         - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
-        - vals (array<string>) (required) — Values to match against.
-      - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+        - vals (array<string>) (required) — Values to match against. Must contain at least one value.
+      - kind (string) (required) — Rule type. | Value | Meaning | |---|---| | 'extraction' | Extract a value from the alert's 'title', 'description', or a 'labels.*' key via regex or GJson, and write it to a label. | | 'composition' | Render a Go 'text/template' against the event and write the result to a label. | | 'mapping' | Look up labels from a mapping schema or an external mapping API. | | 'drop' | Remove the listed labels from the alert. | [extraction, composition, mapping, drop]
       - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
         - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
         - drop_labels (array<string>) — List of label keys to remove from the alert.
         - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
         - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
         - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
-        - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
-        - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
-        - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+        - pattern (string) — RE2 regular expression applied to the source value. Must contain at least one capture group; the captured groups are joined with a space and written to 'result_label'. Mutually exclusive with 'g_json'.
+        - result_label (string) — Destination label key the extracted value is written to. Must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
+        - result_labels (array<string>) — Label keys to populate from the mapping lookup result. Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
         - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
         - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
-        - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
-    - status (string) (required) — Rule set status.
+        - template (string) — Go 'text/template' string (1–500 characters) rendered against the event struct — e.g. '{{.Title}}', '{{.Description}}', '{{.Labels.key}}'. Example: '{{.Labels.region}}-{{.Labels.env}}'. (1-500 chars)
+    - status (string) (required) — Rule set status: 'enabled' (active) or 'deleted' (soft-deleted). Read endpoints exclude soft-deleted rule sets, so responses always carry 'enabled'. [enabled, deleted]
     - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
 `,
@@ -152,7 +154,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "List of integration IDs to query. (required)")
+	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "List of integration IDs to query. Must contain at least one ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -172,26 +174,26 @@ API: POST /enrichment/upsert (enrichment-write-upsert)
 Request fields:
   --integration-id int (required) — Integration ID to configure enrichment rules for.
   rules (array<object>, via --data) (required) — Ordered list of enrichment rules. Replaces all existing rules.
-    - if (array<object>) — Optional AND-filter list. The rule is skipped if the condition does not match.
-      - key (string) (required) — Alert label key.
+    - if (array<object>) — Optional AND-filter list; the rule is skipped unless every filter matches. 'null' when the rule has no condition. Filter keys come from the alert/change event vocabulary (e.g. 'title', 'labels.severity').
+      - key (string) (required) — Event key to match on (e.g. 'labels.severity', 'title'). Must be non-empty. (≥1 chars)
       - oper (string) (required) — Match operator. 'IN' matches when any value matches; 'NOTIN' matches when none of the values match. [IN, NOTIN]
-      - vals (array<string>) (required) — Values to match against.
-    - kind (string) (required) — Rule type. 'extraction' extracts a label via regex or GJson. 'composition' builds a label from a template. 'mapping' looks up values from a schema or API. 'drop' removes labels. [extraction, composition, mapping, drop]
+      - vals (array<string>) (required) — Values to match against. Must contain at least one value.
+    - kind (string) (required) — Rule type. | Value | Meaning | |---|---| | 'extraction' | Extract a value from the alert's 'title', 'description', or a 'labels.*' key via regex or GJson, and write it to a label. | | 'composition' | Render a Go 'text/template' against the event and write the result to a label. | | 'mapping' | Look up labels from a mapping schema or an external mapping API. | | 'drop' | Remove the listed labels from the alert. | [extraction, composition, mapping, drop]
     - settings (object) (required) — Rule-kind–specific settings. The shape depends on 'kind'.
       - api_id (string) — Mapping API ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'api'.
       - drop_labels (array<string>) — List of label keys to remove from the alert.
       - g_json (string) — GJson path expression used to extract a value from a JSON-encoded field. Mutually exclusive with 'pattern'.
       - mapping_type (string) — Mapping source type. 'schema' uses a mapping schema table; 'api' calls an external HTTP API. [schema, api]
       - override (boolean) — When 'true', overwrite the label if it already exists. Defaults to 'false'.
-      - pattern (string) — RE2 regular expression. Use a named capture group '(?P<result>...)' to extract a sub-match; without a named group the full match is used. Mutually exclusive with 'g_json'.
-      - result_label (string) — Destination label key to write the extracted value into. Must match '^[a-z][a-z0-9_]{0,62}$'.
-      - result_labels (array<string>) — Label keys to populate from the mapping lookup result.
+      - pattern (string) — RE2 regular expression applied to the source value. Must contain at least one capture group; the captured groups are joined with a space and written to 'result_label'. Mutually exclusive with 'g_json'.
+      - result_label (string) — Destination label key the extracted value is written to. Must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
+      - result_labels (array<string>) — Label keys to populate from the mapping lookup result. Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'.
       - schema_id (string) — Mapping schema ID (MongoDB ObjectID hex). Required when 'mapping_type' is 'schema'.
       - source_field (string) — Source field to extract from. Must be 'title', 'description', or a label key prefixed with 'labels.' (e.g. 'labels.env').
-      - template (string) — Go 'text/template' string. Alert fields are available as '{{.title}}', '{{.description}}', and '{{.labels.key}}'. Example: '{{.labels.region}}-{{.labels.env}}'. (≤500 chars)
+      - template (string) — Go 'text/template' string (1–500 characters) rendered against the event struct — e.g. '{{.Title}}', '{{.Description}}', '{{.Labels.key}}'. Example: '{{.Labels.region}}-{{.Labels.env}}'. (1-500 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
-		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.labels.region}}-{{.labels.environment}}"}}]}'`,
+		Example: `  flashduty enrichment upsert --data '{"integration_id":5001,"rules":[{"kind":"extraction","settings":{"override":true,"pattern":"(?P\u003cresult\u003eprod|staging|dev)","result_label":"environment","source_field":"labels.env"}},{"kind":"composition","settings":{"override":false,"result_label":"full_env","template":"{{.Labels.region}}-{{.Labels.environment}}"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -246,15 +248,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Owning account ID.
   - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
-  - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
+  - default_value (any) (required) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
   - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - description (string) — Optional free-text description. (≤499 chars)
+  - description (string) (required) — Optional free-text description. (≤499 chars)
   - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
   - field_id (string) (required) — Field ID — 24-character hex ObjectID.
   - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
   - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
-  - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
-  - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
+  - options (array<string>) (required) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
+  - status (string) (required) — Field status: 'enabled' (active), 'disabled' (set only via internal helpers, not via the API), or 'deleted' (soft-deleted). '/field/list' excludes 'deleted'; '/field/info' may return it. [enabled, disabled, deleted]
   - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
   - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
@@ -310,23 +312,23 @@ API: POST /field/list (field-read-list)
 Request fields:
   --asc bool — Sort ascending when 'true'; descending otherwise.
   --creator-id int — Filter by creator member ID. Omit or send 'null' to skip.
-  --orderby string — Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]
-  --query string — Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.
+  --orderby string — Sort key. Defaults to 'created_at' when omitted. [created_at, updated_at]
+  --query string — Regex filter matched against 'field_name' only. An invalid regex is auto-escaped to a literal substring match.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — All non-deleted custom fields for the account. No pagination.
     - account_id (integer) (required) — Owning account ID.
     - created_at (string) (required) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
-    - default_value (any) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
+    - default_value (any) (required) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
     - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) — Optional free-text description. (≤499 chars)
+    - description (string) (required) — Optional free-text description. (≤499 chars)
     - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
     - field_id (string) (required) — Field ID — 24-character hex ObjectID.
     - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
     - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
-    - options (any) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
-    - status (string) (required) — Field status (e.g. 'enabled', 'deleted').
+    - options (array<string>) (required) — Allowed choices for 'single_select'/'multi_select' (non-empty unique string array). 'null' or empty for 'checkbox'/'text'.
+    - status (string) (required) — Field status: 'enabled' (active), 'disabled' (set only via internal helpers, not via the API), or 'deleted' (soft-deleted). '/field/list' excludes 'deleted'; '/field/info' may return it. [enabled, disabled, deleted]
     - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
     - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
@@ -366,8 +368,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; descending otherwise.")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID. Omit or send 'null' to skip.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort key. Defaults to backend ordering when omitted. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter against 'field_name' and 'display_name'. Invalid regex is auto-escaped to literal substring match.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort key. Defaults to 'created_at' when omitted. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Regex filter matched against 'field_name' only. An invalid regex is auto-escaped to a literal substring match.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -393,7 +395,7 @@ Request fields:
   --description string — Optional free-text description. (≤499 chars)
   --display-name string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
   --field-name string (required) — Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (≤39 chars)
-  --field-type string (required) — Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. [checkbox, multi_select, single_select, text]
+  --field-type string (required) — Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | [checkbox, multi_select, single_select, text]
   --options []string — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
   --value-type string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. [string, bool, float]
   default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
@@ -444,7 +446,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional free-text description. (≤499 chars)")
 	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required) (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name. Must start with a letter or underscore; 1–40 chars of '[a-zA-Z0-9_]'. Immutable after creation. (required) (≤39 chars)")
-	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field type, immutable after creation: 'text', 'single_select', 'multi_select' or 'checkbox'. (required) [checkbox, multi_select, single_select, text]")
+	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
 	cmd.Flags().StringVar(&fValueType, "value-type", "", "Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. (required) [string, bool, float]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -522,7 +524,7 @@ Request fields:
   --description string — New description.
   --display-name string — New display name. Must remain unique within the account. (≤39 chars)
   --field-id string (required) — Field ID — 24-character hex ObjectID.
-  --options []string — Replacement options list. Must obey the same per-type rules as create.
+  --options []string — Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.
   default_value (any, via --data) — Replacement default value. Type must match the field's existing 'field_type'.
 `,
 		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
@@ -569,7 +571,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
 	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name. Must remain unique within the account. (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
-	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create.")
+	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -592,16 +594,17 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - api_id (string) (required) — API ID (MongoDB ObjectID hex).
   - api_name (string) (required) — API name.
-  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at (string) — Creation time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
+  - deleted_at (string) — Deletion time, Unix seconds. Omitted when the API has not been soft-deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Description.
-  - headers (object) (required) — Custom request headers.
+  - headers (object) (required) — Custom request headers. 'null' when none are configured.
   - insecure_skip_verify (boolean) (required) — Whether TLS verification is skipped.
   - retry_count (integer) (required) — Retry count.
-  - status (string) (required) — API status.
+  - status (string) (required) — API status: 'enabled' or 'deleted' (soft-deleted). The list endpoint excludes 'deleted' items; the info endpoint may return them. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID.
   - timeout (integer) (required) — Request timeout in seconds.
-  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) — Last update time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
   - url (string) (required) — Endpoint URL.
 `,
@@ -653,16 +656,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Mapping APIs.
     - api_id (string) (required) — API ID (MongoDB ObjectID hex).
     - api_name (string) (required) — API name.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) — Creation time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
+    - deleted_at (string) — Deletion time, Unix seconds. Omitted when the API has not been soft-deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Description.
-    - headers (object) (required) — Custom request headers.
+    - headers (object) (required) — Custom request headers. 'null' when none are configured.
     - insecure_skip_verify (boolean) (required) — Whether TLS verification is skipped.
     - retry_count (integer) (required) — Retry count.
-    - status (string) (required) — API status.
+    - status (string) (required) — API status: 'enabled' or 'deleted' (soft-deleted). The list endpoint excludes 'deleted' items; the info endpoint may return them. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID.
     - timeout (integer) (required) — Request timeout in seconds.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_at (string) — Last update time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
     - url (string) (required) — Endpoint URL.
   - total (integer) (required) — Total API count.
@@ -709,13 +713,13 @@ API: POST /enrichment/mapping/api/create (mapping-api-write-create)
 
 Request fields:
   --api-name string (required) — Unique API name (max 199 chars). (≤199 chars)
-  --description string — Optional description.
+  --description string — Optional description. Values longer than 500 characters are silently truncated.
   --insecure-skip-verify bool — Skip TLS certificate verification. Default 'false'.
-  --retry-count int — Number of retries on failure (0–1). Default 0.
+  --retry-count int — Number of retries on failure (0–1). Default 0. (0-1)
   --team-id int — Owning team ID; obtain it from 'POST /team/list'.
-  --timeout int — Request timeout in seconds (1–3). Default 2.
+  --timeout int — Request timeout in seconds (1–3). Default 2. (1-3)
   --url string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
-  headers (object, via --data) — Custom HTTP request headers.
+  headers (object, via --data) — Custom HTTP request headers. In SaaS mode, security-sensitive names ('authorization', 'cookie', 'x-forwarded-for', etc.) are rejected; keys must be RFC 7230 token characters (max 1024 chars) and values max 4096 chars.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - api_id (string) (required) — Created API ID (MongoDB ObjectID hex).
@@ -764,11 +768,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fAPIName, "api-name", "", "Unique API name (max 199 chars). (required) (≤199 chars)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description. Values longer than 500 characters are silently truncated.")
 	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "Skip TLS certificate verification. Default 'false'.")
-	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "Number of retries on failure (0–1). Default 0.")
+	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "Number of retries on failure (0–1). Default 0. (0-1)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; obtain it from 'POST /team/list'.")
-	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2.")
+	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "Request timeout in seconds (1–3). Default 2. (1-3)")
 	cmd.Flags().StringVar(&fURL, "url", "", "HTTP/HTTPS endpoint URL (max 500 chars). (required) (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -850,11 +854,11 @@ Request fields:
   --api-name string — New API name (max 199 chars). (≤199 chars)
   --description string — New description.
   --insecure-skip-verify bool — New TLS skip-verify setting.
-  --retry-count int — New retry count.
+  --retry-count int — New retry count. (0-1)
   --team-id int — New owning team ID; obtain it from 'POST /team/list'.
-  --timeout int — New timeout in seconds.
+  --timeout int — New timeout in seconds. (1-3)
   --url string — New endpoint URL (max 500 chars). (≤500 chars)
-  headers (object, via --data) — New headers map (replaces existing).
+  headers (object, via --data) — Custom HTTP request headers. In SaaS mode, security-sensitive names ('authorization', 'cookie', 'x-forwarded-for', etc.) are rejected; keys must be RFC 7230 token characters (max 1024 chars) and values max 4096 chars.
 `,
 		Args:    requireBodyFieldOrExactArg("api_id", "api-id"),
 		Example: `  flashduty enrichment mapping-api-update --data '{"api_id":"665f1a2b3c4d5e6f7a8b9c02","retry_count":1,"timeout":3}'`,
@@ -913,9 +917,9 @@ Request fields:
 	cmd.Flags().StringVar(&fAPIName, "api-name", "", "New API name (max 199 chars). (≤199 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description.")
 	cmd.Flags().BoolVar(&fInsecureSkipVerify, "insecure-skip-verify", false, "New TLS skip-verify setting.")
-	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "New retry count.")
+	cmd.Flags().Int64Var(&fRetryCount, "retry-count", 0, "New retry count. (0-1)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'.")
-	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds.")
+	cmd.Flags().Int64Var(&fTimeout, "timeout", 0, "New timeout in seconds. (1-3)")
 	cmd.Flags().StringVar(&fURL, "url", "", "New endpoint URL (max 500 chars). (≤500 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -956,11 +960,15 @@ Request fields:
 				if err := genBindBody(body, req); err != nil {
 					return err
 				}
-				out, _, err := ctx.Client.AlertEnrichment.MappingDataReadDownload(cmdContext(ctx.Cmd), req)
+				resp, err := ctx.Client.AlertEnrichment.MappingDataReadDownload(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /enrichment/mapping/data/download")
+				return nil
 			})
 		},
 	}
@@ -987,22 +995,22 @@ Return paginated mapping data rows for a schema, with optional exact-match filte
 API: POST /enrichment/mapping/data/list (mapping-data-read-list)
 
 Request fields:
-  --page int — Page number (1-based). Used for offset-based pagination.
-  --limit int — Page size (1–100, default 20).
-  --search-after-ctx string — Opaque cursor token for cursor-based pagination.
+  --page int — Page number (1-based) for offset pagination; defaults to 1 when omitted, 'null', or 0. Ignored when 'search_after_ctx' is set. Page-based navigation can reach at most 10,000 rows ('p * limit <= 10000'). (min 0)
+  --limit int — Page size (0–100); defaults to 20 when omitted, 'null', or 0. (0-100)
+  --search-after-ctx string — Opaque cursor for cursor-based pagination — pass the 'search_after_ctx' value from the previous response. Must be a MongoDB ObjectID hex string; when set, 'p' is ignored.
   --asc bool — Sort ascending when 'true'.
-  --orderby string — Sort field. [created_at, updated_at]
+  --orderby string — Sort field. Defaults to 'updated_at'. [created_at, updated_at]
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
-  query (object, via --data) — Exact-match filter on source label values. All source labels must be provided if any are specified.
+  query (object, via --data) — Exact-match filter on source label values. Keys that are not source labels of the schema are silently ignored; if any source label is given, all source labels must be provided.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether more pages exist.
   - items (array<object>) (required) — Data rows.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - fields (object) — All label key-value pairs for this row.
-    - key (string) — Composite key derived from source label values.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor token for the next page.
+    - created_at (string) — Creation time, Unix seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - fields (object) — All label key-value pairs of this row. Omitted when empty.
+    - key (string) — Composite row key — MD5 of the row's source label values (sorted by label name, joined with ':'). Omitted when empty.
+    - updated_at (string) — Last update time, Unix seconds. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - search_after_ctx (string) — Cursor token (ObjectID hex of this page's last row) for fetching the next page. Omitted when there is no next page.
   - total (integer) (required) — Total matching rows.
 `,
 		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
@@ -1048,11 +1056,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Used for offset-based pagination.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1–100, default 20).")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor token for cursor-based pagination.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based) for offset pagination; defaults to 1 when omitted, 'null', or 0. Ignored when 'search_after_ctx' is set. Page-based navigation can reach at most 10,000 rows ('p * limit <= 10000'). (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (0–100); defaults to 20 when omitted, 'null', or 0. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor for cursor-based pagination — pass the 'search_after_ctx' value from the previous response. Must be a MongoDB ObjectID hex string; when set, 'p' is ignored.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Defaults to 'updated_at'. [created_at, updated_at]")
 	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (MongoDB ObjectID hex). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1168,60 +1176,6 @@ Request fields:
 	return cmd
 }
 
-func genAlertEnrichmentMappingDataWriteUploadCmd() *cobra.Command {
-	var dataJSON string
-	var fFile string
-	var fSchemaID string
-	cmd := &cobra.Command{
-		Use:   "mapping-data-upload",
-		Short: "Upload mapping data via CSV",
-		Long: `Upload mapping data via CSV.
-
-Upload a CSV file to bulk-load mapping data. By default the existing data is truncated before loading the new rows.
-
-API: POST /enrichment/mapping/data/upload (mapping-data-write-upload)
-
-Request fields:
-  --file string — CSV file to upload.
-  --schema-id string — Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.
-`,
-		Example: `  flashduty enrichment mapping-data-upload --data '{"schema_id":"665f1a2b3c4d5e6f7a8b9c01"}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("file") {
-						body["file"] = fFile
-					}
-					if cmd.Flags().Changed("schema-id") {
-						body["schema_id"] = fSchemaID
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.MappingDataUploadRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /enrichment/mapping/data/upload")
-				return nil
-			})
-		},
-	}
-	cmd.Flags().StringVar(&fFile, "file", "", "CSV file to upload.")
-	cmd.Flags().StringVar(&fSchemaID, "schema-id", "", "Mapping schema ID (passed as a query parameter); obtain it from 'POST /enrichment/mapping/schema/list'.")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genAlertEnrichmentMappingDataWriteUpsertCmd() *cobra.Command {
 	var dataJSON string
 	var fSchemaID string
@@ -1236,7 +1190,7 @@ API: POST /enrichment/mapping/data/upsert (mapping-data-write-upsert)
 
 Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
-  docs (array<object>, via --data) (required) — Rows to insert or update. Each row must include all source and result labels.
+  docs (array<object>, via --data) (required) — Rows to insert or update. Each row must include all source and result labels; unknown labels are silently dropped; a value longer than 2048 characters is rejected.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - keys (array<string>) (required) — Composite keys of upserted rows.
@@ -1290,16 +1244,17 @@ Request fields:
   --schema-id string (required) — Mapping schema ID (MongoDB ObjectID hex).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at (string) — Creation time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator member ID.
+  - deleted_at (string) — Deletion time, Unix seconds. Omitted when the schema has not been soft-deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Schema description.
   - result_labels (array<string>) (required) — Output label names.
   - schema_id (string) (required) — Schema ID (MongoDB ObjectID hex).
   - schema_name (string) (required) — Schema name.
   - source_labels (array<string>) (required) — Lookup key label names.
-  - status (string) (required) — Schema status.
+  - status (string) (required) — Schema status: 'enabled' or 'deleted' (soft-deleted). The list endpoint excludes 'deleted' items; the info endpoint may return them. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID.
-  - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) — Last update time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrExactArg("schema_id", "schema-id"),
@@ -1348,16 +1303,17 @@ API: POST /enrichment/mapping/schema/list (mapping-schema-read-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Mapping schemas.
-    - created_at (string) — Creation timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) — Creation time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator member ID.
+    - deleted_at (string) — Deletion time, Unix seconds. Omitted when the schema has not been soft-deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Schema description.
     - result_labels (array<string>) (required) — Output label names.
     - schema_id (string) (required) — Schema ID (MongoDB ObjectID hex).
     - schema_name (string) (required) — Schema name.
     - source_labels (array<string>) (required) — Lookup key label names.
-    - status (string) (required) — Schema status.
+    - status (string) (required) — Schema status: 'enabled' or 'deleted' (soft-deleted). The list endpoint excludes 'deleted' items; the info endpoint may return them. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID.
-    - updated_at (string) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_at (string) — Last update time, Unix seconds. Omitted when 0 (legacy records). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
   - total (integer) (required) — Total schema count.
 `,
@@ -1401,9 +1357,9 @@ API: POST /enrichment/mapping/schema/create (mapping-schema-write-create)
 
 Request fields:
   --description string — Optional description (max 500 chars). (≤500 chars)
-  --result-labels []string (required) — Output label names (1–10). Must not overlap with 'source_labels'.
+  --result-labels []string (required) — Output label names written on a match (1–10). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'source_labels'.
   --schema-name string (required) — Unique schema name (max 39 chars). (≤39 chars)
-  --source-labels []string (required) — Lookup key label names (1–3). Must not overlap with 'result_labels'.
+  --source-labels []string (required) — Lookup key label names (1–3). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'result_labels'.
   --team-id int — Owning team ID. '0' means no team.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -1447,9 +1403,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional description (max 500 chars). (≤500 chars)")
-	cmd.Flags().StringSliceVar(&fResultLabels, "result-labels", nil, "Output label names (1–10). Must not overlap with 'source_labels'. (required)")
+	cmd.Flags().StringSliceVar(&fResultLabels, "result-labels", nil, "Output label names written on a match (1–10). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'source_labels'. (required)")
 	cmd.Flags().StringVar(&fSchemaName, "schema-name", "", "Unique schema name (max 39 chars). (required) (≤39 chars)")
-	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Must not overlap with 'result_labels'. (required)")
+	cmd.Flags().StringSliceVar(&fSourceLabels, "source-labels", nil, "Lookup key label names (1–3). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'result_labels'. (required)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. '0' means no team.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1597,7 +1553,6 @@ func registerGeneratedAlertEnrichment(root *cobra.Command) {
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingDataReadListCmd())
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingDataWriteDeleteCmd())
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingDataWriteTruncateCmd())
-	genAddLeaf(gEnrichment, genAlertEnrichmentMappingDataWriteUploadCmd())
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingDataWriteUpsertCmd())
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingSchemaReadInfoCmd())
 	genAddLeaf(gEnrichment, genAlertEnrichmentMappingSchemaReadListCmd())

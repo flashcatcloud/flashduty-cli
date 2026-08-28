@@ -31,11 +31,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - account_id (integer) (required) — Owning account ID.
   - created_at (string) (required) — Unix epoch seconds the team was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Member ID of the creator.
-  - creator_name (string) (required) — Display name of the creator.
+  - creator_name (string) (required) — Display name of the creator. Not populated by current endpoints — always an empty string; resolve 'creator_id' via 'POST /person/infos'.
   - description (string) (required) — Free-form description.
   - person_ids (array<integer>) (required) — Member IDs of team members.
   - ref_id (string) (required) — External reference ID for third-party HR system integration.
-  - status (string) (required) — Team status. [enabled, disabled]
+  - status (string) (required) — Team status. 'enabled' — active; 'deleted' — soft-deleted (only possible when fetching a deleted team by 'team_id'; list and name/ref_id lookups exclude deleted teams). [enabled, deleted]
   - team_id (integer) (required) — Unique team ID.
   - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
   - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -92,13 +92,13 @@ Return basic info for multiple teams by their IDs in a single request.
 API: POST /team/infos (team-read-infos)
 
 Request fields:
-  --team-ids []int (required) — List of team IDs to look up. Max 100.
+  --team-ids []int (required) — List of team IDs to look up.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Array of brief team info for the matched 'team_ids'; may be null when no ID matches.
-    - person_ids (array<integer>) — Array of person IDs belonging to the team; empty array (never null) when the team has no members.
-    - team_id (integer) — Team ID.
-    - team_name (string) — Team name.
+    - person_ids (array<integer>) (required) — Array of person IDs belonging to the team; empty array (never null) when the team has no members.
+    - team_id (integer) (required) — Team ID.
+    - team_name (string) (required) — Team name.
 `,
 		Args:    requireBodyFieldOrArgs("team_ids", "team-ids"),
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
@@ -128,7 +128,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "List of team IDs to look up. Max 100. (required)")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "List of team IDs to look up. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -158,18 +158,18 @@ Request fields:
   --asc bool — Ascending sort order. Default: false (descending).
   --orderby string — Sort field. Default: 'updated_at'. [created_at, updated_at, team_name]
   --person-id int — Filter by member ID — return only teams this person belongs to.
-  --query string — Substring match on team name.
+  --query string — Substring match on team name or description.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Array of teams for the current page, used with 'p', 'limit' and 'total' for pagination; empty array on an empty page.
     - account_id (integer) (required) — Owning account ID.
     - created_at (string) (required) — Unix epoch seconds the team was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator.
-    - creator_name (string) (required) — Display name of the creator.
+    - creator_name (string) (required) — Display name of the creator. Not populated by current endpoints — always an empty string; resolve 'creator_id' via 'POST /person/infos'.
     - description (string) (required) — Free-form description.
     - person_ids (array<integer>) (required) — Member IDs of team members.
     - ref_id (string) (required) — External reference ID for third-party HR system integration.
-    - status (string) (required) — Team status. [enabled, disabled]
+    - status (string) (required) — Team status. 'enabled' — active; 'deleted' — soft-deleted (only possible when fetching a deleted team by 'team_id'; list and name/ref_id lookups exclude deleted teams). [enabled, deleted]
     - team_id (integer) (required) — Unique team ID.
     - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
     - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -227,7 +227,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order. Default: false (descending).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [created_at, updated_at, team_name]")
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by member ID — return only teams this person belongs to.")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on team name.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on team name or description.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -317,9 +317,9 @@ Request fields:
   --description string — Free-form description. (≤500 chars)
   --emails []string — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
   --person-ids []int — Member IDs to set as team members. Replaces the existing member list.
-  --phones []string — Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.
+  --phones []string — Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.
   --ref-id string — External reference ID for HR system integration.
-  --reset-if-name-exist bool — If true and a team with the same name already exists, reset its membership to the provided person_ids.
+  --reset-if-name-exist bool — When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.
   --team-id int — Team ID. Omit or set to 0 to create a new team.
   --team-name string (required) — Team display name. 1–39 characters. (1-39 chars)
 
@@ -379,9 +379,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. (≤500 chars)")
 	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to set as team members. Replaces the existing member list.")
-	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Add existing members to the team by phone number. Numbers that don't match an existing member are silently ignored; non-E.164 numbers are parsed with 'countryCode'.")
+	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID for HR system integration.")
-	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "If true and a team with the same name already exists, reset its membership to the provided person_ids.")
+	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

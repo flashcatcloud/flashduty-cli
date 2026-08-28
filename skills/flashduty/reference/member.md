@@ -65,7 +65,7 @@ Delete member
 
 ### info
 Get current member info
-- response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); status (string); time_zone (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); created_at (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); mp_account_id (string); mp_plat (string); phone (string); phone_verified (boolean); time_zone (string)
 
 ### info-reset
 Reset member info
@@ -105,10 +105,10 @@ Revoke role from member
 - `--member-id` int64 (required) — Member ID
 - `<role-ids>` (positional, required) intSlice — Role IDs to remove from the member.
 
-### role-update <role-id> [<id2>...]
+### role-update <member-id>
 Update member roles
-- `--member-id` int64 (required) — Member ID
-- `<role-ids>` (positional, required) intSlice — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
+- `<member-id>` (positional, required) int64 — Member ID
+- `--role-ids` intSlice — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
 
 <!-- GENERATED:member END -->
 

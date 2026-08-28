@@ -384,14 +384,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Creator person ID.
   - description (string) (required) — Calendar description.
-  - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
+  - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs. Omitted when empty.
   - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
   - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID (0 when not assigned).
   - timezone (string) (required) — IANA timezone.
   - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater person ID.
-  - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
+  - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday). Omitted when empty.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar info --data '{"cal_id":"cal.eh9gvPtWeH3xXgKeVSRxRg"}'`,
@@ -451,14 +451,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Creator person ID.
     - description (string) (required) — Calendar description.
-    - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs.
+    - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs. Omitted when empty.
     - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
     - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID (0 when not assigned).
     - timezone (string) (required) — IANA timezone.
     - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater person ID.
-    - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday).
+    - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday). Omitted when empty.
   - total (integer) (required) — Total number of calendars returned.
 `,
 		Example: `  flashduty calendar list --data '{"kind":"personal"}'`,
