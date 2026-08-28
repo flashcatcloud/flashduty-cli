@@ -112,24 +112,23 @@ func TestSetVersionInfoBeforeExecute(t *testing.T) {
 	}
 }
 
-// Test 79: When a compact list projection overflows its byte budget, the
-// binary exits non-zero, writes nothing to stdout, and reports the error on
-// stderr — a pipeline reading stdout must see a failed call, never an empty
-// page masquerading as "no data".
+// Test 79: When a compact list projection cannot fit its byte budget at
+// all — a single row that overflows on its own and carries nothing
+// shortenable — the binary exits non-zero, writes nothing to stdout, and
+// reports the error on stderr: a pipeline reading stdout must see a failed
+// call, never an empty page masquerading as "no data". (A multi-row page
+// that overflows is instead reduced to the leading rows that fit, announced
+// on stderr.)
 func TestProjectionOverflowFailsHard(t *testing.T) {
 	binPath := buildTestBinary(t, "")
 
-	// Stub the alert-event list endpoint with a page whose projection stays
-	// over the 16 KiB budget even after value shortening.
+	// Stub the alert-event list endpoint with one row whose projected labels
+	// blob alone exceeds the 16 KiB budget; a labels map is not a string, so
+	// no value shortening can rescue it.
 	var body strings.Builder
-	body.WriteString(`{"request_id":"r","error":{"code":"OK","message":""},"data":{"total":100,"items":[`)
-	for i := 0; i < 100; i++ {
-		if i > 0 {
-			body.WriteByte(',')
-		}
-		fmt.Fprintf(&body, `{"event_id":"%024x","alert_id":"%024x","event_severity":"Warning","event_status":"Triggered","event_time":1712000000,"title":%q}`,
-			i, i+1_000_000, strings.Repeat("x", 200))
-	}
+	body.WriteString(`{"request_id":"r","error":{"code":"OK","message":""},"data":{"total":1,"items":[`)
+	fmt.Fprintf(&body, `{"event_id":"%024x","alert_id":"%024x","event_severity":"Warning","event_status":"Triggered","event_time":1712000000,"title":"disk full","labels":{"payload":%q}}`,
+		1, 1_000_001, strings.Repeat("x", 20000))
 	body.WriteString(`]}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +137,7 @@ func TestProjectionOverflowFailsHard(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	run := exec.Command(binPath, "alert-event", "list", "--limit", "100",
+	run := exec.Command(binPath, "alert-event", "list", "--fields", "event_id,labels",
 		"--output-format", "json", "--app-key", "test-key", "--base-url", srv.URL)
 	// Isolate HOME so the test never reads the developer's real CLI config.
 	run.Env = append(os.Environ(), "HOME="+t.TempDir())
