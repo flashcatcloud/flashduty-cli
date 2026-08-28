@@ -781,12 +781,16 @@ func TestAlertEventListFieldsProjectionUnchanged(t *testing.T) {
 // dropped to 3 bytes or below, truncateUTF8Bytes's no-room-for-a-marker
 // fallback returned raw, unmarked bytes indistinguishable from a genuinely
 // short value. Even under extreme row/field pressure that forces every
-// string field to shrink, every shortened value must carry the "..." marker.
+// shortenable string field to shrink, every shortened value must carry the
+// "..." marker. (Row count is sized so the exempt _id fields and the JSON
+// envelope still fit at the truncation floor — more rows would tip the page
+// into the identifier-overflow error pinned by
+// TestBoundProjectedListIdentifierOnlyOverflowErrors.)
 func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
 
-	rows := make([]map[string]any, 100)
+	rows := make([]map[string]any, 90)
 	for i := range rows {
 		rows[i] = map[string]any{
 			"event_id":       fmt.Sprintf("%024x", i),
@@ -1097,4 +1101,100 @@ func TestChannelEscalateRuleListStructuredProjection(t *testing.T) {
 			})
 		}
 	})
+}
+
+// TestBoundProjectedListNeverShortensIdentifierFields pins the identifier
+// exemption: keys ending in _id/_key carry values a consumer matches,
+// filters, or passes back verbatim (a jq exact-match over --json output, a
+// follow-up detail call), so shortening one silently defeats that consumer.
+// Even when a page overflows badly enough that the fair cap lands below an
+// identifier's own length, identifiers must come back byte-identical and
+// only free-text fields shorten; the note must name only the clipped fields.
+func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			flagOutputFormat = format
+
+			rows := make([]map[string]any, 10)
+			wantIDs := make([]map[string]string, len(rows))
+			for i := range rows {
+				eventID := fmt.Sprintf("%024x", i)
+				alertKey := fmt.Sprintf("%032x", i)
+				rows[i] = map[string]any{
+					"event_id":  eventID,
+					"alert_key": alertKey,
+					"title":     strings.Repeat("a", 500),
+				}
+				wantIDs[i] = map[string]string{"event_id": eventID, "alert_key": alertKey}
+			}
+
+			const budget = 1400
+			note, err := boundProjectedOutput(rows, budget)
+			if err != nil {
+				t.Fatalf("bound projected output: %v", err)
+			}
+
+			for i, row := range rows {
+				for _, field := range []string{"event_id", "alert_key"} {
+					if got := row[field].(string); got != wantIDs[i][field] {
+						t.Errorf("row %d %s was shortened: got %q, want byte-identical %q", i, field, got, wantIDs[i][field])
+					}
+				}
+				if title := row["title"].(string); !strings.HasSuffix(title, "...") {
+					t.Errorf("row %d title should be shortened with the \"...\" marker, got %q", i, title)
+				}
+			}
+
+			if note == "" {
+				t.Fatal("shortened projection returned no note; caller cannot tell values were clipped")
+			}
+			if !strings.Contains(note, "title") {
+				t.Errorf("note = %q, want it to name the shortened field (title)", note)
+			}
+			if strings.Contains(note, "event_id") || strings.Contains(note, "alert_key") {
+				t.Errorf("note = %q, want it to name only shortened fields, never exempt identifiers", note)
+			}
+
+			encoded, err := marshalStructured(rows)
+			if err != nil {
+				t.Fatalf("marshal bounded output: %v", err)
+			}
+			if len(encoded)+1 >= budget {
+				t.Errorf("bounded %s output is %d bytes, want <%d", format, len(encoded)+1, budget)
+			}
+		})
+	}
+}
+
+// TestBoundProjectedListIdentifierOnlyOverflowErrors pins the other half of
+// the identifier exemption: when a page carries nothing shortenable and its
+// identifier content alone overflows the budget, the command must fail with
+// the narrowing error instead of clipping identifiers to fit — and the rows
+// must come back untouched.
+func TestBoundProjectedListIdentifierOnlyOverflowErrors(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+
+	// Sized so the full rows overflow 512 bytes while rows with ids clipped
+	// to the truncation floor would still fit: the old fair cap "succeeded"
+	// by shipping mangled ids, the exemption must instead refuse.
+	rows := make([]map[string]any, 12)
+	for i := range rows {
+		rows[i] = map[string]any{"incident_id": fmt.Sprintf("%024x", i)}
+	}
+	originals := make([]string, len(rows))
+	for i, row := range rows {
+		originals[i] = row["incident_id"].(string)
+	}
+
+	_, err := boundProjectedOutput(rows, 512)
+	if err == nil || !strings.Contains(err.Error(), "request fewer rows") {
+		t.Fatalf("identifier-only overflow error = %v, want bounded guidance", err)
+	}
+	for i, row := range rows {
+		if got := row["incident_id"].(string); got != originals[i] {
+			t.Errorf("row %d incident_id was mutated despite the error: got %q, want %q", i, got, originals[i])
+		}
+	}
 }

@@ -22,15 +22,6 @@ func TestMonitQueryDiagnoseFlags(t *testing.T) {
 	}
 }
 
-func TestMonitQueryRowsFlags(t *testing.T) {
-	cmd := newMonitQueryRowsCmd()
-	for _, name := range []string{"ds-type", "ds-name", "expr", "args"} {
-		if cmd.Flags().Lookup(name) == nil {
-			t.Errorf("flag --%s missing", name)
-		}
-	}
-}
-
 func TestMonitQueryDataFlags(t *testing.T) {
 	cmd := newMonitQueryDataCmd()
 	for _, name := range []string{"ds-type", "ds-name", "expr", "args", "delay-seconds"} {
@@ -209,7 +200,7 @@ func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
 	}
 }
 
-// --- monit-query rows -----------------------------------------------------
+// --- monit-query data -----------------------------------------------------
 
 func TestMonitQueryDataHappyPath(t *testing.T) {
 	saveAndResetGlobals(t)
@@ -309,96 +300,6 @@ func TestMonitQueryDataRequiredFlags(t *testing.T) {
 	}
 }
 
-func TestMonitQueryRowsHappyPath(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	// rows is a raw datasource passthrough: the response envelope "data" is a
-	// JSON array of QueryRow ({fields,values}) objects, decoded into
-	// QueryRowsResponse ([]QueryRow) and re-marshalled verbatim to the writer.
-	stub.data = []any{
-		map[string]any{
-			"fields": map[string]any{"instance": "node-1"},
-			"values": map[string]any{"__value__": 1},
-		},
-	}
-
-	out, err := execCommand(
-		"monit-query", "rows",
-		"--ds-type", "prometheus",
-		"--ds-name", "prom-prod",
-		"--expr", "up",
-		"--args", "step=15s",
-		"--args", "tenant=acme",
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if stub.lastPath != "/monit/query/rows" {
-		t.Fatalf("expected /monit/query/rows, got %q", stub.lastPath)
-	}
-	body := stub.lastBody
-	if body["ds_type"] != "prometheus" || body["ds_name"] != "prom-prod" || body["expr"] != "up" {
-		t.Errorf("unexpected rows input: %#v", body)
-	}
-	args, _ := body["args"].(map[string]any)
-	if args["step"] != "15s" || args["tenant"] != "acme" {
-		t.Errorf("expected args step=15s tenant=acme, got %#v", args)
-	}
-	// The rendered output is the re-marshalled row array (passthrough shape).
-	if !strings.Contains(out, "node-1") || !strings.Contains(out, "__value__") {
-		t.Errorf("expected rendered rows to carry the datasource payload, got:\n%s", out)
-	}
-}
-
-func TestMonitQueryRowsRequiredFlags(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-	}{
-		{
-			name: "missing ds-type",
-			args: []string{
-				"monit-query", "rows",
-				"--ds-name", "prom-prod",
-				"--expr", "up",
-			},
-		},
-		{
-			name: "missing ds-name",
-			args: []string{
-				"monit-query", "rows",
-				"--ds-type", "prometheus",
-				"--expr", "up",
-			},
-		},
-		{
-			name: "missing expr",
-			args: []string{
-				"monit-query", "rows",
-				"--ds-type", "prometheus",
-				"--ds-name", "prom-prod",
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			saveAndResetGlobals(t)
-			stub := newGFStub(t)
-
-			_, err := execCommand(tc.args...)
-			if err == nil {
-				t.Fatal("expected required-flag error, got nil")
-			}
-			if !strings.Contains(err.Error(), "required") {
-				t.Errorf("expected error to mention 'required', got %q", err.Error())
-			}
-			if stub.requests != 0 {
-				t.Errorf("rows should not have been called: %d request(s)", stub.requests)
-			}
-		})
-	}
-}
-
 // --- normalizeRawTimeArgs --------------------------------------------------
 
 func TestNormalizeRawTimeArgsAcceptedFormats(t *testing.T) {
@@ -469,17 +370,17 @@ func TestNormalizeRawTimeArgsInvalidValue(t *testing.T) {
 	}
 }
 
-// TestMonitQueryRowsRawModeNormalizesRFC3339 is the regression test for the
+// TestMonitQueryDataRawModeNormalizesRFC3339 is the regression test for the
 // raw-vs-stats time format inconsistency: a raw-mode VictoriaLogs query given
 // RFC3339 --args timestamps must reach the server as the unix-seconds form
 // the raw query path requires.
-func TestMonitQueryRowsRawModeNormalizesRFC3339(t *testing.T) {
+func TestMonitQueryDataRawModeNormalizesRFC3339(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
-	stub.data = []any{}
+	stub.data = map[string]any{"format": "query_result.v1", "result": map[string]any{"kind": "records", "records": []any{}}}
 
 	_, err := execCommand(
-		"monit-query", "rows",
+		"monit-query", "data",
 		"--ds-type", "victorialogs",
 		"--ds-name", "vl-prod",
 		"--expr", `{app="api"} |= "error"`,
@@ -532,27 +433,5 @@ func TestMonitQueryDataInvalidArgs(t *testing.T) {
 	}
 	if stub.requests != 0 {
 		t.Errorf("data should not have been called: %d request(s)", stub.requests)
-	}
-}
-
-func TestMonitQueryRowsInvalidArgs(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-
-	_, err := execCommand(
-		"monit-query", "rows",
-		"--ds-type", "prometheus",
-		"--ds-name", "prom-prod",
-		"--expr", "up",
-		"--args", "no-equals-sign",
-	)
-	if err == nil {
-		t.Fatal("expected error for malformed --args, got nil")
-	}
-	if !strings.Contains(err.Error(), "--args") {
-		t.Errorf("expected error to mention --args, got %q", err.Error())
-	}
-	if stub.requests != 0 {
-		t.Errorf("rows should not have been called: %d request(s)", stub.requests)
 	}
 }

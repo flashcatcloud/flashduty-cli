@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -15,7 +14,6 @@ func newMonitQueryCmd() *cobra.Command {
 	cmd := newGroupCmd("monit-query", "Probe monit-backed datasources (9 types via data; diagnose: loki|victorialogs log patterns, prometheus metric trends)")
 	cmd.AddCommand(newMonitQueryDiagnoseCmd())
 	cmd.AddCommand(newMonitQueryDataCmd())
-	cmd.AddCommand(newMonitQueryRowsCmd())
 	return cmd
 }
 
@@ -135,74 +133,8 @@ func newMonitQueryDataCmd() *cobra.Command {
 	return cmd
 }
 
-func newMonitQueryRowsCmd() *cobra.Command {
-	var (
-		dsType, dsName, expr string
-		argsKV               []string
-	)
-
-	cmd := &cobra.Command{
-		Use:        "rows",
-		Short:      "Raw datasource passthrough (returns values/rows as the datasource itself would). Deprecated — prefer 'monit-query data'",
-		Deprecated: "use 'monit-query data' instead",
-		Long:       curatedLong("Deprecated. Raw datasource passthrough returning values/rows as the datasource itself would. Migrate to 'monit-query data', which preserves frames/records/samples without forcing results into legacy rows.", "Diagnostics", "QueryRows"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if dsType == "" || dsName == "" || expr == "" {
-				return fmt.Errorf("--ds-type, --ds-name, --expr are required")
-			}
-			argsMap, err := parseKVSlice(argsKV)
-			if err != nil {
-				return fmt.Errorf("invalid --args: %w", err)
-			}
-			if err := normalizeRawTimeArgs(dsType, argsMap); err != nil {
-				return err
-			}
-
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.QueryRowsRequest{
-					DsType: dsType,
-					DsName: dsName,
-					Expr:   expr,
-					Args:   argsMap,
-				}
-				result, _, err := ctx.Client.Diagnostics.QueryRows(cmdContext(ctx.Cmd), input)
-				if err != nil {
-					return err
-				}
-				// This command is a raw datasource passthrough. The legacy SDK
-				// captured the response body (a JSON array of {fields,values}
-				// objects) as a RawMessage and wrote it through verbatim,
-				// independent of the --json/--toon output format. go-flashduty
-				// decodes that same array into []QueryRow, so re-marshal it to
-				// the equivalent JSON array and write it through unchanged to
-				// preserve the legacy single-blob output shape.
-				if result == nil {
-					_, err = fmt.Fprintln(ctx.Writer, "{}")
-					return err
-				}
-				body, err := json.Marshal(*result)
-				if err != nil {
-					return fmt.Errorf("failed to marshal query rows: %w", err)
-				}
-				_, err = fmt.Fprintln(ctx.Writer, string(body))
-				return err
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type (required)")
-	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name (required)")
-	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki", "mysql")
-	cmd.Flags().StringVar(&expr, "expr", "", "Query expression (required)")
-	cmd.Flags().StringSliceVar(&argsKV, "args", nil, "Arg entries KEY=VALUE (repeatable; values must be strings per monit-query contract). "+
-		"For loki/victorialogs raw mode, <ds-type>.start/<ds-type>.end accept a relative duration ('15m'), 'now', a date/RFC3339 timestamp, "+
-		"or a unix epoch in seconds or milliseconds — normalized to the form the datasource requires before sending")
-
-	return cmd
-}
-
 // normalizeRawTimeArgs rewrites the raw-mode time-window args of a
-// monit-query rows call (<ds-type>.start / <ds-type>.end) into the unix-
+// monit-query data call (<ds-type>.start / <ds-type>.end) into the unix-
 // seconds form the server requires, accepting any format timeutil.Parse
 // understands (RFC3339, date/datetime, relative duration, unix seconds or
 // milliseconds). Loki and VictoriaLogs are the only ds-types whose raw mode
