@@ -195,11 +195,12 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
-					noteProjectionShortening(cmd.ErrOrStderr(), note)
+					proj = bounded.([]map[string]any)
+					noteProjectionBound(cmd.ErrOrStderr(), note)
 					return ctx.PrintTotal(proj, nil, len(proj))
 				}
 

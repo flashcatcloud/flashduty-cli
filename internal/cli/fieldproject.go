@@ -80,12 +80,12 @@ func noteDefaultProjection(w io.Writer, fields []string) {
 		strings.Join(fields, ","))
 }
 
-// noteProjectionShortening tells the caller, on stderr, that some values came
-// back clipped. Without it a shortened value is only visible to a reader, not
-// to the jq filter or exact match a --json consumer runs over it, so a query
-// that silently matches nothing looks like an empty result rather than a
-// truncated one.
-func noteProjectionShortening(w io.Writer, note string) {
+// noteProjectionBound relays a boundProjectedOutput note to the caller on
+// stderr. Without it a reduced page or a shortened value is only visible to
+// a reader, not to the jq filter or exact match a --json consumer runs over
+// it, so a query that silently matches nothing looks like an empty result
+// rather than a bounded one.
+func noteProjectionBound(w io.Writer, note string) {
 	if note == "" {
 		return
 	}
@@ -93,26 +93,29 @@ func noteProjectionShortening(w io.Writer, note string) {
 }
 
 // boundProjectedOutput keeps the new agent-oriented projections below their
-// command budget without changing the selected keys. List rows (many small
-// records) are shortened fairly when they overflow the budget, with
-// shortened values marked with "...". A single-object detail projection is
-// never modified: a truncated id or status string is indistinguishable from
-// a genuinely short value, so silently shortening it would hand the caller
-// wrong data instead of a compact one. If a detail projection doesn't fit,
-// the command fails with an error instead.
+// command budget without changing the selected keys. A list projection that
+// overflows the budget is first reduced to the leading rows that fit with
+// every value intact; only a single row that overflows the budget on its own
+// is shortened fairly, with shortened values marked with "...". A
+// single-object detail projection is never modified: a truncated id or
+// status string is indistinguishable from a genuinely short value, so
+// silently shortening it would hand the caller wrong data instead of a
+// compact one. If a detail projection doesn't fit, the command fails with an
+// error instead.
 //
-// It returns a caller-printable note (empty when nothing was shortened) that
-// names the clipped fields, so the caller can announce the loss on stderr —
-// the "..." marker is only visible to something that reads the value, never
-// to the filter a --json consumer runs over it.
-func boundProjectedOutput(data any, maxBytes int) (string, error) {
+// It returns the bounded data with the same type it was given, plus a
+// caller-printable note (empty when nothing was reduced or shortened), so
+// the caller can announce the loss on stderr — the "..." marker is only
+// visible to something that reads the value, never to the filter a --json
+// consumer runs over it.
+func boundProjectedOutput(data any, maxBytes int) (any, string, error) {
 	switch value := data.(type) {
 	case map[string]any:
-		return "", boundProjectedDetail(value, maxBytes)
+		return value, "", boundProjectedDetail(value, maxBytes)
 	case []map[string]any:
 		return boundProjectedList(value, maxBytes)
 	default:
-		return "", fmt.Errorf("internal error: unsupported projected output %T", data)
+		return nil, "", fmt.Errorf("internal error: unsupported projected output %T", data)
 	}
 }
 
@@ -190,10 +193,14 @@ func isIdentifierField(key string) bool {
 	return strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "_key")
 }
 
-// boundProjectedList shortens a list projection's string values fairly when
-// the compact rows themselves overflow the budget: it finds the largest
-// per-field byte cap that still makes everything fit, then applies that one
-// cap to every shortenable string value across every row. A field already
+// boundProjectedList keeps a list projection below the budget. A page that
+// overflows is first reduced to the largest leading prefix of rows that
+// fits, with every value intact: a --json consumer filters and matches on
+// the values, so a partial page of intact rows serves it, while a full page
+// of "..."-clipped rows silently defeats the filter. Only when one row alone
+// overflows the budget does it shorten that row's string values fairly: it
+// finds the largest per-field byte cap that still makes the row fit, then
+// applies that one cap to every shortenable string value. A field already
 // shorter than the cap is left completely untouched — only the field(s)
 // actually responsible for the overflow (typically a long title) get
 // shortened, each marked with "...". Identifier fields (keys ending in _id
@@ -202,25 +209,35 @@ func isIdentifierField(key string) bool {
 // marker itself disappear, so a shortened value is always distinguishable
 // from a genuinely short one; if no cap at or above that floor fits, the
 // command fails with a small error instead of emitting values that look
-// real but aren't. Whatever it clips, it reports back in the returned note.
-func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
+// real but aren't. Whatever it reduces or clips, it reports back in the
+// returned note.
+func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, string, error) {
 	encoded, err := marshalStructured(rows)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	if len(encoded)+1 < maxBytes {
-		return "", nil
+		return rows, "", nil
 	}
 
 	// The overflow error names the fields responsible, exactly as the detail
 	// path does, so the request can be narrowed in one pass.
-	tooBig := func() (string, error) {
+	tooBig := func() ([]map[string]any, string, error) {
 		largest, err := largestProjectedFields(rows)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
-		return "", fmt.Errorf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s; request fewer rows (--limit) or fewer --fields",
+		return nil, "", fmt.Errorf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s; request fewer rows (--limit) or fewer --fields",
 			len(encoded), len(rows), maxBytes, largest)
+	}
+
+	kept, err := largestFittingPrefix(rows, maxBytes)
+	if err != nil {
+		return nil, "", err
+	}
+	if kept > 0 {
+		return rows[:kept], fmt.Sprintf("note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; narrow --fields or lower --limit to fit more rows per page — the rows past the first %d were not emitted",
+			kept, len(rows), maxBytes, kept), nil
 	}
 
 	maxLen := 0
@@ -268,7 +285,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 		return tooBig()
 	}
 	if ok, err := fits(minMarkedTruncationCap); err != nil {
-		return "", err
+		return nil, "", err
 	} else if !ok {
 		return tooBig()
 	}
@@ -282,7 +299,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 		mid := lo + (hi-lo+1)/2
 		ok, err := fits(mid)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
 		if ok {
 			lo = mid
@@ -312,15 +329,48 @@ func boundProjectedList(rows []map[string]any, maxBytes int) (string, error) {
 		}
 	}
 	if shortened == 0 {
-		return "", nil
+		return rows, "", nil
 	}
 	names := make([]string, 0, len(fields))
 	for name := range fields {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return fmt.Sprintf("note: %d of %d string values were shortened to fit the %d-byte limit and now end with \"...\" (fields: %s); matching or filtering on those fields will miss — narrow --fields or --limit for untruncated values",
+	return rows, fmt.Sprintf("note: %d of %d string values were shortened to fit the %d-byte limit and now end with \"...\" (fields: %s); matching or filtering on those fields will miss — narrow --fields or --limit for untruncated values",
 		shortened, total, maxBytes, strings.Join(names, ", ")), nil
+}
+
+// largestFittingPrefix returns the largest n < len(rows) whose encoded prefix
+// rows[:n] fits the budget, or 0 when even one row overflows it. Prefix size
+// is monotone — appending a row never shrinks the encoding — so the boundary
+// is found by binary search between lo=1 (known fitting, checked first) and
+// hi=len(rows) (known not to fit: the caller only reaches here on overflow).
+func largestFittingPrefix(rows []map[string]any, maxBytes int) (int, error) {
+	fits := func(n int) (bool, error) {
+		encoded, err := marshalStructured(rows[:n])
+		if err != nil {
+			return false, err
+		}
+		return len(encoded)+1 < maxBytes, nil
+	}
+	ok, err := fits(1)
+	if err != nil || !ok {
+		return 0, err
+	}
+	lo, hi := 1, len(rows) // fits(lo) holds, fits(hi) does not
+	for hi-lo > 1 {
+		mid := lo + (hi-lo)/2
+		ok, err := fits(mid)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	return lo, nil
 }
 
 func truncateUTF8Bytes(value string, maxBytes int) string {

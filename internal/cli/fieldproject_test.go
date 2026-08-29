@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
 )
 
 // incidentRow / alertRow are multi-field stub payloads with the nested blobs
@@ -42,7 +43,7 @@ func TestBoundProjectedOutputCapsStructuredFormats(t *testing.T) {
 				"title":       strings.Repeat("数据库故障", 2000),
 			}}
 
-			if _, err := boundProjectedOutput(rows, 512); err != nil {
+			if _, _, err := boundProjectedOutput(rows, 512); err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
 			encoded, err := marshalStructured(rows)
@@ -63,12 +64,12 @@ func TestBoundProjectedOutputCapsStructuredFormats(t *testing.T) {
 func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
-	rows := make([]map[string]any, 200)
-	for i := range rows {
-		rows[i] = map[string]any{"count": i}
-	}
+	// One row carrying a large non-string field: too big to emit as a
+	// single-row page and with no string value to shorten, so the only
+	// honest answer is the narrowing error.
+	rows := []map[string]any{{"counts": make([]int, 500)}}
 
-	_, err := boundProjectedOutput(rows, 512)
+	_, _, err := boundProjectedOutput(rows, 512)
 	if err == nil || !strings.Contains(err.Error(), "request fewer rows") {
 		t.Fatalf("irreducible output error = %v, want bounded guidance", err)
 	}
@@ -92,7 +93,7 @@ func TestBoundProjectedOutputDetailWithinBudgetLeavesValuesUnchanged(t *testing.
 		"progress":    "Triggered",
 	}
 
-	if _, err := boundProjectedOutput(row, compactDetailOutputLimit); err != nil {
+	if _, _, err := boundProjectedOutput(row, compactDetailOutputLimit); err != nil {
 		t.Fatalf("bound projected output: %v", err)
 	}
 	if !reflect.DeepEqual(row, want) {
@@ -119,7 +120,7 @@ func TestBoundProjectedOutputDetailOversizedErrorsWithoutMutating(t *testing.T) 
 		"root_cause":  strings.Repeat("disk exhaustion details ", 3000),
 	}
 
-	_, err := boundProjectedOutput(row, 512)
+	_, _, err := boundProjectedOutput(row, 512)
 	if err == nil {
 		t.Fatal("expected an error for an oversized detail projection, got nil")
 	}
@@ -151,7 +152,7 @@ func TestBoundProjectedOutputDetailErrorIsDeterministic(t *testing.T) {
 			"delta":   strings.Repeat("d", 400),
 			"echo":    strings.Repeat("e", 400),
 		}
-		_, err := boundProjectedOutput(row, 512)
+		_, _, err := boundProjectedOutput(row, 512)
 		if err == nil {
 			t.Fatal("expected an error for an oversized detail projection, got nil")
 		}
@@ -667,8 +668,8 @@ func TestAlertEventListStructuredProjection(t *testing.T) {
 // multi-word/CJK title (the field actually responsible for a page overflowing
 // the compact-list budget), the rest carry short, realistic titles. It
 // returns the row list alongside the exact ids and titles a correct
-// projection must preserve or shorten.
-func alertEventOutlierFixture(n, outliers int) (items []any, ids, shortTitles []string) {
+// projection must preserve.
+func alertEventOutlierFixture(n, outliers int) (items []any, ids, titles []string) {
 	longTitle := strings.Repeat("K8S pod tcp 接收队列大于2000 / cluster-prod-a / node-17 / namespace kube-system / pod coredns-7db6d8ff4d-abcde ", 40)
 	normalTitles := []string{
 		"ERROR Detected / VMLogs-Prod",
@@ -679,17 +680,17 @@ func alertEventOutlierFixture(n, outliers int) (items []any, ids, shortTitles []
 
 	items = make([]any, n)
 	ids = make([]string, 0, n*2)
+	titles = make([]string, 0, n)
 	for i := range items {
 		eventID := fmt.Sprintf("%024x", i)
 		alertID := fmt.Sprintf("%024x", i+1_000_000)
 		ids = append(ids, eventID, alertID)
 
 		title := normalTitles[i%len(normalTitles)]
-		if i >= outliers {
-			shortTitles = append(shortTitles, title)
-		} else {
+		if i < outliers {
 			title = fmt.Sprintf("%s (row %d)", longTitle, i)
 		}
+		titles = append(titles, title)
 
 		items[i] = map[string]any{
 			"event_id":       eventID,
@@ -700,21 +701,21 @@ func alertEventOutlierFixture(n, outliers int) (items []any, ids, shortTitles []
 			"title":          title,
 		}
 	}
-	return items, ids, shortTitles
+	return items, ids, titles
 }
 
 // TestAlertEventListDefaultProjectionPreservesShortFields is the regression
 // guard for the original defect: a minority of pathologically long titles
 // pushing a page over the 16 KiB compact-list budget must never mangle the
-// other rows' long (Mongo ObjectID-shaped) ids, or the short title rows on
-// the same page — the shortening must land entirely on the field(s) actually
-// responsible for the overflow.
+// rows — the command reduces the page to the leading rows that fit with every
+// value (long ids, short and outlier titles alike) byte-identical to the
+// fixture, and says on stderr how many rows it emitted.
 func TestAlertEventListDefaultProjectionPreservesShortFields(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
 		t.Run(format, func(t *testing.T) {
 			saveAndResetGlobals(t)
 			stub := newGFStub(t)
-			items, ids, shortTitles := alertEventOutlierFixture(30, 3)
+			items, ids, titles := alertEventOutlierFixture(30, 3)
 			stub.data = map[string]any{"items": items, "total": len(items)}
 
 			out, stderrText, err := execCommandSplit("alert-event", "list", "--output-format", format)
@@ -727,21 +728,157 @@ func TestAlertEventListDefaultProjectionPreservesShortFields(t *testing.T) {
 			if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
 				t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
 			}
+			if strings.Contains(out, "...") {
+				t.Errorf("a reduced page must never emit a shortened value, got:\n%s", out)
+			}
 
-			for _, id := range ids {
-				if !strings.Contains(out, id) {
-					t.Errorf("id %q was shortened; only the oversized outlier titles should shrink, got:\n%s", id, out)
+			// The emitted rows are the longest leading prefix that fits; each
+			// must be byte-identical to the fixture, and the stderr note must
+			// name the emitted count.
+			emitted := 0
+			for i := range items {
+				if !strings.Contains(out, ids[2*i]) {
+					for j := i + 1; j < len(items); j++ {
+						if strings.Contains(out, ids[2*j]) {
+							t.Fatalf("row %d emitted but earlier row %d missing: emitted rows must be the leading prefix", j, i)
+						}
+					}
+					break
 				}
-			}
-			for _, title := range shortTitles {
-				if !strings.Contains(out, title) {
-					t.Errorf("short title %q was shortened even though it never exceeded the budget on its own, got:\n%s", title, out)
+				if !strings.Contains(out, ids[2*i+1]) {
+					t.Errorf("row %d alert_id was altered though a reduced page keeps every value intact", i)
 				}
+				if !strings.Contains(out, titles[i]) {
+					t.Errorf("row %d title was altered though a reduced page keeps every value intact", i)
+				}
+				emitted++
 			}
-			if !strings.Contains(out, "...") {
-				t.Errorf("expected the outlier titles to be visibly marked with \"...\", got:\n%s", out)
+			if emitted < 1 || emitted >= len(items) {
+				t.Fatalf("emitted %d rows, want a reduced page in [1, %d)", emitted, len(items))
+			}
+			wantNote := fmt.Sprintf("emitted %d of %d", emitted, len(items))
+			if !strings.Contains(stderrText, wantNote) {
+				t.Errorf("stderr should name the emitted count (%q), got:\n%s", wantNote, stderrText)
 			}
 		})
+	}
+}
+
+// TestAlertEventListAutoReducesPageAtLargeLimit pins the end-to-end contract
+// for a large --limit: a page whose projected rows overflow the 16 KiB budget
+// comes back as the longest fitting leading prefix — exit 0, parseable array,
+// every value byte-identical, no "..." marker — with the emitted count
+// announced on stderr.
+func TestAlertEventListAutoReducesPageAtLargeLimit(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			const total = 100
+			fixture := make([]map[string]any, total)
+			items := make([]any, total)
+			for i := range items {
+				row := map[string]any{
+					"event_id":       fmt.Sprintf("%024x", i),
+					"alert_id":       fmt.Sprintf("%024x", i+1_000_000),
+					"event_severity": "Warning",
+					"event_status":   "Triggered",
+					"event_time":     1712000000 + i,
+					"title":          strings.Repeat("K8S pod tcp 接收队列大于2000 / cluster-prod-a / node-17 ", 10) + fmt.Sprintf("(row %d)", i),
+				}
+				fixture[i] = row
+				items[i] = row
+			}
+			stub.data = map[string]any{"items": items, "total": total}
+
+			out, stderrText, err := execCommandSplit("alert-event", "list", "--limit", "100", "--output-format", format)
+			if err != nil {
+				t.Fatalf("execCommandSplit: %v", err)
+			}
+			assertAutoReducedPage(t, out, stderrText, format, fixture, []string{"event_id", "alert_id", "event_severity", "event_status", "title"})
+		})
+	}
+}
+
+// TestIncidentListAutoReducesPageAtLargeLimit mirrors
+// TestAlertEventListAutoReducesPageAtLargeLimit for incident list.
+func TestIncidentListAutoReducesPageAtLargeLimit(t *testing.T) {
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			const total = 100
+			fixture := make([]map[string]any, total)
+			items := make([]any, total)
+			for i := range items {
+				row := map[string]any{
+					"incident_id":       fmt.Sprintf("%024x", i),
+					"title":             strings.Repeat("数据库主库磁盘空间不足告警 / db-01 / 磁盘使用率超过95% ", 10) + fmt.Sprintf("(row %d)", i),
+					"incident_severity": "Critical",
+					"progress":          "Triggered",
+					"start_time":        1712000000 + i,
+					"channel_id":        4201,
+				}
+				fixture[i] = row
+				items[i] = row
+			}
+			stub.data = map[string]any{"items": items, "total": total}
+
+			out, stderrText, err := execCommandSplit("incident", "list", "--limit", "100", "--output-format", format)
+			if err != nil {
+				t.Fatalf("execCommandSplit: %v", err)
+			}
+			assertAutoReducedPage(t, out, stderrText, format, fixture, []string{"incident_id", "title", "incident_severity", "progress"})
+		})
+	}
+}
+
+// assertAutoReducedPage pins the auto-reduced-page contract for a structured
+// list command whose full page overflows the compact budget: stdout parses as
+// an array holding the longest fitting leading prefix of the fixture — every
+// value byte-identical, no "..." marker anywhere, output under the budget —
+// and stderr names the emitted count.
+func assertAutoReducedPage(t *testing.T, out, stderrText, format string, fixture []map[string]any, stringFields []string) {
+	t.Helper()
+
+	var decoded []map[string]any
+	switch format {
+	case "json":
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decoded); err != nil {
+			t.Fatalf("parse %s output as an array: %v\n%s", format, err, out)
+		}
+	case "toon":
+		if err := toon.Unmarshal([]byte(out), &decoded); err != nil {
+			t.Fatalf("parse %s output as an array: %v\n%s", format, err, out)
+		}
+	}
+
+	if len(decoded) < 1 || len(decoded) >= len(fixture) {
+		t.Fatalf("emitted %d rows, want a reduced page in [1, %d)", len(decoded), len(fixture))
+	}
+	if strings.Contains(out, "...") {
+		t.Errorf("a reduced page must never emit a shortened value, got:\n%s", out)
+	}
+	for i, row := range decoded {
+		for _, field := range stringFields {
+			got, ok := row[field].(string)
+			if !ok {
+				t.Fatalf("row %d field %q = %#v, want a string", i, field, row[field])
+			}
+			if want := fixture[i][field].(string); got != want {
+				t.Errorf("row %d field %q was altered: got %q, want byte-identical %q", i, field, got, want)
+			}
+		}
+	}
+	if len(out) >= compactListOutputLimit {
+		t.Errorf("reduced page is %d bytes, want <%d", len(out), compactListOutputLimit)
+	}
+	wantNote := fmt.Sprintf("note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; narrow --fields or lower --limit to fit more rows per page — the rows past the first %d were not emitted",
+		len(decoded), len(fixture), compactListOutputLimit, len(decoded))
+	if !strings.Contains(stderrText, wantNote) {
+		t.Errorf("stderr should announce the reduced page (%q), got:\n%s", wantNote, stderrText)
 	}
 }
 
@@ -776,16 +913,11 @@ func TestAlertEventListFieldsProjectionUnchanged(t *testing.T) {
 }
 
 // TestBoundProjectedListNeverEmitsUnmarkedTruncation is the regression guard
-// for the original defect's silent-corruption half: the old algorithm
-// repeatedly halved a single shared per-field byte cap, and once that cap
-// dropped to 3 bytes or below, truncateUTF8Bytes's no-room-for-a-marker
-// fallback returned raw, unmarked bytes indistinguishable from a genuinely
-// short value. Even under extreme row/field pressure that forces every
-// shortenable string field to shrink, every shortened value must carry the
-// "..." marker. (Row count is sized so the exempt _id fields and the JSON
-// envelope still fit at the truncation floor — more rows would tip the page
-// into the identifier-overflow error pinned by
-// TestBoundProjectedListIdentifierOnlyOverflowErrors.)
+// for the original defect's silent-corruption half: a page that overflows the
+// budget is reduced to the leading rows that fit, so no value is ever
+// shortened — every emitted row is byte-identical to the fixture, no "..."
+// marker appears anywhere, the note names the emitted count, and the encoded
+// output stays under the budget.
 func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
@@ -809,10 +941,21 @@ func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 		originals[i] = clone
 	}
 
-	if _, err := boundProjectedOutput(rows, compactListOutputLimit); err != nil {
+	bounded, note, err := boundProjectedOutput(rows, compactListOutputLimit)
+	if err != nil {
 		t.Fatalf("bound: %v", err)
 	}
+	kept, ok := bounded.([]map[string]any)
+	if !ok {
+		t.Fatalf("bounded output type = %T, want []map[string]any", bounded)
+	}
+	if len(kept) < 1 || len(kept) >= len(rows) {
+		t.Fatalf("emitted %d rows, want a reduced page in [1, %d)", len(kept), len(rows))
+	}
 
+	// Reduction returns a prefix of the original slice without mutating any
+	// row, so the whole fixture — emitted and dropped rows alike — must come
+	// back byte-identical.
 	for i, row := range rows {
 		for key, value := range row {
 			text, ok := value.(string)
@@ -820,13 +963,26 @@ func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 				continue
 			}
 			original := originals[i][key].(string)
-			if text == original {
-				continue
+			if text != original {
+				t.Fatalf("row %d field %q was altered: page reduction must never touch a value (got %d bytes, want %d)", i, key, len(text), len(original))
 			}
-			if !strings.HasSuffix(text, "...") {
-				t.Fatalf("row %d field %q was shortened to %q without the \"...\" marker (original was %d bytes)", i, key, text, len(original))
+			if strings.Contains(text, "...") {
+				t.Fatalf("row %d field %q carries a \"...\" marker: page reduction must never shorten a value", i, key)
 			}
 		}
+	}
+
+	encoded, err := marshalStructured(kept)
+	if err != nil {
+		t.Fatalf("marshal bounded output: %v", err)
+	}
+	if len(encoded)+1 >= compactListOutputLimit {
+		t.Fatalf("bounded output is %d bytes, want <%d", len(encoded)+1, compactListOutputLimit)
+	}
+	wantNote := fmt.Sprintf("note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; narrow --fields or lower --limit to fit more rows per page — the rows past the first %d were not emitted",
+		len(kept), len(rows), compactListOutputLimit, len(kept))
+	if note != wantNote {
+		t.Fatalf("note = %q, want %q", note, wantNote)
 	}
 }
 
@@ -862,7 +1018,9 @@ func TestStructuredFieldsEmptyErrors(t *testing.T) {
 // only visible to something that READS the value; a --json consumer runs a jq
 // filter or an exact match over it, where a clipped string produces an empty
 // result that is indistinguishable from "nothing matched" — the expensive
-// failure this note exists to prevent.
+// failure this note exists to prevent. The fixture is a single oversized row
+// so the run lands on the shortening fallback (a multi-row page would be
+// reduced, not shortened).
 func TestBoundProjectedListAnnouncesShortening(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
 		t.Run(format, func(t *testing.T) {
@@ -873,7 +1031,7 @@ func TestBoundProjectedListAnnouncesShortening(t *testing.T) {
 				"title":       strings.Repeat("payment-gateway timeout ", 200),
 			}}
 
-			note, err := boundProjectedOutput(rows, 512)
+			_, note, err := boundProjectedOutput(rows, 512)
 			if err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
@@ -894,7 +1052,7 @@ func TestBoundProjectedListNoNoteWhenNothingShortened(t *testing.T) {
 	flagOutputFormat = "json"
 	rows := []map[string]any{{"incident_id": "inc-1", "title": "disk full"}}
 
-	note, err := boundProjectedOutput(rows, 512)
+	_, note, err := boundProjectedOutput(rows, 512)
 	if err != nil {
 		t.Fatalf("bound projected output: %v", err)
 	}
@@ -906,20 +1064,18 @@ func TestBoundProjectedListNoNoteWhenNothingShortened(t *testing.T) {
 // TestBoundProjectedListErrorNamesLargestFields pins that a list projection
 // which cannot fit at all says WHICH fields are responsible, exactly as the
 // detail path already does. Without it the only way to find the oversized
-// field is to re-run the query once per field.
+// field is to re-run the query once per field. The fixture is a single row
+// with a large non-string field: no page to reduce, nothing to shorten.
 func TestBoundProjectedListErrorNamesLargestFields(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
-	rows := make([]map[string]any, 200)
-	for i := range rows {
-		rows[i] = map[string]any{"count": i, "score": i * 2}
-	}
+	rows := []map[string]any{{"counts": make([]int, 500)}}
 
-	_, err := boundProjectedOutput(rows, 512)
+	_, _, err := boundProjectedOutput(rows, 512)
 	if err == nil {
 		t.Fatalf("irreducible projection = nil error, want refusal")
 	}
-	if !strings.Contains(err.Error(), "largest fields:") {
+	if !strings.Contains(err.Error(), "largest fields:") || !strings.Contains(err.Error(), "counts") {
 		t.Fatalf("list overflow error = %q, want it to name the largest fields", err)
 	}
 }
@@ -1107,43 +1263,42 @@ func TestChannelEscalateRuleListStructuredProjection(t *testing.T) {
 // exemption: keys ending in _id/_key carry values a consumer matches,
 // filters, or passes back verbatim (a jq exact-match over --json output, a
 // follow-up detail call), so shortening one silently defeats that consumer.
-// Even when a page overflows badly enough that the fair cap lands below an
-// identifier's own length, identifiers must come back byte-identical and
-// only free-text fields shorten; the note must name only the clipped fields.
+// The fixture is a single row whose oversized title overflows the budget on
+// its own, landing the run on the shortening fallback: the identifiers must
+// come back byte-identical, only the free-text title shortens, and the note
+// must name only the clipped field.
 func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
 		t.Run(format, func(t *testing.T) {
 			saveAndResetGlobals(t)
 			flagOutputFormat = format
 
-			rows := make([]map[string]any, 10)
-			wantIDs := make([]map[string]string, len(rows))
-			for i := range rows {
-				eventID := fmt.Sprintf("%024x", i)
-				alertKey := fmt.Sprintf("%032x", i)
-				rows[i] = map[string]any{
-					"event_id":  eventID,
-					"alert_key": alertKey,
-					"title":     strings.Repeat("a", 500),
-				}
-				wantIDs[i] = map[string]string{"event_id": eventID, "alert_key": alertKey}
-			}
+			eventID := fmt.Sprintf("%024x", 1)
+			alertKey := fmt.Sprintf("%032x", 1)
+			rows := []map[string]any{{
+				"event_id":  eventID,
+				"alert_key": alertKey,
+				"title":     strings.Repeat("a", 5000),
+			}}
 
 			const budget = 1400
-			note, err := boundProjectedOutput(rows, budget)
+			bounded, note, err := boundProjectedOutput(rows, budget)
 			if err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
+			kept, ok := bounded.([]map[string]any)
+			if !ok || len(kept) != 1 {
+				t.Fatalf("bounded output = %v, want the single shortened row", bounded)
+			}
 
-			for i, row := range rows {
-				for _, field := range []string{"event_id", "alert_key"} {
-					if got := row[field].(string); got != wantIDs[i][field] {
-						t.Errorf("row %d %s was shortened: got %q, want byte-identical %q", i, field, got, wantIDs[i][field])
-					}
+			row := kept[0]
+			for field, want := range map[string]string{"event_id": eventID, "alert_key": alertKey} {
+				if got := row[field].(string); got != want {
+					t.Errorf("%s was shortened: got %q, want byte-identical %q", field, got, want)
 				}
-				if title := row["title"].(string); !strings.HasSuffix(title, "...") {
-					t.Errorf("row %d title should be shortened with the \"...\" marker, got %q", i, title)
-				}
+			}
+			if title := row["title"].(string); !strings.HasSuffix(title, "...") {
+				t.Errorf("title should be shortened with the \"...\" marker, got %q", title)
 			}
 
 			if note == "" {
@@ -1156,7 +1311,7 @@ func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 				t.Errorf("note = %q, want it to name only shortened fields, never exempt identifiers", note)
 			}
 
-			encoded, err := marshalStructured(rows)
+			encoded, err := marshalStructured(kept)
 			if err != nil {
 				t.Fatalf("marshal bounded output: %v", err)
 			}
@@ -1167,18 +1322,15 @@ func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 	}
 }
 
-// TestBoundProjectedListIdentifierOnlyOverflowErrors pins the other half of
-// the identifier exemption: when a page carries nothing shortenable and its
-// identifier content alone overflows the budget, the command must fail with
-// the narrowing error instead of clipping identifiers to fit — and the rows
-// must come back untouched.
-func TestBoundProjectedListIdentifierOnlyOverflowErrors(t *testing.T) {
+// TestBoundProjectedListIdentifierOnlyOverflowReducesPage pins the other half
+// of the identifier exemption: a page carrying nothing shortenable (only
+// identifier content) that overflows the budget is reduced to the leading
+// rows that fit — identifiers stay byte-identical and the note names the
+// emitted count — instead of clipping identifiers or erroring out.
+func TestBoundProjectedListIdentifierOnlyOverflowReducesPage(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
 
-	// Sized so the full rows overflow 512 bytes while rows with ids clipped
-	// to the truncation floor would still fit: the old fair cap "succeeded"
-	// by shipping mangled ids, the exemption must instead refuse.
 	rows := make([]map[string]any, 12)
 	for i := range rows {
 		rows[i] = map[string]any{"incident_id": fmt.Sprintf("%024x", i)}
@@ -1188,13 +1340,31 @@ func TestBoundProjectedListIdentifierOnlyOverflowErrors(t *testing.T) {
 		originals[i] = row["incident_id"].(string)
 	}
 
-	_, err := boundProjectedOutput(rows, 512)
-	if err == nil || !strings.Contains(err.Error(), "request fewer rows") {
-		t.Fatalf("identifier-only overflow error = %v, want bounded guidance", err)
+	bounded, note, err := boundProjectedOutput(rows, 512)
+	if err != nil {
+		t.Fatalf("identifier-only overflow should reduce the page, not error: %v", err)
+	}
+	kept, ok := bounded.([]map[string]any)
+	if !ok {
+		t.Fatalf("bounded output type = %T, want []map[string]any", bounded)
+	}
+	if len(kept) < 1 || len(kept) >= len(rows) {
+		t.Fatalf("emitted %d rows, want a reduced page in [1, %d)", len(kept), len(rows))
 	}
 	for i, row := range rows {
 		if got := row["incident_id"].(string); got != originals[i] {
-			t.Errorf("row %d incident_id was mutated despite the error: got %q, want %q", i, got, originals[i])
+			t.Errorf("row %d incident_id was mutated: got %q, want byte-identical %q", i, got, originals[i])
 		}
+	}
+	wantNote := fmt.Sprintf("emitted %d of %d", len(kept), len(rows))
+	if !strings.Contains(note, wantNote) {
+		t.Fatalf("note = %q, want it to name the emitted count (%q)", note, wantNote)
+	}
+	encoded, err := marshalStructured(kept)
+	if err != nil {
+		t.Fatalf("marshal bounded output: %v", err)
+	}
+	if len(encoded)+1 >= 512 {
+		t.Fatalf("bounded output is %d bytes, want <512", len(encoded)+1)
 	}
 }

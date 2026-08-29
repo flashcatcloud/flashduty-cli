@@ -1705,24 +1705,22 @@ func TestCommandAlertListStructuredAnnouncesTruncation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCommandListProjectionOverflowFails pins that a compact list projection
-// which cannot fit the byte budget fails the command instead of emitting
-// anything: Execute returns the error and stdout stays empty, so a pipeline
-// reading stdout sees a failed call, never an empty page masquerading as
-// "no data".
+// which cannot fit the byte budget at all — a single row that overflows on
+// its own and carries nothing shortenable — fails the command instead of
+// emitting anything: Execute returns the error and stdout stays empty, so a
+// pipeline reading stdout sees a failed call, never an empty page
+// masquerading as "no data". (A multi-row page that overflows is instead
+// reduced to the leading rows that fit — see
+// TestAlertEventListAutoReducesPageAtLargeLimit.)
 func TestCommandListProjectionOverflowFails(t *testing.T) {
 	t.Run("incident list", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		stub := newGFStub(t)
-		items := make([]any, 100)
-		for i := range items {
-			row := incidentRow()
-			row["incident_id"] = fmt.Sprintf("inc-%024d", i)
-			row["title"] = strings.Repeat("x", 200)
-			items[i] = row
-		}
-		stub.data = map[string]any{"items": items, "total": len(items)}
+		row := incidentRow()
+		row["labels"] = map[string]any{"payload": strings.Repeat("x", 20000)}
+		stub.data = map[string]any{"items": []any{row}, "total": 1}
 
-		out, stderrText, err := execCommandSplit("incident", "list", "--limit", "100", "--output-format", "json")
+		out, stderrText, err := execCommandSplit("incident", "list", "--fields", "incident_id,labels", "--output-format", "json")
 		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
 			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
 		}
@@ -1737,20 +1735,18 @@ func TestCommandListProjectionOverflowFails(t *testing.T) {
 	t.Run("alert-event list", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		stub := newGFStub(t)
-		items := make([]any, 100)
-		for i := range items {
-			items[i] = map[string]any{
-				"event_id":       fmt.Sprintf("%024x", i),
-				"alert_id":       fmt.Sprintf("%024x", i+1_000_000),
-				"event_severity": "Warning",
-				"event_status":   "Triggered",
-				"event_time":     1712000000 + i,
-				"title":          strings.Repeat("x", 200),
-			}
+		row := map[string]any{
+			"event_id":       fmt.Sprintf("%024x", 1),
+			"alert_id":       fmt.Sprintf("%024x", 1_000_001),
+			"event_severity": "Warning",
+			"event_status":   "Triggered",
+			"event_time":     1712000000,
+			"title":          "disk full",
+			"labels":         map[string]any{"payload": strings.Repeat("x", 20000)},
 		}
-		stub.data = map[string]any{"items": items, "total": len(items)}
+		stub.data = map[string]any{"items": []any{row}, "total": 1}
 
-		out, _, err := execCommandSplit("alert-event", "list", "--limit", "100", "--output-format", "json")
+		out, _, err := execCommandSplit("alert-event", "list", "--fields", "event_id,labels", "--output-format", "json")
 		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
 			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
 		}

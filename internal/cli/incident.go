@@ -137,12 +137,17 @@ func newIncidentListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
-					noteProjectionShortening(cmd.ErrOrStderr(), note)
-					return ctx.PrintList(proj, nil, len(result.Items), page, limit, int(result.Total))
+					proj = bounded.([]map[string]any)
+					noteProjectionBound(cmd.ErrOrStderr(), note)
+					effectiveLimit := limit
+					if len(proj) < len(result.Items) {
+						effectiveLimit = len(proj)
+					}
+					return ctx.PrintList(proj, nil, len(proj), page, effectiveLimit, int(result.Total))
 				}
 
 				return ctx.PrintList(result.Items, incidentColumns(), len(result.Items), page, limit, int(result.Total))
@@ -633,11 +638,12 @@ func newIncidentSimilarCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
-					noteProjectionShortening(cmd.ErrOrStderr(), note)
+					proj = bounded.([]map[string]any)
+					noteProjectionBound(cmd.ErrOrStderr(), note)
 					return ctx.Printer.Print(proj, nil)
 				}
 
@@ -647,7 +653,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 5, "Max results")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary. Long strings are truncated as needed to keep structured output below 16 KiB.")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
 	return cmd
 }
 
@@ -1607,11 +1613,11 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						note, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
+						_, note, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
 						if err != nil {
 							return err
 						}
-						noteProjectionShortening(cmd.ErrOrStderr(), note)
+						noteProjectionBound(cmd.ErrOrStderr(), note)
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)

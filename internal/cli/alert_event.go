@@ -97,12 +97,17 @@ func newAlertEventListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
-					noteProjectionShortening(cmd.ErrOrStderr(), note)
-					return ctx.PrintList(proj, nil, len(result.Items), page, limit, int(result.Total))
+					proj = bounded.([]map[string]any)
+					noteProjectionBound(cmd.ErrOrStderr(), note)
+					effectiveLimit := limit
+					if len(proj) < len(result.Items) {
+						effectiveLimit = len(proj)
+					}
+					return ctx.PrintList(proj, nil, len(proj), page, effectiveLimit, int(result.Total))
 				}
 
 				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
@@ -119,7 +124,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. Long strings are truncated as needed to keep structured output below 16 KiB.")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
 
 	return cmd
 }
