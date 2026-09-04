@@ -8,6 +8,7 @@ import "github.com/spf13/cobra"
 // from root.go init() after curated commands so curated leaves win on conflict.
 func registerGenerated(root *cobra.Command) {
 	registerGeneratedA2aAgents(root)
+	registerGeneratedArtifacts(root)
 	registerGeneratedAutomations(root)
 	registerGeneratedKnowledge(root)
 	registerGeneratedMcpServers(root)

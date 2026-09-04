@@ -154,6 +154,12 @@ Create status page
 Delete status page
 - `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 
+### draft-create
+Create status page draft
+- `--source` string — Opaque marker of the drafting origin, e.g. 'ai_sre:sess_xxx'. Up to 64 characters. (≤64 chars)
+- body-only (`--data`): draft (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: created_at (string); draft_id (string)
+
 ### info <page-id>
 Get status page detail
 - `<page-id>` (positional, required) int64 — Status page ID.

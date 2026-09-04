@@ -105,6 +105,69 @@ Update A2A agent
 - `--team-id` int64 — Reassign team scope. Omit to leave unchanged. Reassigning requires rights on the destination team; if the team changes without also sending a new environment binding, the existing runner binding must remain selectable by the caller or the update is rejected.
 - body-only (`--data`): auth_config (object)
 
+### artifact-gallery-delete <artifact-id>
+Remove artifact from gallery
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+
+### artifact-gallery-file-state <file-id> [<id2>...]
+Get file publish state
+- `<file-ids>` (positional, required) stringSlice — Presented-file IDs ('pf_' prefix) to probe. At most 50 per call; duplicates and empty strings are ignored.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: artifact_id (string); file_id (string); gallery_path (string); title (string)
+
+### artifact-gallery-get <artifact-id>
+Get artifact detail
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+- response: single object (`data` unwrapped to the top level) — fields: artifact_id (string); can_edit (boolean); content_type (string); created_at (string); creator_name (string); file_id (string); is_mine (boolean); name (string); person_id (integer); public_url (string); session_id (string); session_title (string); share_enabled (boolean); share_file_id (string); shared_at (string); shared_by (integer); size (integer); team_id (integer); team_name (string); title (string); updated_at (string)
+
+### artifact-gallery-list
+List artifacts
+- `--asc` bool — Sort ascending when true, descending when false. Applies only when 'orderby' is set.
+- `--limit` int64 — Page size. Defaults to 20; capped at 100. (max 100)
+- `--orderby` string — Sort field: 'created_at' or 'updated_at'. Empty means 'updated_at' descending. · enum: created_at | updated_at
+- `--page` int64 — Page number, 1-based. (min 1)
+- `--query` string — Case-insensitive substring match on the artifact title.
+- `--scope` string — Visibility scope. 'all' (default) lists the caller's own personal artifacts plus artifacts of every team the caller belongs to; 'personal' lists only the caller's own; 'team' lists only team-owned artifacts of the caller's teams. · enum: all | personal | team
+- `--team-ids` intSlice — Restrict to artifacts owned by these team IDs, intersected with the caller's visibility — teams the caller does not belong to silently return nothing.
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: artifact_id (string); can_edit (boolean); content_type (string); created_at (string); creator_name (string); file_id (string); is_mine (boolean); name (string); person_id (integer); public_url (string); session_id (string); session_title (string); share_enabled (boolean); share_file_id (string); shared_at (string); shared_by (integer); size (integer); team_id (integer); team_name (string); title (string); updated_at (string)
+
+### artifact-gallery-publish-from-file <file-id>
+Publish file as artifact
+- `<file-id>` (positional, required) string — Presented-file ID ('pf_' prefix) of a file produced in a session, as shown on the file card in chat.
+- `--title` string (required) — Gallery display title. Trimmed; must be non-empty.
+- response: single object (`data` unwrapped to the top level) — fields: artifact_id (string); gallery_path (string); title (string)
+
+### artifact-gallery-share-enable <artifact-id>
+Enable public sharing
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+- response: single object (`data` unwrapped to the top level) — fields: artifact_id (string); public_url (string); share_enabled (boolean); shared_at (string); shared_by (integer)
+
+### artifact-gallery-share-revoke <artifact-id>
+Revoke public sharing
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+
+### artifact-gallery-share-sync <artifact-id>
+Update shared snapshot
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+- response: same shape as `artifact-gallery-share-enable <artifact-id>` above
+
+### artifact-gallery-update <artifact-id>
+Update artifact
+- `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
+- `--team-id` int64 — Transfer target scope. '0' moves the artifact to personal scope (only the creator can manage it); a positive value moves it to a team the caller must belong to. Omit to leave unchanged.
+- `--title` string — New title. Trimmed; must be non-empty when provided. Omit to leave unchanged.
+- response: same shape as `artifact-gallery-get <artifact-id>` above
+
+### artifact-sign <file-id>
+Create signed file URLs
+- `<file-id>` (positional, required) string — Presented-file ID ('pf_' prefix) to sign.
+- `--share-token` string — Optional session share-link token. Needed only when the caller reaches the file through a shared session link rather than account membership.
+- response: single object (`data` unwrapped to the top level) — fields: content_type (string); download_url (string); expires_in (integer); name (string); preview_url (string); size (integer)
+
+### artifact-stream
+Download or preview a file
+- `--mode` string — 'download' (default) serves the file as an attachment; 'preview' serves it inline for browser display. Any other value falls back to 'download'. · enum: download | preview
+- `--t` string (required) — Signed token issued by 'POST /safari/artifact/sign'. Bound to the calling account and person; valid for 5 minutes.
+
 ### automation-rule-create
 Create Automation rule
 - `--cron-expr` string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
