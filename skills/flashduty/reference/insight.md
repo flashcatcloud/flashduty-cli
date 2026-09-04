@@ -227,6 +227,7 @@ List insight incidents
 
 ### incidents
 Query incidents with performance metrics
+- `--fields` string
 - `--limit` int
 - `--page` int
 - `--since` string
