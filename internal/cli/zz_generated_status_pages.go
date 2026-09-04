@@ -1114,6 +1114,55 @@ Request fields:
 	return cmd
 }
 
+func genStatusPagesDraftCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fSource string
+	cmd := &cobra.Command{
+		Use:   "draft-create",
+		Short: "Create status page draft",
+		Long: `Create status page draft.
+
+Store a status page event draft so a human can review and publish it from the console.
+
+API: POST /status-page/draft/create (statusPageDraftCreate)
+
+Request fields:
+  --source string — Opaque marker of the drafting origin, e.g. 'ai_sre:sess_xxx'. Up to 64 characters. (≤64 chars)
+  draft (object, via --data) (required) — Draft payload, stored verbatim, up to 64 KB serialized. Validated fields: 'page_id', 'type' ('incident' or 'maintenance'), 'name', 'message'; optional 'change_id' (append an update to an existing event when > 0), 'status', 'affected_components', and 'start_time'/'end_time' (Unix epoch seconds, new maintenance only).
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - created_at (string) (required) — Creation time in Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - draft_id (string) (required) — Draft ID matching 'draft_[A-Za-z0-9]{22}'; the console review link carries it.
+`,
+		Example: `  flashduty status-page draft-create --data '{"draft":{"affected_components":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}],"message":"We are investigating degraded performance affecting the web console.","name":"Web Console Degraded Performance","page_id":5750613685214,"type":"incident","v":1},"source":"ai_sre:sess_01KC3H2A9ZQ8W7E6R5T4Y3U2I1"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("source") {
+						body["source"] = fSource
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CreateStatusPageDraftRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.DraftCreate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fSource, "source", "", "Opaque marker of the drafting origin, e.g. 'ai_sre:sess_xxx'. Up to 64 characters. (≤64 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genStatusPagesInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fPageID int64
@@ -2105,6 +2154,7 @@ func registerGeneratedStatusPages(root *cobra.Command) {
 	genAddLeaf(gStatusPage, genStatusPagesComponentUpsertCmd())
 	genAddLeaf(gStatusPage, genStatusPagesCreateCmd())
 	genAddLeaf(gStatusPage, genStatusPagesDeleteCmd())
+	genAddLeaf(gStatusPage, genStatusPagesDraftCreateCmd())
 	genAddLeaf(gStatusPage, genStatusPagesInfoCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateEmailSubscribersCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateStructureCmd())
