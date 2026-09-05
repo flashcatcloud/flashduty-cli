@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
@@ -320,14 +322,175 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 
 // printGenericResult renders a generated command's typed response. In
 // machine-readable mode (TOON/JSON) it marshals the whole value — which is what
-// the agent reads. In human (table) mode it derives an aligned table by
-// reflection (renderGenericTable), since generated commands carry no hand-written
-// column set; anything that isn't a list or object falls back to indented JSON.
+// the agent reads. A list-shaped response (a top-level array of objects, or an
+// items/docs/list page envelope whose other fields are scalar pagination
+// metadata) that overflows compactListOutputLimit is first bounded to the
+// leading rows that fit via boundProjectedList, with the reduction announced on
+// stderr; a payload that fits, and any detail-shaped single object, prints
+// untouched. In human (table) mode it derives an aligned table by reflection
+// (renderGenericTable), since generated commands carry no hand-written column
+// set; anything that isn't a list or object falls back to indented JSON.
 func printGenericResult(ctx *RunContext, data any) error {
 	if ctx.Structured() {
-		return ctx.Printer.Print(data, nil)
+		return printBoundedGenericResult(ctx, data)
 	}
 	return renderGenericTable(ctx, data)
+}
+
+// printBoundedGenericResult is printGenericResult's structured-mode half. The
+// under-cap fast path is the pre-bound behavior verbatim — same printer call,
+// byte-identical output. Only an over-cap list payload detours through the
+// bounding machinery, and only there does the output change (fewer rows; a
+// rebuilt envelope, so key order is no longer the struct's field order).
+func printBoundedGenericResult(ctx *RunContext, data any) error {
+	encoded, err := marshalStructured(data)
+	if err != nil || len(encoded)+1 < compactListOutputLimit {
+		// Fits the budget (or cannot be measured, in which case the printer
+		// surfaces the same marshal error): emit untouched.
+		return ctx.Printer.Print(data, nil)
+	}
+
+	generic, err := genericStructured(data)
+	if err != nil {
+		return ctx.Printer.Print(data, nil)
+	}
+
+	switch value := generic.(type) {
+	case []any:
+		rows, ok := objectRows(value)
+		if !ok {
+			return ctx.Printer.Print(data, nil)
+		}
+		bounded, note, err := boundProjectedList(rows, compactListOutputLimit)
+		if err != nil {
+			return err
+		}
+		noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+		return ctx.Printer.Print(bounded, nil)
+	case map[string]any:
+		key, ok := listEnvelopeKey(value)
+		if !ok {
+			// Detail-shaped single object: never bounded, never errored — a
+			// shortened id or status would pass for a real value.
+			return ctx.Printer.Print(data, nil)
+		}
+		rows, ok := objectRows(value[key].([]any))
+		if !ok {
+			return ctx.Printer.Print(data, nil)
+		}
+		// boundProjectedList sizes the rows standalone, but printed inside the
+		// envelope they share the budget with the pagination siblings (and, in
+		// indented JSON, sit one indent level deeper). Fit against the full
+		// limit, then re-fit with the observed envelope overhead subtracted
+		// until the whole payload is under it.
+		budget := compactListOutputLimit
+		for {
+			bounded, note, err := boundProjectedList(rows, budget)
+			if err != nil {
+				return err
+			}
+			value[key] = bounded
+			out, err := marshalStructured(value)
+			if err != nil {
+				return err
+			}
+			if len(out)+1 < compactListOutputLimit {
+				noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+				return ctx.Printer.Print(value, nil)
+			}
+			budget -= len(out) + 2 - compactListOutputLimit
+		}
+	default:
+		return ctx.Printer.Print(data, nil)
+	}
+}
+
+// genericStructured decodes data through its JSON encoding into plain
+// maps/slices/scalars, so the list-bounding machinery can walk rows of any SDK
+// response type. Numbers decode as json.Number first (UseNumber) and are then
+// narrowed by narrowNumbers: decoding straight to float64 would round integer
+// IDs above 2^53 (channel_id, team_id, …) in the bounded output. Unset SDK
+// timestamps go in as null (NullUnsetInstants), matching what the printer
+// would have emitted for the unbounded payload.
+func genericStructured(data any) (any, error) {
+	raw, err := json.Marshal(output.NullUnsetInstants(data))
+	if err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var generic any
+	if err := dec.Decode(&generic); err != nil {
+		return nil, err
+	}
+	return narrowNumbers(generic), nil
+}
+
+// narrowNumbers rewrites every json.Number in a decoded generic value to its
+// int64 form when the literal is an integer (exact for IDs beyond 2^53), else
+// float64 — both encoders (JSON and TOON) render those natively.
+func narrowNumbers(value any) any {
+	switch v := value.(type) {
+	case json.Number:
+		if i, err := v.Int64(); err == nil {
+			return i
+		}
+		if f, err := v.Float64(); err == nil {
+			return f
+		}
+		return v.String()
+	case map[string]any:
+		for key, item := range v {
+			v[key] = narrowNumbers(item)
+		}
+		return v
+	case []any:
+		for i, item := range v {
+			v[i] = narrowNumbers(item)
+		}
+		return v
+	default:
+		return value
+	}
+}
+
+// listEnvelopeKey reports whether value is a paginated list envelope — exactly
+// one array field named items/docs/list with only scalar siblings (total,
+// has_next_page, search_after_ctx, …) — and returns the row array's key. It
+// mirrors cligen's listEnvelope (internal/cmd/cligen), which classifies the
+// same shape when generating these commands.
+func listEnvelopeKey(value map[string]any) (string, bool) {
+	key := ""
+	for name, field := range value {
+		_, isArray := field.([]any)
+		if isArray && (name == "items" || name == "docs" || name == "list") {
+			if key != "" {
+				return "", false // two candidate row arrays: not a flat list envelope
+			}
+			key = name
+			continue
+		}
+		switch field.(type) {
+		case map[string]any, []any:
+			return "", false // non-scalar sibling: a richer response, not a flat list
+		}
+	}
+	return key, key != ""
+}
+
+// objectRows converts a decoded JSON array to rows for boundProjectedList. ok
+// is false when any element is not an object: an array of scalars has no row
+// fields to bound and prints unbounded instead.
+func objectRows(items []any) ([]map[string]any, bool) {
+	rows := make([]map[string]any, len(items))
+	for i, item := range items {
+		row, ok := item.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		rows[i] = row
+	}
+	return rows, true
 }
 
 // genParseTimeFlag parses a relative-or-absolute time flag into unix seconds,
