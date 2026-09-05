@@ -65,7 +65,7 @@ Some asks span several commands. For those the skill ships a script that fetches
 
 | intent / 意图 (terms route in either language) | card |
 |---|---|
-| incident / fault / 故障 / 事件 / triage 分诊 / acknowledge 认领 / merge 合并 / escalate 升级 / **summarize or analyze an incident 故障汇总分析** | **`reference/incident.md`** |
+| incident / fault / 故障 / 事件 / triage 分诊 / acknowledge 认领 / merge 合并 / escalate 升级 / **summarize or analyze an incident 故障汇总分析** / raw notification feed 通知明细 (per-event, via `timeline` `i_notify` entries — not aggregates) | **`reference/incident.md`** |
 | post-mortem / postmortem 复盘 / 复盘报告 / 复盘模板 / post-incident review / RCA report | **`reference/postmortem.md`** |
 | alert / 告警 / dedup 去重 / alert fields 告警字段 / alert pipeline 告警管道 | **`reference/alert.md`** |
 | change / 变更 / deployment 部署 / release 发布 / correlated change 变更关联 / what changed | **`reference/change.md`** |
@@ -81,7 +81,8 @@ Some asks span several commands. For those the skill ships a script that fetches
 | dispatch rule 分派策略 / 分派规则 / escalation rule 升级规则 / notify layers 通知层级 / who gets paged | **`reference/escalation.md`** |
 | silence 静默 / 屏蔽 / inhibit 抑制 / drop rule 丢弃 / noise reduction 降噪 / maintenance silence 维护窗口静默 | **`reference/noise.md`** |
 | enrichment / 数据加工 / 富化 / label mapping 字段映射 / extraction 提取 / mapping schema 集成 schema | **`reference/enrichment.md`** |
-| insight / 洞察 / stats 统计 / trend 趋势 / MTTA / MTTR / top alerts Top 告警 / incident export 故障导出 | **`reference/insight.md`** |
+| insight / 洞察 / stats 统计 / trend 趋势 / MTTA / MTTR / top alerts Top 告警 / incident export 故障导出 / notification volume 通知量 (aggregated metrics — not the raw per-event feed) | **`reference/insight.md`** |
+| per-person notification counts 通知次数 (how many notifications a person received) | **`reference/insight.md`** (`insight responder` → `total_notifications`); per-person delivery outcome detail → `incident timeline` `i_notify` entries (`person_id` + `failed_reason` only — there is no answer/接通 field) |
 | schedule / on-call / 值班 / 排班 / rotation 轮值 / who is on call 谁在值班 / shift 班次 / next responder 下一班 | **`reference/schedule.md`** |
 | calendar / 日历 / on-call calendar 值班日历 / calendar event 日历事件 / holiday 休假 | **`reference/calendar.md`** |
 | template / 通知模板 / message template 消息模板 / card template 卡片模板 | **`reference/template.md`** |
@@ -94,5 +95,6 @@ Some asks span several commands. For those the skill ships a script that fetches
 | sourcemap / source map / source mapping / symbolication / deobfuscate / stack enrich / dSYM / miniprogram source map | **`reference/sourcemap.md`** |
 | status page / 状态页 / public incident 公开事件 / public timeline 公开时间线 / maintenance window 维护窗口 / subscriber 订阅者 | **`reference/status-page.md`** |
 | AI-SRE platform / customize / 安装配置 MCP server (connector) 连接器 / install mcp / skill upload 上传技能 / A2A agent / session export 会话导出 | **`reference/safari.md`** |
+| usage / quota / billing 额度 / 用量 / 计费 — route per product | RUM session usage/quota → **`reference/rum.md`** §resource-info (`free_cnt`/`used_cnt`, `session_limit_reached`, billing window); AI-SRE token usage → **`reference/safari.md`** `session-list` (items carry `token_usage`, the account-billing source of truth); anything else (e.g. 语音通知额度) → **no CLI verb** — point to the console 费用中心, do NOT sweep `--help` |
 
 Shared reference: `reference/filters.md` — read it before composing any `filters` / `source_filters` / `target_filters` value (silence / inhibit / drop / escalation rules); it carries the condition shape, operators, and the valid key set per rule family.

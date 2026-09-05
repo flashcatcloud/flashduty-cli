@@ -6,6 +6,8 @@ Prereq: `SKILL.md` read. All `insight` verbs are **read-only** — no mutations,
 
 "噪声治理 / 高频告警 / MTTA / MTTR / 绩效复盘 / 月报 / SRE review / noise reduction / alert fatigue / who responds fastest / channel performance / team metrics / incident export / CSV export" → **insight**.
 
+"per-person notification counts / 通知次数 / 通知量 (how many notifications did a person receive)" → **insight responder** (`total_notifications`); per-person delivery outcome detail lives in `incident timeline` `i_notify` entries (`person_id` + `failed_reason` only — no answer/接通 field), not here.
+
 Do **not** hand-aggregate from `alert list` / `incident list` — `insight` does server-side aggregation and gives authoritative numbers. Key IDs you may need: `--team-ids` and `--channel-ids` from `fduty channel list` or `fduty team list`; `--responder-ids` from `fduty member list`.
 
 ## Intent → verb
@@ -227,6 +229,7 @@ List insight incidents
 
 ### incidents
 Query incidents with performance metrics
+- `--fields` string
 - `--limit` int
 - `--page` int
 - `--since` string
