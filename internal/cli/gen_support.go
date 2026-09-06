@@ -113,8 +113,20 @@ func genAssembleBody(dataFlag string, setFlags func(body map[string]any) error) 
 	}
 	body := map[string]any{}
 	if dataJSON != "" {
-		if err := json.Unmarshal([]byte(dataJSON), &body); err != nil {
+		// Preserve integers inside datasource tool params (e.g. MongoDB
+		// filters) until the typed SDK binds them. float64 would silently
+		// round values above 2^53 before RawMessage can preserve the payload.
+		decoder := json.NewDecoder(strings.NewReader(dataJSON))
+		decoder.UseNumber()
+		if err := decoder.Decode(&body); err != nil {
 			return nil, fmt.Errorf("invalid --data JSON: %w", err)
+		}
+		var extra any
+		if err := decoder.Decode(&extra); err != io.EOF {
+			return nil, fmt.Errorf("invalid --data JSON: expected one JSON object")
+		}
+		if body == nil {
+			return nil, fmt.Errorf("invalid --data JSON: expected an object")
 		}
 	}
 	if err := setFlags(body); err != nil {
@@ -331,6 +343,11 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 // (renderGenericTable), since generated commands carry no hand-written column
 // set; anything that isn't a list or object falls back to indented JSON.
 func printGenericResult(ctx *RunContext, data any) error {
+	var err error
+	data, err = datasourceToolOutput(data, currentOutputFormat())
+	if err != nil {
+		return err
+	}
 	if ctx.Structured() {
 		return printBoundedGenericResult(ctx, data)
 	}
@@ -557,4 +574,13 @@ func genAddLeaf(parent *cobra.Command, leaf *cobra.Command) {
 		}
 	}
 	parent.AddCommand(leaf)
+}
+
+// genRejectNullField retains the backend distinction between an omitted
+// presence-sensitive field and an explicitly invalid null before SDK binding.
+func genRejectNullField(body map[string]any, field string) error {
+	if value, present := body[field]; present && value == nil {
+		return fmt.Errorf("%s must not be null", field)
+	}
+	return nil
 }

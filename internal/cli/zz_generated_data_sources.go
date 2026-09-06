@@ -16,7 +16,7 @@ func genDataSourcesReadInfoCmd() *cobra.Command {
 		Short: "Get datasource detail",
 		Long: `Get datasource detail.
 
-Retrieve full details of a single data source by its ID, including the 'payload' configuration with its configured connection and authentication settings; treat the response as sensitive and avoid logging or forwarding it.
+Retrieve full details of a single data source by its ID, including the 'payload' configuration with its configured connection and authentication settings; treat the response as sensitive and avoid logging or forwarding it. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
 
 API: POST /monit/datasource/info (monit-datasource-read-info)
 
@@ -25,14 +25,15 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  - enabled (boolean) (required) — Whether the datasource is active.
+  - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
   - id (integer) (required) — Unique datasource ID.
   - name (string) (required) — Datasource display name.
   - note (string) (required) — Optional description.
-  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
+  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-info --data '{"id":10}'`,
@@ -72,23 +73,24 @@ func genDataSourcesReadListCmd() *cobra.Command {
 		Short: "List datasources",
 		Long: `List datasources.
 
-Return all data sources for the current account. Optionally filter by 'type_ident'.
+Return all data sources for the current account. Optionally filter by 'type_ident'. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
 
 API: POST /monit/datasource/list (monit-datasource-read-list)
 
 Request fields:
-  --type string — Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
+  --type string — Datasource type identifier. Omit to return all types. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  - enabled (boolean) (required) — Whether the datasource is active.
+  - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
   - id (integer) (required) — Unique datasource ID.
   - name (string) (required) — Datasource display name.
   - note (string) (required) — Optional description.
-  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
+  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-list --data '{"type":"prometheus"}'`,
@@ -115,7 +117,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fType, "type", "", "Filter by datasource type identifier. Omit to return all types. Allowed values: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.")
+	cmd.Flags().StringVar(&fType, "type", "", "Datasource type identifier. Omit to return all types. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -258,9 +260,79 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genDataSourcesToolsInvokeCmd() *cobra.Command {
+	var dataJSON string
+	var fAccountID int64
+	var fDatasourceID int64
+	var fTool string
+	cmd := &cobra.Command{
+		Use:   "datasource-tools-invoke <datasource-id>",
+		Short: "Invoke datasource tool",
+		Long: `Invoke datasource tool.
+
+Execute one deterministic tool against a configured datasource. Requires all currently online routable Edge sessions in the cluster to support the v0.71.0 base invoke protocol; individual tools may require a newer implementation. No tool catalog, automatic replay, or fallback to Agent/legacy diagnose. Request body limit 128 KiB; complete success response limit 1 MiB; tool timeout at most 25 seconds.
+
+API: POST /monit/datasource/tools/invoke (monit-datasource-tools-invoke)
+
+Request fields:
+  --account-id int — Optional consistency check; must equal the authenticated account.
+  --datasource-id int (required) — Datasource ID from /monit/datasource/list. (min 1)
+  --tool string (required) — Single tool name prefixed by the datasource type, e.g. mysql.overview. Free SQL uses /monit/query/data; mysql.query and postgres.query are unsupported. (1-128 chars)
+  params (object, via --data) — Tool-specific JSON parameters; omitted means {}. Explicit null is invalid.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - data (any) (required) — Tool-specific JSON evidence, preserved without conversion; never null. No nested legacy diagnose envelope.
+  - datasource_id (integer) (required) — Datasource ID from /monit/datasource/list. (min 1)
+  - summary (string) — Optional non-empty summary.
+  - tool (string) (required) — Executed tool name matching the request.
+  - truncated (object)
+    - reason (string) (required) — Why the result was truncated. Presence of this object indicates truncation.
+`,
+		Args:    requireBodyFieldOrExactArg("datasource_id", "datasource-id"),
+		Example: `  flashduty monit datasource-tools-invoke --data '{"datasource_id":10,"params":{},"tool":"mysql.overview"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "datasource_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("account-id") {
+						body["account_id"] = fAccountID
+					}
+					if cmd.Flags().Changed("datasource-id") {
+						body["datasource_id"] = fDatasourceID
+					}
+					if cmd.Flags().Changed("tool") {
+						body["tool"] = fTool
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.DatasourceToolInvokeRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.DataSources.ToolsInvoke(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check; must equal the authenticated account.")
+	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Datasource ID from /monit/datasource/list. (required) (min 1)")
+	cmd.Flags().StringVar(&fTool, "tool", "", "Single tool name prefixed by the datasource type, e.g. mysql.overview. Free SQL uses /monit/query/data; mysql.query and postgres.query are unsupported. (required) (1-128 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genDataSourcesWriteCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fAddress string
+	var fAlertingEnabled bool
 	var fEdgeClusterName string
 	var fEnabled bool
 	var fID int64
@@ -272,19 +344,20 @@ func genDataSourcesWriteCreateCmd() *cobra.Command {
 		Short: "Create datasource",
 		Long: `Create datasource.
 
-Create a new monitoring data source. The 'payload' must include the type-specific configuration block.
+Create a new monitoring data source. The 'payload' must include the type-specific configuration block. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
 
 API: POST /monit/datasource/create (monit-datasource-write-create)
 
 Request fields:
-  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0).
+  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  --alerting-enabled bool — Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  --enabled bool — Whether the datasource is enabled for rule evaluation. When omitted on create, the datasource is created disabled ('false').
+  --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
   --id int — Datasource ID. Required for update; omit for create.
   --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
   --note string — Optional description.
-  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
-  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
+  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
@@ -314,6 +387,19 @@ Request fields:
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
+    - kafka (object) — Diagnostic datasource connection configuration.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - sasl_mechanism (string) — SASL mechanism: none (default, no credentials), plain, scram-sha-256, scram-sha-512 (require username and password). [none, plain, scram-sha-256, scram-sha-512]
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 5000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_cert (string) — PEM client certificate or ${env:NAME}; configure both tls_cert and tls_key.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_key (string) — PEM client private key or ${env:NAME}; configure both tls_cert and tls_key. Omit on update to preserve; an empty string clears it. Literal keys are omitted from responses.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
@@ -327,6 +413,28 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+    - mongodb_mongod (object) — Diagnostic datasource connection configuration.
+      - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
+    - mongodb_mongos (object) — Diagnostic datasource connection configuration.
+      - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
@@ -374,6 +482,15 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+    - redis_node (object) — Diagnostic datasource connection configuration.
+      - database (integer) — Redis database number; defaults to 0. (min 0)
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
+    - redis_sentinel (object) — Diagnostic datasource connection configuration.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
@@ -397,14 +514,15 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  - enabled (boolean) (required) — Whether the datasource is active.
+  - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
   - id (integer) (required) — Unique datasource ID.
   - name (string) (required) — Datasource display name.
   - note (string) (required) — Optional description.
-  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
+  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-create --data '{"address":"http://prometheus.example.com:9090","edge_cluster_name":"default","name":"Prometheus Prod","note":"Production Prometheus","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
@@ -413,6 +531,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("address") {
 						body["address"] = fAddress
+					}
+					if cmd.Flags().Changed("alerting-enabled") {
+						body["alerting_enabled"] = fAlertingEnabled
 					}
 					if cmd.Flags().Changed("edge-cluster-name") {
 						body["edge_cluster_name"] = fEdgeClusterName
@@ -437,6 +558,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genRejectNullField(body, "alerting_enabled"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "enabled"); err != nil {
+					return err
+				}
 				req := new(flashduty.DataSourceUpsertRequest)
 				if err := genBindBody(body, req); err != nil {
 					return err
@@ -449,13 +576,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0).")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)")
+	cmd.Flags().BoolVar(&fAlertingEnabled, "alerting-enabled", false, "Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the datasource is enabled for rule evaluation. When omitted on create, the datasource is created disabled ('false').")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -511,6 +639,7 @@ Request fields:
 func genDataSourcesWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fAddress string
+	var fAlertingEnabled bool
 	var fEdgeClusterName string
 	var fEnabled bool
 	var fID int64
@@ -522,19 +651,20 @@ func genDataSourcesWriteUpdateCmd() *cobra.Command {
 		Short: "Update datasource",
 		Long: `Update datasource.
 
-Update an existing data source. Supply 'id' plus the fields to change.
+Update an existing data source. Supply 'id' plus the fields to change. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
 
 API: POST /monit/datasource/update (monit-datasource-write-update)
 
 Request fields:
-  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0).
+  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  --alerting-enabled bool — Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  --enabled bool — Whether the datasource is enabled for rule evaluation. When omitted on create, the datasource is created disabled ('false').
+  --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
   --id int — Datasource ID. Required for update; omit for create.
   --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
   --note string — Optional description.
-  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
-  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'.
+  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
     - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
@@ -564,6 +694,19 @@ Request fields:
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
+    - kafka (object) — Diagnostic datasource connection configuration.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - sasl_mechanism (string) — SASL mechanism: none (default, no credentials), plain, scram-sha-256, scram-sha-512 (require username and password). [none, plain, scram-sha-256, scram-sha-512]
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 5000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_cert (string) — PEM client certificate or ${env:NAME}; configure both tls_cert and tls_key.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_key (string) — PEM client private key or ${env:NAME}; configure both tls_cert and tls_key. Omit on update to preserve; an empty string clears it. Literal keys are omitted from responses.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
@@ -577,6 +720,28 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+    - mongodb_mongod (object) — Diagnostic datasource connection configuration.
+      - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
+    - mongodb_mongos (object) — Diagnostic datasource connection configuration.
+      - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
+      - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
+      - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
+      - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
@@ -624,6 +789,15 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
+    - redis_node (object) — Diagnostic datasource connection configuration.
+      - database (integer) — Redis database number; defaults to 0. (min 0)
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
+    - redis_sentinel (object) — Diagnostic datasource connection configuration.
+      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+      - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
+      - username (string) — Authentication username; an ${env:NAME} reference is supported.
     - sls (object) — Alibaba Cloud SLS datasource configuration.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
@@ -647,14 +821,15 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix.
+  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
-  - enabled (boolean) (required) — Whether the datasource is active.
+  - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
   - id (integer) (required) — Unique datasource ID.
   - name (string) (required) — Datasource display name.
   - note (string) (required) — Optional description.
-  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'.
+  - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
+  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-update --data '{"address":"http://prometheus-v2.example.com:9090","edge_cluster_name":"default","id":10,"name":"Prometheus Prod v2","note":"Updated","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
@@ -663,6 +838,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("address") {
 						body["address"] = fAddress
+					}
+					if cmd.Flags().Changed("alerting-enabled") {
+						body["alerting_enabled"] = fAlertingEnabled
 					}
 					if cmd.Flags().Changed("edge-cluster-name") {
 						body["edge_cluster_name"] = fEdgeClusterName
@@ -687,6 +865,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genRejectNullField(body, "alerting_enabled"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "enabled"); err != nil {
+					return err
+				}
 				req := new(flashduty.DataSourceUpsertRequest)
 				if err := genBindBody(body, req); err != nil {
 					return err
@@ -699,13 +883,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0).")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)")
+	cmd.Flags().BoolVar(&fAlertingEnabled, "alerting-enabled", false, "Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.")
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the datasource is enabled for rule evaluation. When omitted on create, the datasource is created disabled ('false').")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
 	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs'. (required)")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -716,6 +901,7 @@ func registerGeneratedDataSources(root *cobra.Command) {
 	genAddLeaf(gMonit, genDataSourcesReadListCmd())
 	genAddLeaf(gMonit, genDataSourcesReadSLSLogstoresCmd())
 	genAddLeaf(gMonit, genDataSourcesReadSLSProjectsCmd())
+	genAddLeaf(gMonit, genDataSourcesToolsInvokeCmd())
 	genAddLeaf(gMonit, genDataSourcesWriteCreateCmd())
 	genAddLeaf(gMonit, genDataSourcesWriteDeleteCmd())
 	genAddLeaf(gMonit, genDataSourcesWriteUpdateCmd())

@@ -8,7 +8,7 @@ import (
 )
 
 func newMonitAgentCmd() *cobra.Command {
-	cmd := newGroupCmd("monit-agent", "On-box diagnostics via flashmonit agents (host/mysql/redis/…)")
+	cmd := newGroupCmd("monit-agent", "Host diagnostics via flashmonit agents; database diagnostics use monit datasource-tools-invoke")
 	cmd.AddCommand(newMonitAgentCatalogCmd())
 	cmd.AddCommand(newMonitAgentInvokeCmd())
 	return cmd
@@ -25,6 +25,9 @@ func newMonitAgentCatalogCmd() *cobra.Command {
 			if targetLocator == "" {
 				return fmt.Errorf("--target-locator is required")
 			}
+			if err := validateMonitAgentKind(targetKind); err != nil {
+				return err
+			}
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				input := &flashduty.ToolCatalogRequest{
 					TargetKind:    targetKind,
@@ -39,8 +42,8 @@ func newMonitAgentCatalogCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&targetKind, "target-kind", "", "Target kind (host|mysql|redis|…); omit to let the agent infer")
-	cmd.Flags().StringVar(&targetLocator, "target-locator", "", "Target locator: internal IP, hostname, or data-source name (required)")
+	cmd.Flags().StringVar(&targetKind, "target-kind", "", "Target kind: host; omit to use host routing")
+	cmd.Flags().StringVar(&targetLocator, "target-locator", "", "Host locator: registered internal IP or hostname (required)")
 
 	return cmd
 }
@@ -60,16 +63,19 @@ The tools to run are carried in the --data request body:
   --data '{"tools":[{"tool":"<name>","params":{<obj>}}, ... up to 8]}'
 params is optional and defaults to {}. --data also accepts - to read stdin,
 which avoids shell-quoting hell for params JSON that contains commas or quotes
-(e.g. SQL). --target-locator (required) and --target-kind override any matching
+(e.g. HTTP headers). --target-locator (required) and --target-kind override any matching
 keys in --data.
 
-  # heredoc form for quoted/comma SQL:
-  fduty monit-agent invoke --target-locator 'X' --data - <<'FDUTY'
-  {"tools":[{"tool":"mysql.query","params":{"sql":"SELECT a, b FROM t WHERE s='RUNNING'","max_rows":50}}]}
+  # heredoc form for host diagnostics:
+  fduty monit-agent invoke --target-locator 'web-01' --data - <<'FDUTY'
+  {"tools":[{"tool":"os.overview"}]}
   FDUTY`, "Diagnostics", "ToolsInvoke"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if targetLocator == "" {
 				return fmt.Errorf("--target-locator is required")
+			}
+			if err := validateMonitAgentKind(targetKind); err != nil {
+				return err
 			}
 
 			// Assemble the body the standard way: --data (inline JSON or -
@@ -99,6 +105,9 @@ keys in --data.
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				kind, _ := body["target_kind"].(string)
+				if err := validateMonitAgentKind(kind); err != nil {
+					return err
+				}
 				input := &flashduty.ToolInvokeRequest{
 					TargetKind:    kind,
 					TargetLocator: targetLocator,
@@ -113,8 +122,8 @@ keys in --data.
 		},
 	}
 
-	cmd.Flags().StringVar(&targetKind, "target-kind", "", "Target kind (host|mysql|redis|…); omit to let the agent infer")
-	cmd.Flags().StringVar(&targetLocator, "target-locator", "", "Target locator: internal IP, hostname, or data-source name (required)")
+	cmd.Flags().StringVar(&targetKind, "target-kind", "", "Target kind: host; omit to use host routing")
+	cmd.Flags().StringVar(&targetLocator, "target-locator", "", "Host locator: registered internal IP or hostname (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", `Request body as JSON carrying the tools to run: {"tools":[{"tool":"<name>","params":{<obj>}}, ... max 8]}. Accepts inline JSON, or - to read stdin.`)
 
 	return cmd
@@ -153,4 +162,11 @@ func parseInvokeTools(raw any) ([]flashduty.ToolInvokeRequestToolsItem, error) {
 		out = append(out, flashduty.ToolInvokeRequestToolsItem{Tool: name, Params: params})
 	}
 	return out, nil
+}
+
+func validateMonitAgentKind(kind string) error {
+	if kind != "" && kind != "host" {
+		return fmt.Errorf("monit-agent supports host targets only; use monit datasource-tools-invoke for datasource diagnostics")
+	}
+	return nil
 }

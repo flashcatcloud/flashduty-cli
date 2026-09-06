@@ -11,7 +11,7 @@ import (
 )
 
 func newMonitQueryCmd() *cobra.Command {
-	cmd := newGroupCmd("monit-query", "Probe monit-backed datasources (9 types via data; diagnose: loki|victorialogs log patterns, prometheus metric trends)")
+	cmd := newGroupCmd("monit-query", "Query configured datasources; structured diagnostics use monit datasource-tools-invoke")
 	cmd.AddCommand(newMonitQueryDiagnoseCmd())
 	cmd.AddCommand(newMonitQueryDataCmd())
 	return cmd
@@ -25,7 +25,7 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "diagnose",
-		Short: "Pre-clustered RCA findings (log_patterns or metric_trends)",
+		Short: "Legacy log-pattern and metric-trend evidence (prefer monit datasource-tools-invoke)",
 		Long:  curatedLong("Run pre-clustered RCA over a datasource window, returning log_patterns or metric_trends findings.", "Diagnostics", "QueryDiagnose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dsType == "" || dsName == "" || inputQuery == "" {
@@ -58,6 +58,7 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 					input.Options.TimeoutSeconds = int64(timeoutSeconds)
 				}
 
+				//nolint:staticcheck // Keep the legacy command working while callers migrate to datasource tools.
 				result, _, err := ctx.Client.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err

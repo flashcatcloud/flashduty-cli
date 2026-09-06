@@ -10,13 +10,13 @@ Prereq: `SKILL.md` read. Flashmonit is five separate surfaces sharing one comman
 
 | surface | intent | card |
 |---|---|---|
-| Datasources | connect / list / inspect a datasource, SLS discovery | **`reference/monit-datasource.md`** |
+| Datasources | connect / list / inspect a datasource, structured database/middleware diagnostics, SLS discovery | **`reference/monit-datasource.md`** |
 | Alert rules | rule CRUD, folders, counters, audits, export/import | **`reference/monit-rule.md`** |
 | Probing | ad-hoc query, log-pattern / metric-trend RCA, targets, on-box tools | **`reference/monit-probe.md`** |
 | Service map | fleet, topology, status | **`reference/monit-servicemap.md`** |
 | Store rulesets | ruleset CRUD | **`reference/monit-ruleset.md`** |
 
-Key IDs are shared across all of them: **rule ID (int)** from `rule-list-basic`; **datasource name (string)** — never guess, always discover via `datasource-list` (see `reference/monit-datasource.md`).
+Key IDs are shared across all of them: **rule ID (int)** from `rule-list-basic`; **datasource ID (integer)** for tools and **datasource name (string)** for free queries — never guess, always discover via `datasource-list` (see `reference/monit-datasource.md`).
 
 Read verbs are free. Mutating verbs change state — confirm before running; each card flags its own, and marks the irreversible ones.
 

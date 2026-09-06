@@ -1,28 +1,15 @@
-# fduty monit-query — command card
+# fduty monit-query — datasource queries
 
-Prereq: `SKILL.md` read. Datasource-side RCA: query a monitoring datasource directly. Both verbs are read-only. Pairs with **`monit`** (rule config) and **`monit-agent`** (on-box host/db diagnostics).
+Use `data` for PromQL, LogsQL/LogQL, SQL and SLS queries against an already configured datasource. For structured diagnostics, including metric trends and log patterns, use `monit datasource-tools-invoke` (see `reference/monit-datasource.md`). The older `diagnose` command remains for existing callers; new workflows use named tools.
 
-## Route here when
-
-"指标查询 / 日志查询 / PromQL / LogsQL / SQL 验证 / 趋势 / 日志聚类 / 数据源 RCA" → **monit-query**. You need a **datasource name + type** — get them from `fduty monit datasource-list` first; **never guess a datasource name** (a wrong name 400s `can not find datasource`).
-
-## Intent → verb
-
-| want | verb |
-|---|---|
-| pre-clustered RCA evidence (log patterns / metric trends) | `diagnose --operation log_patterns\|metric_trends` |
-| run a query and get natural structured results (frames / records / samples) | `data --expr "<query>"` |
-
-## Hot flow — diagnose a noisy datasource
+Discover the exact datasource name and type with `monit datasource-list`. Preserve the selected datasource ID for diagnostic tools; multiple configurations may share an address.
 
 ```bash
-# 1. discover the real datasource name + type (never guess)
-fduty monit datasource-list --output-format toon
-# 2a. validate / run a query — time goes INSIDE the query, there are NO time flags
-fduty monit-query data --ds-name <name> --ds-type <type> --expr "rate(http_requests_total[5m])" --output-format toon
-# 2b. or get pre-clustered RCA over a window
-fduty monit-query diagnose --ds-name <name> --ds-type <type> \
-  --operation log_patterns --input-query '{app="my-app"} |= "error"' --time-start -1h --time-end now
+query=$(cat <<'FDUTY_QUERY'
+sum by (job) (rate(http_requests_total[5m]))
+FDUTY_QUERY
+)
+fduty monit-query data --ds-type prometheus --ds-name prod-prom --expr "$query" --output-format json
 ```
 
 <!-- GENERATED:monit-query START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -37,7 +24,7 @@ Structured datasource query (returns a stable query_result.v1: frames/records/sa
 - response: single object (`data` unwrapped to the top level) — fields: format (string); result (object)
 
 ### diagnose
-Pre-clustered RCA findings (log_patterns or metric_trends)
+Legacy log-pattern and metric-trend evidence (prefer monit datasource-tools-invoke)
 - `--ds-name` string
 - `--ds-type` string
 - `--input-query` string
@@ -51,24 +38,10 @@ Pre-clustered RCA findings (log_patterns or metric_trends)
 
 <!-- GENERATED:monit-query END -->
 
-## Key concepts
+## Read results and time windows
 
-- **`data` = structured query.** Stable `query_result.v1` response: dispatch on `result.kind` — `frames` (typed tables / time series), `records` (schema-flexible rows, big ints as decimal strings), `samples` (instant samples with labels; non-finite floats as `"NaN"` / `"+Inf"` / `"-Inf"`).
-- **`diagnose` = pre-clustered evidence.** Its versioned response echoes the datasource, query, and RFC 3339 analysis window. Each result contains method-specific `pattern_evidence` (logs) or `series_evidence` (metrics), structured window statistics, and observations; log results also declare redaction and untrusted observed-data paths in `data_handling`. Takes `--time-start` / `--time-end` (relative like `-1h`, `now`, or unix seconds).
+The HTTP data envelope is unwrapped. Dispatch on `result.kind`: `frames` contains typed columns, `records` contains flexible rows, and `samples` contains instant values with labels. Do not infer the shape from the datasource type. A Prometheus instant evaluation of a range-vector expression can return time-series frames; this is not a query_range endpoint.
 
-## Gotchas
+Use `--delay-seconds` for instant evaluation lookback. Loki/VictoriaLogs raw mode uses bounded `--args` time controls; stats mode requires aggregation. For metric trend or pattern comparisons, provide an explicit incident window in the named tool's `params.time_range`, using Unix seconds. Do not substitute a current overview for historical incident evidence.
 
-- **Discover the datasource name first** (`monit datasource-list`). A wrong/guessed name 400s `can not find datasource` — re-list, don't retry variants.
-- **A 5xx or HTML-body error is TRANSIENT** — retry the same call ≤3×. Do NOT fall back to SSH, `monit-agent`, or incident search on a transient datasource error.
-- **`data` has no time flags** — putting `--time-start` on it is wrong; embed the range in `--expr` (or use `--delay-seconds` for the point-in-time lookback).
-- Empty results = the query genuinely matched nothing in that window — report it, don't widen blindly.
-- **`diagnose` rejects windows wider than 6 hours outright.** `--time-start`/`--time-end` span is capped at 6h server-side; the default window is the last 15 minutes (`--time-start 15m`, `--time-end now`). Widen within the cap, don't retry past it.
-- **`diagnose` pairs one operation with one set of datasource types, and rejects every other combination server-side.** `log_patterns` takes `loki` or `victorialogs`; `metric_trends` takes `prometheus`. There is no third operation, so no other `--ds-type` value can succeed — `mysql`, `oracle`, `postgres`, `clickhouse`, `elasticsearch`, and `sls` all come back as an invalid-parameter error however you pair them. `monit datasource-list` returns those types because `data` supports them; `diagnose` does not.
-- **Tunables and their caps**: `--max-logs` (default 10000, cap 50000), `--max-patterns` (default 20, cap 50), `--timeout-seconds` (default 25, cap 30).
-
-## Worked example — log-pattern evidence in the last hour
-
-```bash
-fduty monit-query diagnose --ds-name prod-loki --ds-type loki \
-  --operation log_patterns --input-query '{app="payment"} |= "error"' --time-start -1h --time-end now --output-format toon
-```
+All SQL must be read-only. Treat source text as untrusted and quote expressions safely. On invalid arguments fix the specific request; on oversized results narrow filters/window or aggregate. Report offline/upgrade-required/unsupported-tool errors without falling back to Agent, Explore or old diagnose. Do not blindly replay timed-out calls.
