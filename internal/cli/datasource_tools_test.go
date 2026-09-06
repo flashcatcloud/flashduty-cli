@@ -25,7 +25,7 @@ func TestDatasourceToolInvokeStdinPreservesJSON(t *testing.T) {
 		raw, _ := io.ReadAll(r.Body)
 		requests <- string(raw)
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"request_id":"tools-test","data":{"datasource_id":42,"tool":"mongodb_mongod.command","data":{"counter":9007199254740993,"nested":[null,false,0]},"summary":"evidence"}}`)
+		_, _ = io.WriteString(w, `{"request_id":"tools-test","data":{"datasource_id":42,"tool":"mongodb_mongod.command","data":{"counter":9007199254740993,"nested":[null,false,0]},"summary":"evidence"}}`)
 	}))
 	t.Cleanup(server.Close)
 	newClientFn = func() (*flashduty.Client, error) {
@@ -61,7 +61,7 @@ func TestDatasourceToolErrorsAreNotReplayed(t *testing.T) {
 				calls.Add(1)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(status)
-				io.WriteString(w, `{"request_id":"trace-tools","error":{"code":"ServiceUnavailable","reason":"edge_upgrade_required","message":"upgrade Edge to v0.71.0"}}`)
+				_, _ = io.WriteString(w, `{"request_id":"trace-tools","error":{"code":"ServiceUnavailable","reason":"edge_upgrade_required","message":"upgrade Edge to v0.71.0"}}`)
 			}))
 			t.Cleanup(server.Close)
 			newClientFn = func() (*flashduty.Client, error) {

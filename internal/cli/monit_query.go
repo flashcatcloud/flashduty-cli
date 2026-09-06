@@ -58,6 +58,7 @@ func newMonitQueryDiagnoseCmd() *cobra.Command {
 					input.Options.TimeoutSeconds = int64(timeoutSeconds)
 				}
 
+				//nolint:staticcheck // Keep the legacy command working while callers migrate to datasource tools.
 				result, _, err := ctx.Client.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
 				if err != nil {
 					return err
