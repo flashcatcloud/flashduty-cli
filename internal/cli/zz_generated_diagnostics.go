@@ -100,11 +100,14 @@ func genDiagnosticsQueryDiagnoseCmd() *cobra.Command {
 	var fDsType string
 	var fOperation string
 	cmd := &cobra.Command{
-		Use:   "query-diagnose",
-		Short: "Diagnose data source",
+		Use:        "query-diagnose",
+		Short:      "Diagnose data source",
+		Deprecated: "this API operation is deprecated",
 		Long: `Diagnose data source.
 
 Run a synchronous diagnostic query ('log_patterns' for Loki/VictoriaLogs, 'metric_trends' for Prometheus). Used by Flashduty AI SRE for log-pattern clustering and time-series trend analysis. Long-running — up to 35 s.
+
+Deprecated: migrate to /monit/datasource/tools/invoke with prometheus.metric_trends, loki.log_patterns or victorialogs.log_patterns. Retained for existing consumers; the legacy request and response remain unchanged.
 
 API: POST /monit/query/diagnose (monit-read-query-diagnose)
 
@@ -273,7 +276,7 @@ func genDiagnosticsTargetsListCmd() *cobra.Command {
 		Short: "List monitored targets",
 		Long: `List monitored targets.
 
-List the targets observed under the current tenant by the monit-agent route projection. Supports 'target_locator' prefix search and cursor pagination. Use this to drive 'target_locator' selection for '/monit/tools/catalog' and '/monit/tools/invoke'.
+List the targets observed under the current tenant by the monit-agent route projection. Supports 'target_locator' prefix search and cursor pagination. Use this to drive 'target_locator' selection for '/monit/tools/catalog' and '/monit/tools/invoke'. Agent targets are host-only. Remote datasource evidence uses /monit/datasource/tools/invoke and datasource_id.
 
 API: POST /monit/targets (monit-read-targets-list)
 
@@ -306,7 +309,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - report_interval_ms (integer) — Configured reporting interval in milliseconds. Omitted when unknown.
       - snapshot_ready (boolean) (required) — True if the agent has produced at least one full snapshot.
       - status (string) (required) — ServiceMap collection status of the host. | Value | Meaning | |---|---| | 'active' | Collection healthy: a fresh snapshot exists with no degradation. | | 'degraded' | Collecting but quality is impaired: health reports are newer than the snapshot, the snapshot is truncated/degraded, or collection is failing. | | 'stale' | A snapshot exists but is outdated (no update within 2x the report interval). | | 'initializing' | The agent reported the capability but the first snapshot is not ready yet. | | 'disabled' | Topology collection is disabled on this host. | | 'unsupported' | The agent or kernel does not support collection. | | 'no_data' | No snapshot or health data received yet. | [active, degraded, stale, initializing, disabled, unsupported, no_data]
-    - target_kind (string) — Target kind, e.g. 'host', 'mysql'. Filtering by kind is not supported in v1.
+    - target_kind (string) — Host target kind. Filtering by kind is not supported in v1.
     - target_locator (string) — Target identifier; the list is sorted by this field ascending.
     - updated_at (string) — Last route-projection upsert time, Unix seconds. Treat as 'most recently observed', not a live-online indicator. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - next_cursor (string) — Opaque cursor for the next page. Absent / empty means this is the last page.
@@ -368,14 +371,14 @@ func genDiagnosticsToolsCatalogCmd() *cobra.Command {
 		Short: "List target tool catalog",
 		Long: `List target tool catalog.
 
-Look up the tools that the per-target monit-agent currently exposes for a given 'target_locator' (host, mysql, …). Returns each tool's name, description, and JSON-Schema 'input_schema'. Pair with '/monit/tools/invoke' to drive AI-SRE tool calls.
+Look up the tools that the per-target monit-agent currently exposes for a given 'target_locator' (host). Returns each tool's name, description, and JSON-Schema 'input_schema'. Pair with '/monit/tools/invoke' to drive AI-SRE tool calls. Agent targets are host-only. Remote datasource evidence uses /monit/datasource/tools/invoke and datasource_id.
 
 API: POST /monit/tools/catalog (monit-read-tools-catalog)
 
 Request fields:
   --account-id int — Optional consistency check. Must equal the authenticated account when supplied.
-  --target-kind string — Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.
-  --target-locator string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
+  --target-kind string — Optional target kind; only host is supported. Inferred when omitted. [host]
+  --target-locator string (required) — Host name. Max 256 bytes; no whitespace, control characters or |.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - error (object) — Request-level business error. Omitted on success. Returned with HTTP 200 — do not rely on the status code alone.
@@ -383,7 +386,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - message (string) — Human-readable error detail.
     - target_kinds (array<string>) — Returned for 'ambiguous_target_kind'; lists the candidate kinds.
   - target (object) — Resolved target. Omitted when 'target_kind' was not supplied and the locator could not be uniquely inferred.
-    - kind (string) — Resolved target kind, e.g. 'host' or 'mysql'; matches the 'target_kind' inferred from or given in the request.
+    - kind (string) — Resolved host target kind.
     - locator (string) — Echo of the target locator from the request.
   - tools (array<object>) — Tool metadata advertised by the target's agent. Always present; an empty array when 'error' is set.
     - description (string) — Tool capability description for UI / AI-SRE consumption.
@@ -422,8 +425,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
-	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.")
-	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'. (required)")
+	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind; only host is supported. Inferred when omitted. [host]")
+	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Host name. Max 256 bytes; no whitespace, control characters or |. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -438,14 +441,14 @@ func genDiagnosticsToolsInvokeCmd() *cobra.Command {
 		Short: "Invoke target tools",
 		Long: `Invoke target tools.
 
-Invoke up to 8 monit-agent tools concurrently on a single target. Results come back in the order of the input 'tools' array. Long-running — individual tools have per-tool timeouts on the agent and the whole request may take tens of seconds.
+Invoke up to 8 monit-agent tools concurrently on a single target. Results come back in the order of the input 'tools' array. Long-running — individual tools have per-tool timeouts on the agent and the whole request may take tens of seconds. Agent targets are host-only. Remote datasource evidence uses /monit/datasource/tools/invoke and datasource_id.
 
 API: POST /monit/tools/invoke (monit-read-tools-invoke)
 
 Request fields:
   --account-id int — Optional consistency check. Must equal the authenticated account when supplied.
-  --target-kind string — Optional target kind; auto-inferred when omitted.
-  --target-locator string (required) — Target identifier. Same validation rules as '/monit/tools/catalog'.
+  --target-kind string — Optional target kind; only host is supported. Inferred when omitted. [host]
+  --target-locator string (required) — Host name. Max 256 bytes; no whitespace, control characters or |.
   tools (array<object>, via --data) (required) — Up to 8 tool calls; webapi executes them concurrently and returns results in input order.
     - params (object) — Tool parameters matching the catalog 'input_schema'. For no-arg tools pass '{}' explicitly.
     - tool (string) (required) — Tool name, typically from '/monit/tools/catalog'.
@@ -467,7 +470,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - truncated (object) — Present only when the result was actually truncated — the field's presence is the signal, so there is no redundant 'truncated: true'.
       - reason (string) — Why the result was truncated.
   - target (object) — Resolved target. Omitted when 'target_kind' was not supplied and the locator could not be uniquely inferred.
-    - kind (string) — Resolved target kind, e.g. 'host' or 'mysql'; matches the 'target_kind' inferred from or given in the request.
+    - kind (string) — Resolved host target kind.
     - locator (string) — Echo of the target locator from the request.
 `,
 		Example: `  flashduty monit tools-invoke --data '{"account_id":10001,"target_locator":"web-01","tools":[{"params":{},"tool":"os.overview"},{"params":{"host":"10.0.0.10","port":3306},"tool":"net.tcp_ping"}]}'`,
@@ -501,8 +504,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied.")
-	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind; auto-inferred when omitted.")
-	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Target identifier. Same validation rules as '/monit/tools/catalog'. (required)")
+	cmd.Flags().StringVar(&fTargetKind, "target-kind", "", "Optional target kind; only host is supported. Inferred when omitted. [host]")
+	cmd.Flags().StringVar(&fTargetLocator, "target-locator", "", "Host name. Max 256 bytes; no whitespace, control characters or |. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

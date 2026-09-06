@@ -169,6 +169,7 @@ type schemaField struct {
 type specField struct {
 	Wire       string
 	Required   bool
+	RejectNull bool // presence-sensitive, non-nullable request scalar
 	Desc       string
 	Enum       []string
 	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
@@ -464,6 +465,7 @@ func (w *specWalker) fields(op map[string]any) []specField {
 			fields = append(fields, specField{
 				Wire:       wire,
 				Required:   req[wire],
+				RejectNull: boolOf(pv["x-flashduty-preserve-absence"]) && !boolOf(pv["nullable"]) && (str(pv, "type") == "boolean" || str(pv, "type") == "string" || str(pv, "type") == "integer"),
 				Desc:       propertyDescription(raw, pv),
 				Enum:       w.enumOf(pv),
 				Constraint: constraintOf(pv),
@@ -939,6 +941,11 @@ func applyWireTypeOverride(f *schemaField, fieldGoType reflect.Type) {
 
 func scalarKind(t reflect.Type) (string, bool) {
 	t = deref(t)
+	// RawMessage is JSON, not a numeric byte-array flag. Keep tool params
+	// body-only so --data can carry nested objects without reinterpretation.
+	if t == reflect.TypeFor[json.RawMessage]() {
+		return "", false
+	}
 	switch t.Kind() {
 	case reflect.String:
 		return "string", true
@@ -1297,6 +1304,11 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 
 	call := fmt.Sprintf("ctx.Client.%s.%s(cmdContext(ctx.Cmd)", s.Name, o.Method)
 	if mi.ReqType != "" {
+		for _, f := range o.Fields {
+			if f.RejectNull {
+				fmt.Fprintf(&b, "\t\t\t\tif err := genRejectNullField(body, %q); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", f.Wire)
+			}
+		}
 		fmt.Fprintf(&b, "\t\t\t\treq := new(flashduty.%s)\n", mi.ReqType)
 		b.WriteString("\t\t\t\tif err := genBindBody(body, req); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 		call += ", req)"

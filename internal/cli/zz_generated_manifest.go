@@ -188,6 +188,7 @@ var generatedOpIDs = []string{
 	"monit-datasource-read-list",
 	"monit-datasource-read-sls-logstores",
 	"monit-datasource-read-sls-projects",
+	"monit-datasource-tools-invoke",
 	"monit-datasource-write-create",
 	"monit-datasource-write-delete",
 	"monit-datasource-write-update",

@@ -1,72 +1,19 @@
-# fduty monit — probing a datasource or a target
+# fduty monit — querying datasources and inspecting hosts
 
-Prereq: `SKILL.md` + `reference/monit.md` read. These are the runtime verbs: ask a datasource a question, or ask a monitored target about itself. Everything else under `monit` is configuration.
+Read only the card for the selected task. Use a configured datasource for metrics, logs and database/middleware diagnostics. Use a registered host for on-box checks.
 
-## Route here when
-
-"指标查询 / 日志查询 / PromQL / 诊断 / 监控目标 / 主机工具" or "metric query / log query / diagnose / monitored host / tools catalog" → this card.
-
-**Mutating:** `tools-invoke` runs code on the target — confirm before running. The query verbs are read-only.
-
-## Intent → verb
-
-| want | verb |
+| Need | Command / reference |
 |---|---|
-| run ad-hoc PromQL / SQL / LogQL | `query-data` here, or the curated `monit-query data` — see `reference/monit-query.md` |
-| log-pattern / metric-trend RCA evidence | `query-diagnose` |
-| list monitored hosts/targets | `targets` |
-| what tools a target exposes | `tools-catalog` |
-| run host/db diagnostic tools | `tools-invoke` |
+| PromQL, SQL, LogQL, LogsQL or SLS query | `monit-query data`; `reference/monit-query.md` |
+| Metric trends, log patterns, database locks, Redis/Kafka/ES diagnostics | `monit datasource-tools-invoke`; `reference/monit-datasource.md` |
+| Find a registered host | `monit targets --keyword <prefix>` |
+| Discover/invoke host tools | `monit-agent catalog` / `monit-agent invoke`; `reference/monit-agent.md` |
 
-## Hot flow — ad-hoc query + diagnose
+Datasource tools use `datasource_id`, one tool per call and static tool guidance. Host tools use `target_locator`, a live host catalog and up to eight tools per call. These request/response formats are different. Database endpoints are no longer Agent targets.
 
-```bash
-# 1. discover the real datasource name — NEVER guess
-fduty monit datasource-list --output-format toon
-fduty monit datasource-list --type prometheus --output-format toon
+The legacy `query-diagnose` command is retained for existing callers; new investigations use named tools. Trend/pattern tools take explicit `params.time_range` Unix seconds (up to six hours), while database overview tools observe the current server. Source evidence is not a confirmed root cause. Read warning/truncation fields before interpreting results.
 
-# 2a. point-in-time query (PromQL/SQL/LogQL); ALL time range goes INSIDE --expr
-#     (the curated 'monit-query data' — see the monit-query card)
-fduty monit-query data --ds-type prometheus --ds-name <ds-name> \
-  --expr 'rate(http_requests_total{job="api"}[5m])' --output-format toon
-
-# 2b. log pattern RCA over last 15 min (time_range via --data; omit = last 15 min default)
-fduty monit query-diagnose --ds-type loki --ds-name <ds-name> \
-  --data '{"input":{"query":"{app=\"payment\"} |= \"error\""}}'
-
-# 2c. metric trend analysis with explicit window
-fduty monit query-diagnose --ds-type prometheus --ds-name <ds-name> \
-  --data '{"input":{"query":"rate(http_errors_total[5m])"},"time_range":{"start":1718780000,"end":1718783600}}'
-```
-
-## Hot flow — host diagnostics
-
-```bash
-# 1. find the target locator (prefix search; --keyword is prefix-only)
-fduty monit targets --keyword prod-web --output-format toon
-
-# 2. discover what tools the target exposes
-fduty monit tools-catalog --target-locator <hostname-or-ip> --output-format toon
-
-# 3. invoke tools (up to 8 concurrently); use heredoc to avoid shell quoting hell
-fduty monit tools-invoke --target-locator <hostname-or-ip> --output-format toon --data - <<'EOF'
-{"tools":[{"tool":"os.overview"},{"tool":"os.top_processes","params":{"top_n":10}}]}
-EOF
-```
-
-## Key concepts
-
-**`operation` on `query-diagnose`**: `log_patterns` (loki / victorialogs) or `metric_trends` (prometheus); inferred from `--ds-type` when omitted — only pass it explicitly for ambiguous source types.
-
-**`query-diagnose` output**: results are versioned evidence, not the former summary-only pattern/series lists. Read `pattern_evidence` for logs or `series_evidence` for metrics; their optional comparison fields are absent when the edge has no evidence. Log output also includes `data_handling`, which declares redaction coverage and paths carrying untrusted observed data.
-
-**`targets`**: `updated_at` means "last seen", not "online now".
-
-## Gotchas
-
-- **`monit-query data` has no time flags.** There is no `--time-start` / `--time-end` / `--operation`. Embed all time range and bucketing inside `--expr`. Passing those flags is a silent no-op or error.
-- **`query-diagnose` time window via `--data`**, not flags. Pass `{"time_range":{"start":<unix>,"end":<unix>},...}`. Window wider than 6 hours is rejected server-side. Omitting `time_range` defaults to the last 15 minutes.
-- **`tools-catalog` / `tools-invoke` `--target-locator` is required and not guessable.** If the user has not provided a host or IP, ask — do not invent one. Tool names in `invoke` must come from the `tools-catalog` response — never hallucinate them.
+`targets.updated_at` is last-seen time, not proof that an Agent is currently reachable. Host tool execution follows the selected tool's approval policy.
 
 <!-- GENERATED:monit[query,targets,tools] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -80,15 +27,6 @@ Query structured data
 - body-only (`--data`): args (object)
 - response: single object (`data` unwrapped to the top level) — fields: format (string); result (object)
 
-### query-diagnose
-Diagnose data source
-- `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.
-- `--ds-name` string (required) — Data source name configured under the tenant.
-- `--ds-type` string (required) — Data source type. 'log_patterns' supports 'loki' and 'victorialogs'; 'metric_trends' supports 'prometheus'.
-- `--operation` string — Diagnostic operation. When omitted, inferred from 'ds_type' (loki / victorialogs → 'log_patterns', prometheus → 'metric_trends'). Other sources must specify explicitly. · enum: log_patterns | metric_trends
-- body-only (`--data`): input (object) (required); methods (array<object>); options (object); time_range (object)
-- response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
-
 ### targets
 List monitored targets
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.
@@ -100,15 +38,15 @@ List monitored targets
 ### tools-catalog
 List target tool catalog
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.
-- `--target-kind` string — Optional target kind. When omitted, webapi infers it from current target routing. If the call returns 'ambiguous_target_kind', retry with a value from 'target_kinds'.
-- `--target-locator` string (required) — Target identifier (host name, MySQL address, …). Max 256 bytes; no whitespace, control characters, or '|'.
+- `--target-kind` string — Optional target kind; only host is supported. Inferred when omitted. · enum: host
+- `--target-locator` string (required) — Host name. Max 256 bytes; no whitespace, control characters or |.
 - response: single object (`data` unwrapped to the top level) — fields: error (object); target (object); tools (array<object>)
 
 ### tools-invoke
 Invoke target tools
 - `--account-id` int64 — Optional consistency check. Must equal the authenticated account when supplied.
-- `--target-kind` string — Optional target kind; auto-inferred when omitted.
-- `--target-locator` string (required) — Target identifier. Same validation rules as '/monit/tools/catalog'.
+- `--target-kind` string — Optional target kind; only host is supported. Inferred when omitted. · enum: host
+- `--target-locator` string (required) — Host name. Max 256 bytes; no whitespace, control characters or |.
 - body-only (`--data`): tools (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: error (object); results (array<object>); target (object)
 

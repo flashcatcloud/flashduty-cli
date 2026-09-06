@@ -141,17 +141,17 @@ func TestMonitAgentInvokeHappyPath(t *testing.T) {
 }
 
 // Regression for the original bug: a params JSON value containing an internal
-// comma (the SQL case) used to shatter under the comma-split --tool-spec DSL.
+// comma (the HTTP URL case) used to shatter under the comma-split --tool-spec DSL.
 // Via the --data body it round-trips intact.
 func TestMonitAgentInvokeParamsWithInternalComma(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
-	const sql = "SELECT a, b FROM t WHERE s='RUNNING'"
+	const url = "https://example.test/check?fields=a,b&state='RUNNING'"
 	_, err := execCommand(
 		"monit-agent", "invoke",
-		"--target-locator", "db-1",
-		"--data", `{"tools":[{"tool":"mysql.query","params":{"sql":"`+sql+`","max_rows":50}}]}`,
+		"--target-locator", "web-01",
+		"--data", `{"tools":[{"tool":"http.get","params":{"url":"`+url+`"}}]}`,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -161,30 +161,27 @@ func TestMonitAgentInvokeParamsWithInternalComma(t *testing.T) {
 		t.Fatalf("expected 1 tool, got %d", len(tools))
 	}
 	tool0, _ := tools[0].(map[string]any)
-	if tool0["tool"] != "mysql.query" {
-		t.Errorf("expected mysql.query, got %v", tool0["tool"])
+	if tool0["tool"] != "http.get" {
+		t.Errorf("expected http.get, got %v", tool0["tool"])
 	}
 	params0, _ := tool0["params"].(map[string]any)
-	if params0["sql"] != sql {
-		t.Errorf("expected sql %q to survive intact, got %#v", sql, params0["sql"])
-	}
-	if fmt.Sprint(params0["max_rows"]) != "50" {
-		t.Errorf("expected max_rows=50, got %#v", params0["max_rows"])
+	if params0["url"] != url {
+		t.Errorf("expected url %q to survive intact, got %#v", url, params0["url"])
 	}
 }
 
 // --data - reads the JSON body from stdin, the canonical heredoc form for
-// quoted/comma SQL.
+// quoted/comma parameters.
 func TestMonitAgentInvokeDataFromStdin(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 
-	const sql = "SELECT a, b FROM t WHERE s='RUNNING'"
-	stdinReader = strings.NewReader(`{"tools":[{"tool":"mysql.query","params":{"sql":"` + sql + `","max_rows":50}}]}`)
+	const url = "https://example.test/check?fields=a,b&state='RUNNING'"
+	stdinReader = strings.NewReader(`{"tools":[{"tool":"http.get","params":{"url":"` + url + `"}}]}`)
 
 	_, err := execCommand(
 		"monit-agent", "invoke",
-		"--target-locator", "db-1",
+		"--target-locator", "web-01",
 		"--data", "-",
 	)
 	if err != nil {
@@ -196,8 +193,8 @@ func TestMonitAgentInvokeDataFromStdin(t *testing.T) {
 	}
 	tool0, _ := tools[0].(map[string]any)
 	params0, _ := tool0["params"].(map[string]any)
-	if params0["sql"] != sql {
-		t.Errorf("expected sql %q from stdin, got %#v", sql, params0["sql"])
+	if params0["url"] != url {
+		t.Errorf("expected url %q from stdin, got %#v", url, params0["url"])
 	}
 }
 
@@ -337,6 +334,22 @@ func TestMonitAgentInvokeMalformedData(t *testing.T) {
 			}
 			if stub.requests != 0 {
 				t.Errorf("invoke should not have been called: %d request(s)", stub.requests)
+			}
+		})
+	}
+}
+
+func TestMonitAgentRejectsRemoteTargetKinds(t *testing.T) {
+	for _, args := range [][]string{
+		{"monit-agent", "catalog", "--target-kind", "redis", "--target-locator", "redis:6379"},
+		{"monit-agent", "invoke", "--target-locator", "db", "--data", `{"target_kind":"mysql","tools":[{"tool":"mysql.overview"}]}`},
+	} {
+		t.Run(args[1], func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(args...)
+			if err == nil || !strings.Contains(err.Error(), "datasource-tools-invoke") || stub.requests != 0 {
+				t.Fatalf("err=%v requests=%d", err, stub.requests)
 			}
 		})
 	}
