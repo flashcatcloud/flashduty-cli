@@ -9,19 +9,6 @@ import (
 	"time"
 )
 
-func TestMonitQueryDiagnoseFlags(t *testing.T) {
-	cmd := newMonitQueryDiagnoseCmd()
-	for _, name := range []string{
-		"ds-type", "ds-name", "time-start", "time-end",
-		"input-query", "operation",
-		"max-logs", "max-patterns", "timeout-seconds",
-	} {
-		if cmd.Flags().Lookup(name) == nil {
-			t.Errorf("flag --%s missing", name)
-		}
-	}
-}
-
 func TestMonitQueryDataFlags(t *testing.T) {
 	cmd := newMonitQueryDataCmd()
 	for _, name := range []string{"ds-type", "ds-name", "expr", "args", "delay-seconds"} {
@@ -31,172 +18,24 @@ func TestMonitQueryDataFlags(t *testing.T) {
 	}
 }
 
-// --- monit-query diagnose -------------------------------------------------
-
-func TestMonitQueryDiagnoseHappyPath(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	stub.data = map[string]any{"operation": "log_patterns"}
-
-	_, err := execCommand(
-		"monit-query", "diagnose",
-		"--ds-type", "victorialogs",
-		"--ds-name", "vl-prod",
-		"--input-query", `{app="api"}`,
-		"--operation", "log_patterns",
-		"--max-logs", "5000",
-		"--max-patterns", "10",
-		"--timeout-seconds", "20",
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if stub.lastPath != "/monit/query/diagnose" {
-		t.Fatalf("expected /monit/query/diagnose, got %q", stub.lastPath)
-	}
-	body := stub.lastBody
-	if body["ds_type"] != "victorialogs" || body["ds_name"] != "vl-prod" {
-		t.Errorf("unexpected ds fields: %#v", body)
-	}
-	input, _ := body["input"].(map[string]any)
-	if input["query"] != `{app="api"}` {
-		t.Errorf("expected input query %q, got %v", `{app="api"}`, input["query"])
-	}
-	if body["operation"] != "log_patterns" {
-		t.Errorf("expected operation log_patterns, got %v", body["operation"])
-	}
-	options, _ := body["options"].(map[string]any)
-	if fmt.Sprint(options["max_logs_scanned"]) != "5000" ||
-		fmt.Sprint(options["max_patterns"]) != "10" ||
-		fmt.Sprint(options["timeout_seconds"]) != "20" {
-		t.Errorf("unexpected caps: %#v", options)
-	}
-	timeRange, _ := body["time_range"].(map[string]any)
-	if fmt.Sprint(timeRange["start"]) == "0" || fmt.Sprint(timeRange["start"]) == "<nil>" ||
-		fmt.Sprint(timeRange["end"]) == "0" || fmt.Sprint(timeRange["end"]) == "<nil>" {
-		t.Errorf("expected non-zero default time range, got %#v", timeRange)
-	}
-}
-
-func TestMonitQueryDiagnoseRendersMetricEvidence(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	stub.data = map[string]any{
-		"schema_version": "2",
-		"operation":      "metric_trends",
-		"ds_type":        "prometheus",
-		"ds_name":        "prod-prometheus",
-		"query":          "up",
-		"window":         map[string]any{"start": "2026-07-14T06:00:00Z", "end": "2026-07-14T07:00:00Z"},
-		"results": []any{map[string]any{
-			"method": "window_compare",
-			"window": map[string]any{"start": "2026-07-14T06:00:00Z", "end": "2026-07-14T07:00:00Z"},
-			"summary": map[string]any{
-				"series_total": 1, "series_analyzed": 1, "selected_series_total": 1, "series_returned": 1,
-				"analysis_truncated": false, "evidence_summary": "One series changed.",
-			},
-			"series_evidence": []any{map[string]any{
-				"labels":       map[string]any{"instance": "api-1"},
-				"observations": []any{"The current average increased."},
-			}},
-			"warnings": []any{},
-		}},
-	}
-
-	out, err := execCommand(
-		"monit-query", "diagnose",
-		"--ds-type", "prometheus",
-		"--ds-name", "prod-prometheus",
-		"--input-query", "up",
-		"--operation", "metric_trends",
-		"--output-format", "json",
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	var rendered map[string]any
-	if err := json.Unmarshal([]byte(out), &rendered); err != nil {
-		t.Fatalf("decode CLI JSON: %v\n%s", err, out)
-	}
-	if _, found := rendered["data_handling"]; found {
-		t.Fatalf("metric output fabricated data_handling: %s", out)
-	}
-	evidence := rendered["results"].([]any)[0].(map[string]any)["series_evidence"].([]any)[0].(map[string]any)
-	for _, field := range []string{"comparison_status", "current_window_stats", "baseline_window_stats"} {
-		if _, found := evidence[field]; found {
-			t.Fatalf("metric evidence fabricated %s: %s", field, out)
-		}
-	}
-}
-
-func TestMonitQueryDiagnoseRequiredFlags(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-	}{
-		{
-			name: "missing ds-type",
-			args: []string{
-				"monit-query", "diagnose",
-				"--ds-name", "vl-prod",
-				"--input-query", `{app="api"}`,
-			},
-		},
-		{
-			name: "missing ds-name",
-			args: []string{
-				"monit-query", "diagnose",
-				"--ds-type", "victorialogs",
-				"--input-query", `{app="api"}`,
-			},
-		},
-		{
-			name: "missing input-query",
-			args: []string{
-				"monit-query", "diagnose",
-				"--ds-type", "victorialogs",
-				"--ds-name", "vl-prod",
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+func TestRetiredMonitCommandsRejectBeforeRequest(t *testing.T) {
+	for _, args := range [][]string{
+		{"monit-query", "diagnose"}, {"monit", "query-diagnose"},
+		{"monit", "rule-counter-status"},
+		{"monit", "store-ruleset-create"}, {"monit", "store-ruleset-update"},
+		{"monit", "store-ruleset-list"}, {"monit", "store-ruleset-info"}, {"monit", "store-ruleset-delete"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			saveAndResetGlobals(t)
 			stub := newGFStub(t)
-
-			_, err := execCommand(tc.args...)
-			if err == nil {
-				t.Fatal("expected required-flag error, got nil")
-			}
-			if !strings.Contains(err.Error(), "required") {
-				t.Errorf("expected error to mention 'required', got %q", err.Error())
+			_, err := execCommand(args...)
+			if err == nil || !strings.Contains(err.Error(), "unknown command") {
+				t.Fatalf("retired command error=%v", err)
 			}
 			if stub.requests != 0 {
-				t.Errorf("diagnose should not have been called: %d request(s)", stub.requests)
+				t.Fatalf("retired command sent %d requests", stub.requests)
 			}
 		})
-	}
-}
-
-func TestMonitQueryDiagnoseInvalidTimeStart(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-
-	_, err := execCommand(
-		"monit-query", "diagnose",
-		"--ds-type", "victorialogs",
-		"--ds-name", "vl-prod",
-		"--input-query", `{app="api"}`,
-		"--time-start", "not-a-time",
-	)
-	if err == nil {
-		t.Fatal("expected error for invalid --time-start, got nil")
-	}
-	if !strings.Contains(err.Error(), "--time-start") {
-		t.Errorf("expected error to mention --time-start, got %q", err.Error())
-	}
-	if stub.requests != 0 {
-		t.Errorf("diagnose should not have been called: %d request(s)", stub.requests)
 	}
 }
 

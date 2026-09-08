@@ -354,7 +354,7 @@ Request fields:
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
   --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
+  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
@@ -581,7 +581,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -661,7 +661,7 @@ Request fields:
   --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
   --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
+  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
   --note string — Optional description.
   --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
   payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
@@ -888,7 +888,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
 	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs. (required)")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query APIs. (required)")
 	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
 	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

@@ -12,73 +12,7 @@ import (
 
 func newMonitQueryCmd() *cobra.Command {
 	cmd := newGroupCmd("monit-query", "Query configured datasources; structured diagnostics use monit datasource-tools-invoke")
-	cmd.AddCommand(newMonitQueryDiagnoseCmd())
 	cmd.AddCommand(newMonitQueryDataCmd())
-	return cmd
-}
-
-func newMonitQueryDiagnoseCmd() *cobra.Command {
-	var (
-		dsType, dsName, timeStart, timeEnd, inputQuery, operation string
-		maxLogs, maxPatterns, timeoutSeconds                      int
-	)
-
-	cmd := &cobra.Command{
-		Use:   "diagnose",
-		Short: "Legacy log-pattern and metric-trend evidence (prefer monit datasource-tools-invoke)",
-		Long:  curatedLong("Run pre-clustered RCA over a datasource window, returning log_patterns or metric_trends findings.", "Diagnostics", "QueryDiagnose"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if dsType == "" || dsName == "" || inputQuery == "" {
-				return fmt.Errorf("--ds-type, --ds-name, --input-query are required")
-			}
-			startTime, err := timeutil.Parse(timeStart)
-			if err != nil {
-				return fmt.Errorf("invalid --time-start: %w", err)
-			}
-			endTime, err := timeutil.Parse(timeEnd)
-			if err != nil {
-				return fmt.Errorf("invalid --time-end: %w", err)
-			}
-
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.DiagnoseRequest{
-					DsType:    dsType,
-					DsName:    dsName,
-					Operation: operation,
-					Input:     flashduty.DiagnoseRequestInput{Query: inputQuery},
-					TimeRange: flashduty.DiagnoseRequestTimeRange{Start: startTime, End: endTime},
-				}
-				if maxLogs > 0 {
-					input.Options.MaxLogsScanned = int64(maxLogs)
-				}
-				if maxPatterns > 0 {
-					input.Options.MaxPatterns = int64(maxPatterns)
-				}
-				if timeoutSeconds > 0 {
-					input.Options.TimeoutSeconds = int64(timeoutSeconds)
-				}
-
-				//nolint:staticcheck // Keep the legacy command working while callers migrate to datasource tools.
-				result, _, err := ctx.Client.Diagnostics.QueryDiagnose(cmdContext(ctx.Cmd), input)
-				if err != nil {
-					return err
-				}
-				return ctx.Printer.Print(result, nil)
-			})
-		},
-	}
-
-	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type: loki|victorialogs (log_patterns) or prometheus (metric_trends) (required)")
-	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name as configured (required)")
-	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki")
-	cmd.Flags().StringVar(&timeStart, "time-start", "15m", "Window start: relative duration ('15m'/'1h'), 'now', a date/RFC3339 timestamp, or a unix epoch in seconds or milliseconds")
-	cmd.Flags().StringVar(&timeEnd, "time-end", "now", "Window end: same formats as --time-start; span capped at 6h")
-	cmd.Flags().StringVar(&inputQuery, "input-query", "", "Filter-only log query OR matrix PromQL (required)")
-	cmd.Flags().StringVar(&operation, "operation", "", "log_patterns or metric_trends (default inferred from ds-type)")
-	cmd.Flags().IntVar(&maxLogs, "max-logs", 0, "Max log lines scanned (default 10000, cap 50000)")
-	cmd.Flags().IntVar(&maxPatterns, "max-patterns", 0, "Max patterns returned (default 20, cap 50)")
-	cmd.Flags().IntVar(&timeoutSeconds, "timeout-seconds", 0, "Per-call timeout in seconds (default 25, cap 30)")
-
 	return cmd
 }
 
