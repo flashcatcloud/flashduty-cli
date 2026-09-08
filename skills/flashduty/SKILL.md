@@ -72,7 +72,6 @@ Some asks span several commands. For those the skill ships a script that fetches
 | monitor / 监控 / inspection 巡检 — unsure which Flashmonit surface | **`reference/monit.md`** (index; routes to the four below) |
 | alert rule 告警规则 / rule config 规则配置 / rule folder 规则文件夹 / rule export 规则导出 | **`reference/monit-rule.md`** |
 | datasource 数据源 = a system Flashmonit queries (Prometheus / Loki / SQL / SLS) / connect a datasource 连接数据源 / SLS project / logstore / Redis / MongoDB / Kafka / database overview 数据库概览 / locks 锁 / slowlog 慢日志 | **`reference/monit-datasource.md`** |
-| service map 服务地图 / topology 拓扑 / service dependencies 服务依赖 / agent fleet 探针队列 | **`reference/monit-servicemap.md`** |
 | store ruleset 规则集 / 规则模板库 | **`reference/monit-ruleset.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
