@@ -137,7 +137,6 @@ func init() {
 
 	// Diagnostics entry points (value-add over the raw API).
 	rootCmd.AddCommand(newMonitQueryCmd())
-	rootCmd.AddCommand(newMonitAgentCmd())
 
 	// Hidden command-tree oracle for the skill-card tooling (internal/skilldoc).
 	rootCmd.AddCommand(newDumpCommandsCmd())
