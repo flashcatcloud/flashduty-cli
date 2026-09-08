@@ -18,7 +18,6 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedDataSources(root)
 	registerGeneratedDiagnostics(root)
 	registerGeneratedRuleSets(root)
-	registerGeneratedServiceMap(root)
 	registerGeneratedAlertEnrichment(root)
 	registerGeneratedAlerts(root)
 	registerGeneratedAnalytics(root)
