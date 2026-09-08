@@ -182,45 +182,6 @@ API: POST /monit/rule/counter/node (monit-rule-read-counter-node)
 	return cmd
 }
 
-func genAlertRulesReadCounterStatusCmd() *cobra.Command {
-	var dataJSON string
-	cmd := &cobra.Command{
-		Use:   "rule-counter-status",
-		Short: "Get rule status counters for top-level folders",
-		Long: `Get rule status counters for top-level folders.
-
-Return trigger status summary for all top-level folder nodes — used for the overview dashboard.
-
-API: POST /monit/rule/counter/status (monit-rule-read-counter-status)
-
-Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - folder_id (integer) (required) — ID of the folder (grouping node).
-  - folder_name (string) — Folder name; omitted by some endpoints ('omitempty').
-  - rule_total (integer) (required) — Total rules in the folder family.
-  - triggered_rule_count (integer) (required) — Rules with active alerts.
-`,
-		Example: `  flashduty monit rule-counter-status --data '{}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				_ = body
-				out, _, err := ctx.Client.AlertRules.ReadCounterStatus(cmdContext(ctx.Cmd))
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genAlertRulesReadCounterTotalCmd() *cobra.Command {
 	var dataJSON string
 	cmd := &cobra.Command{
@@ -1566,7 +1527,6 @@ func registerGeneratedAlertRules(root *cobra.Command) {
 	genAddLeaf(gMonit, genAlertRulesReadAuditsCmd())
 	genAddLeaf(gMonit, genAlertRulesReadCounterChannelCmd())
 	genAddLeaf(gMonit, genAlertRulesReadCounterNodeCmd())
-	genAddLeaf(gMonit, genAlertRulesReadCounterStatusCmd())
 	genAddLeaf(gMonit, genAlertRulesReadCounterTotalCmd())
 	genAddLeaf(gMonit, genAlertRulesReadDstypesCmd())
 	genAddLeaf(gMonit, genAlertRulesReadExportCmd())

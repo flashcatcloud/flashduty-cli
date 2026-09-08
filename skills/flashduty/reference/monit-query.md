@@ -23,19 +23,6 @@ Structured datasource query (returns a stable query_result.v1: frames/records/sa
 - `--expr` string
 - response: single object (`data` unwrapped to the top level) — fields: format (string); result (object)
 
-### diagnose
-Legacy log-pattern and metric-trend evidence (prefer monit datasource-tools-invoke)
-- `--ds-name` string
-- `--ds-type` string
-- `--input-query` string
-- `--max-logs` int
-- `--max-patterns` int
-- `--operation` string
-- `--time-end` string
-- `--time-start` string
-- `--timeout-seconds` int
-- response: single object (`data` unwrapped to the top level) — fields: data_handling (object); ds_name (string); ds_type (string); operation (string); query (string); results (array<object>); schema_version (string); window (object)
-
 <!-- GENERATED:monit-query END -->
 
 ## Read results and time windows

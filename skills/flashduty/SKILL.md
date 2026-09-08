@@ -25,7 +25,7 @@ hidden: true  # internal-only: withheld from skills.sh public discovery (Safari 
 
 Append `--output-format toon` to read commands: it drops the per-row repeated keys that JSON emits, so lists cost far fewer tokens. Use `--json` only to pipe into `jq`. Bare output is a human table — don't parse it.
 
-**Count the cheap way.** If a list response already returns `total`, trust that authoritative server count — do not page N times just to count rows. When the question is "how many by status/progress/severity", issue the narrowest server-side filter per bucket and read each response's `total`; for account-wide trends switch to aggregation verbs such as `insight *`, `rule-counter-status`, `rule-counter-node`, or `rule-counter-total`.
+**Count the cheap way.** If a list response already returns `total`, trust that authoritative server count — do not page N times just to count rows. When the question is "how many by status/progress/severity", issue the narrowest server-side filter per bucket and read each response's `total`; for account-wide trends switch to aggregation verbs such as `insight *`, `rule-counter-node`, or `rule-counter-total`.
 
 **Shape the payload before you fetch it.** For ID scans, counts, or "find the matching row" tasks, prefer `--fields` projections and compact list verbs over full detail dumps. Huge raw JSON dumps are a last resort, not a default.
 
@@ -72,7 +72,6 @@ Some asks span several commands. For those the skill ships a script that fetches
 | monitor / 监控 / inspection 巡检 — unsure which Flashmonit surface | **`reference/monit.md`** (index; routes to the four below) |
 | alert rule 告警规则 / rule config 规则配置 / rule folder 规则文件夹 / rule export 规则导出 | **`reference/monit-rule.md`** |
 | datasource 数据源 = a system Flashmonit queries (Prometheus / Loki / SQL / SLS) / connect a datasource 连接数据源 / SLS project / logstore / Redis / MongoDB / Kafka / database overview 数据库概览 / locks 锁 / slowlog 慢日志 | **`reference/monit-datasource.md`** |
-| store ruleset 规则集 / 规则模板库 | **`reference/monit-ruleset.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
 | channel / 协作空间 / collaboration space / 频道 / integration 集成 / 告警来源 alert source / alert grouping 告警分组 | **`reference/channel.md`** |

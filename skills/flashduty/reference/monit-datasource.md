@@ -51,7 +51,7 @@ Create datasource
 - `--edge-cluster-name` string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
 - `--enabled` bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
 - `--id` int64 — Datasource ID. Required for update; omit for create.
-- `--name` string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
+- `--name` string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
 - body-only (`--data`): payload (object) (required)
@@ -101,7 +101,7 @@ Update datasource
 - `--edge-cluster-name` string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
 - `--enabled` bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
 - `--id` int64 — Datasource ID. Required for update; omit for create.
-- `--name` string (required) — Datasource display name. This is the name referenced as 'ds_name' in query and diagnose APIs.
+- `--name` string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
 - `--note` string — Optional description.
 - `--type-ident` string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
 - body-only (`--data`): payload (object) (required)

@@ -9,7 +9,7 @@ Read only the card for the selected task. Use a configured datasource for metric
 
 Datasource tools use `datasource_id`, one tool per call and static tool guidance.
 
-The legacy `query-diagnose` command is retained for existing callers; new investigations use named tools. Trend/pattern tools take explicit `params.time_range` Unix seconds (up to six hours), while database overview tools observe the current server. Source evidence is not a confirmed root cause. Read warning/truncation fields before interpreting results.
+Investigations use named datasource tools. Trend/pattern tools take explicit `params.time_range` Unix seconds (up to six hours), while database overview tools observe the current server. Source evidence is not a confirmed root cause. Read warning/truncation fields before interpreting results.
 
 
 <!-- GENERATED:monit[query] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
