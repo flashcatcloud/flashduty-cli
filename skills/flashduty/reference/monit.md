@@ -12,7 +12,7 @@ Prereq: `SKILL.md` read. Flashmonit is five separate surfaces sharing one comman
 |---|---|---|
 | Datasources | connect / list / inspect a datasource, structured database/middleware diagnostics, SLS discovery | **`reference/monit-datasource.md`** |
 | Alert rules | rule CRUD, folders, counters, audits, export/import | **`reference/monit-rule.md`** |
-| Probing | ad-hoc query, log-pattern / metric-trend RCA, targets, on-box tools | **`reference/monit-probe.md`** |
+| Probing | ad-hoc query, log-pattern / metric-trend RCA | **`reference/monit-probe.md`** |
 | Store rulesets | ruleset CRUD | **`reference/monit-ruleset.md`** |
 
 Key IDs are shared across all of them: **rule ID (int)** from `rule-list-basic`; **datasource ID (integer)** for tools and **datasource name (string)** for free queries — never guess, always discover via `datasource-list` (see `reference/monit-datasource.md`).

@@ -75,7 +75,6 @@ Some asks span several commands. For those the skill ships a script that fetches
 | store ruleset 规则集 / 规则模板库 | **`reference/monit-ruleset.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
-| host diagnostics / 主机诊断 / on-box / process 进程 / load 负载 / host reachability 主机可达性 | **`reference/monit-agent.md`** |
 | channel / 协作空间 / collaboration space / 频道 / integration 集成 / 告警来源 alert source / alert grouping 告警分组 | **`reference/channel.md`** |
 | dispatch rule 分派策略 / 分派规则 / escalation rule 升级规则 / notify layers 通知层级 / who gets paged | **`reference/escalation.md`** |
 | silence 静默 / 屏蔽 / inhibit 抑制 / drop rule 丢弃 / noise reduction 降噪 / maintenance silence 维护窗口静默 | **`reference/noise.md`** |

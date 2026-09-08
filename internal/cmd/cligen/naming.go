@@ -110,6 +110,8 @@ func commonPrefixLen(opTokens [][]string) int {
 }
 
 var methodPrefixByTag = map[string][]string{
+	// Removing Agent endpoints must not rename the supported query methods.
+	"Monitors/Diagnostics": {"monit", "read"},
 	"On-call/Incidents":    {"incident"},
 	"On-call/Integrations": {"webhook", "history"},
 }
