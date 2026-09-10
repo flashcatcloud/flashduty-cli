@@ -18,7 +18,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 | datasource detail | `datasource-info` |
 | create / update a datasource | `datasource-create` / `datasource-update` |
 | delete a datasource | `datasource-delete` |
-| run a datasource diagnostic or query tool | `datasource-tools-invoke` |
+| run a datasource query or diagnostic tool | `monit-query` (recommended; `datasource-tools-invoke` is the spec-mirror equivalent) |
 | SLS project/logstore discovery | `datasource-sls-projects` / `datasource-sls-logstores` |
 
 ## Gotchas
@@ -30,29 +30,29 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 
 Use the selected `id`, never an Agent locator. `enabled=true` is required; `alerting_enabled=false` still permits diagnostics. Same address with different IDs means different credentials/configurations and must remain separate.
 
+Invoke tools through `monit-query` (see `reference/monit-query.md`); the generated `monit datasource-tools-invoke` below is the spec-mirror equivalent entry for the same endpoint.
+
 ```bash
 fduty monit datasource-list --type redis_node --output-format json \
   | jq '[.[] | {id,name,type_ident,address,edge_cluster_name,enabled,alerting_enabled}]'
-fduty monit datasource-tools-invoke --output-format json --data - <<'FDUTY'
-{"datasource_id":12345,"tool":"redis_node.overview","params":{}}
-FDUTY
+fduty monit-query 12345 --tool redis_node.overview --output-format json
 ```
 
 One call invokes one named tool. The CLI unwraps HTTP data to `{datasource_id,tool,data,summary?,truncated?}`. The endpoint has no tool catalog: use the datasource-specific skill reference for static names and parameters. Examples include `mysql.lock_contention`, `postgres.activity`, `redis_node.slowlog`, `kafka.consumer_lag`, `elasticsearch.cat`, `prometheus.metric_trends`, `loki.log_patterns`, and `victorialogs.log_patterns`. Do not guess tool parameters.
 
-Tools require all currently routable Edge sessions in the selected cluster to support the v0.71.0 baseline. Report `edge_upgrade_required`, `mixed_edge_versions`, `no_active_edge` and `tool_not_supported` as returned; do not rotate Edges or fall back to Agent/legacy diagnose. `invalid_request` requires fixing parameters, and `source_too_large`/`result_too_large` requires a narrower request. Normal datasource queries retain their existing version compatibility.
+Tools require all currently routable Edge sessions in the selected cluster to support the v0.71.0 baseline. Report `edge_upgrade_required`, `mixed_edge_versions`, `no_active_edge` and `tool_not_supported` as returned; do not rotate Edges or fall back to Agent/legacy diagnose. `invalid_request` requires fixing parameters, and `source_too_large`/`result_too_large` requires a narrower request.
 
 ## Query tools — `<type>.query`
 
 The same invoke entry also runs query tools named `<type>.query` for ten datasource types: `prometheus`, `mysql`, `postgres`, `oracle`, `clickhouse`, `elasticsearch`, `loki`, `victorialogs`, `sls`, `tencent_cls`. The tool prefix must match the datasource type. `params` is a per-datasource structure: always `expr` plus `execution` (`kind: instant|range|window`, `from_ms`/`to_ms` Unix milliseconds; `range` also needs `max_data_points`). Log types can add `limit`/`direction`; `sls` requires `project`/`logstore`; `tencent_cls` requires `region`/`topic_id`/`syntax`. SQL types take a single read-only statement with `window` execution.
 
 ```bash
-fduty monit datasource-tools-invoke --output-format json --data - <<'FDUTY'
-{"datasource_id":12345,"tool":"prometheus.query","params":{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}}
+fduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
+{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}
 FDUTY
 ```
 
-Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to `/monit/query/data` automatically.
+Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to another endpoint automatically.
 
 <!-- GENERATED:monit[datasource] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
