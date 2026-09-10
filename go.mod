@@ -3,7 +3,7 @@ module github.com/flashcatcloud/flashduty-cli
 go 1.25.1
 
 require (
-	github.com/flashcatcloud/go-flashduty v0.15.2-0.20260910014922-dce7c882be68
+	github.com/flashcatcloud/go-flashduty v0.15.2
 	github.com/mattn/go-runewidth v0.0.28
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
