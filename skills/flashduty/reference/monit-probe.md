@@ -4,8 +4,8 @@ Read only the card for the selected task. Use a configured datasource for metric
 
 | Need | Command / reference |
 |---|---|
-| PromQL, SQL, LogQL, LogsQL or SLS query | `monit-query data`; `reference/monit-query.md` |
-| Metric trends, log patterns, database locks, Redis/Kafka/ES diagnostics | `monit datasource-tools-invoke`; `reference/monit-datasource.md` |
+| PromQL, SQL, LogQL, LogsQL or SLS query | `monit-query --tool '<type>.query'`; `reference/monit-query.md` |
+| Metric trends, log patterns, database locks, Redis/Kafka/ES diagnostics | `monit-query --tool '<name>'`; `reference/monit-datasource.md` |
 
 Datasource tools use `datasource_id`, one tool per call and static tool guidance.
 

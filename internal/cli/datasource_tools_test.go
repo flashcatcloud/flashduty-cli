@@ -52,6 +52,51 @@ func TestDatasourceToolInvokeStdinPreservesJSON(t *testing.T) {
 	}
 }
 
+func TestDatasourceToolInvokeQueryParamsPreserveJSON(t *testing.T) {
+	saveAndResetGlobals(t)
+	requests := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/monit/datasource/tools/invoke" {
+			t.Errorf("unexpected endpoint: %s %s", r.Method, r.URL.Path)
+		}
+		raw, _ := io.ReadAll(r.Body)
+		requests <- string(raw)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"request_id":"query-test","data":{"datasource_id":42,"tool":"prometheus.query","data":{"format":"explore_result.v1","result":{"kind":"samples","samples":[]}}}}`)
+	}))
+	t.Cleanup(server.Close)
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test", flashduty.WithBaseURL(server.URL))
+	}
+	out, err := execCommand("monit", "datasource-tools-invoke", "42", "--tool", "prometheus.query",
+		"--data", `{"params":{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":9007199254740993}}}`,
+		"--output-format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := <-requests
+	var sent struct {
+		DatasourceID uint64          `json:"datasource_id"`
+		Tool         string          `json:"tool"`
+		Params       json.RawMessage `json:"params"`
+	}
+	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.DatasourceID != 42 || sent.Tool != "prometheus.query" {
+		t.Fatalf("request lost identity: %s", raw)
+	}
+	if !strings.Contains(string(sent.Params), `"to_ms":9007199254740993`) || strings.Contains(string(sent.Params), "9007199254740992") {
+		t.Fatalf("params lost numeric precision: %s", sent.Params)
+	}
+	if !strings.Contains(string(sent.Params), `"kind":"instant"`) || !strings.Contains(string(sent.Params), "rate(http_requests_total[5m])") {
+		t.Fatalf("params mangled: %s", sent.Params)
+	}
+	if !strings.Contains(out, "explore_result.v1") {
+		t.Fatalf("response lost query evidence: %s", out)
+	}
+}
+
 func TestDatasourceToolErrorsAreNotReplayed(t *testing.T) {
 	for _, status := range []int{400, 429, 503, 504} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {

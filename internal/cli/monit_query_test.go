@@ -2,25 +2,188 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strconv"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
-	"time"
+
+	"github.com/flashcatcloud/go-flashduty"
 )
 
-func TestMonitQueryDataFlags(t *testing.T) {
-	cmd := newMonitQueryDataCmd()
-	for _, name := range []string{"ds-type", "ds-name", "expr", "args", "delay-seconds"} {
-		if cmd.Flags().Lookup(name) == nil {
-			t.Errorf("flag --%s missing", name)
+// invokeRawStub captures the raw request body sent to the unified tool
+// entry and replies with a canned tool envelope. Byte-level assertions need
+// the raw body: decoding to map[string]any first would hide float64 rounding.
+func invokeRawStub(t *testing.T) chan string {
+	t.Helper()
+	requests := make(chan string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/monit/datasource/tools/invoke" {
+			t.Errorf("unexpected endpoint: %s %s", r.Method, r.URL.Path)
 		}
+		raw, _ := io.ReadAll(r.Body)
+		requests <- string(raw)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"request_id":"monit-query-test","data":{"datasource_id":42,"tool":"prometheus.query","data":{"format":"explore_result.v1","result":{"kind":"samples","samples":[{"labels":{"job":"api"},"value":1.25}]}}}}`)
+	}))
+	t.Cleanup(server.Close)
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test", flashduty.WithBaseURL(server.URL))
+	}
+	return requests
+}
+
+func TestMonitQueryToolInvokePreservesParams(t *testing.T) {
+	saveAndResetGlobals(t)
+	requests := invokeRawStub(t)
+	out, err := execCommand("monit-query", "42", "--tool", "prometheus.query",
+		"--params", `{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":9007199254740993}}`,
+		"--output-format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := <-requests
+	var sent struct {
+		DatasourceID uint64          `json:"datasource_id"`
+		Tool         string          `json:"tool"`
+		Params       json.RawMessage `json:"params"`
+	}
+	if err := json.Unmarshal([]byte(raw), &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.DatasourceID != 42 || sent.Tool != "prometheus.query" {
+		t.Fatalf("request lost identity: %s", raw)
+	}
+	if !strings.Contains(string(sent.Params), `"to_ms":9007199254740993`) || strings.Contains(string(sent.Params), "9007199254740992") {
+		t.Fatalf("params lost numeric precision: %s", sent.Params)
+	}
+	if !strings.Contains(out, "explore_result.v1") {
+		t.Fatalf("response lost query evidence: %s", out)
+	}
+}
+
+func TestMonitQueryToolInvokeParamsFromStdin(t *testing.T) {
+	saveAndResetGlobals(t)
+	requests := invokeRawStub(t)
+	stdinReader = strings.NewReader(`{"expr":"up","execution":{"kind":"range","from_ms":9007199254740993,"to_ms":9007199254740995,"max_data_points":100}}`)
+	_, err := execCommand("monit-query", "42", "--tool", "prometheus.query", "--params", "-", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := <-requests
+	if !strings.Contains(raw, `"from_ms":9007199254740993`) || strings.Contains(raw, "9007199254740992") {
+		t.Fatalf("stdin params lost numeric precision: %s", raw)
+	}
+}
+
+func TestMonitQueryToolInvokeOmitsParams(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	if _, err := execCommand("monit-query", "42", "--tool", "redis_node.overview"); err != nil {
+		t.Fatal(err)
+	}
+	if stub.lastPath != "/monit/datasource/tools/invoke" {
+		t.Fatalf("unexpected path: %s", stub.lastPath)
+	}
+	if _, present := stub.lastBody["params"]; present {
+		t.Fatalf("params should be omitted, got %v", stub.lastBody["params"])
+	}
+	if stub.lastBody["tool"] != "redis_node.overview" {
+		t.Fatalf("unexpected tool: %v", stub.lastBody["tool"])
+	}
+}
+
+func TestMonitQueryToolInvokeAccountID(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	if _, err := execCommand("monit-query", "42", "--tool", "redis_node.overview", "--account-id", "7"); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(stub.lastBody["account_id"]) != "7" {
+		t.Fatalf("account_id not stamped: %v", stub.lastBody)
+	}
+}
+
+func TestMonitQueryToolInvokeRejectsBadInputBeforeRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"missing tool", []string{"monit-query", "42"}, "required"},
+		{"bad datasource id", []string{"monit-query", "abc", "--tool", "prometheus.query"}, "datasource-id"},
+		{"zero datasource id", []string{"monit-query", "0", "--tool", "prometheus.query"}, "datasource-id"},
+		{"malformed params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "{oops"}, "--params"},
+		{"null params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "null"}, "--params"},
+		{"array params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "[1,2]"}, "--params"},
+		{"trailing params value", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "{} {}"}, "--params"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error=%v, want substring %q", err, tc.want)
+			}
+			if stub.requests != 0 {
+				t.Fatalf("request sent despite invalid input: %d", stub.requests)
+			}
+		})
+	}
+}
+
+func TestMonitQueryToolErrorsPassThrough(t *testing.T) {
+	saveAndResetGlobals(t)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"request_id":"trace-query","error":{"code":"BadRequest","reason":"edge_upgrade_required","message":"query tools require Explore-capable Edge"}}`)
+	}))
+	t.Cleanup(server.Close)
+	newClientFn = func() (*flashduty.Client, error) {
+		return flashduty.NewClient("test", flashduty.WithBaseURL(server.URL))
+	}
+	_, err := execCommand("monit-query", "42", "--tool", "prometheus.query",
+		"--params", `{"expr":"up","execution":{"kind":"instant","to_ms":1757462400000}}`)
+	var apiErr *flashduty.ErrorResponse
+	if !errors.As(err, &apiErr) || apiErr.Reason != "edge_upgrade_required" || calls.Load() != 1 {
+		t.Fatalf("error lost or replayed: %v, calls=%d", err, calls.Load())
+	}
+	if !strings.Contains(err.Error(), "edge_upgrade_required") || !strings.Contains(err.Error(), "trace-query") {
+		t.Fatalf("CLI error omitted reason/request ID: %v", err)
+	}
+}
+
+// The retired `monit-query data` subcommand (and the long-gone `diagnose`)
+// must fail before any request: monit-query is now a leaf tool-invoke command.
+func TestRetiredMonitQuerySubcommandsRejectBeforeRequest(t *testing.T) {
+	for _, args := range [][]string{
+		{"monit-query", "data", "--ds-type", "prometheus", "--ds-name", "prom-prod", "--expr", "up"},
+		{"monit-query", "data"},
+		{"monit-query", "diagnose"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(args...)
+			if err == nil {
+				t.Fatal("retired command form succeeded")
+			}
+			if stub.requests != 0 {
+				t.Fatalf("retired command form sent %d requests", stub.requests)
+			}
+		})
 	}
 }
 
 func TestRetiredMonitCommandsRejectBeforeRequest(t *testing.T) {
 	for _, args := range [][]string{
-		{"monit-query", "diagnose"}, {"monit", "query-diagnose"},
+		{"monit", "query-diagnose"},
 		{"monit", "rule-counter-status"},
 		{"monit", "store-ruleset-create"}, {"monit", "store-ruleset-update"},
 		{"monit", "store-ruleset-list"}, {"monit", "store-ruleset-info"}, {"monit", "store-ruleset-delete"},
@@ -36,241 +199,5 @@ func TestRetiredMonitCommandsRejectBeforeRequest(t *testing.T) {
 				t.Fatalf("retired command sent %d requests", stub.requests)
 			}
 		})
-	}
-}
-
-// --- monit-query data -----------------------------------------------------
-
-func TestMonitQueryDataHappyPath(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	// data returns the stable query_result.v1 envelope: data.{format,result}.
-	stub.data = map[string]any{
-		"format": "query_result.v1",
-		"result": map[string]any{
-			"kind": "samples",
-			"samples": []any{
-				map[string]any{"labels": map[string]any{"job": "api"}, "value": 1.25},
-			},
-		},
-	}
-
-	out, err := execCommand(
-		"monit-query", "data",
-		"--ds-type", "prometheus",
-		"--ds-name", "prom-prod",
-		"--expr", "up",
-		"--delay-seconds", "30",
-		"--args", "step=15s",
-		"--output-format", "json",
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if stub.lastPath != "/monit/query/data" {
-		t.Fatalf("expected /monit/query/data, got %q", stub.lastPath)
-	}
-	body := stub.lastBody
-	if body["ds_type"] != "prometheus" || body["ds_name"] != "prom-prod" || body["expr"] != "up" {
-		t.Errorf("unexpected data input: %#v", body)
-	}
-	if fmt.Sprint(body["delay_seconds"]) != "30" {
-		t.Errorf("expected delay_seconds 30, got %v", body["delay_seconds"])
-	}
-	args, _ := body["args"].(map[string]any)
-	if args["step"] != "15s" {
-		t.Errorf("expected args step=15s, got %#v", args)
-	}
-	var rendered map[string]any
-	if err := json.Unmarshal([]byte(out), &rendered); err != nil {
-		t.Fatalf("decode CLI JSON: %v\n%s", err, out)
-	}
-	if rendered["format"] != "query_result.v1" {
-		t.Errorf("expected format query_result.v1, got %v", rendered["format"])
-	}
-}
-
-func TestMonitQueryDataRequiredFlags(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-	}{
-		{
-			name: "missing ds-type",
-			args: []string{
-				"monit-query", "data",
-				"--ds-name", "prom-prod",
-				"--expr", "up",
-			},
-		},
-		{
-			name: "missing ds-name",
-			args: []string{
-				"monit-query", "data",
-				"--ds-type", "prometheus",
-				"--expr", "up",
-			},
-		},
-		{
-			name: "missing expr",
-			args: []string{
-				"monit-query", "data",
-				"--ds-type", "prometheus",
-				"--ds-name", "prom-prod",
-			},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			saveAndResetGlobals(t)
-			stub := newGFStub(t)
-
-			_, err := execCommand(tc.args...)
-			if err == nil {
-				t.Fatal("expected required-flag error, got nil")
-			}
-			if !strings.Contains(err.Error(), "required") {
-				t.Errorf("expected error to mention 'required', got %q", err.Error())
-			}
-			if stub.requests != 0 {
-				t.Errorf("data should not have been called: %d request(s)", stub.requests)
-			}
-		})
-	}
-}
-
-// --- normalizeRawTimeArgs --------------------------------------------------
-
-func TestNormalizeRawTimeArgsAcceptedFormats(t *testing.T) {
-	cases := []struct {
-		name  string
-		input string
-	}{
-		{"rfc3339 utc", "2026-08-11T09:40:00Z"},
-		{"rfc3339 offset", "2026-08-11T09:40:00+08:00"},
-		{"unix seconds", "1786497600"},
-		{"unix milliseconds", "1786497600000"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			args := map[string]string{"victorialogs.start": tc.input, "victorialogs.end": tc.input}
-			if err := normalizeRawTimeArgs("victorialogs", args); err != nil {
-				t.Fatalf("normalizeRawTimeArgs(%q): unexpected error: %v", tc.input, err)
-			}
-			for _, key := range []string{"victorialogs.start", "victorialogs.end"} {
-				if _, err := strconv.ParseInt(args[key], 10, 64); err != nil {
-					t.Errorf("%s: expected normalized unix-seconds string, got %q", key, args[key])
-				}
-			}
-		})
-	}
-}
-
-func TestNormalizeRawTimeArgsLokiPrefix(t *testing.T) {
-	args := map[string]string{"loki.start": "2026-08-11T09:40:00Z", "loki.end": "2026-08-11T10:05:00Z"}
-	if err := normalizeRawTimeArgs("loki", args); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	wantStart := strconv.FormatInt(time.Date(2026, 8, 11, 9, 40, 0, 0, time.UTC).Unix(), 10)
-	wantEnd := strconv.FormatInt(time.Date(2026, 8, 11, 10, 5, 0, 0, time.UTC).Unix(), 10)
-	if args["loki.start"] != wantStart || args["loki.end"] != wantEnd {
-		t.Errorf("unexpected normalized loki args: %#v, want start=%s end=%s", args, wantStart, wantEnd)
-	}
-}
-
-func TestNormalizeRawTimeArgsIgnoresOtherDsTypes(t *testing.T) {
-	args := map[string]string{"prometheus.start": "not-a-time"}
-	if err := normalizeRawTimeArgs("prometheus", args); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if args["prometheus.start"] != "not-a-time" {
-		t.Errorf("expected prometheus args untouched, got %#v", args)
-	}
-}
-
-func TestNormalizeRawTimeArgsIgnoresUnrelatedKeys(t *testing.T) {
-	args := map[string]string{"victorialogs.type": "raw", "victorialogs.timespan.value": "15"}
-	if err := normalizeRawTimeArgs("victorialogs", args); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if args["victorialogs.type"] != "raw" || args["victorialogs.timespan.value"] != "15" {
-		t.Errorf("expected unrelated args untouched, got %#v", args)
-	}
-}
-
-func TestNormalizeRawTimeArgsInvalidValue(t *testing.T) {
-	args := map[string]string{"victorialogs.start": "not-a-time"}
-	err := normalizeRawTimeArgs("victorialogs", args)
-	if err == nil {
-		t.Fatal("expected error for invalid victorialogs.start, got nil")
-	}
-	if !strings.Contains(err.Error(), "victorialogs.start") {
-		t.Errorf("expected error to mention victorialogs.start, got %q", err.Error())
-	}
-}
-
-// TestMonitQueryDataRawModeNormalizesRFC3339 is the regression test for the
-// raw-vs-stats time format inconsistency: a raw-mode VictoriaLogs query given
-// RFC3339 --args timestamps must reach the server as the unix-seconds form
-// the raw query path requires.
-func TestMonitQueryDataRawModeNormalizesRFC3339(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	stub.data = map[string]any{"format": "query_result.v1", "result": map[string]any{"kind": "records", "records": []any{}}}
-
-	_, err := execCommand(
-		"monit-query", "data",
-		"--ds-type", "victorialogs",
-		"--ds-name", "vl-prod",
-		"--expr", `{app="api"} |= "error"`,
-		"--args", "victorialogs.type=raw",
-		"--args", "victorialogs.start=2026-08-11T09:40:00Z",
-		"--args", "victorialogs.end=2026-08-11T10:05:00Z",
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	body := stub.lastBody
-	argsSent, _ := body["args"].(map[string]any)
-	start, ok := argsSent["victorialogs.start"].(string)
-	if !ok {
-		t.Fatalf("expected victorialogs.start in request args, got %#v", argsSent)
-	}
-	if _, err := strconv.ParseInt(start, 10, 64); err != nil {
-		t.Errorf("expected victorialogs.start to be unix-seconds, got %q", start)
-	}
-	end, ok := argsSent["victorialogs.end"].(string)
-	if !ok {
-		t.Fatalf("expected victorialogs.end in request args, got %#v", argsSent)
-	}
-	if _, err := strconv.ParseInt(end, 10, 64); err != nil {
-		t.Errorf("expected victorialogs.end to be unix-seconds, got %q", end)
-	}
-	wantStart := time.Date(2026, 8, 11, 9, 40, 0, 0, time.UTC).Unix()
-	wantEnd := time.Date(2026, 8, 11, 10, 5, 0, 0, time.UTC).Unix()
-	if start != strconv.FormatInt(wantStart, 10) || end != strconv.FormatInt(wantEnd, 10) {
-		t.Errorf("expected start=%d end=%d, got start=%s end=%s", wantStart, wantEnd, start, end)
-	}
-}
-
-func TestMonitQueryDataInvalidArgs(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-
-	_, err := execCommand(
-		"monit-query", "data",
-		"--ds-type", "prometheus",
-		"--ds-name", "prom-prod",
-		"--expr", "up",
-		"--args", "no-equals-sign",
-	)
-	if err == nil {
-		t.Fatal("expected error for malformed --args, got nil")
-	}
-	if !strings.Contains(err.Error(), "--args") {
-		t.Errorf("expected error to mention --args, got %q", err.Error())
-	}
-	if stub.requests != 0 {
-		t.Errorf("data should not have been called: %d request(s)", stub.requests)
 	}
 }

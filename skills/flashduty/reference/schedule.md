@@ -98,6 +98,11 @@ fduty schedule create --schedule-name "SRE Weekly" --team-id <team-id> \
 
 <!-- GENERATED:schedule START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
+### by-person <person-id>
+Get member on-call status
+- `<person-id>` (positional, required) int64 — Member ID whose on-call status is returned.
+- response: single object (`data` unwrapped to the top level) — fields: current (object); next (object); schedules (array<object>)
+
 ### create
 Create schedule
 - `--description` string — Schedule description. Max 500 characters. (≤500 chars)

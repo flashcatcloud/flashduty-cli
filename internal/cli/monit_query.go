@@ -1,95 +1,102 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
+	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
-
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
+// newMonitQueryCmd builds the curated leaf for the unified datasource tool
+// entry POST /monit/datasource/tools/invoke: query tools ('<type>.query') and
+// Edge-defined diagnostic tools share this one invocation surface. The
+// generated `monit datasource-tools-invoke` is the spec-mirror equivalent.
+// The CLI only assembles the request and renders the result — tool-name and
+// per-datasource params validation are the server's job.
 func newMonitQueryCmd() *cobra.Command {
-	cmd := newGroupCmd("monit-query", "Query configured datasources; structured diagnostics use monit datasource-tools-invoke")
-	cmd.AddCommand(newMonitQueryDataCmd())
-	return cmd
-}
-
-func newMonitQueryDataCmd() *cobra.Command {
 	var (
-		dsType, dsName, expr string
-		delaySeconds         int64
-		argsKV               []string
+		tool       string
+		paramsFlag string
+		accountID  int64
 	)
 
 	cmd := &cobra.Command{
-		Use:   "data",
-		Short: "Structured datasource query (returns a stable query_result.v1: frames/records/samples)",
-		Long:  curatedLong("Structured datasource query returning the stable query_result.v1 result — frames, records, or samples — instead of the legacy flattened rows.", "Diagnostics", "QueryData"),
+		Use:   "monit-query <datasource-id>",
+		Short: "Invoke a datasource query or diagnostic tool",
+		Long: curatedLong(`Invoke one query or diagnostic tool against a configured datasource.
+
+Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their params are the per-datasource query schemas (expr + execution, plus log/sls/tencent_cls extensions). Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). The tool prefix must match the datasource type; the server validates the tool name and params.`, "DataSources", "ToolsInvoke"),
+		Example: `  flashduty monit-query 12345 --tool prometheus.query --params '{"expr":"up","execution":{"kind":"instant","to_ms":1757462400000}}'
+  flashduty monit-query 12345 --tool redis_node.overview`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dsType == "" || dsName == "" || expr == "" {
-				return fmt.Errorf("--ds-type, --ds-name, --expr are required")
+			datasourceID, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil || datasourceID < 1 {
+				return fmt.Errorf("invalid datasource-id %q: must be a positive integer", args[0])
 			}
-			argsMap, err := parseKVSlice(argsKV)
+			params, err := resolveToolParams(paramsFlag)
 			if err != nil {
-				return fmt.Errorf("invalid --args: %w", err)
-			}
-			if err := normalizeRawTimeArgs(dsType, argsMap); err != nil {
 				return err
 			}
-
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				input := &flashduty.QueryDataRequest{
-					DsType:       dsType,
-					DsName:       dsName,
-					Expr:         expr,
-					DelaySeconds: delaySeconds,
-					Args:         argsMap,
+				req := &flashduty.DatasourceToolInvokeRequest{
+					DatasourceID: uint64(datasourceID),
+					Tool:         tool,
+					Params:       params,
 				}
-				result, _, err := ctx.Client.Diagnostics.QueryData(cmdContext(ctx.Cmd), input)
+				if cmd.Flags().Changed("account-id") {
+					req.AccountID = uint64(accountID)
+				}
+				out, _, err := ctx.Client.DataSources.ToolsInvoke(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
-				return ctx.Printer.Print(result, nil)
+				return printGenericResult(ctx, out)
 			})
 		},
 	}
 
-	cmd.Flags().StringVar(&dsType, "ds-type", "", "Datasource type (required)")
-	cmd.Flags().StringVar(&dsName, "ds-name", "", "Datasource name as configured (required)")
-	registerEnumFlag(cmd, "ds-type", "prometheus", "victorialogs", "loki", "mysql", "sls", "elasticsearch", "postgres", "oracle", "clickhouse")
-	cmd.Flags().StringVar(&expr, "expr", "", "Query expression (required)")
-	cmd.Flags().Int64Var(&delaySeconds, "delay-seconds", 0, "Look-back offset in seconds for point-in-time queries (default 0)")
-	cmd.Flags().StringSliceVar(&argsKV, "args", nil, "Arg entries KEY=VALUE (repeatable; values must be strings per monit-query contract). "+
-		"For loki/victorialogs raw mode, <ds-type>.start/<ds-type>.end accept a relative duration ('15m'), 'now', a date/RFC3339 timestamp, "+
-		"or a unix epoch in seconds or milliseconds — normalized to the form the datasource requires before sending")
-
+	cmd.Flags().StringVar(&tool, "tool", "", "Single tool name prefixed by the datasource type: a query tool '<type>.query' or an Edge-defined diagnostic tool (e.g. 'mysql.overview'). (required)")
+	_ = cmd.MarkFlagRequired("tool")
+	cmd.Flags().StringVar(&paramsFlag, "params", "", "Tool-specific JSON parameters as inline JSON, or - to read stdin. Omitted means the params field is not sent (the server treats it as {}); explicit null is invalid. Numbers are sent byte-exact, so epoch-millisecond values above 2^53 keep their digits.")
+	cmd.Flags().Int64Var(&accountID, "account-id", 0, "Optional consistency check; must equal the authenticated account.")
 	return cmd
 }
 
-// normalizeRawTimeArgs rewrites the raw-mode time-window args of a
-// monit-query data call (<ds-type>.start / <ds-type>.end) into the unix-
-// seconds form the server requires, accepting any format timeutil.Parse
-// understands (RFC3339, date/datetime, relative duration, unix seconds or
-// milliseconds). Loki and VictoriaLogs are the only ds-types whose raw mode
-// consumes these keys; other ds-types ignore args entirely, so nothing is
-// touched for them.
-func normalizeRawTimeArgs(dsType string, args map[string]string) error {
-	if dsType != "loki" && dsType != "victorialogs" {
-		return nil
-	}
-	for _, suffix := range []string{"start", "end"} {
-		key := dsType + "." + suffix
-		v, ok := args[key]
-		if !ok || v == "" {
-			continue
-		}
-		ts, err := timeutil.Parse(v)
+// resolveToolParams validates the --params value as a single JSON object and
+// returns it byte-exact for the request's raw params field. An empty flag
+// returns nil so the field is omitted (the server treats omitted as {};
+// explicit null is invalid). Validation decodes with UseNumber only to reject
+// malformed input — the wire payload is the original text, so large integers
+// (epoch-millisecond execution windows) cannot be rounded through float64.
+func resolveToolParams(flag string) (json.RawMessage, error) {
+	raw := flag
+	if flag == "-" {
+		b, err := readStdin("--params")
 		if err != nil {
-			return fmt.Errorf("invalid --args %s=%s: %w", key, v, err)
+			return nil, fmt.Errorf("failed to read --params from stdin: %w", err)
 		}
-		args[key] = strconv.FormatInt(ts, 10)
+		raw = string(b)
 	}
-	return nil
+	if raw == "" {
+		return nil, nil
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var obj map[string]any
+	if err := decoder.Decode(&obj); err != nil {
+		return nil, fmt.Errorf("invalid --params JSON: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("invalid --params JSON: expected one JSON object")
+	}
+	if obj == nil {
+		return nil, fmt.Errorf("invalid --params JSON: expected an object")
+	}
+	return json.RawMessage(raw), nil
 }
