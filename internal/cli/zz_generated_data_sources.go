@@ -270,15 +270,15 @@ func genDataSourcesToolsInvokeCmd() *cobra.Command {
 		Short: "Invoke datasource tool",
 		Long: `Invoke datasource tool.
 
-Execute one deterministic tool against a configured datasource. Requires all currently online routable Edge sessions in the cluster to support the v0.71.0 base invoke protocol; individual tools may require a newer implementation. No tool catalog, automatic replay, or fallback to Agent/legacy diagnose. Request body limit 128 KiB; complete success response limit 1 MiB; tool timeout at most 25 seconds.
+Execute one deterministic diagnostic or query tool against a configured datasource.
 
 API: POST /monit/datasource/tools/invoke (monit-datasource-tools-invoke)
 
 Request fields:
   --account-id int — Optional consistency check; must equal the authenticated account.
   --datasource-id int (required) — Datasource ID from /monit/datasource/list. (min 1)
-  --tool string (required) — Single tool name prefixed by the datasource type, e.g. mysql.overview. Free SQL uses /monit/query/data; mysql.query and postgres.query are unsupported. (1-128 chars)
-  params (object, via --data) — Tool-specific JSON parameters; omitted means {}. Explicit null is invalid.
+  --tool string (required) — Single tool name prefixed by the datasource type. Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their 'params' follow 'PrometheusQueryParams', 'MySQLQueryParams', 'PostgresQueryParams', 'OracleQueryParams', 'ClickHouseQueryParams', 'ElasticsearchQueryParams', 'LokiQueryParams', 'VictoriaLogsQueryParams', 'SLSQueryParams', or 'TencentCLSQueryParams' respectively. (1-128 chars)
+  params (object, via --data) — Tool-specific JSON parameters; omitted means {}. Explicit null is invalid. Query tools ('<type>.query') use the per-datasource params schemas named in the 'tool' description.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - data (any) (required) — Tool-specific JSON evidence, preserved without conversion; never null. No nested legacy diagnose envelope.
@@ -288,8 +288,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - truncated (object)
     - reason (string) (required) — Why the result was truncated. Presence of this object indicates truncation.
 `,
-		Args:    requireBodyFieldOrExactArg("datasource_id", "datasource-id"),
-		Example: `  flashduty monit datasource-tools-invoke --data '{"datasource_id":10,"params":{},"tool":"mysql.overview"}'`,
+		Args: requireBodyFieldOrExactArg("datasource_id", "datasource-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -324,7 +323,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check; must equal the authenticated account.")
 	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Datasource ID from /monit/datasource/list. (required) (min 1)")
-	cmd.Flags().StringVar(&fTool, "tool", "", "Single tool name prefixed by the datasource type, e.g. mysql.overview. Free SQL uses /monit/query/data; mysql.query and postgres.query are unsupported. (required) (1-128 chars)")
+	cmd.Flags().StringVar(&fTool, "tool", "", "Single tool name prefixed by the datasource type. Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their 'params' follow 'PrometheusQueryParams', 'MySQLQueryParams', 'PostgresQueryParams', 'OracleQueryParams', 'ClickHouseQueryParams', 'ElasticsearchQueryParams', 'LokiQueryParams', 'VictoriaLogsQueryParams', 'SLSQueryParams', or 'TencentCLSQueryParams' respectively. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

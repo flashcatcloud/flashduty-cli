@@ -302,6 +302,406 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genApplicationsRemoteConfigReadGetCmd() *cobra.Command {
+	var dataJSON string
+	var fApplicationID string
+	cmd := &cobra.Command{
+		Use:   "application-remote-config-get <application-id>",
+		Short: "Get remote config detail",
+		Long: `Get remote config detail.
+
+Retrieve the live remote configuration of a RUM application and the version it is stored under.
+
+API: POST /rum/application/remote-config/get (rum-application-remote-config-read-get)
+
+Request fields:
+  --application-id string (required) — RUM application ID.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - config (object) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+    - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
+    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
+    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
+    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
+    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
+      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+      - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+  - updated_at (string) — Unix timestamp in milliseconds - when the current version was published. 0 when never configured. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - version (integer) — Version the live configuration is stored under. 0 means the application has never been configured.
+`,
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
+		Example: `  flashduty rum application-remote-config-get --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.GetRemoteConfigRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.RemoteConfigReadGet(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genApplicationsRemoteConfigReadHistoryListCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fApplicationID string
+	var fAsc bool
+	var fOrderby string
+	cmd := &cobra.Command{
+		Use:   "application-remote-config-history-list <application-id>",
+		Short: "List remote config history",
+		Long: `List remote config history.
+
+List published remote configuration versions of a RUM application.
+
+API: POST /rum/application/remote-config/history/list (rum-application-remote-config-read-history-list)
+
+Request fields:
+  --page int — Zero-based page index; offset is p multiplied by limit. (0-100000)
+  --limit int — Page size. Default 20, max 100. (max 100)
+  --search-after-ctx string
+  --application-id string (required) — RUM application ID.
+  --asc bool — Ascending order. Default: false (descending).
+  --orderby string — Sort field. Default: 'updated_at'. [updated_at, version]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - has_next_page (boolean) — Whether more pages remain.
+  - items (array<object>) — Version items, newest first by default.
+    - config (object) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+      - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
+      - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
+      - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+      - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
+      - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
+      - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
+        - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+        - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+    - content_hash (string) — Hash of the configuration content; lets the console identify versions with identical content.
+    - equivalent_to (integer) — Earliest version carrying the same content, when that is not this version itself.
+    - reason (string) — Operator's note left when the version was published. Empty when none was given.
+    - updated_at (string) — Unix timestamp in milliseconds - when the version was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) — ID of the member who published the version.
+    - updated_by_name (string) — Name of the member who published the version.
+    - version (integer) — Version number, unique within the application.
+  - total (integer) — Total number of versions.
+`,
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
+		Example: `  flashduty rum application-remote-config-history-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","asc":false,"limit":20,"orderby":"updated_at","p":0}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("orderby") {
+						body["orderby"] = fOrderby
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListRemoteConfigHistoryRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.RemoteConfigReadHistoryList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Zero-based page index; offset is p multiplied by limit. (0-100000)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 20, max 100. (max 100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order. Default: false (descending).")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [updated_at, version]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genApplicationsRemoteConfigReadPreviewCmd() *cobra.Command {
+	var dataJSON string
+	var fAppVersion string
+	var fApplicationID string
+	var fEnv string
+	var fSdk string
+	cmd := &cobra.Command{
+		Use:   "application-remote-config-preview <application-id>",
+		Short: "Preview remote config",
+		Long: `Preview remote config.
+
+Evaluate a draft remote configuration against a client context without publishing it.
+
+API: POST /rum/application/remote-config/preview (rum-application-remote-config-read-preview)
+
+Request fields:
+  --app-version string — App version the simulated client reports.
+  --application-id string (required) — RUM application ID.
+  --env string — Environment the simulated client reports.
+  --sdk string — SDK name and version the simulated client reports, e.g. 'web@2.4.1'.
+  config (object, via --data) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+    - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
+    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
+    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
+    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
+    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
+      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+      - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - hit_rule_index (integer) — 0-based index of the rule that decided the result, or -1 when only the default applied.
+  - values (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+    - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+    - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+    - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+    - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+`,
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
+		Example: `  flashduty rum application-remote-config-preview --data '{"app_version":"2.14.3","application_id":"WoyQQ3BohkdtPivubEvE8o","env":"production","sdk":"web@2.4.1"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("app-version") {
+						body["app_version"] = fAppVersion
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					if cmd.Flags().Changed("env") {
+						body["env"] = fEnv
+					}
+					if cmd.Flags().Changed("sdk") {
+						body["sdk"] = fSdk
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.PreviewRemoteConfigRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.RemoteConfigReadPreview(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fAppVersion, "app-version", "", "App version the simulated client reports.")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fEnv, "env", "", "Environment the simulated client reports.")
+	cmd.Flags().StringVar(&fSdk, "sdk", "", "SDK name and version the simulated client reports, e.g. 'web@2.4.1'.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genApplicationsRemoteConfigWriteHistoryRevertCmd() *cobra.Command {
+	var dataJSON string
+	var fApplicationID string
+	var fReason string
+	var fVersion int64
+	cmd := &cobra.Command{
+		Use:   "application-remote-config-history-revert <application-id>",
+		Short: "Revert remote config",
+		Long: `Revert remote config.
+
+Republish an earlier remote configuration version's content as a new version.
+
+API: POST /rum/application/remote-config/history/revert (rum-application-remote-config-write-history-revert)
+
+Request fields:
+  --application-id string (required) — RUM application ID.
+  --reason string — Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)
+  --version int (required) — History version to republish. (min 1)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - version (integer) — New version number created by the revert.
+`,
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
+		Example: `  flashduty rum application-remote-config-history-revert --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","reason":"Rolled back after the Q4 launch incident","version":7}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					if cmd.Flags().Changed("reason") {
+						body["reason"] = fReason
+					}
+					if cmd.Flags().Changed("version") {
+						body["version"] = fVersion
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.RevertRemoteConfigRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.RemoteConfigWriteHistoryRevert(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fReason, "reason", "", "Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "History version to republish. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genApplicationsRemoteConfigWriteUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fApplicationID string
+	var fReason string
+	cmd := &cobra.Command{
+		Use:   "application-remote-config-update <application-id>",
+		Short: "Update remote config",
+		Long: `Update remote config.
+
+Publish a complete new remote configuration version for a RUM application.
+
+API: POST /rum/application/remote-config/update (rum-application-remote-config-write-update)
+
+Request fields:
+  --application-id string (required) — RUM application ID.
+  --reason string — Operator's note on why this version was published. Stored verbatim. (≤255 chars)
+  config (object, via --data) (required) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+    - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
+    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
+    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
+    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
+    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
+      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+      - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
+        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
+        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - version (integer) — New published version number.
+`,
+		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
+		Example: `  flashduty rum application-remote-config-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","config":{"activation":"next_session","custom":{"feature_flags":{"checkout_v2":true}},"default":{"defaultPrivacyLevel":"mask-user-input","sessionReplaySampleRate":20,"sessionSampleRate":100,"traceSampleRate":100},"enabled":true,"refresh_on_foreground":false,"rules":[{"match":{"env":"production"},"set":{"defaultPrivacyLevel":"mask","sessionReplaySampleRate":0,"sessionSampleRate":5}}]},"reason":"Tighten replay sampling for the Q4 launch"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "application_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("application-id") {
+						body["application_id"] = fApplicationID
+					}
+					if cmd.Flags().Changed("reason") {
+						body["reason"] = fReason
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpdateRemoteConfigRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Applications.RemoteConfigWriteUpdate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fReason, "reason", "", "Operator's note on why this version was published. Stored verbatim. (≤255 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genApplicationsWebhookTestCmd() *cobra.Command {
 	var dataJSON string
 	var fApplicationID string
@@ -629,6 +1029,11 @@ func registerGeneratedApplications(root *cobra.Command) {
 	genAddLeaf(gRUM, genApplicationsReadInfoCmd())
 	genAddLeaf(gRUM, genApplicationsReadInfosCmd())
 	genAddLeaf(gRUM, genApplicationsReadListCmd())
+	genAddLeaf(gRUM, genApplicationsRemoteConfigReadGetCmd())
+	genAddLeaf(gRUM, genApplicationsRemoteConfigReadHistoryListCmd())
+	genAddLeaf(gRUM, genApplicationsRemoteConfigReadPreviewCmd())
+	genAddLeaf(gRUM, genApplicationsRemoteConfigWriteHistoryRevertCmd())
+	genAddLeaf(gRUM, genApplicationsRemoteConfigWriteUpdateCmd())
 	genAddLeaf(gRUM, genApplicationsWebhookTestCmd())
 	genAddLeaf(gRUM, genApplicationsWriteCreateCmd())
 	genAddLeaf(gRUM, genApplicationsWriteDeleteCmd())

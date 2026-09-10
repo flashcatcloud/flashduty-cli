@@ -271,6 +271,7 @@ func genMembersMemberListCmd() *cobra.Command {
 	var fLimit int64
 	var fSearchAfterCtx string
 	var fAsc bool
+	var fMemberID int64
 	var fOrderby string
 	var fQuery string
 	var fRoleID int64
@@ -288,6 +289,7 @@ Request fields:
   --limit int — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
   --search-after-ctx string
   --asc bool — Ascending order. Default: false (descending)
+  --member-id int — Filter by member ID. Return only the member with this ID.
   --orderby string — Sort field. Default: 'updated_at' [created_at, updated_at]
   --query string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
   --role-id int — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
@@ -331,6 +333,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
 					}
+					if cmd.Flags().Changed("member-id") {
+						body["member_id"] = fMemberID
+					}
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
 					}
@@ -361,6 +366,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100 on the server when omitted or 0 (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order. Default: false (descending)")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Filter by member ID. Return only the member with this ID.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at' [created_at, updated_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)")

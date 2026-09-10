@@ -88,6 +88,7 @@ Invite members
 List members
 - `--asc` bool — Ascending order. Default: false (descending)
 - `--limit` int64 — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
+- `--member-id` int64 — Filter by member ID. Return only the member with this ID.
 - `--orderby` string — Sort field. Default: 'updated_at' · enum: created_at | updated_at
 - `--page` int64 — Page number, 1-based (min 1)
 - `--query` string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied

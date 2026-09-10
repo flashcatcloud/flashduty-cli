@@ -8,6 +8,69 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genSchedulesByPersonCmd() *cobra.Command {
+	var dataJSON string
+	var fPersonID int64
+	cmd := &cobra.Command{
+		Use:   "by-person <person-id>",
+		Short: "Get member on-call status",
+		Long: `Get member on-call status.
+
+Get a member's current and next on-call shifts and every enabled schedule they participate in.
+
+API: POST /schedule/by-person (scheduleByPerson)
+
+Request fields:
+  --person-id int (required) — Member ID whose on-call status is returned.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - current (object) — One on-call shift interval of a member.
+    - end_at (string) — Unix timestamp in seconds - when the shift ends. Absent while the shift is ongoing. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - schedule_id (integer) — Owning schedule ID.
+    - schedule_name (string) — Owning schedule name.
+    - start_at (string) — Unix timestamp in seconds - when the shift starts. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - next (object) — One on-call shift interval of a member.
+    - end_at (string) — Unix timestamp in seconds - when the shift ends. Absent while the shift is ongoing. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - schedule_id (integer) — Owning schedule ID.
+    - schedule_name (string) — Owning schedule name.
+    - start_at (string) — Unix timestamp in seconds - when the shift starts. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - schedules (array<object>) (required) — All enabled schedules the member participates in.
+    - schedule_id (integer) — Schedule ID.
+    - schedule_name (string) — Schedule name.
+`,
+		Args:    requireBodyFieldOrExactArg("person_id", "person-id"),
+		Example: `  flashduty schedule by-person --data '{"person_id":2476444212131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "person_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("person-id") {
+						body["person_id"] = fPersonID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ScheduleByPersonRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Schedules.ByPerson(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Member ID whose on-call status is returned. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genSchedulesCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
@@ -1441,6 +1504,7 @@ Request fields:
 
 func registerGeneratedSchedules(root *cobra.Command) {
 	gSchedule := genGroup(root, "schedule", "On-call/Schedules API")
+	genAddLeaf(gSchedule, genSchedulesByPersonCmd())
 	genAddLeaf(gSchedule, genSchedulesCreateCmd())
 	genAddLeaf(gSchedule, genSchedulesDeleteCmd())
 	genAddLeaf(gSchedule, genSchedulesInfoCmd())

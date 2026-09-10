@@ -98,6 +98,44 @@ List applications
 - `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
+### application-remote-config-get <application-id>
+Get remote config detail
+- `<application-id>` (positional, required) string — RUM application ID.
+- response: single object (`data` unwrapped to the top level) — fields: config (object); updated_at (string); version (integer)
+
+### application-remote-config-history-list <application-id>
+List remote config history
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--asc` bool — Ascending order. Default: false (descending).
+- `--limit` int64 — Page size. Default 20, max 100. (max 100)
+- `--orderby` string — Sort field. Default: 'updated_at'. · enum: updated_at | version
+- `--page` int64 — Zero-based page index; offset is p multiplied by limit. (0-100000)
+- `--search-after-ctx` string
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: config (object); content_hash (string); equivalent_to (integer); reason (string); updated_at (string); updated_by (integer); updated_by_name (string); version (integer)
+
+### application-remote-config-history-revert <application-id>
+Revert remote config
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--reason` string — Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)
+- `--version` int64 (required) — History version to republish. (min 1)
+- response: single object (`data` unwrapped to the top level) — fields: version (integer)
+
+### application-remote-config-preview <application-id>
+Preview remote config
+- `--app-version` string — App version the simulated client reports.
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--env` string — Environment the simulated client reports.
+- `--sdk` string — SDK name and version the simulated client reports, e.g. 'web@2.4.1'.
+- body-only (`--data`): config (object)
+- response: single object (`data` unwrapped to the top level) — fields: hit_rule_index (integer); values (object)
+
+### application-remote-config-update <application-id>
+Update remote config
+- `<application-id>` (positional, required) string — RUM application ID.
+- `--reason` string — Operator's note on why this version was published. Stored verbatim. (≤255 chars)
+- body-only (`--data`): config (object) (required)
+- response: same shape as `application-remote-config-history-revert <application-id>` above
+
 ### application-update <application-id>
 Update application
 - `<application-id>` (positional, required) string — Application ID to update. Get application IDs via 'POST /rum/application/list'.

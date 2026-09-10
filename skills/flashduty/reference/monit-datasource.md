@@ -18,7 +18,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 | datasource detail | `datasource-info` |
 | create / update a datasource | `datasource-create` / `datasource-update` |
 | delete a datasource | `datasource-delete` |
-| run a structured read-only datasource diagnostic | `datasource-tools-invoke` |
+| run a datasource diagnostic or query tool | `datasource-tools-invoke` |
 | SLS project/logstore discovery | `datasource-sls-projects` / `datasource-sls-logstores` |
 
 ## Gotchas
@@ -38,9 +38,21 @@ fduty monit datasource-tools-invoke --output-format json --data - <<'FDUTY'
 FDUTY
 ```
 
-One call invokes one named tool. The CLI unwraps HTTP data to `{datasource_id,tool,data,summary?,truncated?}`. The new endpoint has no tool catalog: use the datasource-specific skill reference for static names and parameters. Examples include `mysql.lock_contention`, `postgres.activity`, `redis_node.slowlog`, `kafka.consumer_lag`, `elasticsearch.cat`, `prometheus.metric_trends`, `loki.log_patterns`, and `victorialogs.log_patterns`. Do not guess tool parameters or use removed `mysql.query`/`postgres.query` tools; SQL remains under `monit-query data`.
+One call invokes one named tool. The CLI unwraps HTTP data to `{datasource_id,tool,data,summary?,truncated?}`. The endpoint has no tool catalog: use the datasource-specific skill reference for static names and parameters. Examples include `mysql.lock_contention`, `postgres.activity`, `redis_node.slowlog`, `kafka.consumer_lag`, `elasticsearch.cat`, `prometheus.metric_trends`, `loki.log_patterns`, and `victorialogs.log_patterns`. Do not guess tool parameters.
 
 Tools require all currently routable Edge sessions in the selected cluster to support the v0.71.0 baseline. Report `edge_upgrade_required`, `mixed_edge_versions`, `no_active_edge` and `tool_not_supported` as returned; do not rotate Edges or fall back to Agent/legacy diagnose. `invalid_request` requires fixing parameters, and `source_too_large`/`result_too_large` requires a narrower request. Normal datasource queries retain their existing version compatibility.
+
+## Query tools — `<type>.query`
+
+The same invoke entry also runs query tools named `<type>.query` for ten datasource types: `prometheus`, `mysql`, `postgres`, `oracle`, `clickhouse`, `elasticsearch`, `loki`, `victorialogs`, `sls`, `tencent_cls`. The tool prefix must match the datasource type. `params` is a per-datasource structure: always `expr` plus `execution` (`kind: instant|range|window`, `from_ms`/`to_ms` Unix milliseconds; `range` also needs `max_data_points`). Log types can add `limit`/`direction`; `sls` requires `project`/`logstore`; `tencent_cls` requires `region`/`topic_id`/`syntax`. SQL types take a single read-only statement with `window` execution.
+
+```bash
+fduty monit datasource-tools-invoke --output-format json --data - <<'FDUTY'
+{"datasource_id":12345,"tool":"prometheus.query","params":{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}}
+FDUTY
+```
+
+Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to `/monit/query/data` automatically.
 
 <!-- GENERATED:monit[datasource] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
@@ -90,7 +102,7 @@ List SLS projects
 Invoke datasource tool
 - `--account-id` int64 — Optional consistency check; must equal the authenticated account.
 - `<datasource-id>` (positional, required) int64 — Datasource ID from /monit/datasource/list. (min 1)
-- `--tool` string (required) — Single tool name prefixed by the datasource type, e.g. mysql.overview. Free SQL uses /monit/query/data; mysql.query and postgres.query are unsupported. (1-128 chars)
+- `--tool` string (required) — Single tool name prefixed by the datasource type. Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their 'params' follow 'PrometheusQueryParams', 'MySQLQueryParams', 'PostgresQueryParams', 'OracleQueryParams', 'ClickHouseQueryParams', 'ElasticsearchQueryParams', 'LokiQueryParams', 'VictoriaLogsQueryParams', 'SLSQueryParams', or 'TencentCLSQueryParams' respectively. (1-128 chars)
 - body-only (`--data`): params (object)
 - response: single object (`data` unwrapped to the top level) — fields: data (any); datasource_id (integer); summary (string); tool (string); truncated (object)
 

@@ -1,14 +1,8 @@
 github.com/clipperhouse/uax29/v2 v2.2.0 h1:ChwIKnQN3kcZteTXMgb1wztSgaU+ZemkgWdohwgs8tY=
 github.com/clipperhouse/uax29/v2 v2.2.0/go.mod h1:EFJ2TJMRUaplDxHKj1qAEhCtQPW2tJSwu5BF98AuoVM=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908003559-2ac06de1601e h1:CW8D+jijv7S/oJqj/hVMjMxzCzlT93FJPBx902bg5Nk=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908003559-2ac06de1601e/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908025802-4fa9a76d8b57 h1:3g7059LyEJeIsLwT3qSng8BdV44GIOV9DQa+dLbalmo=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908025802-4fa9a76d8b57/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908030757-f478f34797be h1:F3+A0vVRICnEeBshac70P+VBtuo64P5hBmxcfbFxiXk=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908030757-f478f34797be/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908113851-5bf8f2902391 h1:u4IM9wE2/isYCAUMszeBsp4b9Na7Qh5mHlvPLpDgvkw=
-github.com/flashcatcloud/go-flashduty v0.15.1-0.20260908113851-5bf8f2902391/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
+github.com/flashcatcloud/go-flashduty v0.15.2-0.20260910014922-dce7c882be68 h1:jPJA1NB+HcL2FcBZ+PbVZ0xejVvqELOMHEBDJYGUbQ0=
+github.com/flashcatcloud/go-flashduty v0.15.2-0.20260910014922-dce7c882be68/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/mattn/go-runewidth v0.0.28 h1:rPyg2ybwEKPebvpzVWe1gKBkH8EQFkxO4Y0hjBeLaBU=

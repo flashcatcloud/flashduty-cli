@@ -1,6 +1,8 @@
 # fduty monit-query — datasource queries
 
-Use `data` for PromQL, LogsQL/LogQL, SQL and SLS queries against an already configured datasource. For structured diagnostics, including metric trends and log patterns, use `monit datasource-tools-invoke` (see `reference/monit-datasource.md`). The older `diagnose` command remains for existing callers; new workflows use named tools.
+Use `data` for PromQL, LogsQL/LogQL, SQL and SLS queries against an already configured datasource. For structured diagnostics, including metric trends and log patterns, use `monit datasource-tools-invoke` (see `reference/monit-datasource.md`).
+
+Routing: for the ten datasource types that support `<type>.query` (prometheus, mysql, postgres, oracle, clickhouse, elasticsearch, loki, victorialogs, sls, tencent_cls), prefer `monit datasource-tools-invoke --tool '<type>.query'` — structured `params` with per-datasource validation and complete Explore results. `monit-query data` (`/monit/query/data`) is unchanged and remains available for everything else.
 
 Discover the exact datasource name and type with `monit datasource-list`. Preserve the selected datasource ID for diagnostic tools; multiple configurations may share an address.
 
