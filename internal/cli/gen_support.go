@@ -378,11 +378,11 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		if !ok {
 			return ctx.Printer.Print(data, nil)
 		}
-		bounded, note, err := boundProjectedList(rows, compactListOutputLimit)
+		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit)
 		if err != nil {
 			return err
 		}
-		noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+		noteProjectionBound(ctx.Cmd, bound)
 		return ctx.Printer.Print(bounded, nil)
 	case map[string]any:
 		key, ok := listEnvelopeKey(value)
@@ -402,7 +402,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		// until the whole payload is under it.
 		budget := compactListOutputLimit
 		for {
-			bounded, note, err := boundProjectedList(rows, budget)
+			bounded, bound, err := boundProjectedList(rows, budget)
 			if err != nil {
 				return err
 			}
@@ -412,7 +412,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 				return err
 			}
 			if len(out)+1 < compactListOutputLimit {
-				noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+				noteProjectionBound(ctx.Cmd, bound)
 				return ctx.Printer.Print(value, nil)
 			}
 			budget -= len(out) + 2 - compactListOutputLimit

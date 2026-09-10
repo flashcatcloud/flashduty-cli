@@ -97,12 +97,12 @@ func newAlertEventListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
 					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd.ErrOrStderr(), note)
+					noteProjectionBound(cmd, bound)
 					effectiveLimit := limit
 					if len(proj) < len(result.Items) {
 						effectiveLimit = len(proj)

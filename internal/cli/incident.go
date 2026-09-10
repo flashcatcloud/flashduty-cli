@@ -137,12 +137,12 @@ func newIncidentListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
 					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd.ErrOrStderr(), note)
+					noteProjectionBound(cmd, bound)
 					effectiveLimit := limit
 					if len(proj) < len(result.Items) {
 						effectiveLimit = len(proj)
@@ -638,12 +638,12 @@ func newIncidentSimilarCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
 						return err
 					}
 					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd.ErrOrStderr(), note)
+					noteProjectionBound(cmd, bound)
 					return ctx.Printer.Print(proj, nil)
 				}
 
@@ -1613,11 +1613,11 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						_, note, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
+						_, bound, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
 						if err != nil {
 							return err
 						}
-						noteProjectionBound(cmd.ErrOrStderr(), note)
+						noteProjectionBound(cmd, bound)
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)

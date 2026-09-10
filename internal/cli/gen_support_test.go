@@ -76,6 +76,14 @@ func TestPrintGenericResultBoundsListEnvelope(t *testing.T) {
 			if !strings.Contains(stderrText, "note: emitted") {
 				t.Errorf("reduced %s page should announce itself on stderr, got:\n%s", format, stderrText)
 			}
+			// insight incident-list declares --limit but no --fields: the advice
+			// may name only the flag the verb actually carries.
+			if !strings.Contains(stderrText, "lower --limit") {
+				t.Errorf("advice should name --limit, the flag this verb declares, got:\n%s", stderrText)
+			}
+			if strings.Contains(stderrText, "--fields") {
+				t.Errorf("advice must not name --fields; this verb declares no such flag, got:\n%s", stderrText)
+			}
 			// The first row survives intact; the last was dropped by the
 			// prefix reduction.
 			if !strings.Contains(out, ids[0]) {
@@ -131,6 +139,14 @@ func TestPrintGenericResultBoundsTopLevelArray(t *testing.T) {
 	}
 	if !strings.Contains(stderrText, "note: emitted") {
 		t.Errorf("reduced page should announce itself on stderr, got:\n%s", stderrText)
+	}
+	// monit rule-list-basic declares --limit but no --fields: the advice may
+	// name only the flag the verb actually carries.
+	if !strings.Contains(stderrText, "lower --limit") {
+		t.Errorf("advice should name --limit, the flag this verb declares, got:\n%s", stderrText)
+	}
+	if strings.Contains(stderrText, "--fields") {
+		t.Errorf("advice must not name --fields; this verb declares no such flag, got:\n%s", stderrText)
 	}
 	var decoded []map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decoded); err != nil {

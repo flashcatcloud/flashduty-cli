@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -80,16 +82,64 @@ func noteDefaultProjection(w io.Writer, fields []string) {
 		strings.Join(fields, ","))
 }
 
-// noteProjectionBound relays a boundProjectedOutput note to the caller on
-// stderr. Without it a reduced page or a shortened value is only visible to
+// projectionBound reports how boundProjectedList reduced an over-budget
+// projection — the facts, not the prose. The byte-bounding helper knows bytes
+// and nothing about the command it runs under, so it cannot name the flags a
+// caller should narrow; the caller that owns the command turns this into the
+// stderr note via noteProjectionBound. A prefix reduction and a value
+// shortening are mutually exclusive, and the zero value means nothing was
+// reduced.
+type projectionBound struct {
+	// A prefix reduction kept rowsEmitted of rowsTotal rows, every value intact.
+	rowsEmitted int
+	rowsTotal   int
+	// A value shortening clipped shortened of valuesTotal string values, in fields.
+	shortened   int
+	valuesTotal int
+	fields      []string
+	// maxBytes is the budget the reduction was sized against.
+	maxBytes int
+}
+
+// noteProjectionBound announces on stderr how an over-budget projection was
+// reduced. Without it a reduced page or a shortened value is only visible to
 // a reader, not to the jq filter or exact match a --json consumer runs over
 // it, so a query that silently matches nothing looks like an empty result
 // rather than a bounded one.
-func noteProjectionBound(w io.Writer, note string) {
-	if note == "" {
-		return
+//
+// The advice is composed HERE, against cmd's real flag set, because --fields
+// and --limit are registered per verb: a byte-bounding helper composing the
+// sentence in ignorance of the command would tell a verb that has neither to
+// "lower --limit", costing the caller a round trip on a flag it rejects
+// (unknown flag: --limit).
+func noteProjectionBound(cmd *cobra.Command, bound projectionBound) {
+	w := cmd.ErrOrStderr()
+	switch {
+	case bound.rowsTotal > 0:
+		_, _ = fmt.Fprintf(w, "note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; %s — the rows past the first %d were not emitted\n",
+			bound.rowsEmitted, bound.rowsTotal, bound.maxBytes, narrowingAdvice(cmd, "to fit more rows per page"), bound.rowsEmitted)
+	case bound.shortened > 0:
+		_, _ = fmt.Fprintf(w, "note: %d of %d string values were shortened to fit the %d-byte limit and now end with \"...\" (fields: %s); matching or filtering on those fields will miss — %s\n",
+			bound.shortened, bound.valuesTotal, bound.maxBytes, strings.Join(bound.fields, ", "), narrowingAdvice(cmd, "for untruncated values"))
 	}
-	_, _ = fmt.Fprintln(w, note)
+}
+
+// narrowingAdvice names the flags cmd actually declares that can shrink an
+// over-budget projection, suffixed with what they buy (purpose). A command
+// that declares neither says so instead of naming a flag it would reject.
+func narrowingAdvice(cmd *cobra.Command, purpose string) string {
+	fields := cmd.Flags().Lookup("fields") != nil
+	limit := cmd.Flags().Lookup("limit") != nil
+	switch {
+	case fields && limit:
+		return "narrow --fields or lower --limit " + purpose
+	case fields:
+		return "narrow --fields " + purpose
+	case limit:
+		return "lower --limit " + purpose
+	default:
+		return "this command declares no --fields or --limit flag to narrow the output"
+	}
 }
 
 // boundProjectedOutput keeps the new agent-oriented projections below their
@@ -104,18 +154,18 @@ func noteProjectionBound(w io.Writer, note string) {
 // error instead.
 //
 // It returns the bounded data with the same type it was given, plus a
-// caller-printable note (empty when nothing was reduced or shortened), so
-// the caller can announce the loss on stderr — the "..." marker is only
-// visible to something that reads the value, never to the filter a --json
-// consumer runs over it.
-func boundProjectedOutput(data any, maxBytes int) (any, string, error) {
+// projectionBound describing what was reduced (its zero value when nothing
+// was), so the caller can announce the loss on stderr via noteProjectionBound
+// — the "..." marker is only visible to something that reads the value, never
+// to the filter a --json consumer runs over it.
+func boundProjectedOutput(data any, maxBytes int) (any, projectionBound, error) {
 	switch value := data.(type) {
 	case map[string]any:
-		return value, "", boundProjectedDetail(value, maxBytes)
+		return value, projectionBound{}, boundProjectedDetail(value, maxBytes)
 	case []map[string]any:
 		return boundProjectedList(value, maxBytes)
 	default:
-		return nil, "", fmt.Errorf("internal error: unsupported projected output %T", data)
+		return nil, projectionBound{}, fmt.Errorf("internal error: unsupported projected output %T", data)
 	}
 }
 
@@ -210,34 +260,33 @@ func isIdentifierField(key string) bool {
 // from a genuinely short one; if no cap at or above that floor fits, the
 // command fails with a small error instead of emitting values that look
 // real but aren't. Whatever it reduces or clips, it reports back in the
-// returned note.
-func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, string, error) {
+// returned projectionBound.
+func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, projectionBound, error) {
 	encoded, err := marshalStructured(rows)
 	if err != nil {
-		return nil, "", err
+		return nil, projectionBound{}, err
 	}
 	if len(encoded)+1 < maxBytes {
-		return rows, "", nil
+		return rows, projectionBound{}, nil
 	}
 
 	// The overflow error names the fields responsible, exactly as the detail
 	// path does, so the request can be narrowed in one pass.
-	tooBig := func() ([]map[string]any, string, error) {
+	tooBig := func() ([]map[string]any, projectionBound, error) {
 		largest, err := largestProjectedFields(rows)
 		if err != nil {
-			return nil, "", err
+			return nil, projectionBound{}, err
 		}
-		return nil, "", fmt.Errorf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s; request fewer rows (--limit) or fewer --fields",
+		return nil, projectionBound{}, fmt.Errorf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s; request fewer rows (--limit) or fewer --fields",
 			len(encoded), len(rows), maxBytes, largest)
 	}
 
 	kept, err := largestFittingPrefix(rows, maxBytes)
 	if err != nil {
-		return nil, "", err
+		return nil, projectionBound{}, err
 	}
 	if kept > 0 {
-		return rows[:kept], fmt.Sprintf("note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; narrow --fields or lower --limit to fit more rows per page — the rows past the first %d were not emitted",
-			kept, len(rows), maxBytes, kept), nil
+		return rows[:kept], projectionBound{rowsEmitted: kept, rowsTotal: len(rows), maxBytes: maxBytes}, nil
 	}
 
 	maxLen := 0
@@ -285,7 +334,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		return tooBig()
 	}
 	if ok, err := fits(minMarkedTruncationCap); err != nil {
-		return nil, "", err
+		return nil, projectionBound{}, err
 	} else if !ok {
 		return tooBig()
 	}
@@ -299,7 +348,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		mid := lo + (hi-lo+1)/2
 		ok, err := fits(mid)
 		if err != nil {
-			return nil, "", err
+			return nil, projectionBound{}, err
 		}
 		if ok {
 			lo = mid
@@ -329,15 +378,14 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		}
 	}
 	if shortened == 0 {
-		return rows, "", nil
+		return rows, projectionBound{}, nil
 	}
 	names := make([]string, 0, len(fields))
 	for name := range fields {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return rows, fmt.Sprintf("note: %d of %d string values were shortened to fit the %d-byte limit and now end with \"...\" (fields: %s); matching or filtering on those fields will miss — narrow --fields or --limit for untruncated values",
-		shortened, total, maxBytes, strings.Join(names, ", ")), nil
+	return rows, projectionBound{shortened: shortened, valuesTotal: total, fields: names, maxBytes: maxBytes}, nil
 }
 
 // largestFittingPrefix returns the largest n < len(rows) whose encoded prefix
