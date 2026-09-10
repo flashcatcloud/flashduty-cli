@@ -25,7 +25,7 @@ hidden: true  # internal-only: withheld from skills.sh public discovery (Safari 
 
 Append `--output-format toon` to read commands: it drops the per-row repeated keys that JSON emits, so lists cost far fewer tokens. Use `--json` only to pipe into `jq`. Bare output is a human table — don't parse it.
 
-**Count the cheap way.** If a list response already returns `total`, trust that authoritative server count — do not page N times just to count rows. When the question is "how many by status/progress/severity", issue the narrowest server-side filter per bucket and read each response's `total`; for account-wide trends switch to aggregation verbs such as `insight *`, `rule-counter-node`, or `rule-counter-total`.
+**Count the cheap way.** If a list response already returns `total`, trust that authoritative server count — do not page N times just to count rows. When the question is "how many by status/progress/severity", issue the narrowest server-side filter per bucket and read each response's `total`; for account-wide trends switch to aggregation verbs such as `insight *`, `rule-counter-total`, or `rule-counter-channel`.
 
 **Shape the payload before you fetch it.** For ID scans, counts, or "find the matching row" tasks, prefer `--fields` projections and compact list verbs over full detail dumps. Huge raw JSON dumps are a last resort, not a default.
 
