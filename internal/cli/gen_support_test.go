@@ -76,13 +76,15 @@ func TestPrintGenericResultBoundsListEnvelope(t *testing.T) {
 			if !strings.Contains(stderrText, "note: emitted") {
 				t.Errorf("reduced %s page should announce itself on stderr, got:\n%s", format, stderrText)
 			}
-			// insight incident-list declares --limit but no --fields: the advice
-			// may name only the flag the verb actually carries.
-			if !strings.Contains(stderrText, "lower --limit") {
-				t.Errorf("advice should name --limit, the flag this verb declares, got:\n%s", stderrText)
+			// insight incident-list is a generated verb: it declares no narrowing
+			// flag, so even though it carries a --limit, the note names none.
+			if !strings.Contains(stderrText, "declares no flag that narrows the output") {
+				t.Errorf("a generated verb should get the flagless note, got:\n%s", stderrText)
 			}
-			if strings.Contains(stderrText, "--fields") {
-				t.Errorf("advice must not name --fields; this verb declares no such flag, got:\n%s", stderrText)
+			for _, flag := range []string{"--limit", "--fields"} {
+				if strings.Contains(stderrText, flag) {
+					t.Errorf("advice must not name %s on a verb that declares no narrowing flag, got:\n%s", flag, stderrText)
+				}
 			}
 			// The first row survives intact; the last was dropped by the
 			// prefix reduction.
@@ -140,13 +142,14 @@ func TestPrintGenericResultBoundsTopLevelArray(t *testing.T) {
 	if !strings.Contains(stderrText, "note: emitted") {
 		t.Errorf("reduced page should announce itself on stderr, got:\n%s", stderrText)
 	}
-	// monit rule-list-basic declares --limit but no --fields: the advice may
-	// name only the flag the verb actually carries.
-	if !strings.Contains(stderrText, "lower --limit") {
-		t.Errorf("advice should name --limit, the flag this verb declares, got:\n%s", stderrText)
+	// monit rule-list-basic is a generated verb whose --limit sizes the response
+	// only alongside --include-descendants: it declares no narrowing flag, so the
+	// note must not offer --limit.
+	if !strings.Contains(stderrText, "declares no flag that narrows the output") {
+		t.Errorf("a generated verb should get the flagless note, got:\n%s", stderrText)
 	}
-	if strings.Contains(stderrText, "--fields") {
-		t.Errorf("advice must not name --fields; this verb declares no such flag, got:\n%s", stderrText)
+	if strings.Contains(stderrText, "--limit") {
+		t.Errorf("advice must not name --limit; this verb declares no narrowing flag, got:\n%s", stderrText)
 	}
 	var decoded []map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decoded); err != nil {

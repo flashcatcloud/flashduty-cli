@@ -131,7 +131,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 					}
 					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
-						return err
+						return explainProjectionOverflow(cmd, err)
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
@@ -176,6 +176,7 @@ func newInsightIncidentsCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,severity); ignored in table mode. Use to avoid dumping the full nested record.")
+	declareOutputNarrowing(cmd, "fields", "limit")
 
 	return cmd
 }

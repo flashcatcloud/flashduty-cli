@@ -99,7 +99,7 @@ func newAlertEventListCmd() *cobra.Command {
 					}
 					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
-						return err
+						return explainProjectionOverflow(cmd, err)
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
@@ -125,6 +125,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
+	declareOutputNarrowing(cmd, "fields", "limit")
 
 	return cmd
 }

@@ -139,7 +139,7 @@ func newIncidentListCmd() *cobra.Command {
 					}
 					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
-						return err
+						return explainProjectionOverflow(cmd, err)
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
@@ -176,6 +176,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Use to avoid dumping the full nested record.")
+	declareOutputNarrowing(cmd, "fields", "limit")
 
 	return cmd
 }
@@ -640,7 +641,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 					}
 					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
-						return err
+						return explainProjectionOverflow(cmd, err)
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
@@ -654,6 +655,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 5, "Max results")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
+	declareOutputNarrowing(cmd, "fields", "limit")
 	return cmd
 }
 
@@ -1615,7 +1617,7 @@ func newIncidentDetailCmd() *cobra.Command {
 						}
 						_, bound, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
 						if err != nil {
-							return err
+							return explainProjectionOverflow(cmd, err)
 						}
 						noteProjectionBound(cmd, bound)
 						return ctx.Printer.Print(proj[0], nil)
@@ -1629,6 +1631,7 @@ func newIncidentDetailCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. The projection must fit within 8 KiB or the command fails and names the largest fields; omit --fields for the full, unbounded detail.")
+	declareOutputNarrowing(cmd, "fields", "")
 	return cmd
 }
 

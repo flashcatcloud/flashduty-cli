@@ -380,7 +380,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		}
 		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit)
 		if err != nil {
-			return err
+			return explainProjectionOverflow(ctx.Cmd, err)
 		}
 		noteProjectionBound(ctx.Cmd, bound)
 		return ctx.Printer.Print(bounded, nil)
@@ -404,7 +404,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		for {
 			bounded, bound, err := boundProjectedList(rows, budget)
 			if err != nil {
-				return err
+				return explainProjectionOverflow(ctx.Cmd, err)
 			}
 			value[key] = bounded
 			out, err := marshalStructured(value)
