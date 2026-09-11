@@ -317,11 +317,13 @@ inc_def456   High memory usage        Warning    Processing   Staging       2026
 Showing 2 results (page 1, total 2).
 ```
 
-**JSON（`--json`）：** 机器可解析，完整数据，不截断。
+**JSON（`--json`）：** 机器可解析，可直接管道给 `jq`。
 
 ```bash
 flashduty incident list --json | jq '.[].title'
 ```
+
+**列表页有 16 KiB 上限。** 结构化列表的一页超出上限时，只输出能装下的前若干行，并在 stderr 说明。如果该页是分页信封（形如 `{items, total, has_next_page, …}`），载荷内也会带上标记：`"truncated": true` 与 `"emitted_rows": N`（保留了前 N 行，其余被丢弃）。`total` / `has_next_page` / `search_after_ctx` 仍是服务端原值，因此一页被裁到"100 行里只发 7 行"时，看起来与完整页无异。脚本要完整翻页时，请从**实际收到的最后一行**之后继续（用不大于已收到行数的 `--limit` 重新请求，再跟随该响应的游标），不要只依赖 `has_next_page`；若只有 `"truncated": true` 而没有 `emitted_rows`，说明行内长值被裁剪——翻页无法恢复，应收窄 `--fields` 后重新请求。
 
 **不截断（`--no-trunc`）：** 表格显示完整字段内容。
 
