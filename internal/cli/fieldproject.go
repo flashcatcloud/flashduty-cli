@@ -98,7 +98,8 @@ type projectionBound struct {
 	shortened   int
 	valuesTotal int
 	fields      []string
-	// maxBytes is the budget the reduction was sized against.
+	// maxBytes is the published limit the payload had to fit under — not the
+	// rows' share of it, which is smaller when they ride inside an envelope.
 	maxBytes int
 }
 
@@ -203,20 +204,29 @@ func noteProjectionBound(cmd *cobra.Command, bound projectionBound) {
 // callers turn it into the command-appropriate failure with
 // explainProjectionOverflow.
 type projectionOverflow struct {
-	detail   bool
-	bytes    int
-	rows     int
+	detail bool
+	bytes  int
+	rows   int
+	// maxBytes is the published limit, so the error names that cap rather than
+	// the rows' internal share of it.
 	maxBytes int
 	largest  string
 }
 
 func (o *projectionOverflow) Error() string {
 	if o.detail {
-		return fmt.Sprintf("projected detail is %d bytes, exceeds the %d-byte limit; largest fields: %s",
+		return fmt.Sprintf("projected detail is %d bytes and does not fit under the %d-byte structured-output limit; largest fields: %s",
 			o.bytes, o.maxBytes, o.largest)
 	}
-	return fmt.Sprintf("projected list is %d bytes across %d rows, exceeds the %d-byte limit; largest fields: %s",
-		o.bytes, o.rows, o.maxBytes, o.largest)
+	// The count is the rows' own encoding, the limit the payload's: inside an
+	// envelope the two live in different spaces, so the sentence states the
+	// size and the refusal separately rather than comparing them.
+	rowNoun := "rows"
+	if o.rows == 1 {
+		rowNoun = "row"
+	}
+	return fmt.Sprintf("projected list is %d bytes across %d %s and cannot be reduced to fit under the %d-byte structured-output limit; largest fields: %s",
+		o.bytes, o.rows, rowNoun, o.maxBytes, o.largest)
 }
 
 // explainProjectionOverflow returns err with the remedy for cmd appended when
@@ -259,7 +269,7 @@ func boundProjectedOutput(data any, maxBytes int) (any, projectionBound, error) 
 	case map[string]any:
 		return value, projectionBound{}, boundProjectedDetail(value, maxBytes)
 	case []map[string]any:
-		return boundProjectedList(value, maxBytes)
+		return boundProjectedList(value, maxBytes, 0)
 	default:
 		return nil, projectionBound{}, fmt.Errorf("internal error: unsupported projected output %T", data)
 	}
@@ -325,7 +335,9 @@ func boundProjectedDetail(row map[string]any, maxBytes int) error {
 	if err != nil {
 		return err
 	}
-	return &projectionOverflow{detail: true, bytes: len(encoded), maxBytes: maxBytes, largest: largest}
+	// +1 for the trailing newline the printer appends, so the reported size is
+	// the one the fit test just measured.
+	return &projectionOverflow{detail: true, bytes: len(encoded) + 1, maxBytes: maxBytes, largest: largest}
 }
 
 // isIdentifierField reports whether a projected field is an identifier:
@@ -356,12 +368,21 @@ func isIdentifierField(key string) bool {
 // command fails with a small error instead of emitting values that look
 // real but aren't. Whatever it reduces or clips, it reports back in the
 // returned projectionBound.
-func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, projectionBound, error) {
+//
+// The rows are sized against limit minus framing, where framing is the bytes
+// the payload costs around them besides the row array (0 when the rows are the
+// payload), while the returned facts name limit: the caller's note quotes the
+// published cap, not an internal remainder. The input rows are never modified,
+// so a caller that re-bounds them against a smaller budget (the envelope
+// re-fit) measures every pass from the original values and reports facts that
+// match the payload it prints.
+func boundProjectedList(rows []map[string]any, limit, framing int) ([]map[string]any, projectionBound, error) {
+	budget := limit - framing
 	encoded, err := marshalStructured(rows)
 	if err != nil {
 		return nil, projectionBound{}, err
 	}
-	if len(encoded)+1 < maxBytes {
+	if len(encoded)+1 < budget {
 		return rows, projectionBound{}, nil
 	}
 
@@ -372,15 +393,17 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		if err != nil {
 			return nil, projectionBound{}, err
 		}
-		return nil, projectionBound{}, &projectionOverflow{bytes: len(encoded), rows: len(rows), maxBytes: maxBytes, largest: largest}
+		// +1 for the trailing newline the printer appends, so the reported size
+		// is the one the fit test just measured.
+		return nil, projectionBound{}, &projectionOverflow{bytes: len(encoded) + 1, rows: len(rows), maxBytes: limit, largest: largest}
 	}
 
-	kept, err := largestFittingPrefix(rows, maxBytes)
+	kept, err := largestFittingPrefix(rows, budget)
 	if err != nil {
 		return nil, projectionBound{}, err
 	}
 	if kept > 0 {
-		return rows[:kept], projectionBound{rowsEmitted: kept, rowsTotal: len(rows), maxBytes: maxBytes}, nil
+		return rows[:kept], projectionBound{rowsEmitted: kept, rowsTotal: len(rows), maxBytes: limit}, nil
 	}
 
 	maxLen := 0
@@ -415,7 +438,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		if err != nil {
 			return false, err
 		}
-		return len(trialEncoded)+1 < maxBytes, nil
+		return len(trialEncoded)+1 < budget, nil
 	}
 
 	// minMarkedTruncationCap is the smallest cap for which truncateUTF8Bytes
@@ -453,13 +476,13 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 
 	shortened, total := 0, 0
 	fields := map[string]bool{}
-	for _, row := range rows {
+	bounded := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		boundedRow := make(map[string]any, len(row))
 		for key, value := range row {
-			if isIdentifierField(key) {
-				continue
-			}
 			text, ok := value.(string)
-			if !ok {
+			if !ok || isIdentifierField(key) {
+				boundedRow[key] = value
 				continue
 			}
 			total++
@@ -468,8 +491,9 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 				shortened++
 				fields[key] = true
 			}
-			row[key] = clipped
+			boundedRow[key] = clipped
 		}
+		bounded[i] = boundedRow
 	}
 	if shortened == 0 {
 		return rows, projectionBound{}, nil
@@ -479,7 +503,7 @@ func boundProjectedList(rows []map[string]any, maxBytes int) ([]map[string]any, 
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	return rows, projectionBound{shortened: shortened, valuesTotal: total, fields: names, maxBytes: maxBytes}, nil
+	return bounded, projectionBound{shortened: shortened, valuesTotal: total, fields: names, maxBytes: limit}, nil
 }
 
 // largestFittingPrefix returns the largest n < len(rows) whose encoded prefix

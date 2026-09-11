@@ -152,7 +152,7 @@ func TestProjectionOverflowFailsHard(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("[#79] a failed projection must write nothing to stdout, got %d bytes:\n%s", stdout.Len(), stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "Error: projected list is") || !strings.Contains(stderr.String(), "exceeds the 16384-byte limit") {
+	if !strings.Contains(stderr.String(), "Error: projected list is") || !strings.Contains(stderr.String(), "16384-byte structured-output limit") {
 		t.Errorf("[#79] stderr should report the byte-limit refusal, got:\n%s", stderr.String())
 	}
 }

@@ -380,7 +380,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		if !ok {
 			return ctx.Printer.Print(data, nil)
 		}
-		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit)
+		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit, 0)
 		if err != nil {
 			return explainProjectionOverflow(ctx.Cmd, err)
 		}
@@ -399,30 +399,36 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		if !ok {
 			return ctx.Printer.Print(data, nil)
 		}
-		// boundProjectedList sizes the rows standalone, but printed inside the
-		// envelope they share the budget with the pagination siblings (and, in
-		// indented JSON, sit one indent level deeper). Fit against the full
-		// limit, then re-fit with the observed envelope overhead subtracted
-		// until the whole payload is under it.
-		budget := compactListOutputLimit
+		// The rows are first sized against the whole limit, but printed inside
+		// the envelope they share the budget with the pagination siblings (and,
+		// in indented JSON, sit one indent level deeper). Each re-fit sizes
+		// them against the limit minus the framing seen so far, growing that
+		// framing by each observed overflow until the whole payload fits.
+		framing := 0
 		for {
-			bounded, bound, err := boundProjectedList(rows, budget)
+			bounded, bound, err := boundProjectedList(rows, compactListOutputLimit, framing)
 			if err != nil {
 				return explainProjectionOverflow(ctx.Cmd, err)
 			}
 			value[key] = bounded
+			// In-payload, not just on stderr: scripts discard stderr, and
+			// the pagination siblings keep describing the server page, so a
+			// reduced page would otherwise read as complete. emitted_rows
+			// is set only when rows were withheld (a prefix was dropped),
+			// which is the case paging can repair; when instead long values
+			// were clipped, truncated rides alone — re-requesting cannot
+			// restore them, narrowing --fields can. Stamp both keys from this
+			// pass alone, so a key left over from an earlier re-fit cannot
+			// describe a reduction this payload does not carry.
 			if bound.reduced() {
-				// In-payload, not just on stderr: scripts discard stderr, and
-				// the pagination siblings keep describing the server page, so a
-				// reduced page would otherwise read as complete. emitted_rows
-				// is set only when rows were WITHHELD (a prefix was dropped),
-				// which is the case paging can repair; when instead long values
-				// were clipped, truncated rides alone — re-requesting cannot
-				// restore them, narrowing --fields can.
 				value["truncated"] = true
-				if len(bounded) < len(rows) {
-					value["emitted_rows"] = len(bounded)
-				}
+			} else {
+				delete(value, "truncated")
+			}
+			if len(bounded) < len(rows) {
+				value["emitted_rows"] = len(bounded)
+			} else {
+				delete(value, "emitted_rows")
 			}
 			out, err := marshalStructured(value)
 			if err != nil {
@@ -432,7 +438,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 				noteProjectionBound(ctx.Cmd, bound)
 				return ctx.Printer.Print(value, nil)
 			}
-			budget -= len(out) + 2 - compactListOutputLimit
+			framing += len(out) + 2 - compactListOutputLimit
 		}
 	default:
 		return ctx.Printer.Print(data, nil)
