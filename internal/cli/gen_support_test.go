@@ -100,13 +100,35 @@ func TestPrintGenericResultBoundsListEnvelope(t *testing.T) {
 					t.Errorf("bounded %s output lost envelope key %q:\n%s", format, key, out)
 				}
 			}
+			// The reduced page says so in the payload, not only on stderr —
+			// with the row-withheld shape: emitted_rows present alongside
+			// truncated. A values-clipped reduction carries truncated alone.
+			if format == "toon" {
+				// TOON renders the marker as envelope-level lines beside the
+				// items block.
+				if !strings.Contains(out, "truncated: true") || !strings.Contains(out, "emitted_rows:") {
+					t.Errorf("bounded toon output lost the in-payload truncation marker:\n%s", out)
+				}
+			}
 			if format == "json" {
 				var envelope map[string]any
 				if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &envelope); err != nil {
 					t.Fatalf("bounded json is not an object: %v", err)
 				}
-				if _, ok := envelope["items"].([]any); !ok {
+				items, ok := envelope["items"].([]any)
+				if !ok {
 					t.Fatalf("bounded json lost the items array: %v", envelope)
+				}
+				if envelope["truncated"] != true {
+					t.Errorf("bounded json truncated = %v, want true", envelope["truncated"])
+				}
+				emitted, ok := envelope["emitted_rows"].(float64)
+				if !ok {
+					t.Fatalf("bounded json lost emitted_rows: %v", envelope)
+				}
+				if int(emitted) != len(items) || int(emitted) >= len(rows) {
+					t.Errorf("bounded json emitted_rows = %v, want len(items)=%d and < %d requested rows",
+						envelope["emitted_rows"], len(items), len(rows))
 				}
 			}
 		})
@@ -245,5 +267,50 @@ func TestPrintGenericResultShortenedRowStaysUTF8(t *testing.T) {
 	}
 	if !strings.Contains(stderrText, "were shortened to fit") {
 		t.Errorf("shortened row should announce the clipped fields on stderr, got:\n%s", stderrText)
+	}
+	// Clipped values are data loss too: the marker appears even though every
+	// row was emitted — and it rides WITHOUT emitted_rows, because paging
+	// cannot restore a clipped value (only a narrower --fields can), so the
+	// withheld-rows continuation must not be read into this payload.
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &envelope); err != nil {
+		t.Fatalf("shortened single row is not a JSON object: %v", err)
+	}
+	if envelope["truncated"] != true {
+		t.Errorf("shortened single row lost the in-payload truncation marker: %v", envelope)
+	}
+	if _, ok := envelope["emitted_rows"]; ok {
+		t.Errorf("a values-clipped page must not carry emitted_rows (it misreads as withheld rows): %v", envelope)
+	}
+	if items, _ := envelope["items"].([]any); len(items) != 1 {
+		t.Errorf("clipping must not drop rows, got %d items", len(items))
+	}
+}
+
+// TestPrintGenericResultCompleteEnvelopeUnmarked guards the marker's negative
+// case: a page that fits carries no truncated/emitted_rows keys — the marker
+// means "this page was reduced", not "this command supports reduction".
+func TestPrintGenericResultCompleteEnvelopeUnmarked(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"items": []any{
+			map[string]any{"incident_id": "inc-1", "title": "small", "severity": "Info"},
+			map[string]any{"incident_id": "inc-2", "title": "smaller", "severity": "Info"},
+		},
+		"total":         2,
+		"has_next_page": false,
+	}
+
+	out, stderrText, err := execCommandSplit("insight", "incident-list",
+		"--start-time", "7d", "--end-time", "now", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommandSplit: %v", err)
+	}
+	if strings.Contains(out, "truncated") || strings.Contains(out, "emitted_rows") {
+		t.Errorf("within-budget envelope must not carry the truncation marker:\n%s", out)
+	}
+	if strings.Contains(stderrText, "note: emitted") {
+		t.Errorf("within-budget envelope must not announce a reduction, got:\n%s", stderrText)
 	}
 }

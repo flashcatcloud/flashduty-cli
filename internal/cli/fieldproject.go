@@ -102,6 +102,13 @@ type projectionBound struct {
 	maxBytes int
 }
 
+// reduced reports whether the payload was actually reduced — rows withheld or
+// values clipped. The zero value means it was emitted intact, which is what the
+// in-payload truncation marker keys off.
+func (b projectionBound) reduced() bool {
+	return b.rowsTotal > 0 || b.shortened > 0
+}
+
 // Commands declare here which of their flags narrow structured output, so the
 // projection note and overflow error can name them. Nothing infers this from a
 // flag's name: a verb may spell a request-body write selector --fields, or

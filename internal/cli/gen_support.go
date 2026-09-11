@@ -359,6 +359,8 @@ func printGenericResult(ctx *RunContext, data any) error {
 // byte-identical output. Only an over-cap list payload detours through the
 // bounding machinery, and only there does the output change (fewer rows; a
 // rebuilt envelope, so key order is no longer the struct's field order).
+// A reduced list envelope also carries truncated/emitted_rows in the payload
+// itself, so a machine consumer sees the reduction without reading stderr.
 func printBoundedGenericResult(ctx *RunContext, data any) error {
 	encoded, err := marshalStructured(data)
 	if err != nil || len(encoded)+1 < compactListOutputLimit {
@@ -382,6 +384,8 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		if err != nil {
 			return explainProjectionOverflow(ctx.Cmd, err)
 		}
+		// A bare array has nowhere to carry the marker the envelope branch
+		// adds; the stderr note is its only signal.
 		noteProjectionBound(ctx.Cmd, bound)
 		return ctx.Printer.Print(bounded, nil)
 	case map[string]any:
@@ -407,6 +411,19 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 				return explainProjectionOverflow(ctx.Cmd, err)
 			}
 			value[key] = bounded
+			if bound.reduced() {
+				// In-payload, not just on stderr: scripts discard stderr, and
+				// the pagination siblings keep describing the server page, so a
+				// reduced page would otherwise read as complete. emitted_rows
+				// is set only when rows were WITHHELD (a prefix was dropped),
+				// which is the case paging can repair; when instead long values
+				// were clipped, truncated rides alone — re-requesting cannot
+				// restore them, narrowing --fields can.
+				value["truncated"] = true
+				if len(bounded) < len(rows) {
+					value["emitted_rows"] = len(bounded)
+				}
+			}
 			out, err := marshalStructured(value)
 			if err != nil {
 				return err
