@@ -70,8 +70,19 @@ func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
 	rows := []map[string]any{{"counts": make([]int, 500)}}
 
 	_, _, err := boundProjectedOutput(rows, 512)
-	if err == nil || !strings.Contains(err.Error(), "request fewer rows") {
-		t.Fatalf("irreducible output error = %v, want bounded guidance", err)
+	if err == nil {
+		t.Fatal("irreducible output = nil error, want the overflow refusal")
+	}
+	if !strings.Contains(err.Error(), "exceeds the 512-byte limit") || !strings.Contains(err.Error(), "counts") {
+		t.Fatalf("irreducible output error = %v, want the byte budget and the largest field", err)
+	}
+	// The byte-bounder's own message is deliberately flag-neutral: it knows
+	// bytes, not the command, so a remedy can only be appended by a caller that
+	// owns the command (explainProjectionOverflow).
+	for _, flag := range []string{"--limit", "--fields"} {
+		if strings.Contains(err.Error(), flag) {
+			t.Fatalf("bounding error must not name a flag itself, got: %v", err)
+		}
 	}
 }
 
@@ -916,7 +927,7 @@ func TestAlertEventListFieldsProjectionUnchanged(t *testing.T) {
 // for the original defect's silent-corruption half: a page that overflows the
 // budget is reduced to the leading rows that fit, so no value is ever
 // shortened — every emitted row is byte-identical to the fixture, no "..."
-// marker appears anywhere, the note names the emitted count, and the encoded
+// marker appears anywhere, the report records the emitted count, and the encoded
 // output stays under the budget.
 func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 	saveAndResetGlobals(t)
@@ -941,7 +952,7 @@ func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 		originals[i] = clone
 	}
 
-	bounded, note, err := boundProjectedOutput(rows, compactListOutputLimit)
+	bounded, bound, err := boundProjectedOutput(rows, compactListOutputLimit)
 	if err != nil {
 		t.Fatalf("bound: %v", err)
 	}
@@ -979,10 +990,11 @@ func TestBoundProjectedListNeverEmitsUnmarkedTruncation(t *testing.T) {
 	if len(encoded)+1 >= compactListOutputLimit {
 		t.Fatalf("bounded output is %d bytes, want <%d", len(encoded)+1, compactListOutputLimit)
 	}
-	wantNote := fmt.Sprintf("note: emitted %d of %d projected rows (every value intact) to stay below the %d-byte structured-output limit; narrow --fields or lower --limit to fit more rows per page — the rows past the first %d were not emitted",
-		len(kept), len(rows), compactListOutputLimit, len(kept))
-	if note != wantNote {
-		t.Fatalf("note = %q, want %q", note, wantNote)
+	if bound.rowsEmitted != len(kept) || bound.rowsTotal != len(rows) || bound.maxBytes != compactListOutputLimit {
+		t.Fatalf("bound = %+v, want a %d-of-%d prefix reduction against the %d-byte limit", bound, len(kept), len(rows), compactListOutputLimit)
+	}
+	if bound.shortened != 0 {
+		t.Fatalf("bound reported %d shortened values; a page reduction must shorten none", bound.shortened)
 	}
 }
 
@@ -1013,15 +1025,15 @@ func TestStructuredFieldsEmptyErrors(t *testing.T) {
 	}
 }
 
-// TestBoundProjectedListAnnouncesShortening pins that a list projection which
-// had to clip values says so on the caller's side. The "..." marker alone is
-// only visible to something that READS the value; a --json consumer runs a jq
-// filter or an exact match over it, where a clipped string produces an empty
-// result that is indistinguishable from "nothing matched" — the expensive
-// failure this note exists to prevent. The fixture is a single oversized row
-// so the run lands on the shortening fallback (a multi-row page would be
-// reduced, not shortened).
-func TestBoundProjectedListAnnouncesShortening(t *testing.T) {
+// TestBoundProjectedListReportsShortening pins that a list projection which had
+// to clip values reports the loss as data. The "..." marker alone is only
+// visible to something that READS the value; a --json consumer runs a jq filter
+// or an exact match over it, where a clipped string produces an empty result
+// indistinguishable from "nothing matched" — the expensive failure the caller's
+// stderr note exists to prevent, keyed off these facts. The fixture is a single
+// oversized row so the run lands on the shortening fallback (a multi-row page
+// would be reduced, not shortened).
+func TestBoundProjectedListReportsShortening(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
 		t.Run(format, func(t *testing.T) {
 			saveAndResetGlobals(t)
@@ -1031,33 +1043,33 @@ func TestBoundProjectedListAnnouncesShortening(t *testing.T) {
 				"title":       strings.Repeat("payment-gateway timeout ", 200),
 			}}
 
-			_, note, err := boundProjectedOutput(rows, 512)
+			_, bound, err := boundProjectedOutput(rows, 512)
 			if err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
-			if note == "" {
-				t.Fatalf("shortened projection returned no note; caller cannot tell values were clipped")
+			if bound.shortened == 0 || bound.valuesTotal == 0 {
+				t.Fatalf("shortened projection reported no shortening: %+v", bound)
 			}
-			if !strings.Contains(note, "title") {
-				t.Fatalf("note = %q, want it to name the shortened field (title)", note)
+			if len(bound.fields) != 1 || bound.fields[0] != "title" {
+				t.Fatalf("bound.fields = %v, want exactly the shortened field (title)", bound.fields)
 			}
 		})
 	}
 }
 
-// TestBoundProjectedListNoNoteWhenNothingShortened keeps the note honest: a
+// TestBoundProjectedListReportsNothingWhenFits keeps the report honest: a
 // projection that fits must not claim anything was clipped.
-func TestBoundProjectedListNoNoteWhenNothingShortened(t *testing.T) {
+func TestBoundProjectedListReportsNothingWhenFits(t *testing.T) {
 	saveAndResetGlobals(t)
 	flagOutputFormat = "json"
 	rows := []map[string]any{{"incident_id": "inc-1", "title": "disk full"}}
 
-	_, note, err := boundProjectedOutput(rows, 512)
+	_, bound, err := boundProjectedOutput(rows, 512)
 	if err != nil {
 		t.Fatalf("bound projected output: %v", err)
 	}
-	if note != "" {
-		t.Fatalf("fitting projection returned note %q, want none", note)
+	if bound.rowsTotal != 0 || bound.shortened != 0 || len(bound.fields) != 0 {
+		t.Fatalf("fitting projection reported a reduction: %+v", bound)
 	}
 }
 
@@ -1259,13 +1271,238 @@ func TestChannelEscalateRuleListStructuredProjection(t *testing.T) {
 	})
 }
 
+// TestReductionAdviceNamesOnlyDeclaredFlags pins that the projection note names
+// a flag only when the command's own definition declares that flag as
+// narrowing its structured output. --fields and --limit are registered per verb
+// and their names do not imply their effect: a request-body write selector
+// spelled --fields, or a --limit the server ignores, must never be offered as a
+// way to shrink the output.
+func TestReductionAdviceNamesOnlyDeclaredFlags(t *testing.T) {
+	// alert-event list declares both a projection --fields and a paging --limit,
+	// so the note may offer both.
+	t.Run("declared projection and rows", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		items := make([]any, 40)
+		for i := range items {
+			items[i] = map[string]any{
+				"event_id": fmt.Sprintf("%024x", i),
+				"title":    strings.Repeat(fmt.Sprintf("row %d fat event title 详情 ", i), 20),
+			}
+		}
+		stub.data = map[string]any{"items": items, "total": len(items)}
+
+		_, stderrText, err := execCommandSplit("alert-event", "list", "--limit", "40",
+			"--fields", "event_id,title", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "narrow --fields or lower --limit to fit more rows per page") {
+			t.Fatalf("both declared flags should be offered, got:\n%s", stderrText)
+		}
+	})
+
+	// channel escalate-rule-list declares a projection --fields but no paging
+	// flag, so the note may offer --fields alone.
+	t.Run("declared projection only", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		items := make([]any, 60)
+		for i := range items {
+			items[i] = map[string]any{
+				"rule_id":   fmt.Sprintf("%024x", i),
+				"rule_name": strings.Repeat(fmt.Sprintf("rule %d ", i), 40),
+			}
+		}
+		stub.data = map[string]any{"items": items}
+
+		_, stderrText, err := execCommandSplit("channel", "escalate-rule-list", "4201",
+			"--fields", "rule_id,rule_name", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "narrow --fields to fit more rows per page") {
+			t.Fatalf("advice should name the declared --fields, got:\n%s", stderrText)
+		}
+		if strings.Contains(stderrText, "--limit") {
+			t.Fatalf("advice must not name --limit; this verb declares no paging flag, got:\n%s", stderrText)
+		}
+	})
+
+	// monit rule-update-fields spells a request-body write selector --fields and
+	// declares no narrowing: the note must not offer --fields, which would
+	// silently change a write instead of the output.
+	t.Run("write-selector fields is not a projection control", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		rows := make([]any, 60)
+		for i := range rows {
+			rows[i] = map[string]any{
+				"message": "",
+				"name":    strings.Repeat(fmt.Sprintf("rule %d ", i), 40),
+			}
+		}
+		stub.data = rows
+
+		_, stderrText, err := execCommandSplit("monit", "rule-update-fields",
+			"--data", `{"ids":[50001],"fields":["enabled"]}`, "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "note: emitted") {
+			t.Fatalf("over-budget response should announce the reduction, got:\n%s", stderrText)
+		}
+		if strings.Contains(stderrText, "--fields") {
+			t.Fatalf("advice must not name --fields; here it selects rule fields to WRITE, got:\n%s", stderrText)
+		}
+	})
+
+	// channel silence-rule-list is a generated verb that declares no narrowing
+	// flag: the note must not invent one.
+	t.Run("no narrowing flag", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		items := make([]any, 60)
+		for i := range items {
+			items[i] = map[string]any{
+				"rule_id":     fmt.Sprintf("%024x", i),
+				"rule_name":   fmt.Sprintf("silence rule %d", i),
+				"description": strings.Repeat(fmt.Sprintf("row %d noise-suppression detail ", i), 40),
+			}
+		}
+		stub.data = map[string]any{"items": items}
+
+		_, stderrText, err := execCommandSplit("channel", "silence-rule-list", "4201", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if !strings.Contains(stderrText, "note: emitted") {
+			t.Fatalf("over-budget page should announce the reduction, got:\n%s", stderrText)
+		}
+		if !strings.Contains(stderrText, "declares no flag that narrows the output") {
+			t.Fatalf("advice should say no flag narrows this command, got:\n%s", stderrText)
+		}
+		for _, flag := range []string{"--fields", "--limit"} {
+			if strings.Contains(stderrText, flag) {
+				t.Fatalf("advice must not name %s on a verb that does not narrow with it, got:\n%s", flag, stderrText)
+			}
+		}
+	})
+}
+
+// hugeTimeFilters returns a recurring-window list large enough that a single row
+// carrying it cannot fit the compact budget even after its string values are
+// shortened — the shape that lands the run on the irreducible-overflow path.
+func hugeTimeFilters() []any {
+	out := make([]any, 400)
+	for i := range out {
+		out[i] = map[string]any{"start": "00:00", "end": "23:59", "repeat": []any{1, 2, 3, 4, 5, 6, 7}}
+	}
+	return out
+}
+
+// TestShorteningAdviceOmitsRowsFlag pins that the single-row shortening branch
+// offers only the projection control: requesting fewer rows cannot shrink the
+// one row that already overflows, so a paging flag declared by the same command
+// must not appear in that remedy.
+func TestShorteningAdviceOmitsRowsFlag(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"items": []any{map[string]any{
+			"event_id": fmt.Sprintf("%024x", 1),
+			"title":    strings.Repeat("payment-gateway timeout 详情 ", 800),
+		}},
+		"total": 1,
+	}
+
+	_, stderrText, err := execCommandSplit("alert-event", "list", "--fields", "event_id,title", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommandSplit: %v", err)
+	}
+	if !strings.Contains(stderrText, "were shortened to fit") {
+		t.Fatalf("a clipped value should be announced, got:\n%s", stderrText)
+	}
+	if !strings.Contains(stderrText, "narrow --fields for untruncated values") {
+		t.Fatalf("the shortening remedy should name the declared projection, got:\n%s", stderrText)
+	}
+	if strings.Contains(stderrText, "--limit") {
+		t.Fatalf("a smaller page cannot shrink the overflowing row, so --limit must not be offered, got:\n%s", stderrText)
+	}
+}
+
+// TestOverflowErrorNamesOnlyDeclaredFlags pins that the irreducible-overflow
+// failure carries the same command-scoped remedy as the note: it is reachable by
+// the same generated verbs, so it must not name a flag the command does not
+// declare as narrowing.
+func TestOverflowErrorNamesOnlyDeclaredFlags(t *testing.T) {
+	// A row whose bulk is a non-string field cannot be shortened, so the command
+	// fails. channel silence-rule-list declares no narrowing flag.
+	t.Run("no narrowing flag", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{map[string]any{
+			"rule_id":      fmt.Sprintf("%024x", 1),
+			"rule_name":    "silence everything",
+			"time_filters": hugeTimeFilters(),
+		}}}
+
+		_, _, err := execCommandSplit("channel", "silence-rule-list", "4201", "--output-format", "json")
+		if err == nil {
+			t.Fatal("irreducible single row should fail, got nil")
+		}
+		if !strings.Contains(err.Error(), "largest fields:") {
+			t.Fatalf("error should name the largest fields, got: %v", err)
+		}
+		if !strings.Contains(err.Error(), "declares no flag that narrows the output") {
+			t.Fatalf("error should state no flag narrows this command, got: %v", err)
+		}
+		for _, flag := range []string{"--fields", "--limit"} {
+			if strings.Contains(err.Error(), flag) {
+				t.Fatalf("error must not name %s on a verb that does not narrow with it, got: %v", flag, err)
+			}
+		}
+	})
+
+	// channel escalate-rule-list declares a projection --fields, so the failure
+	// may name it and must not name the paging flag the verb does not have.
+	t.Run("declared projection", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		flagOutputFormat = "json"
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": []any{map[string]any{
+			"rule_id":      "6621b23f4a2c5e0012ab34d0",
+			"rule_name":    "P1 on-call",
+			"time_filters": hugeTimeFilters(),
+		}}}
+
+		_, _, err := execCommandSplit("channel", "escalate-rule-list", "4201",
+			"--fields", "rule_id,rule_name,time_filters", "--output-format", "json")
+		if err == nil {
+			t.Fatal("irreducible single row should fail, got nil")
+		}
+		if !strings.Contains(err.Error(), "narrow --fields") {
+			t.Fatalf("error should name the declared --fields, got: %v", err)
+		}
+		if strings.Contains(err.Error(), "--limit") {
+			t.Fatalf("error must not name --limit; this verb declares no paging flag, got: %v", err)
+		}
+	})
+}
+
 // TestBoundProjectedListNeverShortensIdentifierFields pins the identifier
 // exemption: keys ending in _id/_key carry values a consumer matches,
 // filters, or passes back verbatim (a jq exact-match over --json output, a
 // follow-up detail call), so shortening one silently defeats that consumer.
 // The fixture is a single row whose oversized title overflows the budget on
 // its own, landing the run on the shortening fallback: the identifiers must
-// come back byte-identical, only the free-text title shortens, and the note
+// come back byte-identical, only the free-text title shortens, and the report
 // must name only the clipped field.
 func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
@@ -1282,7 +1519,7 @@ func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 			}}
 
 			const budget = 1400
-			bounded, note, err := boundProjectedOutput(rows, budget)
+			bounded, bound, err := boundProjectedOutput(rows, budget)
 			if err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
@@ -1301,14 +1538,11 @@ func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 				t.Errorf("title should be shortened with the \"...\" marker, got %q", title)
 			}
 
-			if note == "" {
-				t.Fatal("shortened projection returned no note; caller cannot tell values were clipped")
+			if len(bound.fields) != 1 || bound.fields[0] != "title" {
+				t.Fatalf("bound.fields = %v, want only the shortened non-identifier field (title)", bound.fields)
 			}
-			if !strings.Contains(note, "title") {
-				t.Errorf("note = %q, want it to name the shortened field (title)", note)
-			}
-			if strings.Contains(note, "event_id") || strings.Contains(note, "alert_key") {
-				t.Errorf("note = %q, want it to name only shortened fields, never exempt identifiers", note)
+			if bound.shortened != 1 {
+				t.Fatalf("bound.shortened = %d, want exactly the one clipped value", bound.shortened)
 			}
 
 			encoded, err := marshalStructured(kept)
@@ -1325,7 +1559,7 @@ func TestBoundProjectedListNeverShortensIdentifierFields(t *testing.T) {
 // TestBoundProjectedListIdentifierOnlyOverflowReducesPage pins the other half
 // of the identifier exemption: a page carrying nothing shortenable (only
 // identifier content) that overflows the budget is reduced to the leading
-// rows that fit — identifiers stay byte-identical and the note names the
+// rows that fit — identifiers stay byte-identical and the report records the
 // emitted count — instead of clipping identifiers or erroring out.
 func TestBoundProjectedListIdentifierOnlyOverflowReducesPage(t *testing.T) {
 	saveAndResetGlobals(t)
@@ -1340,7 +1574,7 @@ func TestBoundProjectedListIdentifierOnlyOverflowReducesPage(t *testing.T) {
 		originals[i] = row["incident_id"].(string)
 	}
 
-	bounded, note, err := boundProjectedOutput(rows, 512)
+	bounded, bound, err := boundProjectedOutput(rows, 512)
 	if err != nil {
 		t.Fatalf("identifier-only overflow should reduce the page, not error: %v", err)
 	}
@@ -1356,9 +1590,8 @@ func TestBoundProjectedListIdentifierOnlyOverflowReducesPage(t *testing.T) {
 			t.Errorf("row %d incident_id was mutated: got %q, want byte-identical %q", i, got, originals[i])
 		}
 	}
-	wantNote := fmt.Sprintf("emitted %d of %d", len(kept), len(rows))
-	if !strings.Contains(note, wantNote) {
-		t.Fatalf("note = %q, want it to name the emitted count (%q)", note, wantNote)
+	if bound.rowsEmitted != len(kept) || bound.rowsTotal != len(rows) {
+		t.Fatalf("bound = %+v, want it to report emitting %d of %d rows", bound, len(kept), len(rows))
 	}
 	encoded, err := marshalStructured(kept)
 	if err != nil {

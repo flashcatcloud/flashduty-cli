@@ -195,12 +195,12 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					bounded, note, err := boundProjectedOutput(proj, compactListOutputLimit)
+					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
 					if err != nil {
-						return err
+						return explainProjectionOverflow(cmd, err)
 					}
 					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd.ErrOrStderr(), note)
+					noteProjectionBound(cmd, bound)
 					return ctx.PrintTotal(proj, nil, len(proj))
 				}
 
@@ -218,5 +218,6 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. rule_id,rule_name,status,priority); ignored in table mode. Use to avoid dumping the full nested record.")
+	declareOutputNarrowing(cmd, "fields", "")
 	return cmd
 }

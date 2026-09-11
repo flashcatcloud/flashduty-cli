@@ -380,13 +380,13 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		if !ok {
 			return ctx.Printer.Print(data, nil)
 		}
-		bounded, note, err := boundProjectedList(rows, compactListOutputLimit)
+		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit)
 		if err != nil {
-			return err
+			return explainProjectionOverflow(ctx.Cmd, err)
 		}
 		// A bare array has nowhere to carry the marker the envelope branch
 		// adds; the stderr note is its only signal.
-		noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+		noteProjectionBound(ctx.Cmd, bound)
 		return ctx.Printer.Print(bounded, nil)
 	case map[string]any:
 		key, ok := listEnvelopeKey(value)
@@ -406,12 +406,12 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 		// until the whole payload is under it.
 		budget := compactListOutputLimit
 		for {
-			bounded, note, err := boundProjectedList(rows, budget)
+			bounded, bound, err := boundProjectedList(rows, budget)
 			if err != nil {
-				return err
+				return explainProjectionOverflow(ctx.Cmd, err)
 			}
 			value[key] = bounded
-			if note != "" {
+			if bound.reduced() {
 				// In-payload, not just on stderr: scripts discard stderr, and
 				// the pagination siblings keep describing the server page, so a
 				// reduced page would otherwise read as complete. emitted_rows
@@ -429,7 +429,7 @@ func printBoundedGenericResult(ctx *RunContext, data any) error {
 				return err
 			}
 			if len(out)+1 < compactListOutputLimit {
-				noteProjectionBound(ctx.Cmd.ErrOrStderr(), note)
+				noteProjectionBound(ctx.Cmd, bound)
 				return ctx.Printer.Print(value, nil)
 			}
 			budget -= len(out) + 2 - compactListOutputLimit

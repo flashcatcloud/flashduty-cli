@@ -1317,6 +1317,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		call += ")"
 	}
 
+	// Generated commands emit no declareOutputNarrowing call. The spec gives no
+	// structured contract for whether a --limit bounds the emitted rows (the
+	// knowledge file-list documents its --limit as ignored; rule-list-basic
+	// honors its own only alongside --include-descendants), and a flag's name is
+	// not evidence of its effect. With no declaration the projection note names
+	// no flag, which is the honest default; a hand-written command that knows
+	// what its flags do declares them itself.
 	switch {
 	case mi.HasData:
 		fmt.Fprintf(&b, "\t\t\t\tout, _, err := %s\n", call)
