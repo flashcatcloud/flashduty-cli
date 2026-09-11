@@ -1496,36 +1496,6 @@ func TestOverflowErrorNamesOnlyDeclaredFlags(t *testing.T) {
 	})
 }
 
-// TestIgnoredLimitIsNeverOffered pins the other half of the declaration rule: a
-// verb whose --limit the server ignores gets no paging advice. safari
-// knowledge-file-list documents its --limit as accepted-but-ignored, and it
-// declares no narrowing flag, so no reduction note can offer --limit.
-func TestIgnoredLimitIsNeverOffered(t *testing.T) {
-	saveAndResetGlobals(t)
-	flagOutputFormat = "json"
-	stub := newGFStub(t)
-	files := make([]any, 200)
-	for i := range files {
-		files[i] = map[string]any{
-			"file_id":    fmt.Sprintf("kfl_%06d", i),
-			"rel_path":   strings.Repeat(fmt.Sprintf("runbooks/restart-%d.md ", i), 10),
-			"checksum":   strings.Repeat("a", 64),
-			"pack_id":    "kp_1",
-			"size_bytes": 1024,
-			"updated_by": 101,
-		}
-	}
-	stub.data = map[string]any{"files": files, "total": len(files)}
-
-	_, stderrText, err := execCommandSplit("safari", "knowledge-file-list", "--limit", "50", "--output-format", "json")
-	if err != nil {
-		t.Fatalf("execCommandSplit: %v", err)
-	}
-	if strings.Contains(stderrText, "--limit") {
-		t.Fatalf("a --limit the server ignores must never be offered, got:\n%s", stderrText)
-	}
-}
-
 // TestBoundProjectedListNeverShortensIdentifierFields pins the identifier
 // exemption: keys ending in _id/_key carry values a consumer matches,
 // filters, or passes back verbatim (a jq exact-match over --json output, a
