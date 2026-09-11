@@ -314,3 +314,88 @@ func TestPrintGenericResultCompleteEnvelopeUnmarked(t *testing.T) {
 		t.Errorf("within-budget envelope must not announce a reduction, got:\n%s", stderrText)
 	}
 }
+
+// TestBoundedEnvelopeReductionFactsMatchPayload pins the reduction contract a
+// --json consumer walks: emitted_rows appears only when rows were WITHHELD
+// with every emitted value intact (a prefix reduction paging can repair), and a
+// clipped value (it ends in "...") never rides under that marker, because
+// paging cannot restore a clipped value — only a narrower --fields can. The
+// fixture sweeps the first row across the band where the envelope re-fit
+// switches between the two reductions, since that is where the reported facts
+// and the printed payload can drift apart.
+func TestBoundedEnvelopeReductionFactsMatchPayload(t *testing.T) {
+	for _, titleBytes := range []int{15000, 15200, 15400, 15600, 15800, 16000, 16200, 16400, 16600, 16800} {
+		t.Run(fmt.Sprintf("title=%d", titleBytes), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			stub.data = map[string]any{
+				"items": []any{
+					map[string]any{"incident_id": "inc-1", "title": strings.Repeat("x", titleBytes), "severity": "Critical"},
+					map[string]any{"incident_id": "inc-2", "title": "small follower", "severity": "Info"},
+				},
+				"total":         2,
+				"has_next_page": true,
+			}
+
+			out, stderrText, err := execCommandSplit("insight", "incident-list",
+				"--start-time", "7d", "--end-time", "now", "--output-format", "json")
+			if err != nil {
+				t.Fatalf("execCommandSplit: %v", err)
+			}
+			if len([]byte(out)) >= compactListOutputLimit {
+				t.Errorf("bounded envelope is %d bytes, want <%d", len([]byte(out)), compactListOutputLimit)
+			}
+			var envelope map[string]any
+			if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &envelope); err != nil {
+				t.Fatalf("bounded output is not a JSON object: %v\n%s", err, out)
+			}
+			items, ok := envelope["items"].([]any)
+			if !ok {
+				t.Fatalf("bounded output lost the items array: %v", envelope)
+			}
+			_, rowsWithheld := envelope["emitted_rows"]
+			clippedAt := ""
+			for _, item := range items {
+				row, ok := item.(map[string]any)
+				if !ok {
+					t.Fatalf("emitted row is not an object: %v", item)
+				}
+				for key, value := range row {
+					if text, ok := value.(string); ok && strings.HasSuffix(text, "...") {
+						clippedAt = fmt.Sprintf("%s (%d bytes emitted)", key, len(text))
+					}
+				}
+			}
+			mode := fmt.Sprintf("items=%d emitted_rows=%v clipped=%q", len(items), envelope["emitted_rows"], clippedAt)
+			clipped := clippedAt != ""
+			t.Log(mode)
+
+			if envelope["truncated"] != true {
+				t.Errorf("reduced envelope must carry truncated: %s", mode)
+			}
+			if !rowsWithheld && !clipped {
+				t.Errorf("a marked payload was reduced one way or the other: %s", mode)
+			}
+			if rowsWithheld && clipped {
+				t.Errorf("emitted_rows tells a paging walk the withheld rows are recoverable, but the payload also carries a clipped value that paging cannot restore: %s", mode)
+			}
+			if clipped {
+				if strings.Contains(stderrText, "every value intact") {
+					t.Errorf("a clipped value cannot be announced as \"every value intact\": %s\ngot: %s", mode, stderrText)
+				}
+				if !strings.Contains(stderrText, "were shortened to fit") {
+					t.Errorf("a clipped value should be announced as shortened on stderr: %s\ngot: %s", mode, stderrText)
+				}
+				// The re-fit sizes the rows against the limit minus the
+				// envelope's framing, but the note names the published cap:
+				// an internal remainder tells the reader nothing they can act
+				// on, and it contradicts the documented limit.
+				if published := fmt.Sprintf("the %d-byte limit", compactListOutputLimit); !strings.Contains(stderrText, published) {
+					t.Errorf("the shortened note should name the published limit (%s): %s\ngot: %s", published, mode, stderrText)
+				}
+			} else if !strings.Contains(stderrText, "every value intact") {
+				t.Errorf("a rows-withheld reduction should announce intact values on stderr: %s\ngot: %s", mode, stderrText)
+			}
+		})
+	}
+}

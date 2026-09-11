@@ -1721,13 +1721,13 @@ func TestCommandListProjectionOverflowFails(t *testing.T) {
 		stub.data = map[string]any{"items": []any{row}, "total": 1}
 
 		out, stderrText, err := execCommandSplit("incident", "list", "--fields", "incident_id,labels", "--output-format", "json")
-		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
+		if err == nil || !strings.Contains(err.Error(), "16384-byte structured-output limit") {
 			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
 		}
 		if out != "" {
 			t.Errorf("a failed projection must write nothing to stdout, got %d bytes", len(out))
 		}
-		if strings.Contains(stderrText, "exceeds the") {
+		if strings.Contains(stderrText, "structured-output limit") {
 			t.Errorf("the error is returned for the entrypoint to report, not printed mid-run, got:\n%s", stderrText)
 		}
 	})
@@ -1747,7 +1747,7 @@ func TestCommandListProjectionOverflowFails(t *testing.T) {
 		stub.data = map[string]any{"items": []any{row}, "total": 1}
 
 		out, _, err := execCommandSplit("alert-event", "list", "--fields", "event_id,labels", "--output-format", "json")
-		if err == nil || !strings.Contains(err.Error(), "exceeds the 16384-byte limit") {
+		if err == nil || !strings.Contains(err.Error(), "16384-byte structured-output limit") {
 			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
 		}
 		if out != "" {

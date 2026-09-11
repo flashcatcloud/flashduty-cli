@@ -38,26 +38,68 @@ func TestBoundProjectedOutputCapsStructuredFormats(t *testing.T) {
 		t.Run(format, func(t *testing.T) {
 			saveAndResetGlobals(t)
 			flagOutputFormat = format
+			longTitle := strings.Repeat("数据库故障", 2000)
 			rows := []map[string]any{{
 				"incident_id": "inc-1",
-				"title":       strings.Repeat("数据库故障", 2000),
+				"title":       longTitle,
 			}}
 
-			if _, _, err := boundProjectedOutput(rows, 512); err != nil {
+			bounded, _, err := boundProjectedOutput(rows, 512)
+			if err != nil {
 				t.Fatalf("bound projected output: %v", err)
 			}
-			encoded, err := marshalStructured(rows)
+			boundedRows, ok := bounded.([]map[string]any)
+			if !ok {
+				t.Fatalf("bounded output = %T, want []map[string]any", bounded)
+			}
+			encoded, err := marshalStructured(boundedRows)
 			if err != nil {
 				t.Fatalf("marshal bounded output: %v", err)
 			}
 			if len(encoded)+1 >= 512 {
 				t.Fatalf("bounded %s output is %d bytes, want <512", format, len(encoded)+1)
 			}
-			title := rows[0]["title"].(string)
+			// The input stays untouched: the caller prints the returned value,
+			// and the envelope re-fit re-bounds the same rows against a smaller
+			// budget, so every pass must see the original data.
+			if original, _ := rows[0]["title"].(string); original != longTitle {
+				t.Fatalf("bounding modified the input row: title is %d bytes, want it untouched", len(original))
+			}
+			title := boundedRows[0]["title"].(string)
 			if !utf8.ValidString(title) || !strings.HasSuffix(title, "...") {
 				t.Fatalf("truncated title = %q, want valid UTF-8 with marker", title)
 			}
 		})
+	}
+}
+
+// TestBoundProjectedOutputRefusesOversizeDetail pins the detail half of the
+// refusal: a single-object projection is never modified (a clipped id or status
+// would pass for a real value), so one that overflows the detail limit fails
+// instead, and its message reports the rendered size the fit test measured
+// against the detail cap — the two numbers live in the same space here, so the
+// sentence can state them together.
+func TestBoundProjectedOutputRefusesOversizeDetail(t *testing.T) {
+	saveAndResetGlobals(t)
+	flagOutputFormat = "json"
+	row := map[string]any{
+		"incident_id": "inc-1",
+		"counts":      make([]int, 5000),
+	}
+
+	_, _, err := boundProjectedOutput(row, compactDetailOutputLimit)
+	if err == nil {
+		t.Fatal("oversize detail = nil error, want the overflow refusal")
+	}
+	if !strings.Contains(err.Error(), "projected detail is ") {
+		t.Fatalf("detail refusal should name the detail payload, got: %v", err)
+	}
+	want := fmt.Sprintf("does not fit under the %d-byte structured-output limit", compactDetailOutputLimit)
+	if !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "counts") {
+		t.Fatalf("detail refusal = %v, want %q and the largest field", err, want)
+	}
+	if strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("the refusal must not claim a size exceeds a limit it was measured against in another space, got: %v", err)
 	}
 }
 
@@ -73,7 +115,7 @@ func TestBoundProjectedOutputRejectsIrreducibleMetadata(t *testing.T) {
 	if err == nil {
 		t.Fatal("irreducible output = nil error, want the overflow refusal")
 	}
-	if !strings.Contains(err.Error(), "exceeds the 512-byte limit") || !strings.Contains(err.Error(), "counts") {
+	if !strings.Contains(err.Error(), "cannot be reduced to fit under the 512-byte structured-output limit") || !strings.Contains(err.Error(), "counts") {
 		t.Fatalf("irreducible output error = %v, want the byte budget and the largest field", err)
 	}
 	// The byte-bounder's own message is deliberately flag-neutral: it knows
