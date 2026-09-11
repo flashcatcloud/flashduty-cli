@@ -321,17 +321,24 @@ inc_def456   High memory usage        Warning    Processing   Staging       2026
 Showing 2 results (page 1, total 2).
 ```
 
-**JSON (`--json` / `--output-format json`):** Machine-parseable, full data, no truncation.
+**JSON (`--json` / `--output-format json`):** Machine-parseable output for `jq` and scripts.
 
 ```bash
 flashduty incident list --json | jq '.[].title'
 ```
 
-**TOON (`--output-format toon`):** Token-Oriented Object Notation — full data, no truncation, but drops the per-row repeated keys that JSON emits for uniform arrays, so list output costs materially fewer tokens. Preferred for LLM/agent consumption. Not directly `jq`-able; use `--json` when you need to pipe into `jq`.
+**TOON (`--output-format toon`):** Token-Oriented Object Notation — drops the per-row repeated keys that JSON emits for uniform arrays, so list output costs materially fewer tokens. Preferred for LLM/agent consumption. Not directly `jq`-able; use `--json` when you need to pipe into `jq`.
 
 ```bash
 flashduty incident list --output-format toon
 ```
+
+**Bounded list pages.** Every structured list page is capped at 16 KiB: an oversize page is emitted as the leading rows that fit, and the reduction is announced on stderr. A reduced **list envelope says so in the payload** too — scripts routinely discard stderr — and the marker's shape tells you which reduction happened:
+
+- `"truncated": true` **with** `"emitted_rows": N` — the page carries its first N rows and withheld the rest. The envelope's `total` / `has_next_page` / `search_after_ctx` still describe the page as the server returned it, so a page cut to 7 of 100 rows reads as complete. To collect everything, re-request with a `--limit` no larger than the rows you received (or, where the command documents its cursor as a row id, pass the last received row's id back as `--search-after-ctx`) and repeat until the rows you hold reach `total`; stopping on `has_next_page=false` alone silently drops the withheld rows.
+- `"truncated": true` **alone** — every row was emitted, but long values inside them were clipped (stderr names the fields). Paging cannot restore them; narrow `--fields` and re-request.
+
+A bare top-level array has nowhere to carry the marker, so it announces a reduction only on stderr — page it with a lower `--limit`, or switch to a page-envelope command (`alert event-list`, `insight incident-list`) when a script needs completeness.
 
 **No truncation (`--no-trunc`):** Table with full field content.
 
