@@ -385,7 +385,7 @@ func genMembersMemberNotifyCmd() *cobra.Command {
 		Short: "Notify members",
 		Long: `Notify members.
 
-Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered.
+Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered. Call it with 'dry_run' set to 'true' before sending: 'html' in the response is the email exactly as recipients will get it, so you can confirm the sanitizer kept everything the message depends on.
 
 API: POST /member/notify (memberNotify)
 
