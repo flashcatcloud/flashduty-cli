@@ -99,10 +99,11 @@ List members
 
 ### notify
 Notify members
-- `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed). Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; image 'src' values are kept only when they are 'https' — non-'https' and 'data:' image sources are dropped; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes keep only common text, color, spacing, border and sizing properties; properties that can move content outside the message body (such as 'position' or negative margins) and CSS 'url()' values are removed. (≤102400 chars)
+- `--dry-run` bool — Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.
+- `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (≤102400 chars)
 - `--person-ids` intSlice — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
-- `--subject` string (required) — Email subject. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_id (integer); reason (string); status (string)
+- `--subject` string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
+- response: `{items: [...], html}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_id (integer); reason (string); status (string)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member
@@ -137,6 +138,7 @@ Update member roles
     '{html: $h, subject: "<subject>", person_ids: $pids}' \
     | fduty member notify --data -
   ```
+  Add `dry_run: true` to that body to get the finished email back in `.html` without sending anything, and check it before the real send.
 - **Resolving a `person_id` → name: use `fduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `fduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
 - **`invite` members array is body-only — use `--data`.** Individual members cannot be passed as flat flags; the `members` array (with nested `role_ids`, `email`, `phone`, etc.) lives only in the JSON body. Up to 20 members per call.
 - **`info-reset <member-id>` can be passed positionally or via `--member-id`** — both work: `fduty member info-reset <member_id> --member-name "New Name"` or `fduty member info-reset --member-id <member_id> --member-name "New Name"`. If both are given, the flag wins.
