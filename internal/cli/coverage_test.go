@@ -27,6 +27,10 @@ var curatedOperationIDs = map[string]bool{
 	// upload methods (see upload.go).
 	"mapping-data-write-upload": true,
 	"skill-write-upload":        true,
+	// Path parameter plus X-DSID header; the response is also the data
+	// source's native (non-enveloped) payload. Served by a curated command
+	// built on the hand-written SDK method (see monit_prometheus_label_values.go).
+	"monit-prometheus-read-label-values": true,
 }
 
 // loadSpecOps reads every public GET/POST operation from the openapi spec

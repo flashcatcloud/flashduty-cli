@@ -151,6 +151,11 @@ func init() {
 	attachSafariSessionExport(rootCmd)
 	attachSafariAutomationTriggerFire(rootCmd)
 
+	// monit-prometheus-read-label-values carries a path parameter, so it is
+	// excluded from generation; attach its curated leaf to the generated
+	// `monit` group so the operation stays reachable at its path-name.
+	attachMonitPrometheusLabelValues(rootCmd)
+
 	// Multipart uploads are excluded from generation (non-JSON request body);
 	// attach their curated leaves to the generated path groups.
 	attachEnrichmentMappingDataUpload(rootCmd)
