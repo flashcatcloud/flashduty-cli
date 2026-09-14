@@ -99,7 +99,7 @@ List members
 
 ### notify
 Notify members
-- `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed). Required, up to 512,000 bytes of raw UTF-8 input, and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; image 'src' values are kept only when they are 'https' — non-'https' and 'data:' image sources are dropped; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes keep only common text, color, spacing, border and sizing properties; properties that can move content outside the message body (such as 'position' or negative margins) and CSS 'url()' values are removed. (≤512000 chars)
+- `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed). Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; image 'src' values are kept only when they are 'https' — non-'https' and 'data:' image sources are dropped; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes keep only common text, color, spacing, border and sizing properties; properties that can move content outside the message body (such as 'position' or negative margins) and CSS 'url()' values are removed. (≤102400 chars)
 - `--person-ids` intSlice — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
 - `--subject` string (required) — Email subject. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_id (integer); reason (string); status (string)
@@ -131,7 +131,7 @@ Update member roles
 
 ## Gotchas
 
-- **`notify` only works with an AI SRE session credential.** Any other credential (an account app key, a personal API key) is rejected with a permission error. `person_ids` defaults to the caller when omitted. `html` can be large (up to 512,000 bytes) — never pass it through the typed `--html` flag or `"$(...)"` command substitution (which strips trailing newlines); build the full body with `jq -n --rawfile` and pipe it in with `--data -`, the same pattern `template update` uses:
+- **`notify` only works with an AI SRE session credential.** Any other credential (an account app key, a personal API key) is rejected with a permission error. `person_ids` defaults to the caller when omitted. `html` can be large (up to 102,400 bytes) — never pass it through the typed `--html` flag or `"$(...)"` command substitution (which strips trailing newlines); build the full body with `jq -n --rawfile` and pipe it in with `--data -`, the same pattern `template update` uses:
   ```bash
   jq -n --rawfile h /tmp/report.html --argjson pids '[<person_id1>,<person_id2>]' \
     '{html: $h, subject: "<subject>", person_ids: $pids}' \
