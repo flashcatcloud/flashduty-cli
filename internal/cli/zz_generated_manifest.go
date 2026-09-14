@@ -181,6 +181,7 @@ var generatedOpIDs = []string{
 	"memberInfo",
 	"memberInvite",
 	"memberList",
+	"memberNotify",
 	"memberResetInfo",
 	"memberRevokeRole",
 	"memberUpdateRole",
