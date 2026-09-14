@@ -374,6 +374,75 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genMembersMemberNotifyCmd() *cobra.Command {
+	var dataJSON string
+	var fDryRun bool
+	var fHTML string
+	var fPersonIDs []int
+	var fSubject string
+	cmd := &cobra.Command{
+		Use:   "notify",
+		Short: "Notify members",
+		Long: `Notify members.
+
+Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered. Call it with 'dry_run' set to 'true' before sending: 'html' in the response is the email exactly as recipients will get it, so you can confirm the sanitizer kept everything the message depends on.
+
+API: POST /member/notify (memberNotify)
+
+Request fields:
+  --dry-run bool — Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.
+  --html string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (≤102400 chars)
+  --person-ids []int — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
+  --subject string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - html (string) — Only present when 'dry_run' is 'true': the complete email HTML exactly as recipients would receive it, after sanitization.
+  - recipients (array<object>) — One result per resolved recipient, in the same order as the resolved recipient list. With 'dry_run', each result is what a real send would return.
+    - person_id (integer) (required) — Recipient member ID.
+    - reason (string) — Why the recipient was skipped. Only present when 'status' is 'skipped'. 'not_member' — not an active member of the caller's account; 'no_email' — the member has no email address on file; 'email_disabled' — the member's notification preferences for this kind of message exclude email; 'duplicate' — this recipient already received a message from the same AI SRE session turn; 'rate_limited' — this recipient has already been sent 20 emails through this endpoint within the last hour; 'send_failed' — enqueueing the email failed. [not_member, no_email, email_disabled, duplicate, rate_limited, send_failed]
+    - status (string) (required) — Delivery status. 'accepted' — the email was queued for asynchronous delivery; 'skipped' — no email was queued, see 'reason'. [accepted, skipped]
+`,
+		Example: `  flashduty member notify --data '{"html":"\u003cp\u003eCan you confirm the rollback window?\u003c/p\u003e","person_ids":[5068740052131,5068740052132],"subject":"Incident 20260914-1 needs your input"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("dry-run") {
+						body["dry_run"] = fDryRun
+					}
+					if cmd.Flags().Changed("html") {
+						body["html"] = fHTML
+					}
+					if cmd.Flags().Changed("person-ids") {
+						body["person_ids"] = fPersonIDs
+					}
+					if cmd.Flags().Changed("subject") {
+						body["subject"] = fSubject
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.MemberNotifyRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Members.MemberNotify(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&fDryRun, "dry-run", false, "Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.")
+	cmd.Flags().StringVar(&fHTML, "html", "", "Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (required) (≤102400 chars)")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.")
+	cmd.Flags().StringVar(&fSubject, "subject", "", "Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (required) (1-200 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genMembersMemberResetInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fCountryCode string
@@ -654,6 +723,7 @@ func registerGeneratedMembers(root *cobra.Command) {
 	genAddLeaf(gMember, genMembersMemberInfoCmd())
 	genAddLeaf(gMember, genMembersMemberInviteCmd())
 	genAddLeaf(gMember, genMembersMemberListCmd())
+	genAddLeaf(gMember, genMembersMemberNotifyCmd())
 	genAddLeaf(gMember, genMembersMemberResetInfoCmd())
 	genAddLeaf(gMember, genMembersMemberRevokeRoleCmd())
 	genAddLeaf(gMember, genMembersMemberUpdateRoleCmd())

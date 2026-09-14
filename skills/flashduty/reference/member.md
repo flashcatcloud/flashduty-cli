@@ -18,6 +18,7 @@ Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 
 | add roles without touching others | `role-grant` |
 | remove specific roles | `role-revoke` |
 | set exactly these roles (replace all) | `role-update` |
+| email members on the caller's behalf | `notify` |
 
 ## Hot flow — invite then assign role
 
@@ -96,6 +97,14 @@ List members
 - `--search-after-ctx` string
 - response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (string)
 
+### notify
+Notify members
+- `--dry-run` bool — Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.
+- `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (≤102400 chars)
+- `--person-ids` intSlice — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
+- `--subject` string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
+- response: single object (`data` unwrapped to the top level) — fields: html (string); recipients (array<object>)
+
 ### role-grant <role-id> [<id2>...]
 Grant role to member
 - `--member-id` int64 (required) — Member ID
@@ -123,6 +132,13 @@ Update member roles
 
 ## Gotchas
 
+- **`notify` only works with an AI SRE session credential.** Any other credential (an account app key, a personal API key) is rejected with a permission error. `person_ids` defaults to the caller when omitted. `html` can be large (up to 102,400 bytes) — never pass it through the typed `--html` flag or `"$(...)"` command substitution (which strips trailing newlines); build the full body with `jq -n --rawfile` and pipe it in with `--data -`, the same pattern `template update` uses:
+  ```bash
+  jq -n --rawfile h /tmp/report.html --argjson pids '[<person_id1>,<person_id2>]' \
+    '{html: $h, subject: "<subject>", person_ids: $pids}' \
+    | fduty member notify --data -
+  ```
+  Add `dry_run: true` to that body to get the finished email back in `.html` without sending anything, and check it before the real send.
 - **Resolving a `person_id` → name: use `fduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `fduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
 - **`invite` members array is body-only — use `--data`.** Individual members cannot be passed as flat flags; the `members` array (with nested `role_ids`, `email`, `phone`, etc.) lives only in the JSON body. Up to 20 members per call.
 - **`info-reset <member-id>` can be passed positionally or via `--member-id`** — both work: `fduty member info-reset <member_id> --member-name "New Name"` or `fduty member info-reset --member-id <member_id> --member-name "New Name"`. If both are given, the flag wins.
