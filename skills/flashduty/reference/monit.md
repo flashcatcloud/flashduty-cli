@@ -20,5 +20,8 @@ Read verbs are free. Mutating verbs change state — confirm before running; eac
 
 <!-- GENERATED:monit START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
 
+### prometheus-api-v1-label-{label_name}-values <label_name>
+List Prometheus label values
+- `--data-source-id` int64
 
 <!-- GENERATED:monit END -->
