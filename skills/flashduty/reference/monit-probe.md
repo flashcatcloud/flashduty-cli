@@ -24,4 +24,11 @@ Query structured data
 - body-only (`--data`): args (object)
 - response: single object (`data` unwrapped to the top level) — fields: format (string); result (object)
 
+### query-explore <datasource-id>
+Run Explore query
+- `<datasource-id>` (positional, required) int64 — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer and belong to the authenticated account. (1-9007199254740991)
+- `--expr` string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; some data source types enforce a lower limit. (≥1 chars)
+- body-only (`--data`): args (object) (required); execution (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: execution (object); format (string); result (object)
+
 <!-- GENERATED:monit[query] END -->

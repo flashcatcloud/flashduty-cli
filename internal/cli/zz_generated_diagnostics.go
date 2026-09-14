@@ -93,7 +93,92 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genDiagnosticsQueryExploreCmd() *cobra.Command {
+	var dataJSON string
+	var fDatasourceID int64
+	var fExpr string
+	cmd := &cobra.Command{
+		Use:   "query-explore <datasource-id>",
+		Short: "Run Explore query",
+		Long: `Run Explore query.
+
+Run an Explore query against a configured data source and return frames, samples, or logs.
+
+API: POST /monit/query/explore (monit-read-query-explore)
+
+Request fields:
+  --datasource-id int (required) — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer and belong to the authenticated account. (1-9007199254740991)
+  --expr string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; some data source types enforce a lower limit. (≥1 chars)
+  args (object, via --data) (required) — Macro substitutions keyed by variable name, used for Grafana-style variables. Keys are at most 256 bytes, values at most 64 KiB, with a 128 KiB total budget.
+  execution (object, via --data) (required) — Time semantics of the query. The accepted companion fields depend on 'kind': 'instant' takes only 'to_ms' (plus optional 'from_ms'), 'range' requires 'from_ms', 'to_ms', and 'max_data_points', and 'window' takes only 'from_ms' and 'to_ms'. 'step_seconds' is never accepted over HTTP.
+    - from_ms (integer) — Unix timestamp in milliseconds for the start of the range. Required for 'range' and 'window'; optional for 'instant'.
+    - kind (string) (required) — Execution kind. 'instant' evaluates at a single point in time, 'range' evaluates a series over a range, and 'window' returns raw rows inside a time window. [instant, range, window]
+    - max_data_points (integer) — Maximum number of points to return. Required for 'range' and rejected for 'instant' and 'window'. (2-5000)
+    - min_step_seconds (integer) — Lower bound, in seconds, for the step derived from 'max_data_points'. Optional and only accepted for 'range'. (min 1)
+    - to_ms (integer) — Unix timestamp in milliseconds for the end of the range. Required for every execution kind.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - execution (object) — Execution actually used, present when the data source returned a stepped result.
+    - effective_step_seconds (integer) (required) — Step, in seconds, the query was executed with after applying 'max_data_points' and 'min_step_seconds'.
+    - kind (string) (required) — Execution kind; always 'range' when this object is present. [range]
+  - format (string) (required) — Result contract version; always 'explore_result.v1'. [explore_result.v1]
+  - result (object) (required) — Result body. Exactly one of 'frames', 'samples', or 'entries' is present and matches 'kind'.
+    - applied_limit (integer) — Entry limit applied to a logs result; at most 1000.
+    - entries (array<object>) — Log entries. Present when 'kind' is 'logs'; never longer than 'applied_limit'.
+      - fields (object) (required) — Log fields as raw JSON values. Integer literals outside JavaScript's safe integer range are returned as decimal strings.
+      - timestamp_ns (string) (required) — Entry time as a canonical unsigned decimal string of Unix epoch nanoseconds, at most 20 digits.
+    - frames (array<object>) — Columnar frames. Present when 'kind' is 'frames'; at most 1,000 frames.
+      - fields (array<object>) (required) — Columns of the frame.
+        - labels (object) — Label set of this column. Only 'time_series' value fields may carry labels; a 'table' field must not.
+        - name (string) (required) — Column name, at most 1 MiB of UTF-8.
+        - type (string) (required) — Column type. 'string' is rejected inside a 'time_series' frame; 'float' holds numbers and 'time' holds UTC RFC3339Nano strings. [string, float, time]
+        - values (array<any>) (required) — Column values in row order.
+      - kind (string) (required) — Frame shape. 'table' is an unlabeled table, while 'time_series' carries exactly one time field and one float field. [table, time_series]
+    - has_more (boolean) — Whether a logs result was truncated by 'applied_limit'.
+    - kind (string) (required) — Result shape. 'frames' returns columnar tables or time series, 'samples' returns instant values with labels, and 'logs' returns log entries. [frames, samples, logs]
+    - samples (array<object>) — Instant samples. Present when 'kind' is 'samples'; at most 1,000 samples.
+      - labels (object) (required) — Label set of the sample. May be empty but never null.
+      - value (any) (required) — Sample value: a number, or one of the strings 'NaN', '+Inf', and '-Inf'. Never null.
+`,
+		Args:    requireBodyFieldOrExactArg("datasource_id", "datasource-id"),
+		Example: `  flashduty monit query-explore --data '{"args":{},"datasource_id":101,"execution":{"from_ms":1787187600000,"kind":"range","max_data_points":1200,"min_step_seconds":15,"to_ms":1787191200000},"expr":"rate(http_requests_total[5m])"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "datasource_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("datasource-id") {
+						body["datasource_id"] = fDatasourceID
+					}
+					if cmd.Flags().Changed("expr") {
+						body["expr"] = fExpr
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.QueryExploreRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Diagnostics.QueryExplore(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer and belong to the authenticated account. (required) (1-9007199254740991)")
+	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; some data source types enforce a lower limit. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedDiagnostics(root *cobra.Command) {
 	gMonit := genGroup(root, "monit", "Monitors API")
 	genAddLeaf(gMonit, genDiagnosticsQueryDataCmd())
+	genAddLeaf(gMonit, genDiagnosticsQueryExploreCmd())
 }
