@@ -103,7 +103,7 @@ Notify members
 - `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (≤102400 chars)
 - `--person-ids` intSlice — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
 - `--subject` string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
-- response: `{items: [...], html}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: person_id (integer); reason (string); status (string)
+- response: single object (`data` unwrapped to the top level) — fields: html (string); recipients (array<object>)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member

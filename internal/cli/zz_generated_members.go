@@ -395,9 +395,9 @@ Request fields:
   --person-ids []int — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
   --subject string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
 
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - html (string) — Only present when 'dry_run' is 'true': the complete email HTML exactly as recipients would receive it, after sanitization.
-  - items (array<object>) — One result per resolved recipient, in the same order as the resolved recipient list. With 'dry_run', each result is what a real send would return.
+  - recipients (array<object>) — One result per resolved recipient, in the same order as the resolved recipient list. With 'dry_run', each result is what a real send would return.
     - person_id (integer) (required) — Recipient member ID.
     - reason (string) — Why the recipient was skipped. Only present when 'status' is 'skipped'. 'not_member' — not an active member of the caller's account; 'no_email' — the member has no email address on file; 'email_disabled' — the member's notification preferences for this kind of message exclude email; 'duplicate' — this recipient already received a message from the same AI SRE session turn; 'rate_limited' — this recipient has already been sent 20 emails through this endpoint within the last hour; 'send_failed' — enqueueing the email failed. [not_member, no_email, email_disabled, duplicate, rate_limited, send_failed]
     - status (string) (required) — Delivery status. 'accepted' — the email was queued for asynchronous delivery; 'skipped' — no email was queued, see 'reason'. [accepted, skipped]
