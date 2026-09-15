@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -157,7 +158,8 @@ type detailRecipient struct {
 
 // nestedDetail is a single-object response carrying the non-scalar shapes SDK
 // responses use: a nested object, an array of objects, an array of scalars, a
-// map, a free-form (any) value, and an unset nested pointer.
+// map, a free-form (any) value, and an unset nested pointer — plus the byte
+// slices that are single encoded values rather than arrays (raw JSON, bytes).
 type nestedDetail struct {
 	Name       string            `json:"name"`
 	Owner      detailOwner       `json:"owner"`
@@ -166,6 +168,8 @@ type nestedDetail struct {
 	Labels     map[string]string `json:"labels"`
 	Payload    any               `json:"payload"`
 	Backup     *detailOwner      `json:"backup"`
+	Result     json.RawMessage   `json:"result"`
+	Digest     []byte            `json:"digest"`
 }
 
 // TestRenderGenericTable_DetailShowsNestedFields pins that a single object's
@@ -184,6 +188,8 @@ func TestRenderGenericTable_DetailShowsNestedFields(t *testing.T) {
 		Tags:    []string{"prod", "db"},
 		Labels:  map[string]string{"service": "api", "env": "prod"},
 		Payload: map[string]any{"window": []any{"22:00", "23:00"}},
+		Result:  json.RawMessage(`{ "rows": [1, 2] }`),
+		Digest:  []byte("hi"),
 	}
 	if err := renderGenericTable(tableCtx(&buf), resp); err != nil {
 		t.Fatalf("render: %v", err)
@@ -204,6 +210,9 @@ func TestRenderGenericTable_DetailShowsNestedFields(t *testing.T) {
 		{"LABELS.service", "api"},
 		{"PAYLOAD.window[0]", "22:00"},
 		{"PAYLOAD.window[1]", "23:00"},
+		// Byte slices print as --json encodes them, not one row per byte.
+		{"RESULT", `{"rows":[1,2]}`},
+		{"DIGEST", "aGk="},
 	}
 	var want strings.Builder
 	for _, r := range rows {

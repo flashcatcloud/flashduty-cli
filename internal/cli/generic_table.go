@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -335,7 +337,9 @@ func fieldValue(item any, goField string) any {
 }
 
 // scalarString formats a scalar (or timestamp) reflect value. Non-scalars yield
-// "" — a table cell holds one scalar; appendLeafRows reaches nested ones.
+// "" — a table cell holds one scalar; appendLeafRows reaches nested ones. Byte
+// slices print as --json shows them: a json.RawMessage as its compact JSON
+// text, any other []byte as base64.
 func scalarString(fv reflect.Value) string {
 	for fv.Kind() == reflect.Pointer {
 		if fv.IsNil() {
@@ -359,20 +363,39 @@ func scalarString(fv reflect.Value) string {
 		return strconv.FormatUint(fv.Uint(), 10)
 	case reflect.Float32, reflect.Float64:
 		return strconv.FormatFloat(fv.Float(), 'f', -1, 64)
+	case reflect.Slice:
+		if !isByteSlice(fv.Type()) {
+			return ""
+		}
+		if fv.Type() != rawMessageType {
+			return base64.StdEncoding.EncodeToString(fv.Bytes())
+		}
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, fv.Bytes()); err != nil {
+			return string(fv.Bytes())
+		}
+		return compact.String()
 	default:
 		return ""
 	}
 }
 
+var rawMessageType = reflect.TypeOf(json.RawMessage(nil))
+
+func isByteSlice(t reflect.Type) bool {
+	return t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8
+}
+
 // isScalarType reports whether t is renderable as a single table cell: a string,
-// number, bool, or a timestamp (instant) type.
+// number, bool, timestamp (instant) or byte slice ([]byte, json.RawMessage) —
+// the byte slices are one encoded value, not an array of numbers.
 func isScalarType(t reflect.Type) bool {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	// Timestamp/TimestampMilli satisfy instantLike with value receivers, so the
 	// deref'd (non-pointer) type implements it directly.
-	if t.Implements(instantLikeType) {
+	if t.Implements(instantLikeType) || isByteSlice(t) {
 		return true
 	}
 	switch t.Kind() {
