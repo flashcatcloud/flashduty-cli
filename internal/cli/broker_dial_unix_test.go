@@ -246,8 +246,8 @@ func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
 
 // TestBrokerDialer_RecvEOF_ClassifiesBrokerClosed covers a broker that closes
 // the control channel mid-handshake: Recvmsg returns 0 (orderly EOF) and the
-// dial must classify as ErrBrokerClosed with a message that explains the
-// channel is gone.
+// dial must classify as errBrokerClosed with an actionable user-visible
+// message.
 func TestBrokerDialer_RecvEOF_ClassifiesBrokerClosed(t *testing.T) {
 	// SOCK_STREAM because closing the peer end must wake the dialer's blocked
 	// Recvmsg with EOF on both darwin and Linux; datagram sockets carry no EOF
@@ -272,17 +272,17 @@ func TestBrokerDialer_RecvEOF_ClassifiesBrokerClosed(t *testing.T) {
 	d := &brokerDialer{credFD: childFD}
 	_, err = d.dial(context.Background(), "", "")
 	<-parentGone
-	if !errors.Is(err, ErrBrokerClosed) {
-		t.Fatalf("dial after broker close: want ErrBrokerClosed, got: %v", err)
+	if !errors.Is(err, errBrokerClosed) {
+		t.Fatalf("dial after broker close: want errBrokerClosed, got: %v", err)
 	}
-	if msg := err.Error(); !strings.Contains(msg, "broker control channel") {
-		t.Fatalf("user-facing message must mention the closed control channel, got: %v", msg)
+	if msg := err.Error(); !strings.Contains(msg, "rerun it in the foreground of a live session") {
+		t.Fatalf("user-facing message must tell the user how to recover, got: %v", msg)
 	}
 }
 
 // TestBrokerDialer_SendEPIPE_ClassifiesBrokerClosed covers a broker whose
 // control channel is already gone when the handshake starts: Sendmsg fails
-// with EPIPE (stream sockets) and the dial must classify as ErrBrokerClosed.
+// with EPIPE (stream sockets) and the dial must classify as errBrokerClosed.
 func TestBrokerDialer_SendEPIPE_ClassifiesBrokerClosed(t *testing.T) {
 	pair, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
 	if err != nil {
@@ -294,17 +294,17 @@ func TestBrokerDialer_SendEPIPE_ClassifiesBrokerClosed(t *testing.T) {
 
 	d := &brokerDialer{credFD: childFD}
 	_, err = d.dial(context.Background(), "", "")
-	if !errors.Is(err, ErrBrokerClosed) {
-		t.Fatalf("dial with dead broker: want ErrBrokerClosed, got: %v", err)
+	if !errors.Is(err, errBrokerClosed) {
+		t.Fatalf("dial with dead broker: want errBrokerClosed, got: %v", err)
 	}
-	if msg := err.Error(); !strings.Contains(msg, "no longer available") {
-		t.Fatalf("user-facing message must state the broker is gone, got: %v", msg)
+	if msg := err.Error(); !strings.Contains(msg, "the command that started this process has finished") {
+		t.Fatalf("user-facing message must state why the channel is gone, got: %v", msg)
 	}
 }
 
 // TestBrokerDialer_RefusalIsNotBrokerClosed covers a live broker that answers
 // the handshake with the 0xFF refusal byte: it must NOT classify as
-// ErrBrokerClosed, and the message must read as a refusal.
+// errBrokerClosed, and the message must read as a refusal.
 func TestBrokerDialer_RefusalIsNotBrokerClosed(t *testing.T) {
 	pair, err := syscall.Socketpair(syscall.AF_UNIX, controlSockType, 0)
 	if err != nil {
@@ -326,10 +326,10 @@ func TestBrokerDialer_RefusalIsNotBrokerClosed(t *testing.T) {
 	if err == nil {
 		t.Fatal("dial must fail when the broker refuses")
 	}
-	if errors.Is(err, ErrBrokerClosed) {
-		t.Fatalf("a live broker's refusal must not classify as ErrBrokerClosed: %v", err)
+	if errors.Is(err, errBrokerClosed) {
+		t.Fatalf("a live broker's refusal must not classify as errBrokerClosed: %v", err)
 	}
-	if msg := err.Error(); !strings.Contains(msg, "broker refused the dial request") {
+	if msg := err.Error(); !strings.Contains(msg, "broker refused the dial request (no request reached Flashduty; retrying is safe)") {
 		t.Fatalf("user-facing message must say the dial was refused, got: %v", msg)
 	}
 }

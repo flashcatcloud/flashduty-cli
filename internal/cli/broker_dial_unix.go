@@ -19,14 +19,21 @@ import (
 // never returns nil), but defaultNewClient references it on every platform.
 var errBrokerUnsupported = errors.New("flashduty: broker mode is not supported on this platform")
 
-// ErrBrokerClosed is returned (wrapped) when the runner-side broker control
+// errBrokerClosed is returned (wrapped) when the runner-side broker control
 // channel is gone: the runner exited, or reclaimed the channel once the
 // command that started this process finished, so fduty calls from a
 // long-lived background process fail this way. A live broker declining a
-// dial is a different failure (see the 0xFF path in dial). Callers and
-// automation can tell the two apart with errors.Is(err, ErrBrokerClosed);
-// the wrapping by http.Transport and url.Error preserves that.
-var ErrBrokerClosed = errors.New("flashduty: broker control channel closed: the broker that started this process is no longer available")
+// dial is a different failure (see the 0xFF path in dial).
+//
+// The distinction rides the user-visible message, not error identity: the
+// SDK flattens dial errors into text ("%v"), so only in-module tests
+// classify via errors.Is; humans and agents reading the output tell the two
+// failures apart by wording.
+//
+// It covers the handshake phase only. When an already-dispatched connection
+// is torn down, in-flight requests see EOF/reset first; the next dial
+// reports this error.
+var errBrokerClosed = errors.New("broker channel closed: the command that started this process has finished — rerun it in the foreground of a live session")
 
 // brokerEgressCapable reports whether this build can act as a broker-mode client
 // (read FLASHDUTY_CRED_FD and dial over the inherited control fd). The runner
@@ -48,13 +55,13 @@ func (d *brokerDialer) dial(_ context.Context, _, _ string) (net.Conn, error) {
 	defer d.mu.Unlock()
 
 	if err := syscall.Sendmsg(d.credFD, []byte{0x01}, nil, nil, 0); err != nil {
-		// A dead control channel surfaces on send as EPIPE (stream-style
-		// sockets) or ECONNREFUSED (datagram-style sockets, where the closed
-		// peer answers the datagram): classify both as ErrBrokerClosed so
-		// callers can tell "broker gone" apart from "broker alive but declined
+		// A dead control channel surfaces on send as EPIPE on the
+		// production Linux SEQPACKET socket, or ECONNREFUSED when a
+		// datagram-style peer is gone; classify both as errBrokerClosed so
+		// "broker gone" reads differently from "broker alive but declined
 		// this dial" (the 0xFF path below).
 		if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNREFUSED) {
-			return nil, fmt.Errorf("%w (handshake send: %v)", ErrBrokerClosed, err)
+			return nil, fmt.Errorf("%w (handshake send: %v)", errBrokerClosed, err)
 		}
 		return nil, fmt.Errorf("broker handshake send: %w", err)
 	}
@@ -66,12 +73,12 @@ func (d *brokerDialer) dial(_ context.Context, _, _ string) (net.Conn, error) {
 	}
 	if n == 0 {
 		// Orderly EOF: the broker closed the control channel.
-		return nil, fmt.Errorf("%w (handshake recv: connection closed by peer)", ErrBrokerClosed)
+		return nil, fmt.Errorf("%w (recvmsg: EOF)", errBrokerClosed)
 	}
 	if body[0] == 0xFF {
 		// ctrlRespErr: the broker is alive but declined this dial (e.g. it
-		// could not mint a connection). Deliberately not ErrBrokerClosed.
-		return nil, errors.New("flashduty: broker refused the dial request")
+		// could not mint a connection). Deliberately not errBrokerClosed.
+		return nil, errors.New("broker refused the dial request (no request reached Flashduty; retrying is safe)")
 	}
 	if body[0] != 0x01 {
 		return nil, fmt.Errorf("broker handshake: unexpected response byte 0x%02x", body[0])
@@ -84,8 +91,11 @@ func (d *brokerDialer) dial(_ context.Context, _, _ string) (net.Conn, error) {
 		return nil, fmt.Errorf("broker sent no fd")
 	}
 	fds, err := syscall.ParseUnixRights(&scms[0])
-	if err != nil || len(fds) == 0 {
+	if err != nil {
 		return nil, fmt.Errorf("broker parse rights: %w", err)
+	}
+	if len(fds) == 0 {
+		return nil, fmt.Errorf("broker sent no usable fd")
 	}
 	f := os.NewFile(uintptr(fds[0]), "broker-conn")
 	conn, err := net.FileConn(f) // dups + registers with the netpoller
