@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -322,6 +323,46 @@ func TestMemberNotifyDryRunPrintsWholeEmail(t *testing.T) {
 				t.Errorf("%s dry run must not be reduced, stderr:\n%s", format, stderrText)
 			}
 		})
+	}
+}
+
+// TestMemberNotifyDryRunTableShowsRecipients pins the default table output of a
+// notify dry run: every recipient outcome is listed next to the email, and the
+// multi-line email body stays on its own row instead of spilling onto lines
+// that read as further fields.
+func TestMemberNotifyDryRunTableShowsRecipients(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{
+		"recipients": []any{
+			map[string]any{"person_id": 5068740052131, "status": "accepted"},
+			map[string]any{"person_id": 5068740052132, "status": "skipped", "reason": "no_email"},
+		},
+		"html": "<html>\n  <body>\n    <p>" + strings.Repeat("report line ", 5000) + "</p>\n  </body>\n</html>",
+	}
+
+	out, _, err := execCommandSplit("member", "notify",
+		"--subject", "Daily report", "--html", "<p>report</p>", "--dry-run")
+	if err != nil {
+		t.Fatalf("execCommandSplit: %v", err)
+	}
+
+	var got [][]string
+	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		field, value, _ := strings.Cut(line, " ")
+		got = append(got, []string{field, strings.TrimSpace(value)})
+	}
+	want := [][]string{
+		{"FIELD", "VALUE"},
+		{"HTML", "<html> <body> <p>report line report line report line report line report line ..."},
+		{"RECIPIENTS[0].PERSON_ID", "5068740052131"},
+		{"RECIPIENTS[0].STATUS", "accepted"},
+		{"RECIPIENTS[1].PERSON_ID", "5068740052132"},
+		{"RECIPIENTS[1].REASON", "no_email"},
+		{"RECIPIENTS[1].STATUS", "skipped"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("dry-run table rows = %q\nwant %q\n---\n%s", got, want, out)
 	}
 }
 

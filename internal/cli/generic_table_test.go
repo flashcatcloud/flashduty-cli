@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -140,6 +141,89 @@ func TestRenderGenericTable_DetailVertical(t *testing.T) {
 	for _, want := range []string{"FIELD", "VALUE", "NAME", "solo", "COUNT", "42"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("vertical output missing %q\n---\n%s", want, got)
+		}
+	}
+}
+
+type detailOwner struct {
+	Email string `json:"email"`
+}
+
+type detailRecipient struct {
+	PersonID int64  `json:"person_id"`
+	Reason   string `json:"reason"`
+	Status   string `json:"status"`
+}
+
+// nestedDetail is a single-object response carrying the non-scalar shapes SDK
+// responses use: a nested object, an array of objects, an array of scalars, a
+// map, a free-form (any) value, and an unset nested pointer.
+type nestedDetail struct {
+	Name       string            `json:"name"`
+	Owner      detailOwner       `json:"owner"`
+	Recipients []detailRecipient `json:"recipients"`
+	Tags       []string          `json:"tags"`
+	Labels     map[string]string `json:"labels"`
+	Payload    any               `json:"payload"`
+	Backup     *detailOwner      `json:"backup"`
+}
+
+// TestRenderGenericTable_DetailShowsNestedFields pins that a single object's
+// table output carries every non-empty value, not only its top-level scalars:
+// nested fields print under their path, so nothing json/toon would show is
+// missing from the table.
+func TestRenderGenericTable_DetailShowsNestedFields(t *testing.T) {
+	var buf bytes.Buffer
+	resp := &nestedDetail{
+		Name:  "db-rollback",
+		Owner: detailOwner{Email: "sre@example.com"},
+		Recipients: []detailRecipient{
+			{PersonID: 1, Status: "accepted"},
+			{PersonID: 2, Status: "skipped", Reason: "no_email"},
+		},
+		Tags:    []string{"prod", "db"},
+		Labels:  map[string]string{"service": "api", "env": "prod"},
+		Payload: map[string]any{"window": []any{"22:00", "23:00"}},
+	}
+	if err := renderGenericTable(tableCtx(&buf), resp); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+
+	rows := [][2]string{
+		{"FIELD", "VALUE"},
+		{"NAME", "db-rollback"},
+		{"OWNER.EMAIL", "sre@example.com"},
+		{"RECIPIENTS[0].PERSON_ID", "1"},
+		{"RECIPIENTS[0].STATUS", "accepted"},
+		{"RECIPIENTS[1].PERSON_ID", "2"},
+		{"RECIPIENTS[1].REASON", "no_email"},
+		{"RECIPIENTS[1].STATUS", "skipped"},
+		{"TAGS[0]", "prod"},
+		{"TAGS[1]", "db"},
+		{"LABELS.env", "prod"},
+		{"LABELS.service", "api"},
+		{"PAYLOAD.window[0]", "22:00"},
+		{"PAYLOAD.window[1]", "23:00"},
+	}
+	var want strings.Builder
+	for _, r := range rows {
+		fmt.Fprintf(&want, "%-25s%s\n", r[0], r[1])
+	}
+	if got := buf.String(); got != want.String() {
+		t.Errorf("detail output mismatch\n got:\n%s\nwant:\n%s", got, want.String())
+	}
+}
+
+// TestRenderGenericTable_TopLevelScalarArray pins that a bare array of scalars
+// (e.g. a list of names) is printed, not treated as a row table it cannot be.
+func TestRenderGenericTable_TopLevelScalarArray(t *testing.T) {
+	var buf bytes.Buffer
+	if err := renderGenericTable(tableCtx(&buf), flashduty.SLSLogstoresResponse{"app-log", "audit-log"}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	for _, want := range []string{"app-log", "audit-log"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("output missing %q\n---\n%s", want, buf.String())
 		}
 	}
 }

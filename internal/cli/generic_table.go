@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +46,8 @@ type genKV struct {
 //   - a paginated list envelope ({Items:[...], Total, ...}) or a top-level row
 //     array prints as an aligned table (columns from displayColumns, else a
 //     reflective heuristic);
-//   - a single object prints as a vertical key/value table;
+//   - a single object prints as a vertical key/value table of every value it
+//     carries, nested ones included;
 //   - anything we can't model falls back to indented JSON, so output is never
 //     empty.
 func renderGenericTable(ctx *RunContext, data any) error {
@@ -59,7 +61,9 @@ func renderGenericTable(ctx *RunContext, data any) error {
 
 	switch v.Kind() {
 	case reflect.Slice:
-		return renderRowTable(ctx, v, v.Len())
+		if isRowSlice(v.Type()) {
+			return renderRowTable(ctx, v, v.Len())
+		}
 	case reflect.Struct:
 		if rows, total, ok := listEnvelope(v); ok {
 			return renderRowTable(ctx, rows, total)
@@ -68,9 +72,8 @@ func renderGenericTable(ctx *RunContext, data any) error {
 			return err
 		}
 		return renderMcpPerUserOAuthNotice(ctx, v)
-	default:
-		return jsonFallback(ctx, data)
 	}
+	return jsonFallback(ctx, data)
 }
 
 // listEnvelope reports whether struct v is a paginated list envelope: exactly
@@ -207,23 +210,12 @@ func heuristicColumns(rowType reflect.Type) []output.Column {
 	return cols
 }
 
-// renderVertical prints a single object as a two-column FIELD/VALUE table,
-// showing scalar fields with a non-empty value. Nested objects/arrays are
-// omitted (json/toon carries the full shape for machines).
+// renderVertical prints a single object as a two-column FIELD/VALUE table with
+// one row per non-empty scalar value. A value nested in an object, map or array
+// is named by its path — OWNER.EMAIL, LABELS.env, RECIPIENTS[0].STATUS — so
+// nested fields are listed alongside the top-level ones instead of dropped.
 func renderVertical(ctx *RunContext, v reflect.Value) error {
-	t := v.Type()
-	rows := make([]genKV, 0, t.NumField())
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.PkgPath != "" || !isScalarType(f.Type) {
-			continue
-		}
-		s := scalarString(v.Field(i))
-		if s == "" || s == "-" {
-			continue
-		}
-		rows = append(rows, genKV{Field: headerFromField(f), Value: s})
-	}
+	rows := appendLeafRows(nil, "", v)
 	if len(rows) == 0 {
 		return jsonFallback(ctx, v.Interface())
 	}
@@ -232,6 +224,50 @@ func renderVertical(ctx *RunContext, v reflect.Value) error {
 		{Header: "VALUE", MaxWidth: 80, Field: func(item any) string { return item.(genKV).Value }},
 	}
 	return ctx.Printer.Print(rows, cols)
+}
+
+// appendLeafRows appends a row for every non-empty scalar (or timestamp)
+// reachable from v, naming it by its path under prefix: struct fields by
+// headerFromField, map entries by key (sorted), array elements by index.
+func appendLeafRows(rows []genKV, prefix string, v reflect.Value) []genKV {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return rows
+		}
+		v = v.Elem()
+	}
+	if isScalarType(v.Type()) {
+		if s := scalarString(v); s != "" && s != "-" {
+			rows = append(rows, genKV{Field: prefix, Value: s})
+		}
+		return rows
+	}
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if f := v.Type().Field(i); f.PkgPath == "" {
+				rows = appendLeafRows(rows, joinFieldPath(prefix, headerFromField(f)), v.Field(i))
+			}
+		}
+	case reflect.Map:
+		keys := v.MapKeys()
+		sort.Slice(keys, func(i, j int) bool { return fmt.Sprint(keys[i]) < fmt.Sprint(keys[j]) })
+		for _, k := range keys {
+			rows = appendLeafRows(rows, joinFieldPath(prefix, fmt.Sprint(k)), v.MapIndex(k))
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			rows = appendLeafRows(rows, fmt.Sprintf("%s[%d]", prefix, i), v.Index(i))
+		}
+	}
+	return rows
+}
+
+func joinFieldPath(prefix, name string) string {
+	if prefix == "" {
+		return name
+	}
+	return prefix + "." + name
 }
 
 func renderMcpPerUserOAuthNotice(ctx *RunContext, v reflect.Value) error {
@@ -299,7 +335,7 @@ func fieldValue(item any, goField string) any {
 }
 
 // scalarString formats a scalar (or timestamp) reflect value. Non-scalars yield
-// "" — the generic table never renders nested objects/arrays.
+// "" — a table cell holds one scalar; appendLeafRows reaches nested ones.
 func scalarString(fv reflect.Value) string {
 	for fv.Kind() == reflect.Pointer {
 		if fv.IsNil() {
