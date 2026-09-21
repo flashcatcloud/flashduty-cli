@@ -49,6 +49,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
   - no_ip (boolean) — If 'true', IP addresses are not collected.
+  - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+    - repo (string) (required) — GitHub repository in 'owner/name' form.
+    - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
   - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
   - team_id (integer) — Owning team ID.
   - tracing (object) — APM tracing integration configuration.
@@ -134,6 +137,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
+    - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+      - repo (string) (required) — GitHub repository in 'owner/name' form.
+      - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
     - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - tracing (object) — APM tracing integration configuration.
@@ -234,6 +240,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
     - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
     - no_ip (boolean) — If 'true', IP addresses are not collected.
+    - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+      - repo (string) (required) — GitHub repository in 'owner/name' form.
+      - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
     - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
     - team_id (integer) — Owning team ID.
     - tracing (object) — APM tracing integration configuration.
@@ -801,6 +810,9 @@ Request fields:
       - id (string) — Stable client-side identifier for this external system.
       - name (string) (required) — Display name of the external system.
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
+  repositories (array<object>, via --data) — Source code repositories to link, in order; the first entry is the primary repository. At most 10 entries.
+    - repo (string) (required) — GitHub repository in 'owner/name' form.
+    - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
   tracing (object, via --data) — Optional APM tracing integration configuration.
     - enabled (boolean) (required) — Whether tracing integration is enabled.
     - endpoint (string) (required) — Trace endpoint URL (http or https).
@@ -958,6 +970,9 @@ Request fields:
       - id (string) — Stable client-side identifier for this external system.
       - name (string) (required) — Display name of the external system.
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
+  repositories (array<object>, via --data) — Replaces the linked source code repositories when present; an empty array removes all links, and omitting the field leaves them unchanged. At most 10 entries.
+    - repo (string) (required) — GitHub repository in 'owner/name' form.
+    - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
   tracing (object, via --data) — APM tracing integration configuration. Omit to leave unchanged.
     - enabled (boolean) (required) — Whether tracing integration is enabled.
     - endpoint (string) (required) — Trace endpoint URL (http or https).

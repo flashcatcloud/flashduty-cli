@@ -3406,10 +3406,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — War room records.
     - account_id (integer) (required) — Account ID.
     - chat_id (string) (required) — Chat/group ID on the IM side.
+    - chat_name (string) (required) — Display name of the group chat on the IM side.
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the war room.
     - incident_id (string) (required) — Associated incident ID (MongoDB ObjectID).
     - integration_id (integer) (required) — IM integration ID.
+    - integration_unavailable (boolean) — True when the IM integration behind this war room is disabled or no longer exists.
     - plugin_type (string) (required) — IM plugin type (e.g. 'feishu', 'dingtalk', 'wecom', 'slack').
     - status (string) (required) — War room record status: 'enabled' active, 'deleted' disbanded. [enabled, deleted]
 `,
