@@ -74,7 +74,7 @@ List alert activity feed
 - `--page` int64 — Page number, starting at 1. (min 1)
 - `--search-after-ctx` string
 - `--types` stringSlice — Filter by feed type codes — see the 'type' field of the response items for the full list (e.g. 'a_new', 'a_comm', 'a_merge').
-- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
+- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); agent_session_id (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
 
 ### get <alert_id>
 Get alert detail
@@ -132,7 +132,7 @@ Create or update alert pipeline
 View alert timeline
 - `--limit` int
 - `--page` int
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); agent_session_id (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
 
 <!-- GENERATED:alert END -->
 

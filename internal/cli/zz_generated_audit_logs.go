@@ -85,7 +85,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - body (string) (required) — JSON-encoded request body. Bodies containing sensitive fields are base64url-encoded instead; bodies over 10 KB are replaced by a truncation placeholder.
     - created_at (string) (required) — Timestamp of the operation in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - credential_id (integer) (required) — ID of the credential (the app key ID) when 'credential_type' is 'app_key'; 0 otherwise.
-    - credential_type (string) (required) — Credential type used for the call. 'app_key' when authenticated with an app key; empty string for member sessions.
+    - credential_type (string) (required) — Credential type used for the call. 'app_key' for a long-lived console app key, 'ephemeral_app_key' for a short-lived key issued to AI SRE, and an empty string for member sessions.
     - ip (string) (required) — Client IP address of the caller.
     - is_dangerous (boolean) (required) — True if this is flagged as a high-risk operation.
     - is_write (boolean) (required) — True for mutating operations; false for read-only ones.

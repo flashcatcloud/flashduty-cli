@@ -105,7 +105,7 @@ API: POST /safari/automation/rule/list (automation-rule-read-list)
 
 Request fields:
   --page int — Page number, 1-based.
-  --limit int — Page size.
+  --limit int — Page size. Values below 1 fall back to 20; values above 200 are capped at 200. (max 200)
   --search-after-ctx string
   --enabled bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
   --include-person bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
@@ -189,7 +189,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Values below 1 fall back to 20; values above 200 are capped at 200. (max 200)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.")
 	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Compatibility field; when scope is empty and this is false, behaves like team scope.")

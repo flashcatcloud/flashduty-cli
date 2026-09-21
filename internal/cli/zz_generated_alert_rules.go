@@ -188,114 +188,6 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	return cmd
 }
 
-func genAlertRulesReadExportCmd() *cobra.Command {
-	var dataJSON string
-	var fIDs []int
-	cmd := &cobra.Command{
-		Use:   "rule-export",
-		Short: "Export alert rules",
-		Long: `Export alert rules.
-
-Export the configuration of selected alert rules as a portable JSON array, compatible with 'POST /monit/rule/import'.
-
-API: POST /monit/rule/export (monit-rule-read-export)
-
-Request fields:
-  --ids []int (required) — Rule IDs.
-
-Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - annotations (object) — Custom annotation key-value pairs attached to alert events; keys must not start with '$' (reserved for query field references).
-  - cron_pattern (string) (required) — Evaluation schedule as a 6-field cron expression (seconds included) or '@every <duration>' (an integral number of seconds, at least 1s); 'CRON_TZ='/'TZ=' prefixes are rejected — set the timezone in 'timezone' instead.
-  - debug_log_enabled (boolean) (required) — Whether to emit debug logs for this rule's evaluations; enable when troubleshooting.
-  - delay_seconds (integer) — Query time offset in seconds: each evaluation reads data as of 'schedule time − delay_seconds' to tolerate ingestion lag; '0' means no offset.
-  - description (string) — Rule description in the format given by 'description_type', shown with alert events.
-  - description_type (string) — Format of 'description', 'text' or 'markdown'; treated as 'text' when omitted. [text, markdown]
-  - ds_ids (array<integer>) — Datasource ID list, merged with 'ds_list'; references by ID and is therefore immune to datasource renames.
-  - ds_list (array<string>) — Datasource name list with wildcard support; merged with 'ds_ids' to decide which datasources the rule monitors — must be maintained by hand if a datasource is renamed.
-  - ds_type (string) (required) — Datasource type ident, e.g. 'prometheus'; must be a datasource type ('ident') that exists in the import target environment.
-  - enabled (boolean) (required) — Whether the rule is enabled; rules imported as disabled are not evaluated.
-  - enabled_times (array<object>) — Effective time windows; each entry has 'days' (0–6, 0 = Sunday) and 'stime'/'etime' ('HH:MM'), interpreted in the rule's 'timezone'; an empty list disables the rule.
-    - days (array<integer>) — Days of week, 0 = Sunday.
-    - etime (string) — End time, e.g. '18:00'.
-    - stime (string) — Start time, e.g. '09:00'.
-  - labels (object) — Custom label key-value pairs attached to alert events produced by this rule.
-  - name (string) (required) — Rule name, up to 128 characters when imported.
-  - repeat_interval (integer) — Interval in seconds between repeated notifications for a firing alert; values below 1 fall back to the default of 3600.
-  - repeat_total (integer) — Maximum number of repeated notifications for the same alert; values below 1 fall back to the default of 3.
-  - rule_configs (object) — Rule evaluation configuration.
-    - check_anydata (object) — Any-data check configuration. Fires when the query returns any data rows.
-      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
-      - enabled (boolean) — Whether any-data checking is enabled: any returned data row triggers an alert.
-      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
-      - recovery (object) — Recovery condition for any-data check. If omitted or 'mode' is empty, treated as 'nodata'.
-        - args (object) — Datasource-specific options for the recovery query, same convention as 'queries[].args'; required for Elasticsearch datasources when 'mode' is 'ql'.
-        - condition (string) — Recovery expression. Required when 'mode' is 'ql'.
-        - mode (string) — 'nodata' = recover when the query returns no data; 'ql' = recover when the 'condition' expression evaluates to true. When 'mode' is 'ql', only a single query ('name=A') is permitted. [nodata, ql]
-      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
-      - severity (string) — Severity of any-data alert events; case-sensitive. [Critical, Warning, Info]
-    - check_nodata (object) — No-data check configuration.
-      - alert_on_empty_result (boolean) — Whether to trigger an alert when every query returns an empty result.
-      - alert_on_empty_result_severity (string) — Severity of empty-result alerts, case-sensitive; only effective when 'alert_on_empty_result' is enabled. [Critical, Warning, Info]
-      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
-      - enabled (boolean) — Whether no-data checking is enabled: a previously-seen series that stops returning data triggers an alert.
-      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
-      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
-      - resolve_timeout (integer) — Auto-resolve after N seconds.
-      - severity (string) — Severity of no-data alert events; case-sensitive. [Critical, Warning, Info]
-    - check_threshold (object) — Threshold check configuration.
-      - alerting_check_times (integer) — Number of consecutive evaluations that must satisfy the condition before alerting; minimum 1.
-      - critical (string) — Critical threshold expression referencing query results via '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; at least one severity must be configured.
-      - enabled (boolean) — Whether threshold checking is enabled.
-      - info (string) — Info threshold expression, same syntax as 'critical'.
-      - push_recovery_event (boolean) — Whether to push a recovery event notification when the alert resolves.
-      - recovery (object) — Recovery evaluation configuration for threshold checks.
-        - args (object) — Datasource-specific extra parameters for the recovery query, using the same '<datasource>.<param>' key convention as query 'args'. Omitted when empty.
-        - condition (string) — Recovery condition expression; required when 'mode' is 'threshold' or 'ql', and must be empty for 'invert'.
-        - mode (string) — Recovery mode: 'invert' = resolve when the alert expression no longer holds ('condition' stays empty); 'threshold' = resolve when the 'condition' threshold expression holds; 'ql' = resolve when the 'condition' query expression evaluates true. [invert, threshold, ql]
-        - value_fields (array<string>) — Numeric result fields the recovery 'condition' references as '$A.<field>'; same semantics as the query's 'value_fields'. Omitted when empty.
-      - recovery_check_times (integer) — Number of consecutive evaluations that must satisfy the recovery condition before resolving; minimum 1.
-      - warning (string) — Warning threshold expression, same syntax as 'critical'.
-    - queries (array<object>) (required) — Query list with at least one entry; each needs a unique 'name' ('R' and '__all__' are reserved) and a non-empty, non-duplicate 'expr'.
-      - args (object) — Datasource-specific query options keyed by the '<datasource>.<option>' convention (e.g. 'es.type', 'tencent_cls.limit'); most datasources need none.
-      - expr (string) — Query expression.
-      - label_fields (array<string>) — Result fields that become alert event labels — identical label sets collapse into one alert; must not overlap 'value_fields'; applies to table-shaped results (SQL/ES-style datasources).
-      - name (string) — Query identifier (letter, e.g. 'A'). The name 'R' is reserved and must not be used.
-      - value_fields (array<string>) — Numeric result fields used in threshold evaluation (referenced as '$A.<field>' in threshold expressions); required for threshold checks unless the datasource is 'prometheus'/'loki'/'victorialogs'; field names must not contain '.'.
-    - relate_queries (array<object>) — Optional auxiliary queries whose results are attached to alert events as context. Each entry must have a unique 'name' (not duplicating any query name) and a non-empty 'expr'.
-      - args (object) — Datasource-specific options for the auxiliary query, same convention as 'queries[].args'.
-      - expr (string) — Query expression.
-      - name (string) — Relate-query identifier.
-  - timezone (string) — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
-`,
-		Example: `  flashduty monit rule-export --data '{"ids":[50001]}'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("ids") {
-						body["ids"] = fIDs
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.RuleIDsRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.AlertRules.ReadExport(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "Rule IDs. (required)")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genAlertRulesReadInfoV2Cmd() *cobra.Command {
 	var dataJSON string
 	var fID int64
@@ -337,8 +229,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - dashboard (object) — Configuration for the 'dashboard' kind; required when 'kind' is 'dashboard'.
       - dashboard_id (string) (required) — Target dashboard ID; must be a canonical UUIDv7.
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
-      - variable_bindings (object) — Dashboard variable bindings, keyed by dashboard variable name.
-    - kind (string) (required) — Entry type; currently only 'dashboard' is supported. [dashboard]
+      - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
+    - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
+      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - query (object) (required) — Query payload.
+        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+    - time_range (object) (required) — Window around the event time, required on every saved entry. A zero-length window is rejected; defaults belong to the editor.
+      - after_seconds (integer) (required) — Seconds to look forward from the event time, so behaviour after the event stays visible. (0-9007199254740)
+      - before_seconds (integer) (required) — Seconds to look back from the event time. (0-9007199254740)
   - labels (object) — Custom labels.
   - name (string) (required) — Rule name. Must be unique within the folder and at most 128 characters.
   - repeat_interval (integer) — Notification repeat interval in seconds. Values below 1 fall back to the default 3600.
@@ -573,8 +475,18 @@ Request fields:
     - dashboard (object) — Configuration for the 'dashboard' kind; required when 'kind' is 'dashboard'.
       - dashboard_id (string) (required) — Target dashboard ID; must be a canonical UUIDv7.
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
-      - variable_bindings (object) — Dashboard variable bindings, keyed by dashboard variable name.
-    - kind (string) (required) — Entry type; currently only 'dashboard' is supported. [dashboard]
+      - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
+    - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
+      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - query (object) (required) — Query payload.
+        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+    - time_range (object) (required) — Window around the event time, required on every saved entry. A zero-length window is rejected; defaults belong to the editor.
+      - after_seconds (integer) (required) — Seconds to look forward from the event time, so behaviour after the event stays visible. (0-9007199254740)
+      - before_seconds (integer) (required) — Seconds to look back from the event time. (0-9007199254740)
   labels (object, via --data) — Custom labels.
   rule_configs (object, via --data) (required) — Detection configuration: query list plus trigger/recovery conditions. See 'AlertRuleConfigsV2'.
     - check_anydata (object) — Any-data check configuration: fires when a query returns any data row. See 'AlertRuleAnyDataV2'.
@@ -648,8 +560,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - dashboard (object) — Configuration for the 'dashboard' kind; required when 'kind' is 'dashboard'.
       - dashboard_id (string) (required) — Target dashboard ID; must be a canonical UUIDv7.
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
-      - variable_bindings (object) — Dashboard variable bindings, keyed by dashboard variable name.
-    - kind (string) (required) — Entry type; currently only 'dashboard' is supported. [dashboard]
+      - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
+    - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
+      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - query (object) (required) — Query payload.
+        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+    - time_range (object) (required) — Window around the event time, required on every saved entry. A zero-length window is rejected; defaults belong to the editor.
+      - after_seconds (integer) (required) — Seconds to look forward from the event time, so behaviour after the event stays visible. (0-9007199254740)
+      - before_seconds (integer) (required) — Seconds to look back from the event time. (0-9007199254740)
   - labels (object) — Custom labels.
   - name (string) (required) — Rule name. Must be unique within the folder and at most 128 characters.
   - repeat_interval (integer) — Notification repeat interval in seconds. Values below 1 fall back to the default 3600.
@@ -1067,46 +989,6 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	return cmd
 }
 
-func genAlertRulesWriteImportCmd() *cobra.Command {
-	var dataJSON string
-	cmd := &cobra.Command{
-		Use:   "rule-import",
-		Short: "Import alert rules",
-		Long: `Import alert rules.
-
-Import one or more alert rules from a JSON array. Returns the result for each rule, indicating success or failure.
-
-API: POST /monit/rule/import (monit-rule-write-import)
-
-Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - message (string) (required) — Empty on success, error message on failure.
-  - name (string) (required) — Rule name.
-`,
-		Example: `  flashduty monit rule-import --data '[{"cron_pattern":"0 * * * * *","ds_list":["prometheus*"],"ds_type":"prometheus","enabled":true,"folder_id":100,"name":"CPU High","rule_configs":{"queries":[{"expr":"avg(cpu_usage_idle) \u003c 10","name":"A"}]}}]'`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.RuleImportRequest)
-				if err := genBindBody(body, req); err != nil {
-					return err
-				}
-				out, _, err := ctx.Client.AlertRules.WriteImport(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				return printGenericResult(ctx, out)
-			})
-		},
-	}
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genAlertRulesWriteMoveCmd() *cobra.Command {
 	var dataJSON string
 	var fDestFolderID int64
@@ -1228,8 +1110,18 @@ Request fields:
     - dashboard (object) — Configuration for the 'dashboard' kind; required when 'kind' is 'dashboard'.
       - dashboard_id (string) (required) — Target dashboard ID; must be a canonical UUIDv7.
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
-      - variable_bindings (object) — Dashboard variable bindings, keyed by dashboard variable name.
-    - kind (string) (required) — Entry type; currently only 'dashboard' is supported. [dashboard]
+      - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
+    - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
+      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - query (object) (required) — Query payload.
+        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+    - time_range (object) (required) — Window around the event time, required on every saved entry. A zero-length window is rejected; defaults belong to the editor.
+      - after_seconds (integer) (required) — Seconds to look forward from the event time, so behaviour after the event stays visible. (0-9007199254740)
+      - before_seconds (integer) (required) — Seconds to look back from the event time. (0-9007199254740)
   labels (object, via --data) — Custom labels.
   rule_configs (object, via --data) (required) — Detection configuration: query list plus trigger/recovery conditions. See 'AlertRuleConfigsV2'.
     - check_anydata (object) — Any-data check configuration: fires when a query returns any data row. See 'AlertRuleAnyDataV2'.
@@ -1303,8 +1195,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - dashboard (object) — Configuration for the 'dashboard' kind; required when 'kind' is 'dashboard'.
       - dashboard_id (string) (required) — Target dashboard ID; must be a canonical UUIDv7.
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
-      - variable_bindings (object) — Dashboard variable bindings, keyed by dashboard variable name.
-    - kind (string) (required) — Entry type; currently only 'dashboard' is supported. [dashboard]
+      - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
+    - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
+      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - query (object) (required) — Query payload.
+        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+    - time_range (object) (required) — Window around the event time, required on every saved entry. A zero-length window is rejected; defaults belong to the editor.
+      - after_seconds (integer) (required) — Seconds to look forward from the event time, so behaviour after the event stays visible. (0-9007199254740)
+      - before_seconds (integer) (required) — Seconds to look back from the event time. (0-9007199254740)
   - labels (object) — Custom labels.
   - name (string) (required) — Rule name. Must be unique within the folder and at most 128 characters.
   - repeat_interval (integer) — Notification repeat interval in seconds. Values below 1 fall back to the default 3600.
@@ -1494,14 +1396,12 @@ func registerGeneratedAlertRules(root *cobra.Command) {
 	genAddLeaf(gMonit, genAlertRulesReadAuditsCmd())
 	genAddLeaf(gMonit, genAlertRulesReadCounterChannelCmd())
 	genAddLeaf(gMonit, genAlertRulesReadCounterTotalCmd())
-	genAddLeaf(gMonit, genAlertRulesReadExportCmd())
 	genAddLeaf(gMonit, genAlertRulesReadInfoV2Cmd())
 	genAddLeaf(gMonit, genAlertRulesReadListCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteCreateV2Cmd())
 	genAddLeaf(gMonit, genAlertRulesWriteDeleteCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteDeleteBatchCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteFieldsUpdateCmd())
-	genAddLeaf(gMonit, genAlertRulesWriteImportCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteMoveCmd())
 	genAddLeaf(gMonit, genAlertRulesWriteUpdateV2Cmd())
 }

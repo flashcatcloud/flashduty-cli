@@ -375,7 +375,7 @@ Get incident war room details
 ### list <incident_id>
 List incident war rooms
 - `--integration` int64
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); chat_id (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
 
 ### war-room-add-member <chat-id>
 Add war-room member
@@ -411,7 +411,7 @@ Get war room detail
 List war rooms
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 — Optional filter: only return war rooms for this IM integration.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
 
 ### work-item-assignees-reset <work-item-id>
 Reset work item assignees

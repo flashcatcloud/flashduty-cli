@@ -69,7 +69,7 @@ Create application
 - `--no-ip` bool — Do not collect IP addresses.
 - `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'.
 - `--type` string (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
-- body-only (`--data`): alerting (object); links (object); tracing (object)
+- body-only (`--data`): alerting (object); links (object); repositories (array<object>); tracing (object)
 - response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
 
 ### application-delete <application-id>
@@ -79,12 +79,12 @@ Delete application
 ### application-info <application-id>
 Get application detail
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); repositories (array<object>); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-infos <application-id> [<id2>...]
 Batch get applications
 - `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); repositories (array<object>); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-list
 List applications
@@ -96,7 +96,7 @@ List applications
 - `--query` string — Substring match on the application name.
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); repositories (array<object>); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-remote-config-get <application-id>
 Get remote config detail
@@ -145,7 +145,7 @@ Update application
 - `--no-ip` bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
 - `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
 - `--type` string — Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
-- body-only (`--data`): alerting (object); links (object); tracing (object)
+- body-only (`--data`): alerting (object); links (object); repositories (array<object>); tracing (object)
 
 ### application-webhook-test <application-id>
 Test application webhook
