@@ -415,9 +415,10 @@ List war rooms
 
 ### work-item-assignees-reset <work-item-id>
 Reset work item assignees
-- `--assignee-ids` intSlice — New assignee member IDs, replacing the current set. An empty array clears all assignees.
+- `--assignee-ids` intSlice — Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.
 - `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object); removed_assignee_ids (array<integer>)
 
 ### work-item-complete <work-item-id>
@@ -438,7 +439,7 @@ Convert a work item to a follow-up
 
 ### work-item-create <incident-id>
 Create a work item
-- `--assignee-ids` intSlice — Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.
+- `--assignee-ids` intSlice — Legacy alias for the initial assignees. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. Assignees must be active members who can already read the anchor; assignment never grants access.
 - `--description` string — Optional longer description (max 65,535 characters). (≤65535 chars)
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -447,6 +448,7 @@ Create a work item
 - `--priority` string — Optional client-defined priority (max 64 characters). (≤64 chars)
 - `--status` string — Optional client-defined initial status (max 64 characters). (≤64 chars)
 - `--title` string (required) — Item title (max 512 characters). (≤512 chars)
+- body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object)
 
 ### work-item-delete <work-item-id>
@@ -457,13 +459,14 @@ Delete a work item
 
 ### work-item-list
 List work items
-- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
+- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.
+- `--assignee-type` string — Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. · enum: person | ai_sre
 - `--cursor` string — Pagination cursor from a previous response's 'next_cursor'.
 - `--incident-id` string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
 - `--item-type` string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. · enum: action | follow_up
 - `--limit` int64 — Page size, at most 200. Defaults to 50. (0-200)
 - `--post-mortem-id` string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
-- response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: assignee_ids (array<integer>); converted_at_seconds (string); converted_by (integer); created_at_seconds (string); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (string); updated_by (integer); version (integer); work_item_id (string)
+- response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_session_id (string); agent_session_venue (string); assignee_ids (array<integer>); assignees (array<object>); converted_at_seconds (string); converted_by (integer); created_at_seconds (string); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (string); updated_by (integer); version (integer); work_item_id (string)
 
 ### work-item-post-mortem-bind
 Bind work items to a post-mortem
