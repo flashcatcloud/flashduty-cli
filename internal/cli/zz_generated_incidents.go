@@ -3475,7 +3475,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_more (boolean) (required) — True when more results are available.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - items (array<object>) (required) — Work items for the current page.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3557,7 +3562,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3647,7 +3657,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3733,7 +3748,7 @@ Create an action on an active incident or a follow-up on one of its post-mortems
 API: POST /incident/work-item/create (incidentWorkItemCreate)
 
 Request fields:
-  --assignee-ids []int — Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.
+  --assignee-ids []int — Legacy alias for the initial assignees. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. Assignees must be active members who can already read the anchor; assignment never grants access.
   --description string — Optional longer description (max 65,535 characters). (≤65535 chars)
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
   --incident-id string (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -3742,12 +3757,20 @@ Request fields:
   --priority string — Optional client-defined priority (max 64 characters). (≤64 chars)
   --status string — Optional client-defined initial status (max 64 characters). (≤64 chars)
   --title string (required) — Item title (max 512 characters). (≤512 chars)
+  assignees (array<object>, via --data) — Initial assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Mutually exclusive with 'assignee_ids': sending both returns an error. 'assignee_ids' is the legacy alias and is equivalent to an all-'person' list. At most 20 entries. Person assignees must be active members who can already read the anchor; assignment never grants access.
+    - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+    - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key and no new item was created.
   - item (object) (required) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3818,7 +3841,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.")
+	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "Legacy alias for the initial assignees. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. Assignees must be active members who can already read the anchor; assignment never grants access.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional longer description (max 65,535 characters). (≤65535 chars)")
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) the item is anchored to. (required)")
@@ -3852,7 +3875,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3912,6 +3940,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genIncidentsWorkItemListCmd() *cobra.Command {
 	var dataJSON string
 	var fAssigneeID int64
+	var fAssigneeType string
 	var fCursor string
 	var fIncidentID string
 	var fItemType string
@@ -3927,7 +3956,8 @@ List incident work items (actions and post-mortem follow-ups) with cursor pagina
 API: POST /incident/work-item/list (incidentWorkItemList)
 
 Request fields:
-  --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
+  --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.
+  --assignee-type string — Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. [person, ai_sre]
   --cursor string — Pagination cursor from a previous response's 'next_cursor'.
   --incident-id string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
   --item-type string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]
@@ -3938,7 +3968,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_more (boolean) (required) — True when more results are available.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - items (array<object>) (required) — Work items for the current page.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -3964,6 +3999,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("assignee-id") {
 						body["assignee_id"] = fAssigneeID
+					}
+					if cmd.Flags().Changed("assignee-type") {
+						body["assignee_type"] = fAssigneeType
 					}
 					if cmd.Flags().Changed("cursor") {
 						body["cursor"] = fCursor
@@ -3997,7 +4035,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.")
+	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.")
+	cmd.Flags().StringVar(&fAssigneeType, "assignee-type", "", "Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. [person, ai_sre]")
 	cmd.Flags().StringVar(&fCursor, "cursor", "", "Pagination cursor from a previous response's 'next_cursor'.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.")
 	cmd.Flags().StringVar(&fItemType, "item-type", "", "Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]")
@@ -4022,15 +4061,23 @@ Replace a work item's entire assignee set.
 API: POST /incident/work-item/assignees/reset (incidentWorkItemResetAssignees)
 
 Request fields:
-  --assignee-ids []int — New assignee member IDs, replacing the current set. An empty array clears all assignees.
+  --assignee-ids []int — Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.
   --version int (required) — Current item version for optimistic locking. Must match the stored version.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
+  assignees (array<object>, via --data) — Replacement assignee set. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Mutually exclusive with 'assignee_ids': sending both returns an error. 'assignee_ids' is the legacy alias and is equivalent to an all-'person' list. At most 20 entries. An empty array clears all assignees.
+    - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+    - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -4084,7 +4131,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "New assignee member IDs, replacing the current set. An empty array clears all assignees.")
+	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -4120,7 +4167,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
-    - assignee_ids (array<integer>) (required) — Member IDs of the current assignees. Never null; an empty array means unassigned.
+    - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
+    - agent_session_venue (string) — Where that AI SRE session runs: 'web' or 'im'. Omitted when no session is recorded. [web, im]
+    - assignee_ids (array<integer>) (required) — Member IDs of the current person assignees. AI SRE is not included. Never null; an empty array means no person assignee.
+    - assignees (array<object>) (required) — Current assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Never null; an empty array means unassigned. 'assignee_ids' is the person-only subset of this list.
+      - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+      - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
     - converted_at_seconds (string) — Conversion time as a Unix timestamp in seconds. Present only after conversion. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - converted_by (integer) — Member ID of the operator who converted the action into a follow-up. Present only after conversion.
     - created_at_seconds (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
