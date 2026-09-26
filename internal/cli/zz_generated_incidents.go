@@ -441,6 +441,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated. Use 'integration_type'.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
@@ -1419,6 +1420,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - data_source_type (string) — Deprecated. Use 'integration_type'.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
@@ -1678,6 +1680,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - data_source_type (string) — Deprecated. Use 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
+      - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
@@ -1978,6 +1981,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - data_source_type (string) — Deprecated. Use 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
+      - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
@@ -2271,6 +2275,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - data_source_type (string) — Deprecated. Use 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
+      - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
