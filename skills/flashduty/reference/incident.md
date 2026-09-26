@@ -83,7 +83,7 @@ Projected `similar` lists stay below 16 KiB: when the page would overflow, only 
 
 ## Hot flow — full fault analysis (read-only summary)
 
-When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all six aspects:
+When asked to **summarize / analyze** an incident — 详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 + 同时段故障 — `incident detail` does **not** contain the alerts / timeline / similar / post-mortem / change data; each is its own command. **Your first action must be the bundled script** — do not hand-pick one or two commands and write the rest from memory. One call fetches all seven aspects:
 
 ```bash
 bash <skill-dir>/scripts/incident-summary.sh <incident-id>
@@ -91,7 +91,7 @@ bash <skill-dir>/scripts/incident-summary.sh <incident-id>
 
 `<skill-dir>` is this skill's base directory — you were given it when the skill loaded (it is also the folder you read this card from). The script runs every command below and prints the results in one block, so each section of your summary is backed by real output and there is nothing to guess. (To tie post-mortems to *this* incident, re-run `incident post-mortem-list --channel-ids <channel-id>` with the `channel_id` from `detail`.)
 
-If you fetch the pieces by hand instead, run **all six** — they are cheap reads:
+If you fetch the pieces by hand instead, run **all seven** — they are cheap reads:
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
@@ -101,9 +101,12 @@ fduty incident timeline "$ID"                             # ④ timeline  (or `i
 fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
 fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel (verb card: reference/postmortem.md)
 fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
+fduty incident list --since <start-15m> --until <start+15m> --limit 50 --fields incident_id,num,title,incident_severity,progress,start_time,channel_id --output-format toon  # ⑦ concurrent incidents — all channels, any progress, ±15 min around this incident's start_time (from ①)
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
+
+**Reading ⑦ (concurrent incidents).** Alert grouping runs per channel, so one root cause that spans several services or channels arrives as several incidents opened within minutes of each other — ⑦ is the only section that looks sideways at them, and the incident you were given stays the one you are analysing (⑦ is context, not a re-identification). When it lists other incidents: compare titles, channels, and labels (re-run the same window with `--fields incident_id,num,title,channel_id,labels` and a small `--limit`, or `incident alerts <id>` per sibling) for a shared factor — same host, cluster, upstream dependency, or deploy. A shared factor is a root-cause hypothesis to test against ② and ③, not a conclusion; in the report say which siblings you judge to share the cause and why, and name them by `num` in the timeline comment so responders can merge. When the list is cut at `--limit` (the trailing note carries the window total), you are looking at a storm: analyse the common factor across the batch instead of this incident in isolation. `incident merge` is irreversible — only on an explicit human confirmation, never on an unattended channel.
 
 ## Hot flow — resolve, document, and merge duplicates
 
