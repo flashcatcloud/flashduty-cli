@@ -75,12 +75,12 @@ func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields, channel string
 	var channelID int64
 	var limit, page int
-	defaultStructuredFields := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"}
+	defaultStructuredFields := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"}
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,title,incident_severity,progress,start_time,channel_id; pass --fields to choose a different projection.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), fduty insight incident-list for metric-rich filtered incident rows, and fduty insight incident-export for CSV incident exports.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url; pass --fields to choose a different projection.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), fduty insight incident-list for metric-rich filtered incident rows, and fduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -629,7 +629,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 				}
 
 				if ctx.Structured() {
-					fieldNames := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score"}
+					fieldNames := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score", "detail_url"}
 					if fields != "" {
 						fieldNames = parseStringSlice(fields)
 					} else {

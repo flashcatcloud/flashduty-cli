@@ -394,6 +394,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
   - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Alert description.
+  - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
   - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - event_cnt (integer) — Total number of raw events received by this alert.
   - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
@@ -535,6 +536,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
@@ -708,6 +710,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.

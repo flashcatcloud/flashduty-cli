@@ -39,7 +39,7 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 	if len(lines) != 6 {
 		t.Fatalf("fduty calls = %d, want 6:\n%s", len(lines), invocations)
 	}
-	wantDetail := "incident detail inc-1 --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon"
+	wantDetail := "incident detail inc-1 --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon"
 	if lines[0] != wantDetail {
 		t.Fatalf("detail call = %q, want compact projection %q", lines[0], wantDetail)
 	}
