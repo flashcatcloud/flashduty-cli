@@ -61,7 +61,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) — Account this change belongs to.
     - change_id (string) — Change ID, a MongoDB ObjectID hex string.
     - change_key (string) — Stable key that groups events belonging to the same change.
-    - change_status (string) — Current lifecycle status of the change. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | [Planned, Ready, Processing, Canceled, Done]
+    - change_status (string) — Current lifecycle status of the change. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
     - channel_id (integer) — Collaboration channel this change is routed to.
     - channel_name (string) — Name of the collaboration channel.
     - channel_status (string) — Status of the collaboration channel: 'enabled' or 'disabled'. [enabled, disabled]
@@ -70,7 +70,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - events (array<object>) — Underlying change events, returned only when include_events is true.
       - account_id (integer) — Account this change event belongs to.
       - change_key (string) — Stable key that groups events belonging to the same change.
-      - change_status (string) — Lifecycle status of the change event, reported by the change source as execution progresses. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | [Planned, Ready, Processing, Canceled, Done]
+      - change_status (string) — Lifecycle status of the change event, reported by the change source as execution progresses. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
       - channel_id (integer) — Collaboration channel this change event is routed to.
       - created_at (string) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
