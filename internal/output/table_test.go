@@ -193,6 +193,33 @@ func TestTablePrinter_NoTruncSkipsTruncation(t *testing.T) {
 	}
 }
 
+// A cell is one line: a value's line breaks and indentation fold to single
+// spaces, so a multi-line value (an HTML body, a prompt) neither spills onto
+// lines that read as further rows nor spends the column width on indentation.
+func TestTablePrinter_MultilineValueStaysOnItsRow(t *testing.T) {
+	value := "<html>\n  <body>\r\n\t<p>Rollback at 22:00</p>\n  </body>\n</html>"
+	for _, tt := range []struct {
+		noTrunc bool
+		want    string
+	}{
+		{noTrunc: false, want: "<html> <body> <p>Rol..."},
+		{noTrunc: true, want: "<html> <body> <p>Rollback at 22:00</p> </body> </html>"},
+	} {
+		var buf bytes.Buffer
+		p := &TablePrinter{w: &buf, noTrunc: tt.noTrunc}
+		if err := p.Print([]testRow{{Name: value, Value: "next"}}, []Column{nameCol(23), valueCol(0)}); err != nil {
+			t.Fatalf("Print returned error: %v", err)
+		}
+		lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+		if len(lines) != 2 {
+			t.Fatalf("noTrunc=%v: want header + 1 row, got %d lines: %q", tt.noTrunc, len(lines), buf.String())
+		}
+		if got := strings.TrimSuffix(lines[1], "  next"); strings.TrimRight(got, " ") != tt.want {
+			t.Errorf("noTrunc=%v: cell = %q, want %q", tt.noTrunc, got, tt.want)
+		}
+	}
+}
+
 func TestTablePrinter_EmptyData(t *testing.T) {
 	// 31
 	var buf bytes.Buffer

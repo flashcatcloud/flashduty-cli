@@ -31,7 +31,10 @@ func (p *TablePrinter) Print(data any, columns []Column) error {
 	for r, item := range items {
 		vals := make([]string, len(columns))
 		for i, col := range columns {
-			v := col.Field(item)
+			// A cell is one line: fold line breaks and indentation so a
+			// multi-line value neither spills onto lines that read as further
+			// rows nor spends the column width on whitespace.
+			v := strings.Join(strings.Fields(col.Field(item)), " ")
 			if !p.noTrunc && col.MaxWidth > 0 {
 				v = Truncate(v, col.MaxWidth)
 			}

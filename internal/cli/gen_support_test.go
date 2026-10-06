@@ -287,6 +287,38 @@ func TestPrintGenericResultShortenedRowStaysUTF8(t *testing.T) {
 	}
 }
 
+// TestPrintGenericResultNestedDetailNotReduced pins that a single-object
+// detail read carrying nested fields is not list-bounded: a long field comes
+// back whole and every nested value survives, instead of failing on the list
+// bound or dropping the nested rows.
+func TestPrintGenericResultNestedDetailNotReduced(t *testing.T) {
+	detail := map[string]any{
+		"recipients": []any{
+			map[string]any{"person_id": 1001, "status": "accepted"},
+			map[string]any{"person_id": 1002, "status": "skipped", "reason": "no_email"},
+		},
+		"html": "<p>" + strings.Repeat("report line ", 5000) + "</p>",
+	}
+
+	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
+		var got bytes.Buffer
+		if err := printGenericResult(structuredCtx(&got, f), detail); err != nil {
+			t.Fatalf("%v nested detail errored: %v", f, err)
+		}
+		if len(got.Bytes()) < compactListOutputLimit || !strings.Contains(got.String(), strings.Repeat("report line ", 5000)) {
+			t.Errorf("%v nested detail lost part of the long field: %d bytes", f, len(got.Bytes()))
+		}
+		for _, want := range []string{"1001", "1002", "no_email"} {
+			if !strings.Contains(got.String(), want) {
+				t.Errorf("%v nested detail lost nested value %q", f, want)
+			}
+		}
+		if strings.Contains(got.String(), "truncated") {
+			t.Errorf("%v nested detail must not be reduced:\n%s", f, got.String())
+		}
+	}
+}
+
 // TestPrintGenericResultCompleteEnvelopeUnmarked guards the marker's negative
 // case: a page that fits carries no truncated/emitted_rows keys — the marker
 // means "this page was reduced", not "this command supports reduction".
