@@ -36,14 +36,17 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 		t.Fatalf("read fake fduty log: %v", err)
 	}
 	lines := strings.FieldsFunc(strings.TrimSpace(string(invocations)), func(r rune) bool { return r == '\n' })
-	if len(lines) != 6 {
-		t.Fatalf("fduty calls = %d, want 6:\n%s", len(lines), invocations)
+	if len(lines) != 7 {
+		t.Fatalf("fduty calls = %d, want 7 (six reads + the start_time probe):\n%s", len(lines), invocations)
 	}
 	wantDetail := "incident detail inc-1 --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon"
 	if lines[0] != wantDetail {
 		t.Fatalf("detail call = %q, want compact projection %q", lines[0], wantDetail)
 	}
-	if strings.Contains(strings.Join(lines[1:], "\n"), "--output-format toon") {
+	if strings.Contains(strings.Join(lines[1:6], "\n"), "--output-format toon") {
 		t.Fatalf("non-detail reads force raw toon instead of their compact defaults:\n%s", invocations)
+	}
+	if lines[6] != "incident detail inc-1 --json" {
+		t.Fatalf("start_time probe = %q, want %q", lines[6], "incident detail inc-1 --json")
 	}
 }
