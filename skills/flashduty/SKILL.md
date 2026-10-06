@@ -61,7 +61,7 @@ Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verb
 
 Some asks span several commands. For those the skill ships a script that fetches everything in one call — run it as your **first action** for that ask, rather than hand-picking commands and writing the rest from memory:
 
-- **Full incident fault analysis** (详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 / detail + alerts + changes + timeline + similar + post-mortems): `bash scripts/incident-summary.sh <incident-id>` — runs all six reads and prints them in one block, so the summary is written from real output. See `reference/incident.md`.
+- **Full incident fault analysis** (详情 + 关联告警 + 变更 + 时间线 + 相似故障 + 复盘 + 同时段故障 / detail + alerts + changes + timeline + similar + post-mortems + concurrent incidents): `bash scripts/incident-summary.sh <incident-id>` — runs all seven reads and prints them in one block, so the summary is written from real output. See `reference/incident.md`.
 
 ## Domain index — read the card for the task
 
