@@ -95,7 +95,10 @@ Create a template
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
+- `--feishu-app-card-v2-preserve-blank-lines` bool — Keep blank lines in the body of Feishu app card v2 messages.
 - `--feishu-app-card-v2-table-enabled` bool — Render alert labels as a table in Feishu app cards.
+- `--feishu-app-war-room-enabled` bool — Show the Create War Room button on Feishu app cards.
+- `--incident-card-closed-action-apps` stringSlice — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
@@ -106,6 +109,7 @@ Create a template
 - `--voice` string — Voice call script template source.
 - `--wecom` string — WeCom robot message template source.
 - `--wecom-app` string — WeCom app message template source.
+- `--wecom-markdown-v2-enabled` bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.
 - `--zoom` string — Zoom bot message template source.
 - body-only (`--data`): incident_card_hidden_fields (object)
 - response: single object (`data` unwrapped to the top level) — fields: template_id (string); template_name (string)
@@ -121,7 +125,7 @@ List available template functions
 ### get-preset
 Get the preset template for a channel
 - `--channel` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
 
 ### info <template-id>
 Get template detail
@@ -139,11 +143,13 @@ List templates
 - `--query` string — Regex or substring match on template_name.
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter by specific team IDs.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_table_enabled (boolean); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); zoom (string)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
 
 ### preview
 Preview template
 - `--content` string (required) — Template content to render.
+- `--feishu-app-card-v2-enabled` bool — Render the preview as a Feishu app card v2 message.
+- `--feishu-app-card-v2-preserve-blank-lines` bool — Keep blank lines in the body of the Feishu app card v2 preview.
 - `--incident-id` string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
 - `--type` string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
 - body-only (`--data`): incident_card_hidden_fields (object)
@@ -157,7 +163,10 @@ Update a template
 - `--email` string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
 - `--feishu` string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--feishu-app` string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--feishu-app-card-v2-preserve-blank-lines` bool — When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.
 - `--feishu-app-card-v2-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
+- `--feishu-app-war-room-enabled` bool — When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.
+- `--incident-card-closed-action-apps` stringSlice — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--slack-app` string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
 - `--sms` string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
@@ -169,6 +178,7 @@ Update a template
 - `--voice` string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
 - `--wecom` string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--wecom-app` string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--wecom-markdown-v2-enabled` bool — When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.
 - `--zoom` string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
 - body-only (`--data`): incident_card_hidden_fields (object)
 

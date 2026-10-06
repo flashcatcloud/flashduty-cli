@@ -287,44 +287,6 @@ func TestPrintGenericResultShortenedRowStaysUTF8(t *testing.T) {
 	}
 }
 
-// TestMemberNotifyDryRunPrintsWholeEmail pins that a notify dry run is a
-// plain object, not a list page: an email past the structured-output limit
-// comes back whole, with every recipient outcome, instead of failing on the
-// list bound.
-func TestMemberNotifyDryRunPrintsWholeEmail(t *testing.T) {
-	html := "<p>" + strings.Repeat("report line ", 5000) + "</p>"
-	for _, format := range []string{"json", "toon"} {
-		t.Run(format, func(t *testing.T) {
-			saveAndResetGlobals(t)
-			stub := newGFStub(t)
-			stub.data = map[string]any{
-				"recipients": []any{
-					map[string]any{"person_id": 5068740052131, "status": "accepted"},
-					map[string]any{"person_id": 5068740052132, "status": "skipped", "reason": "no_email"},
-				},
-				"html": html,
-			}
-
-			out, stderrText, err := execCommandSplit("member", "notify",
-				"--subject", "Daily report", "--html", "<p>report</p>", "--dry-run", "--output-format", format)
-			if err != nil {
-				t.Fatalf("execCommandSplit: %v", err)
-			}
-			if len(out) < compactListOutputLimit || !strings.Contains(out, strings.Repeat("report line ", 5000)) {
-				t.Errorf("%s dry run lost part of the email: %d bytes", format, len(out))
-			}
-			for _, want := range []string{"5068740052131", "5068740052132", "no_email"} {
-				if !strings.Contains(out, want) {
-					t.Errorf("%s dry run lost recipient outcome %q", format, want)
-				}
-			}
-			if strings.Contains(out, "truncated") || strings.Contains(stderrText, "note:") {
-				t.Errorf("%s dry run must not be reduced, stderr:\n%s", format, stderrText)
-			}
-		})
-	}
-}
-
 // TestPrintGenericResultCompleteEnvelopeUnmarked guards the marker's negative
 // case: a page that fits carries no truncated/emitted_rows keys — the marker
 // means "this page was reduced", not "this command supports reduction".

@@ -376,7 +376,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genMembersMemberNotifyCmd() *cobra.Command {
 	var dataJSON string
-	var fDryRun bool
 	var fHTML string
 	var fPersonIDs []int
 	var fSubject string
@@ -385,19 +384,18 @@ func genMembersMemberNotifyCmd() *cobra.Command {
 		Short: "Notify members",
 		Long: `Notify members.
 
-Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered. Call it with 'dry_run' set to 'true' before sending: 'html' in the response is the email exactly as recipients will get it, so you can confirm the sanitizer kept everything the message depends on.
+Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered.
 
 API: POST /member/notify (memberNotify)
 
 Request fields:
-  --dry-run bool — Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.
-  --html string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (≤102400 chars)
+  --html string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. '<script>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are silently removed before sending, since email clients never execute them; inline 'style' attributes are kept as written. '<style>', '<svg>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', and '<button>' tags, an '<img>' with a missing or non-'https' 'src' (including 'data:'), or an '<a>' whose href scheme is not 'http', 'https', or 'mailto' are rejected instead of stripped: the request fails with '400' rather than silently changing what recipients see. (≤102400 chars)
   --person-ids []int — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
   --subject string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - html (string) — Only present when 'dry_run' is 'true': the complete email HTML exactly as recipients would receive it, after sanitization.
-  - recipients (array<object>) — One result per resolved recipient, in the same order as the resolved recipient list. With 'dry_run', each result is what a real send would return.
+  - agent_instructions (string) — Present when the submitted HTML body does not follow the default email layout (no 'max-width:600px' wrapper table): guidance telling the calling AI SRE agent how to conform. Advisory only — a format the caller deliberately chose needs no change.
+  - recipients (array<object>) — One result per resolved recipient, in the same order as the resolved recipient list.
     - person_id (integer) (required) — Recipient member ID.
     - reason (string) — Why the recipient was skipped. Only present when 'status' is 'skipped'. 'not_member' — not an active member of the caller's account; 'no_email' — the member has no email address on file; 'email_disabled' — the member's notification preferences for this kind of message exclude email; 'duplicate' — this recipient already received a message from the same AI SRE session turn; 'rate_limited' — this recipient has already been sent 20 emails through this endpoint within the last hour; 'send_failed' — enqueueing the email failed. [not_member, no_email, email_disabled, duplicate, rate_limited, send_failed]
     - status (string) (required) — Delivery status. 'accepted' — the email was queued for asynchronous delivery; 'skipped' — no email was queued, see 'reason'. [accepted, skipped]
@@ -406,9 +404,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("dry-run") {
-						body["dry_run"] = fDryRun
-					}
 					if cmd.Flags().Changed("html") {
 						body["html"] = fHTML
 					}
@@ -435,8 +430,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fDryRun, "dry-run", false, "Check without sending. When 'true', every check runs and the response returns the exact email in 'html', but nothing is queued and neither the hourly limit nor the per-turn duplicate check is consumed. Defaults to 'false'.")
-	cmd.Flags().StringVar(&fHTML, "html", "", "Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. Sanitized server-side: '<script>', '<style>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', '<button>', '<svg>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are removed; images are kept only when their 'src' is 'https' — images with any other or no 'src', including 'data:', are removed; links are restricted to 'http', 'https', and 'mailto'. Inline 'style' attributes are kept as written. (required) (≤102400 chars)")
+	cmd.Flags().StringVar(&fHTML, "html", "", "Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. '<script>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are silently removed before sending, since email clients never execute them; inline 'style' attributes are kept as written. '<style>', '<svg>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', and '<button>' tags, an '<img>' with a missing or non-'https' 'src' (including 'data:'), or an '<a>' whose href scheme is not 'http', 'https', or 'mailto' are rejected instead of stripped: the request fails with '400' rather than silently changing what recipients see. (required) (≤102400 chars)")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.")
 	cmd.Flags().StringVar(&fSubject, "subject", "", "Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (required) (1-200 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

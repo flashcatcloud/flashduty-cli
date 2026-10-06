@@ -47,10 +47,10 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ```bash
 # 1. Find unacknowledged critical incidents (last 4h)
-fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,title,incident_severity,progress,start_time,channel_id --output-format toon
+fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
-fduty incident detail <incident-id> --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon
+fduty incident detail <incident-id> --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon
 
 # 3. See contributing alerts
 fduty incident alerts <incident-id>
@@ -79,7 +79,7 @@ Projected `similar` lists stay below 16 KiB: when the page would overflow, only 
 
 `comment` never accepts the text as a command-line argument — only `--comment-file <path>` (or `--comment-file -` to read stdin), so backticks/`$()`/quotes inside the comment are inert. The command also reads back every target's timeline after writing and exits non-zero unless it finds an entry matching what it sent, so `Commented on ...` is proof of content fidelity, not just acceptance — no separate manual read-back is needed. Leading and trailing whitespace is stripped before sending (the server strips it too, so this is what gets stored); everything else, including interior blank lines, is preserved exactly.
 
-> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,title,incident_severity,progress,start_time,channel_id`. Pass `--fields incident_id,title,channel_id,start_time` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records. Any list-response field — including `labels` — is selectable this way (a key missing from the output means it wasn't selected, NOT that the server omits it; the command prints a stderr note when the default projection applies). The one exception is `alerts`: neither list nor detail responses ever fill it — use `incident alerts <id>` for an incident's alerts. Wide fields over many rows can exceed the 16 KiB structured-output bound; when that happens the command emits only the leading rows that fit — every value intact — and a stderr note says how many rows were emitted, so lower `--limit` or narrow `--fields` to fit more rows per page. Only when one row alone exceeds the bound does it shorten long string values (a stderr note says how many values were clipped and in which fields); if the row cannot be shortened to fit, the command errors and names the largest fields by aggregate size, so drop the field it names, or use `insight` aggregates for distributions instead of dumping labels row by row.
+> `incident list --output-format json|toon` defaults to the compact row projection `incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url`. Pass `--fields incident_id,num,title,channel_id,start_time,detail_url` when you need different list columns; use `incident detail <id>` / `incident get <id>` for full incident records. Any list-response field — including `labels` — is selectable this way (a key missing from the output means it wasn't selected, NOT that the server omits it; the command prints a stderr note when the default projection applies). The one exception is `alerts`: neither list nor detail responses ever fill it — use `incident alerts <id>` for an incident's alerts. Wide fields over many rows can exceed the 16 KiB structured-output bound; when that happens the command emits only the leading rows that fit — every value intact — and a stderr note says how many rows were emitted, so lower `--limit` or narrow `--fields` to fit more rows per page. Only when one row alone exceeds the bound does it shorten long string values (a stderr note says how many values were clipped and in which fields); if the row cannot be shortened to fit, the command errors and names the largest fields by aggregate size, so drop the field it names, or use `insight` aggregates for distributions instead of dumping labels row by row.
 
 ## Hot flow — full fault analysis (read-only summary)
 
@@ -95,7 +95,7 @@ If you fetch the pieces by hand instead, run **all seven** — they are cheap re
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon  # ① 详情 + AI summary + alert counts + channel
+fduty incident detail   "$ID" --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon  # ① 详情 + AI summary + alert counts + channel
 fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
 fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
 fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
@@ -147,12 +147,12 @@ List alerts of incident
 - `--limit` int64 — Page size, at most 1000. (0-1000)
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); detail_url (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### alerts <id>
 View incident alerts
 - `--limit` int
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); detail_url (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### assign
 Assign incident
@@ -378,7 +378,7 @@ Get incident war room details
 ### list <incident_id>
 List incident war rooms
 - `--integration` int64
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); chat_id (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
 
 ### war-room-add-member <chat-id>
 Add war-room member
@@ -414,13 +414,14 @@ Get war room detail
 List war rooms
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 — Optional filter: only return war rooms for this IM integration.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); plugin_type (string); status (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
 
 ### work-item-assignees-reset <work-item-id>
 Reset work item assignees
-- `--assignee-ids` intSlice — New assignee member IDs, replacing the current set. An empty array clears all assignees.
+- `--assignee-ids` intSlice — Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.
 - `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
+- body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object); removed_assignee_ids (array<integer>)
 
 ### work-item-complete <work-item-id>
@@ -441,7 +442,7 @@ Convert a work item to a follow-up
 
 ### work-item-create <incident-id>
 Create a work item
-- `--assignee-ids` intSlice — Initial assignee member IDs. Assignees must be active members who can already read the anchor; assignment never grants access.
+- `--assignee-ids` intSlice — Legacy alias for the initial assignees. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. Assignees must be active members who can already read the anchor; assignment never grants access.
 - `--description` string — Optional longer description (max 65,535 characters). (≤65535 chars)
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID) the item is anchored to.
@@ -450,6 +451,7 @@ Create a work item
 - `--priority` string — Optional client-defined priority (max 64 characters). (≤64 chars)
 - `--status` string — Optional client-defined initial status (max 64 characters). (≤64 chars)
 - `--title` string (required) — Item title (max 512 characters). (≤512 chars)
+- body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object)
 
 ### work-item-delete <work-item-id>
@@ -460,13 +462,14 @@ Delete a work item
 
 ### work-item-list
 List work items
-- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin.
+- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.
+- `--assignee-type` string — Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. · enum: person | ai_sre
 - `--cursor` string — Pagination cursor from a previous response's 'next_cursor'.
 - `--incident-id` string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
 - `--item-type` string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. · enum: action | follow_up
 - `--limit` int64 — Page size, at most 200. Defaults to 50. (0-200)
 - `--post-mortem-id` string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
-- response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: assignee_ids (array<integer>); converted_at_seconds (string); converted_by (integer); created_at_seconds (string); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (string); updated_by (integer); version (integer); work_item_id (string)
+- response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_session_id (string); agent_session_venue (string); assignee_ids (array<integer>); assignees (array<object>); converted_at_seconds (string); converted_by (integer); created_at_seconds (string); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (string); updated_by (integer); version (integer); work_item_id (string)
 
 ### work-item-post-mortem-bind
 Bind work items to a post-mortem
@@ -500,7 +503,7 @@ Update a work item
 - **`update` vs `reset`**: `update <id>` edits title/description/severity/custom fields. `reset <incident-id>` additionally supports `--impact`, `--root-cause`, `--resolution` (the AI narrative fields). Use `reset` for post-incident write-back.
 - **If `list` returns a `total`, use it instead of page-walking.** For "how many incidents are Triggered / Processing / Closed", run one filtered `incident list --progress <bucket> ...` per bucket and read the returned `total`. Do not fetch page 1/2/3 just to derive counts the server already computed.
 - **Search with `--query`, don't substring-match `title` from list output.** A structured list page that exceeds its byte budget comes back reduced to the leading rows that fit (a stderr note names the emitted count), so a local `jq test()` / `contains()` over `title` only sees the emitted prefix and can miss rows that really do match, and an empty result is indistinguishable from a genuine non-match. `--query` is a server-side full-text search over title/labels/content — correct regardless of projection, and cheaper than pulling pages to filter locally. (It also resolves a 24-char `incident_id` or 6-char `num` to a direct lookup.)
-- **Use `--fields` to keep list scans compact.** When the goal is to identify matching incidents or collect IDs/numbers/titles, project only the needed columns first, then fetch one target incident with `detail` / `alerts` / `timeline`.
+- **Use `--fields` to keep list scans compact.** When the goal is to identify matching incidents or collect IDs/numbers/titles, project only the needed columns first, then fetch one target incident with `detail` / `alerts` / `timeline`. Keep `num` and `detail_url` in any projection or `grep`: a later sentence can link an incident only from a page URL that stayed in the output.
 - **`list` window cap**: `--since`/`--until` window must be < 31 days; `--limit` max 100. Empty result is authoritative — do not widen filters or retry.
 - **`get` has no time-window flags**: `get <id> [<id2>...]` takes one or more incident IDs, not a window — it has no `--since`, `--until`, `--start-time`, or `--end-time` at all, so passing one errors as an unknown flag rather than filtering; use `list` for time-range filtering.
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.

@@ -34,7 +34,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - email (string) (required) — Email body template source (Go 'html/template' syntax).
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
+  - feishu_app_card_v2_preserve_blank_lines (boolean) (required) — Whether Feishu app card v2 messages keep blank lines in the body.
   - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+  - feishu_app_war_room_enabled (boolean) (required) — Whether Feishu app cards show the Create War Room button. Hidden when the incident has no responders.
+  - incident_card_closed_action_apps (array<string>) (required) — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
@@ -50,6 +53,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - voice (string) (required) — Voice call script template source.
   - wecom (string) (required) — WeCom robot message template source.
   - wecom_app (string) (required) — WeCom app message template source.
+  - wecom_markdown_v2_enabled (boolean) (required) — Whether WeCom robot notifications use the 'markdown_v2' message format.
   - zoom (string) (required) — Zoom bot message template source.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
@@ -129,7 +133,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - email (string) (required) — Email body template source (Go 'html/template' syntax).
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
+    - feishu_app_card_v2_preserve_blank_lines (boolean) (required) — Whether Feishu app card v2 messages keep blank lines in the body.
     - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+    - feishu_app_war_room_enabled (boolean) (required) — Whether Feishu app cards show the Create War Room button. Hidden when the incident has no responders.
+    - incident_card_closed_action_apps (array<string>) (required) — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
     - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
@@ -145,6 +152,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - voice (string) (required) — Voice call script template source.
     - wecom (string) (required) — WeCom robot message template source.
     - wecom_app (string) (required) — WeCom app message template source.
+    - wecom_markdown_v2_enabled (boolean) (required) — Whether WeCom robot notifications use the 'markdown_v2' message format.
     - zoom (string) (required) — Zoom bot message template source.
   - total (integer) (required) — Total number of templates matching the filter, across all pages (including the built-in preset template).
 `,
@@ -212,6 +220,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genNotificationTemplatesReadPreviewCmd() *cobra.Command {
 	var dataJSON string
 	var fContent string
+	var fFeishuAppCardV2Enabled bool
+	var fFeishuAppCardV2PreserveBlankLines bool
 	var fIncidentID string
 	var fType string
 	cmd := &cobra.Command{
@@ -225,6 +235,8 @@ API: POST /template/preview (template-read-preview)
 
 Request fields:
   --content string (required) — Template content to render.
+  --feishu-app-card-v2-enabled bool — Render the preview as a Feishu app card v2 message.
+  --feishu-app-card-v2-preserve-blank-lines bool — Keep blank lines in the body of the Feishu app card v2 preview.
   --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
   --type string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
   incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app when previewing.
@@ -243,6 +255,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("content") {
 						body["content"] = fContent
+					}
+					if cmd.Flags().Changed("feishu-app-card-v2-enabled") {
+						body["feishu_app_card_v2_enabled"] = fFeishuAppCardV2Enabled
+					}
+					if cmd.Flags().Changed("feishu-app-card-v2-preserve-blank-lines") {
+						body["feishu_app_card_v2_preserve_blank_lines"] = fFeishuAppCardV2PreserveBlankLines
 					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID
@@ -268,6 +286,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fContent, "content", "", "Template content to render. (required)")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2Enabled, "feishu-app-card-v2-enabled", false, "Render the preview as a Feishu app card v2 message.")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "Keep blank lines in the body of the Feishu app card v2 preview.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.")
 	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -282,7 +302,10 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
+	var fFeishuAppCardV2PreserveBlankLines bool
 	var fFeishuAppCardV2TableEnabled bool
+	var fFeishuAppWarRoomEnabled bool
+	var fIncidentCardClosedActionApps []string
 	var fSlack string
 	var fSlackApp string
 	var fSMS string
@@ -293,6 +316,7 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 	var fVoice string
 	var fWecom string
 	var fWecomApp string
+	var fWecomMarkdownV2Enabled bool
 	var fZoom string
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -310,7 +334,10 @@ Request fields:
   --email string — Email body template source (Go 'html/template' syntax).
   --feishu string — Feishu robot message template source.
   --feishu-app string — Feishu app message template source.
+  --feishu-app-card-v2-preserve-blank-lines bool — Keep blank lines in the body of Feishu app card v2 messages.
   --feishu-app-card-v2-table-enabled bool — Render alert labels as a table in Feishu app cards.
+  --feishu-app-war-room-enabled bool — Show the Create War Room button on Feishu app cards.
+  --incident-card-closed-action-apps []string — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source.
   --slack-app string — Slack app message template source.
   --sms string — SMS template source (Go 'text/template' syntax).
@@ -321,6 +348,7 @@ Request fields:
   --voice string — Voice call script template source.
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
+  --wecom-markdown-v2-enabled bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.
   --zoom string — Zoom bot message template source.
   incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
 
@@ -350,8 +378,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("feishu-app") {
 						body["feishu_app"] = fFeishuApp
 					}
+					if cmd.Flags().Changed("feishu-app-card-v2-preserve-blank-lines") {
+						body["feishu_app_card_v2_preserve_blank_lines"] = fFeishuAppCardV2PreserveBlankLines
+					}
 					if cmd.Flags().Changed("feishu-app-card-v2-table-enabled") {
 						body["feishu_app_card_v2_table_enabled"] = fFeishuAppCardV2TableEnabled
+					}
+					if cmd.Flags().Changed("feishu-app-war-room-enabled") {
+						body["feishu_app_war_room_enabled"] = fFeishuAppWarRoomEnabled
+					}
+					if cmd.Flags().Changed("incident-card-closed-action-apps") {
+						body["incident_card_closed_action_apps"] = fIncidentCardClosedActionApps
 					}
 					if cmd.Flags().Changed("slack") {
 						body["slack"] = fSlack
@@ -383,6 +420,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("wecom-app") {
 						body["wecom_app"] = fWecomApp
 					}
+					if cmd.Flags().Changed("wecom-markdown-v2-enabled") {
+						body["wecom_markdown_v2_enabled"] = fWecomMarkdownV2Enabled
+					}
 					if cmd.Flags().Changed("zoom") {
 						body["zoom"] = fZoom
 					}
@@ -409,7 +449,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "Keep blank lines in the body of Feishu app card v2 messages.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "Render alert labels as a table in Feishu app cards.")
+	cmd.Flags().BoolVar(&fFeishuAppWarRoomEnabled, "feishu-app-war-room-enabled", false, "Show the Create War Room button on Feishu app cards.")
+	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
@@ -420,6 +463,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
+	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -485,7 +529,10 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
+	var fFeishuAppCardV2PreserveBlankLines bool
 	var fFeishuAppCardV2TableEnabled bool
+	var fFeishuAppWarRoomEnabled bool
+	var fIncidentCardClosedActionApps []string
 	var fSlack string
 	var fSlackApp string
 	var fSMS string
@@ -497,6 +544,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fVoice string
 	var fWecom string
 	var fWecomApp string
+	var fWecomMarkdownV2Enabled bool
 	var fZoom string
 	cmd := &cobra.Command{
 		Use:   "update <template-id>",
@@ -514,7 +562,10 @@ Request fields:
   --email string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
   --feishu string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
   --feishu-app string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
+  --feishu-app-card-v2-preserve-blank-lines bool — When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.
   --feishu-app-card-v2-table-enabled bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
+  --feishu-app-war-room-enabled bool — When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.
+  --incident-card-closed-action-apps []string — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
   --slack-app string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
   --sms string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
@@ -526,6 +577,7 @@ Request fields:
   --voice string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
   --wecom string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
   --wecom-app string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
+  --wecom-markdown-v2-enabled bool — When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.
   --zoom string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
   incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
 `,
@@ -555,8 +607,17 @@ Request fields:
 					if cmd.Flags().Changed("feishu-app") {
 						body["feishu_app"] = fFeishuApp
 					}
+					if cmd.Flags().Changed("feishu-app-card-v2-preserve-blank-lines") {
+						body["feishu_app_card_v2_preserve_blank_lines"] = fFeishuAppCardV2PreserveBlankLines
+					}
 					if cmd.Flags().Changed("feishu-app-card-v2-table-enabled") {
 						body["feishu_app_card_v2_table_enabled"] = fFeishuAppCardV2TableEnabled
+					}
+					if cmd.Flags().Changed("feishu-app-war-room-enabled") {
+						body["feishu_app_war_room_enabled"] = fFeishuAppWarRoomEnabled
+					}
+					if cmd.Flags().Changed("incident-card-closed-action-apps") {
+						body["incident_card_closed_action_apps"] = fIncidentCardClosedActionApps
 					}
 					if cmd.Flags().Changed("slack") {
 						body["slack"] = fSlack
@@ -591,6 +652,9 @@ Request fields:
 					if cmd.Flags().Changed("wecom-app") {
 						body["wecom_app"] = fWecomApp
 					}
+					if cmd.Flags().Changed("wecom-markdown-v2-enabled") {
+						body["wecom_markdown_v2_enabled"] = fWecomMarkdownV2Enabled
+					}
 					if cmd.Flags().Changed("zoom") {
 						body["zoom"] = fZoom
 					}
@@ -621,7 +685,10 @@ Request fields:
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.")
+	cmd.Flags().BoolVar(&fFeishuAppWarRoomEnabled, "feishu-app-war-room-enabled", false, "When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.")
+	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.")
@@ -633,6 +700,7 @@ Request fields:
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

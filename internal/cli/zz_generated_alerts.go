@@ -281,6 +281,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) — Whether a next page exists.
   - items (array<object>) — Alert feed records on the current page.
     - account_id (integer) (required) — Account ID.
+    - agent_session_id (string) — AI SRE session that produced the entry. Omitted when no agent wrote it.
     - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
     - deleted_at (string) — Soft-delete time, Unix epoch milliseconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -307,6 +308,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - ref_id (string) (required) — ObjectID of the alert this entry references.
     - type (string) (required) — Alert activity feed entry type. Each value identifies one alert lifecycle event; the matching 'detail' payload shape is determined by this field. | Type | Meaning | |---|---| | 'a_new' | Alert triggered by an incoming event. | | 'a_update' | Alert severity or status changed on an incoming event. | | 'a_comm' | Comment added on the alert. | | 'a_merge' | Alert merged into an incident. | | 'a_m_silence' | Alert muted by a silence rule. | | 'a_m_inhibit' | Alert muted by an inhibit rule. | | 'a_m_flapping' | Alert muted by flapping detection (historical data only; no longer produced). | | 'a_ack' | Alert acknowledged (historical data only; alert-level acknowledgement has been removed). | | 'a_unack' | Alert acknowledgement revoked (historical data only). | | 'a_close' | Alert closed (historical data only; no longer produced). | [a_new, a_update, a_comm, a_merge, a_m_silence, a_m_inhibit, a_m_flapping, a_ack, a_unack, a_close]
     - updated_at (string) (required) — Last update timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - via (string) — Surface that wrote the entry on a user's behalf; currently only 'ai_sre'. Omitted when a user created the entry directly.
 `,
 		Args:    requireBodyFieldOrExactArg("alert_id", "alert-id"),
 		Example: `  flashduty alert feed --data '{"alert_id":"663a1b2c3d4e5f6789abcdef","asc":false,"limit":20}'`,
@@ -392,6 +394,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
   - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Alert description.
+  - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
   - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - event_cnt (integer) — Total number of raw events received by this alert.
   - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
@@ -533,6 +536,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
@@ -706,6 +710,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
+    - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.

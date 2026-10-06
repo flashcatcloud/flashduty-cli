@@ -199,7 +199,7 @@ List Automation rules
 - `--enabled` bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
 - `--include-person` bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
 - `--keyword` string — Filter by name keyword. (≤64 chars)
-- `--limit` int64 — Page size.
+- `--limit` int64 — Page size. Values below 1 fall back to 20; values above 200 are capped at 200. (max 200)
 - `--page` int64 — Page number, 1-based.
 - `--scope` string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. · enum: all | personal | team
 - `--search-after-ctx` string
@@ -399,7 +399,7 @@ Get session detail
 - `--search-after-ctx` string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
 - `<session-id>` (positional, required) string — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
 - `--share-token` string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
-- response: single object (`data` unwrapped to the top level) — fields: events (array<object>); has_more_older (boolean); search_after_ctx (string); session (object); suggest_init (boolean)
+- response: single object (`data` unwrapped to the top level) — fields: events (array<object>); has_more_older (boolean); pending_messages (array<object>); search_after_ctx (string); session (object); suggest_init (boolean)
 
 ### session-list
 List sessions
