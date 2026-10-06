@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -288,81 +287,35 @@ func TestPrintGenericResultShortenedRowStaysUTF8(t *testing.T) {
 	}
 }
 
-// TestMemberNotifyDryRunPrintsWholeEmail pins that a notify dry run is a
-// plain object, not a list page: an email past the structured-output limit
-// comes back whole, with every recipient outcome, instead of failing on the
-// list bound.
-func TestMemberNotifyDryRunPrintsWholeEmail(t *testing.T) {
-	html := "<p>" + strings.Repeat("report line ", 5000) + "</p>"
-	for _, format := range []string{"json", "toon"} {
-		t.Run(format, func(t *testing.T) {
-			saveAndResetGlobals(t)
-			stub := newGFStub(t)
-			stub.data = map[string]any{
-				"recipients": []any{
-					map[string]any{"person_id": 5068740052131, "status": "accepted"},
-					map[string]any{"person_id": 5068740052132, "status": "skipped", "reason": "no_email"},
-				},
-				"html": html,
-			}
-
-			out, stderrText, err := execCommandSplit("member", "notify",
-				"--subject", "Daily report", "--html", "<p>report</p>", "--dry-run", "--output-format", format)
-			if err != nil {
-				t.Fatalf("execCommandSplit: %v", err)
-			}
-			if len(out) < compactListOutputLimit || !strings.Contains(out, strings.Repeat("report line ", 5000)) {
-				t.Errorf("%s dry run lost part of the email: %d bytes", format, len(out))
-			}
-			for _, want := range []string{"5068740052131", "5068740052132", "no_email"} {
-				if !strings.Contains(out, want) {
-					t.Errorf("%s dry run lost recipient outcome %q", format, want)
-				}
-			}
-			if strings.Contains(out, "truncated") || strings.Contains(stderrText, "note:") {
-				t.Errorf("%s dry run must not be reduced, stderr:\n%s", format, stderrText)
-			}
-		})
-	}
-}
-
-// TestMemberNotifyDryRunTableShowsRecipients pins the default table output of a
-// notify dry run: every recipient outcome is listed next to the email, and the
-// multi-line email body stays on its own row instead of spilling onto lines
-// that read as further fields.
-func TestMemberNotifyDryRunTableShowsRecipients(t *testing.T) {
-	saveAndResetGlobals(t)
-	stub := newGFStub(t)
-	stub.data = map[string]any{
+// TestPrintGenericResultNestedDetailNotReduced pins that a single-object
+// detail read carrying nested fields is not list-bounded: a long field comes
+// back whole and every nested value survives, instead of failing on the list
+// bound or dropping the nested rows.
+func TestPrintGenericResultNestedDetailNotReduced(t *testing.T) {
+	detail := map[string]any{
 		"recipients": []any{
-			map[string]any{"person_id": 5068740052131, "status": "accepted"},
-			map[string]any{"person_id": 5068740052132, "status": "skipped", "reason": "no_email"},
+			map[string]any{"person_id": 1001, "status": "accepted"},
+			map[string]any{"person_id": 1002, "status": "skipped", "reason": "no_email"},
 		},
-		"html": "<html>\n  <body>\n    <p>" + strings.Repeat("report line ", 5000) + "</p>\n  </body>\n</html>",
+		"html": "<p>" + strings.Repeat("report line ", 5000) + "</p>",
 	}
 
-	out, _, err := execCommandSplit("member", "notify",
-		"--subject", "Daily report", "--html", "<p>report</p>", "--dry-run")
-	if err != nil {
-		t.Fatalf("execCommandSplit: %v", err)
-	}
-
-	var got [][]string
-	for _, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
-		field, value, _ := strings.Cut(line, " ")
-		got = append(got, []string{field, strings.TrimSpace(value)})
-	}
-	want := [][]string{
-		{"FIELD", "VALUE"},
-		{"HTML", "<html> <body> <p>report line report line report line report line report line ..."},
-		{"RECIPIENTS[0].PERSON_ID", "5068740052131"},
-		{"RECIPIENTS[0].STATUS", "accepted"},
-		{"RECIPIENTS[1].PERSON_ID", "5068740052132"},
-		{"RECIPIENTS[1].REASON", "no_email"},
-		{"RECIPIENTS[1].STATUS", "skipped"},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("dry-run table rows = %q\nwant %q\n---\n%s", got, want, out)
+	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
+		var got bytes.Buffer
+		if err := printGenericResult(structuredCtx(&got, f), detail); err != nil {
+			t.Fatalf("%v nested detail errored: %v", f, err)
+		}
+		if len(got.Bytes()) < compactListOutputLimit || !strings.Contains(got.String(), strings.Repeat("report line ", 5000)) {
+			t.Errorf("%v nested detail lost part of the long field: %d bytes", f, len(got.Bytes()))
+		}
+		for _, want := range []string{"1001", "1002", "no_email"} {
+			if !strings.Contains(got.String(), want) {
+				t.Errorf("%v nested detail lost nested value %q", f, want)
+			}
+		}
+		if strings.Contains(got.String(), "truncated") {
+			t.Errorf("%v nested detail must not be reduced:\n%s", f, got.String())
+		}
 	}
 }
 

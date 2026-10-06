@@ -27,7 +27,7 @@ fi
 # dump every empty field plus heavy blobs like a change's labels.steps.
 run() { echo "===== fduty $* ====="; fduty "$@" 2>&1; echo; }
 
-run incident detail        "$ID" --fields incident_id,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id --output-format toon # ① 详情 + AI summary + alert counts + channel
+run incident detail        "$ID" --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon # ① 详情 + AI summary + alert counts + channel
 run incident alerts        "$ID"              # ② contributing alerts
 run incident timeline      "$ID"              # ④ timeline
 run incident similar       "$ID" --limit 5    # ⑤ similar past incidents (channel-backed)

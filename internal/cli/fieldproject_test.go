@@ -278,7 +278,7 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 			t.Fatalf("execCommandSplit: %v", err)
 		}
 
-		assertProjectedJSONFields(t, out, []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"})
+		assertProjectedJSONFields(t, out, []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"})
 		if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
 			t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
 		}
@@ -296,7 +296,7 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 
 		// Positive keys must come from stdout alone: the stderr note embeds the
 		// same field names, so a merged capture would satisfy this vacuously.
-		for _, key := range []string{"incident_id", "title", "incident_severity", "progress", "start_time", "channel_id"} {
+		for _, key := range []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"} {
 			if !strings.Contains(out, key) {
 				t.Errorf("default toon output missing compact key %q, got:\n%s", key, out)
 			}
@@ -572,7 +572,7 @@ func TestIncidentSimilarStructuredProjection(t *testing.T) {
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &rows); err != nil {
 		t.Fatalf("parse compact similar json: %v\n%s", err, out)
 	}
-	want := []string{"incident_id", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score"}
+	want := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score", "detail_url"}
 	if len(rows) != len(items) {
 		t.Fatalf("got %d rows, want %d", len(rows), len(items))
 	}

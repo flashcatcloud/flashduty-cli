@@ -48,6 +48,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - turn_complete (boolean) (required) — True on the terminal event of a turn.
     - usage_metadata (object) — Per-turn token usage metadata.
   - has_more_older (boolean) (required) — True when older events remain beyond this page.
+  - pending_messages (array<object>) (required) — Human messages queued but not yet picked up by the agent, in execution order. Always an array — empty when nothing is queued.
+    - client_msg_id (string) — Client-supplied message ID, echoed back for de-duplication. Omitted when absent.
+    - invocation_id (string) (required) — Invocation ID of the queued message.
+    - parts (array<object>) — Request parts passed through verbatim (text, file, ref, or skill entries). Omitted when the original message carried none.
+    - person_id (integer) (required) — Person ID of the sender.
+    - query (string) (required) — Message text.
+    - steering (boolean) — True when the message was sent as a mid-turn steering instruction. Omitted when false.
   - search_after_ctx (string) — Opaque keyset cursor; pass back as search_after_ctx to fetch the next older page. Omitted when has_more_older is false.
   - session (object) (required) — One agent session row.
     - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller is the session creator (full access) | | 'team_member' | Caller belongs to the session's bound team (full access) | | 'manager' | Manager grant (reserved; never produced by the current version) | | 'share_link' | Granted via a valid share link (view/fork only; cannot continue or manage) | | 'participant' | Same-account non-member granted via a participable team session (view/continue/fork only) | [owner, team_member, manager, share_link, participant]
@@ -70,6 +77,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - versions (object) — Per-pack resolved version map.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -90,6 +98,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
+    - standing_tasks (integer) (required) — Number of process-type tasks (background shell or monitor) still alive when the response was rendered.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
     - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
@@ -211,6 +220,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - versions (object) — Per-pack resolved version map.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -231,6 +241,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
+    - standing_tasks (integer) (required) — Number of process-type tasks (background shell or monitor) still alive when the response was rendered.
     - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
     - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.

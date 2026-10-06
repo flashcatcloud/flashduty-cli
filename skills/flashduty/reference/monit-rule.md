@@ -1,12 +1,12 @@
 # fduty monit — alert rules
 
-Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit surface: rule CRUD, the folder tree, counters, change history, and export/import.
+Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit surface: rule CRUD, the folder tree, counters, and change history.
 
 ## Route here when
 
 "监控规则 / 告警规则 / 规则文件夹 / 规则导出" or "alert rule / rule folder / rule export / rule audit" → this card.
 
-**Mutating:** `rule-v2-create`, `rule-v2-update`, `rule-update-fields`, `rule-move`, `rule-delete`, `rule-delete-batch`, `rule-import` — confirm before running. **`rule-delete-batch` is irreversible**; confirm IDs with `rule-list-basic` first.
+**Mutating:** `rule-v2-create`, `rule-v2-update`, `rule-update-fields`, `rule-move`, `rule-delete`, `rule-delete-batch` — confirm before running. **`rule-delete-batch` is irreversible**; confirm IDs with `rule-list-basic` first.
 
 ## Intent → verb
 
@@ -19,7 +19,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit s
 | move rules to another folder | `rule-move` |
 | toggle enabled/channels in bulk | `rule-update-fields` |
 | rule change history | `rule-audits` → detail via `rule-audit-detail` |
-| export / import rules (backup/migrate) | `rule-export` / `rule-import` |
+| full definitions of several rules (backup) | `rule-list-basic` for the IDs, then `rule-v2-info` per ID |
 | per-channel counts / total counter time series | `rule-counter-channel` / `rule-counter-total` |
 
 ## Hot flow — inspect configured rules
@@ -50,7 +50,7 @@ The public CLI cannot discover the folder tree itself. If folder IDs are unavail
 
 - **`rule_configs` and nested arrays require `--data`.** The queries, thresholds, enabled_times, and labels objects cannot be expressed as flat flags — pass them as inline JSON via `--data '{"rule_configs":{...}}'` on `rule-v2-create` / `rule-v2-update`. Typed scalar flags (`--name`, `--enabled`, `--cron-pattern`, `--ds-type`) override matching `--data` keys.
 - **`folder-id 0` is not a universal "all rules" sentinel.** If the API says "Folder not found", believe it. Run `rule-list-basic` only against real folder IDs you actually know, adding `--include-descendants` when subtree id/name rows are enough.
-- **"全量规则 / full rules" means exported monitor alert-rule definitions.** The concrete verb is `rule-export --ids ...`, usually after `rule-list-basic` selected the IDs. It does not mean dumping incidents or alerts.
+- **"全量规则 / full rules" means complete monitor alert-rule definitions.** Select the IDs with `rule-list-basic`, then read each with `rule-v2-info`. It does not mean dumping incidents or alerts.
 - **`rule-delete-batch` and `datasource-delete` are irreversible.** Confirm IDs with `rule-list-basic` / `datasource-info` first.
 - **`rule-audit-detail --id` takes the audit record ID**, not the rule ID. Get audit record IDs from `rule-audits --id <rule-id>` first; passing the rule ID returns HTTP 400.
 - **`rule-list-basic` needs a REAL `--folder-id`; it does not accept `0`.** The command returns only that folder's *direct* rules unless `--include-descendants` is set; never substitute fired alerts as configured-rule inventory.
@@ -97,15 +97,6 @@ Delete alert rule
 Batch delete alert rules
 - `--ids` intSlice (required) — Rule IDs.
 
-### rule-export
-Export alert rules
-- `--ids` intSlice (required) — Rule IDs.
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: annotations (object); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); description (string); description_type (string); ds_ids (array<integer>); ds_list (array<string>); ds_type (string); enabled (boolean); enabled_times (array<object>); labels (object); name (string); repeat_interval (integer); repeat_total (integer); rule_configs (object); timezone (string)
-
-### rule-import
-Import alert rules
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
-
 ### rule-list-basic
 List alert rules
 - `--folder-id` int64 — Folder ID. Must be an existing folder; '0' is rejected with a 'folder_not_found' error.
@@ -118,7 +109,7 @@ List alert rules
 Move alert rules to folder
 - `--dest-folder-id` int64 (required) — Destination folder ID. Obtainable via 'POST /monit/folder/list'.
 - `--ids` intSlice (required) — Rule IDs to move.
-- response: same shape as `rule-import` above
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### rule-update-fields
 Batch update rule fields
@@ -137,7 +128,7 @@ Batch update rule fields
 - `--repeat-total` int64 — Maximum number of repeated notifications. Effective only when 'fields' includes 'repeat_total'.
 - `--timezone` string — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
 - body-only (`--data`): annotations (object); annotations_patch (object); enabled_times (array<object>); labels (object); labels_patch (object)
-- response: same shape as `rule-import` above
+- response: same shape as `rule-move` above
 
 ### rule-v2-create <folder-id>
 Create alert rule (V2)
