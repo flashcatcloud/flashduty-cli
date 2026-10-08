@@ -10,7 +10,7 @@ import (
 // Fence markers. The generator owns ONLY the text between these; intent→verb
 // routing, worked examples, and gotchas are hand-written outside the fence.
 const (
-	fenceStartFmt = "<!-- GENERATED:%s START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->"
+	fenceStartFmt = "<!-- GENERATED:%s START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->"
 	fenceEndFmt   = "<!-- GENERATED:%s END -->"
 )
 

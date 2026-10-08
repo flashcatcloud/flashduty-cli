@@ -1,4 +1,4 @@
-# fduty rum — command card
+# flashduty rum — command card
 
 Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `application-update` / `application-delete` / `issue-update` mutate state — confirm before running. `application-delete` is **irreversible**.
 
@@ -31,35 +31,35 @@ Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `applicatio
 
 ```bash
 # 1. find the app (application_id is a string)
-fduty rum application-list --query "checkout" --output-format toon
+flashduty rum application-list --query "checkout" --output-format toon
 
 # 2. list open errors in the last 7 days (both time flags required, MILLISECOND epoch)
 NOW=$(date +%s000)
 WEEK_AGO=$(( $(date +%s) - 604800 ))000
-fduty rum issue-list \
+flashduty rum issue-list \
   --application-ids <application_id> \
   --start-time $WEEK_AGO --end-time $NOW \
   --statuses for_review --orderby error_count \
   --output-format toon
 
 # 3. get full detail of the top issue
-fduty rum issue-info <issue_id> --output-format toon
+flashduty rum issue-info <issue_id> --output-format toon
 
 # 4. mark resolved after fix is confirmed
-fduty rum issue-update <issue_id> --status resolved --suspected-cause code.exception
+flashduty rum issue-update <issue_id> --status resolved --suspected-cause code.exception
 ```
 
 ## Hot flow — create a new RUM application
 
 ```bash
 # team-id is POSITIONAL (use: "application-create <team-id>"); other fields are flags
-fduty rum application-create <team_id> \
+flashduty rum application-create <team_id> \
   --application-name "Checkout Web" \
   --type browser
 # → returns application_id + client_token for SDK init
 ```
 
-<!-- GENERATED:rum START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:rum START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### application-create <team-id>
 Create application
@@ -386,20 +386,20 @@ Regression: a `resolved` issue that recurs gets a `regression{}` object on its r
 - **`alerting` and `tracing` are nested objects** — configure them via `--data '{"alerting":{...},"tracing":{...}}'`; there are no flat flags for their sub-fields. Scalar flags (`--application-name`, `--type`, …) override matching `--data` keys.
 - **Application records hold CONFIG only** — no traffic volume, error-rate, or session-count fields. For trend data, query `monit` RUM series.
 - **Empty `issue-list` is authoritative** — a filter returning no items means no matching issues, not a missing feature. Do not widen the query or guess.
-- **No `rum sourcemap` subcommand** — sourcemap lookup and stack enrichment are top-level: read `reference/sourcemap.md` and use `fduty sourcemap ...`.
+- **No `rum sourcemap` subcommand** — sourcemap lookup and stack enrichment are top-level: read `reference/sourcemap.md` and use `flashduty sourcemap ...`.
 
 ## Worked example
 
 ```bash
 # Find the worst unreviewed crash in the "payment" app this week, then mark it resolved
-APP_ID=$(fduty rum application-list --query "payment" --output-format json | jq -r '.items[0].application_id')
+APP_ID=$(flashduty rum application-list --query "payment" --output-format json | jq -r '.items[0].application_id')
 NOW=$(date +%s000)
 WEEK_AGO=$(( $(date +%s) - 604800 ))000
-fduty rum issue-list \
+flashduty rum issue-list \
   --application-ids "$APP_ID" \
   --start-time $WEEK_AGO --end-time $NOW \
   --statuses for_review --orderby session_count \
   --limit 1 --output-format json | jq -r '.items[0].issue_id'
 # → paste the returned issue_id below
-fduty rum issue-update <issue_id> --status resolved --suspected-cause code.exception
+flashduty rum issue-update <issue_id> --status resolved --suspected-cause code.exception
 ```

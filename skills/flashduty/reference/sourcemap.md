@@ -1,4 +1,4 @@
-# fduty sourcemap — command card
+# flashduty sourcemap — command card
 
 Prereq: `SKILL.md` read. These verbs are read-only/debugging helpers. They do not upload, delete, or mutate sourcemap records.
 
@@ -17,7 +17,7 @@ Prereq: `SKILL.md` read. These verbs are read-only/debugging helpers. They do no
 
 ```bash
 # 1. Confirm the service/version/type actually has uploaded mapping files
-fduty sourcemap list \
+flashduty sourcemap list \
   --type browser \
   --services checkout-web \
   --start-time 1712000000000 \
@@ -25,12 +25,12 @@ fduty sourcemap list \
   --output-format toon
 
 # 2. Enrich the minified stack trace. Use --data for multiline stack payloads.
-fduty sourcemap stack-enrich \
+flashduty sourcemap stack-enrich \
   --data '{"type":"browser","service":"checkout-web","version":"1.0.0","near":3,"stack":"TypeError: Cannot read properties of undefined\n    at render (https://cdn.example.com/app.min.js:1:2345)"}' \
   --output-format toon
 ```
 
-<!-- GENERATED:sourcemap START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:sourcemap START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### list
 List sourcemaps
@@ -70,7 +70,7 @@ Enrich a stack trace
 
 ## Gotchas
 
-- **Top-level group:** use `fduty sourcemap ...`, not `fduty rum sourcemap ...`.
+- **Top-level group:** use `flashduty sourcemap ...`, not `flashduty rum sourcemap ...`.
 - **`stack-enrich` needs exact upload identity:** `type`, `service`, and `version` must match the uploaded sourcemap/dSYM metadata.
 - **Use `--data` for stack traces.** Multiline stacks are easier and safer as JSON body payloads than shell-escaped flags.
 - **Empty `list` is authoritative** for the supplied filters; re-check service/version/type from the RUM app or build metadata before changing the time window.

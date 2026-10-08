@@ -1,4 +1,4 @@
-# fduty channel noise rules — silence / inhibit / drop
+# flashduty channel noise rules — silence / inhibit / drop
 
 Prereq: `SKILL.md` read. Read verbs (`*-rule-list`) are free; every
 `silence-rule-*`, `inhibit-rule-*`, `unsubscribe-rule-*` create / update /
@@ -9,7 +9,7 @@ enable / disable / delete mutates state — confirm before acting.
 "静默 / 屏蔽 / 抑制 / 丢弃 / 降噪 / 维护窗口 / silence / mute / inhibit /
 suppress / drop / discard / noise reduction / maintenance window" → this
 card. These rules live INSIDE a channel (协作空间): **`channel-id` (int)**
-from `fduty channel list` (channel management: `reference/channel.md`);
+from `flashduty channel list` (channel management: `reference/channel.md`);
 **`rule-id` (MongoDB ObjectID string)** from the matching `*-rule-list`.
 Escalation / 分派策略 → `reference/escalation.md`.
 
@@ -37,22 +37,22 @@ construction rules and the valid key set.
 
 ```bash
 # 1. inspect the incident to silence around — pulls incident_severity + labels
-fduty incident detail <incident-id> --output-format toon
+flashduty incident detail <incident-id> --output-format toon
 
 # 2. channel-id is POSITIONAL on silence-rule-create (see use: "silence-rule-create <channel-id>")
 # filters is one AND group: a severity condition plus one labels.<key> condition
 # per distinguishing label — id-shaped/long/date-shaped/noise-key label values are
 # dropped, not passed through (construction rules: reference/filters.md).
-fduty channel silence-rule-create <channel-id> \
+flashduty channel silence-rule-create <channel-id> \
   --rule-name "planned-maintenance-2026-07-01" \
   --is-auto-delete \
   --data '{"time_filter":{"start_time":1751328000,"end_time":1751371200},"filters":[[{"key":"severity","oper":"IN","vals":["Critical"]},{"key":"labels.service","oper":"IN","vals":["payments-api"]},{"key":"labels.env","oper":"IN","vals":["prod"]}]]}'
 
 # 3. verify — read back `filters` to confirm the conditions round-tripped
-fduty channel silence-rule-list <channel-id> --output-format toon
+flashduty channel silence-rule-list <channel-id> --output-format toon
 ```
 
-<!-- GENERATED:channel[silence-rule,inhibit-rule,unsubscribe-rule] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:channel[silence-rule,inhibit-rule,unsubscribe-rule] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### inhibit-rule-create <channel-id>
 Create inhibit rule

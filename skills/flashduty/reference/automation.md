@@ -1,4 +1,4 @@
-# fduty automation - command card
+# flashduty automation - command card
 
 Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or through an HTTP POST trigger. `create`, `update`, `delete`, and `fire` mutate or start work. If the user directly asks for that action and provides enough detail, treat it as confirmation and do not ask again.
 
@@ -43,7 +43,7 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ## Hot flow - create from chat
 
 ```bash
-fduty automation create \
+flashduty automation create \
   --name "Daily SRE brief" \
   --team-id <team-id> \
   --schedule daily \
@@ -57,7 +57,7 @@ If the user did not specify a team, omit `--team-id` for personal scope. If the 
 ## Hot flow - create an HTTP POST trigger
 
 ```bash
-fduty automation create \
+flashduty automation create \
   --name "Webhook triage" \
   --http-post-trigger \
   --prompt-file ./automation-prompt.md \
@@ -67,13 +67,13 @@ fduty automation create \
 The response can include `http_post_trigger_id`, `http_post_trigger_url`, and one-time `http_post_token`. Tell the user to store the token; it cannot be retrieved later. Rotate it with:
 
 ```bash
-fduty automation update <rule-id> --rotate-http-post-token --output-format toon
+flashduty automation update <rule-id> --rotate-http-post-token --output-format toon
 ```
 
 ## Hot flow - exact cron
 
 ```bash
-fduty automation create \
+flashduty automation create \
   --name "Weekday 08:05 review" \
   --cron-expr "5 8 * * 1-5" \
   --prompt "Review open incidents and alert noise before the workday." \
@@ -83,19 +83,19 @@ fduty automation create \
 ## Manage and inspect
 
 ```bash
-fduty automation list --scope all --limit 20 --output-format toon
-fduty automation get <rule-id> --output-format toon
-fduty automation runs <rule-id> --since 7d --output-format toon
+flashduty automation list --scope all --limit 20 --output-format toon
+flashduty automation get <rule-id> --output-format toon
+flashduty automation runs <rule-id> --since 7d --output-format toon
 
-fduty automation update <rule-id> --disable --output-format toon
-fduty automation update <rule-id> --enable --cron-expr "30 1 * * *" --output-format toon
-fduty automation delete <rule-id> --force
+flashduty automation update <rule-id> --disable --output-format toon
+flashduty automation update <rule-id> --enable --cron-expr "30 1 * * *" --output-format toon
+flashduty automation delete <rule-id> --force
 ```
 
 ## Fire an HTTP POST trigger
 
 ```bash
-fduty automation fire <trigger-id> \
+flashduty automation fire <trigger-id> \
   --token "$FLASHDUTY_AUTOMATION_TRIGGER_TOKEN" \
   --text "manual validation run" \
   --output-format toon
@@ -103,7 +103,7 @@ fduty automation fire <trigger-id> \
 
 The trigger API has no idempotency key: retry only when the failed call is known not to have reached the server. Do not invent a token. If it is missing, rotate the trigger token through `update` or ask the user to provide it through their secure shell/environment, not in chat.
 
-<!-- GENERATED:automation START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:automation START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create an Automation

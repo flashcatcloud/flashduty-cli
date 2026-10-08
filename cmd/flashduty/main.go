@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 
@@ -29,7 +30,14 @@ func main() {
 		date = "unknown"
 	}
 	cli.SetVersionInfo(version, commit, date)
-	if err := cli.Execute(); err != nil {
+	// The CLI names itself after the command word the user typed, so a copy
+	// installed under another name (install.sh INSTALLED_NAME) shows that name
+	// in help, errors and completion scripts.
+	name := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		name = "flashduty"
+	}
+	if err := cli.Execute(name); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}

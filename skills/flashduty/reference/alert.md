@@ -1,4 +1,4 @@
-# fduty alert — command card
+# flashduty alert — command card
 
 Prereq: `SKILL.md` read. Read verbs are free. `merge` is **irreversible** (alerts cannot be un-merged). `pipeline-upsert` **replaces** the full pipeline config. Confirm IDs before either.
 
@@ -27,15 +27,15 @@ Prereq: `SKILL.md` read. Read verbs are free. `merge` is **irreversible** (alert
 
 ```bash
 # 1. list contributing alerts (from the incident domain)
-fduty incident alerts <incident-id> --output-format toon
+flashduty incident alerts <incident-id> --output-format toon
 # 2. inspect the worst alert
-fduty alert get <alert-id> --output-format toon
+flashduty alert get <alert-id> --output-format toon
 # 3. trace raw events deduplicated into that alert
-fduty alert events <alert-id> --output-format toon
+flashduty alert events <alert-id> --output-format toon
 # 4. view state transitions (mute/severity changes/operator actions)
-fduty alert feed <alert-id> --output-format toon
+flashduty alert feed <alert-id> --output-format toon
 # 5. for a time-window view across alerts, alert-event list is compact by default
-fduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
+flashduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
 Structured `alert-event list` output stays below 16 KiB: when the requested page would overflow, only the leading rows that fit are emitted — every value intact — and a stderr note says how many of the rows were emitted, so heed it before assuming the page is complete (narrow `--fields` or lower `--limit` to fit more rows per page). A trailing `...` on a value, with a stderr note naming the clipped fields, appears only when one row alone exceeds the budget — heed it before matching on that value, because the clipped text is what a `jq` filter sees. In json/toon mode rows default to the compact projection `event_id,alert_id,event_severity,event_status,event_time,title` (a stderr note says so when it applies); any other response field is one `--fields` away — a key missing from the output means it wasn't selected, not that the server omits it.
@@ -44,14 +44,14 @@ Structured `alert-event list` output stays below 16 KiB: when the requested page
 
 ```bash
 # 1. find active critical alerts in the last 4 hours
-fduty alert list --severity Critical --active --since 4h --output-format toon
+flashduty alert list --severity Critical --active --since 4h --output-format toon
 # 2. merge (IRREVERSIBLE) — alert IDs are POSITIONAL; --incident-id is a flag
 # comment text comes from a file, never an inline shell argument (see incident.md's comment workflow)
 printf '%s' 'Related disk alerts' > /tmp/merge-comment.txt
-fduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment-file /tmp/merge-comment.txt
+flashduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment-file /tmp/merge-comment.txt
 ```
 
-<!-- GENERATED:alert START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:alert START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### event-list <alert-id>
 List events for an alert
@@ -194,7 +194,7 @@ as `payments-api / disk_used`. Prefer the `[TPL]` form: it is explicit about
 where values come from and does not hard-code separators.
 
 **Labels the template reads must already exist.** Enrichment runs BEFORE the
-pipeline, so labels produced by `fduty enrichment upsert` (extraction,
+pipeline, so labels produced by `flashduty enrichment upsert` (extraction,
 composition, mapping) are available here — but a label produced by a LATER
 pipeline rule is not, and a typo just renders `<no value>` into the title.
 
@@ -202,7 +202,7 @@ pipeline rule is not, and a typo just renders `<no value>` into the title.
 
 - **All alert verbs are positional except `list` and the two-ID `merge` flag.** Every verb with `<alert-id>` in its `use` form takes that ID as the first bare argument — do NOT pass `--alert-id`. The single exception: `merge` takes the first alert ID positionally AND requires `--incident-id` as a flag (two different IDs, different roles).
 - **`alert get` vs `alert info`, `alert events` vs `alert-event list`:** both pairs exist; prefer `get`/`events` (shorter, no extra flag); `info`/`event-list` accept `--alert-id` as a flag override for scripting.
-- **No server-side title filter on `list`.** To search by title, use `--json` and pipe to `jq`: `fduty alert list --json | jq '.[] | select(.title | test("disk";"i"))'`
+- **No server-side title filter on `list`.** To search by title, use `--json` and pipe to `jq`: `flashduty alert list --json | jq '.[] | select(.title | test("disk";"i"))'`
 - **`list`'s structured output has no `total`/page metadata** — its `--json`/`toon` response is a bare TOP-LEVEL array (see the `list` fence entry above), not a `{items, total}` wrapper. To count matches, project the narrowest field with `--fields` and count elements, or use a wrapper-style verb whose fence shows `total` (e.g. `list-by-ids`). Don't paginate page 1/2/3... just to count alerts — narrow the query instead (`--active`, `--recovered`, `--severity`, `--channel`, `--since`).
 - **Use `--fields` when hunting IDs, not full rows.** If the task is "find alert IDs / titles / channels / severities", project only those fields first, then drill into one alert with `get` / `events`. Dumping every field for 100 alerts wastes tokens and hides the one row you need.
 - **`list` time window cap is 31 days**; `--limit` max is 100. For broader queries use `insight` domain.
@@ -213,7 +213,7 @@ pipeline rule is not, and a typo just renders `<no value>` into the title.
 
 ```bash
 # Find active Critical alerts in a specific channel and view the noisiest one
-fduty alert list --severity Critical --active --channel 98765 --since 2h --output-format toon
-fduty alert get <alert-id> --output-format toon
-fduty alert events <alert-id> --output-format toon
+flashduty alert list --severity Critical --active --channel 98765 --since 2h --output-format toon
+flashduty alert get <alert-id> --output-format toon
+flashduty alert events <alert-id> --output-format toon
 ```

@@ -3,14 +3,17 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	toon "github.com/toon-format/toon-go"
 	"golang.org/x/term"
 
@@ -57,7 +60,7 @@ var rootCmd = &cobra.Command{
 		}
 		updateNotice = nil
 		updateCheckWarning = ""
-		if cmd.CommandPath() == "flashduty update" {
+		if cmd.CommandPath() == cmd.Root().Name()+" update" {
 			return nil
 		}
 		if update.IsManagedByRunner() {
@@ -70,7 +73,7 @@ var rootCmd = &cobra.Command{
 			result, err := checkForUpdateAutoFn(versionStr)
 			if err != nil {
 				if update.IsTimeout(err) {
-					updateCheckWarning = "auto update check timeout, please run 'flashduty update --check' manually"
+					updateCheckWarning = "auto update check timeout, please run '" + cmd.Root().Name() + " update --check' manually"
 				} else {
 					updateNotice = update.StateHasUpdate(versionStr)
 				}
@@ -89,9 +92,9 @@ var rootCmd = &cobra.Command{
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n%s\n", updateCheckWarning)
 		}
 		if updateNotice != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nA new version of flashduty is available: v%s -> %s\n",
-				update.StripV(updateNotice.CurrentVersion), updateNotice.LatestVersion)
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "To update, run: flashduty update\n")
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nA new version of %s is available: v%s -> %s\n",
+				cmd.Root().Name(), update.StripV(updateNotice.CurrentVersion), updateNotice.LatestVersion)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "To update, run: %s update\n", cmd.Root().Name())
 		}
 	},
 }
@@ -162,9 +165,44 @@ func init() {
 	attachSafariSkillUpload(rootCmd)
 }
 
-// Execute runs the root command.
-func Execute() error {
-	return rootCmd.Execute()
+// Execute runs the root command as name, the command word the binary was
+// invoked as. Help and error text is authored with the canonical "flashduty";
+// under any other name the tree's text and the returned error are rewritten
+// to it, and cobra derives completion scripts from the root's name.
+func Execute(name string) error {
+	if name == rootCmd.Name() {
+		return rootCmd.Execute()
+	}
+	renameCommandText(rootCmd, name)
+	rootCmd.Use = name
+	if err := rootCmd.Execute(); err != nil {
+		return errors.New(renameCLI(err.Error(), name))
+	}
+	return nil
+}
+
+// renameCommandText rewrites the CLI name in cmd's help text and flag usages,
+// recursively.
+func renameCommandText(cmd *cobra.Command, name string) {
+	cmd.Short = renameCLI(cmd.Short, name)
+	cmd.Long = renameCLI(cmd.Long, name)
+	cmd.Example = renameCLI(cmd.Example, name)
+	rename := func(f *pflag.Flag) { f.Usage = renameCLI(f.Usage, name) }
+	cmd.Flags().VisitAll(rename)
+	cmd.PersistentFlags().VisitAll(rename)
+	for _, c := range cmd.Commands() {
+		renameCommandText(c, name)
+	}
+}
+
+// cliWord matches "flashduty" used as a command word: followed by a space, and
+// not part of a path, domain or longer identifier ("go-flashduty",
+// "~/.flashduty").
+var cliWord = regexp.MustCompile(`(^|[^\w./~-])flashduty `)
+
+// renameCLI replaces every command-word "flashduty" in s with name.
+func renameCLI(s, name string) string {
+	return cliWord.ReplaceAllString(s, "${1}"+name+" ")
 }
 
 // newClient creates a go-flashduty client using the current factory.

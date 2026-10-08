@@ -66,7 +66,7 @@ func runInstaller(cmd *cobra.Command) error {
 		return fmt.Errorf("update failed: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nUpdate complete. Run 'flashduty version' to verify.\n")
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nUpdate complete. Run '%s version' to verify.\n", cmd.Root().Name())
 	return nil
 }
 

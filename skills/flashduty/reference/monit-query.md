@@ -1,9 +1,9 @@
-# fduty monit-query — datasource tool invocation
+# flashduty monit-query — datasource tool invocation
 
 `monit-query` is the unified tool-invocation command for a configured datasource (`POST /monit/datasource/tools/invoke`). One call runs one named tool — there is no separate query vs. diagnostic split. The generated `monit datasource-tools-invoke` is the spec-mirror equivalent entry (see `reference/monit-datasource.md`).
 
 ```bash
-fduty monit-query <datasource-id> --tool '<name>' [--account-id <id>] [--params '<json>']
+flashduty monit-query <datasource-id> --tool '<name>' [--account-id <id>] [--params '<json>']
 ```
 
 - `<datasource-id>` — numeric ID from `monit datasource-list` (use the ID, never a name; several configurations may share an address).
@@ -14,15 +14,15 @@ Query-tool `params` always carry `expr` plus `execution` (`kind: instant|range|w
 
 ```bash
 # query tool: PromQL instant evaluation
-fduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
+flashduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
 {"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}
 FDUTY
 
 # diagnostic tool: no params needed
-fduty monit-query 12345 --tool redis_node.overview --output-format json
+flashduty monit-query 12345 --tool redis_node.overview --output-format json
 ```
 
-<!-- GENERATED:monit-query START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:monit-query START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### monit-query <datasource-id>
 Invoke a datasource query or diagnostic tool

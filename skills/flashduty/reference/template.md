@@ -1,4 +1,4 @@
-# fduty template — command card
+# flashduty template — command card
 
 Prereq: `SKILL.md` read. Read verbs are free. `create`, `update`, `delete` mutate account-wide notification templates — confirm before running. `delete <template-id>` is **irreversible**.
 
@@ -29,25 +29,25 @@ channel — but read the clearing caveat under Gotchas before you try to empty o
 
 ```bash
 # 1. Fetch the built-in preset as a starting point (channel enum below)
-fduty template get-preset --channel feishu --output-format toon
+flashduty template get-preset --channel feishu --output-format toon
 
 # 2. Save the source, edit in an editor, then validate from file
-fduty template validate --channel feishu --file ./feishu.tpl
+flashduty template validate --channel feishu --file ./feishu.tpl
 
 # 3. Preview with a real incident for realistic rendering (no file — inline content)
-fduty template preview \
+flashduty template preview \
   --type feishu \
   --content "$(cat ./feishu.tpl)" \
   --incident-id <incident-id>
 
 # 4. Create the template (template-name unique per account)
-fduty template create \
+flashduty template create \
   --template-name "Critical-Feishu-v2" \
   --feishu "$(cat ./feishu.tpl)" \
   --team-id 0
 
 # 5. Verify
-fduty template info <template-id> --output-format toon
+flashduty template info <template-id> --output-format toon
 ```
 
 ## Hot flow — change one channel on an existing template
@@ -59,25 +59,25 @@ fduty template info <template-id> --output-format toon
 T=<template-id>          # POSITIONAL on update/info/delete; --template-name always required
 
 # 1. Pull the current source of the channel you are changing
-fduty template info "$T" --json > /tmp/tpl.json
+flashduty template info "$T" --json > /tmp/tpl.json
 jq -r '.feishu_app' /tmp/tpl.json > /tmp/feishu_app.tpl
 #    …edit /tmp/feishu_app.tpl…
 
 # 2. Preview the edited source against a REAL incident before writing
 jq -n --rawfile c /tmp/feishu_app.tpl \
   '{type:"feishu_app", content:$c, incident_id:"<incident-id>"}' \
-  | fduty template preview --data -
+  | flashduty template preview --data -
 
 # 3. Write that one channel. NEVER move the body through "$(...)": command substitution
 #    strips every trailing newline, so a body ending in a blank line is silently shortened.
 jq -n --rawfile feishu_app /tmp/feishu_app.tpl \
   --arg t "$T" --arg n "<template-name>" \
   '{template_id:$t, template_name:$n, feishu_app:$feishu_app}' \
-  | fduty template update --data -
+  | flashduty template update --data -
 
 # 4. Verify the body round-tripped byte-for-byte — cmp catches a silent truncation that
 #    "the field is still non-empty" would not.
-fduty template info "$T" --json | jq -r '.feishu_app' | cmp - /tmp/feishu_app.tpl \
+flashduty template info "$T" --json | jq -r '.feishu_app' | cmp - /tmp/feishu_app.tpl \
   && echo "round-trip OK"
 ```
 
@@ -85,7 +85,7 @@ Every channel you did not name is untouched — that is the server contract now,
 Verify the body you wrote anyway: `cmp` is what separates "wrote the right bytes" from
 "wrote something non-empty".
 
-<!-- GENERATED:template START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:template START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create a template
@@ -219,8 +219,8 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
   it.) `--template-name` is still required on every update even when unchanged.
 - **To CLEAR a channel you must send it as an explicit empty string** — omitting it now
   means "keep", not "clear". `--dingtalk-app ''` is the intent, but a flag set to the empty
-  string was dropped before it reached the wire in `fduty` **older than v1.4.2**, which
-  makes clearing a silent no-op on those builds. Check `fduty --version` first; if it is
+  string was dropped before it reached the wire in `flashduty` **older than v1.4.2**, which
+  makes clearing a silent no-op on those builds. Check `flashduty --version` first; if it is
   older, clear via `--data` with the field spelled out — `--data '{"template_id":"…",
   "template_name":"…","dingtalk_app":""}'` — and confirm with `info --json` that the
   channel actually went empty.
@@ -232,7 +232,7 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 - **`--feishu-app-card-v2-table-enabled` uses pointer semantics on `update`** — unlike the plain string channel-content flags, it patches the table-rendering setting only when the flag is explicitly passed; omit it to leave the existing setting untouched. It is a plain bool on `create` (no prior setting to preserve).
 - **`list` returns every channel's full template source for every row** — a few dozen
   templates blow past a tool-output cap in one call. Never render it directly: go to a
-  file and project. `fduty template list --limit 100 --json > /tmp/tpl_list.json && jq -r
+  file and project. `flashduty template list --limit 100 --json > /tmp/tpl_list.json && jq -r
   '.items[] | [.template_id, .template_name, .team_id] | @tsv' /tmp/tpl_list.json`.
 - **`delete` is permanent.** The built-in preset (`template_id = 000000000000000000000001`) can be addressed by that sentinel ID in `info` and `delete` — don't delete it.
 - **`validate` reads from a local `--file`; `preview` takes inline `--content`.** They are complementary: `validate` gives size-vs-limit diagnostics; `preview` renders against real or mock incident data.
@@ -243,9 +243,9 @@ Note: `create` / `update` flags use **hyphenated** names (`--dingtalk-app`, `--f
 
 ```bash
 # Browse variables available in templates, then validate a draft
-fduty template variables --category core --output-format toon
-fduty template validate --channel slack --file ./slack-draft.tpl --incident <incident-id>
+flashduty template variables --category core --output-format toon
+flashduty template validate --channel slack --file ./slack-draft.tpl --incident <incident-id>
 # On success, create it
-fduty template create --template-name "Ops-Slack-Alert" --slack "$(cat ./slack-draft.tpl)"
+flashduty template create --template-name "Ops-Slack-Alert" --slack "$(cat ./slack-draft.tpl)"
 # → returns template_id; assign it to a channel in the escalation policy UI.
 ```

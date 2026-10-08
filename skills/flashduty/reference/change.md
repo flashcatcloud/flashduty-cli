@@ -1,4 +1,4 @@
-# fduty change — command card
+# flashduty change — command card
 
 Prereq: `SKILL.md` read. One read-only verb. Change events are the "what changed" signal you correlate against an incident during fault analysis.
 
@@ -16,13 +16,13 @@ Prereq: `SKILL.md` read. One read-only verb. Change events are the "what changed
 
 ```bash
 # Pull recent changes in the incident's window, then eyeball label/time overlap with the incident.
-fduty change list --since 24h --output-format toon
+flashduty change list --since 24h --output-format toon
 
 # Narrow by the integration or channel that emitted them, or by a keyword:
-fduty change list --since 48h --integration <integration-id> --query "deploy" --output-format toon
+flashduty change list --since 48h --integration <integration-id> --query "deploy" --output-format toon
 ```
 
-<!-- GENERATED:change START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:change START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### list
 List changes
@@ -52,5 +52,5 @@ List changes
 
 ```bash
 # Changes in the last 6h on a specific integration, newest first
-fduty change list --since 6h --integration 5759613685214 --output-format toon
+flashduty change list --since 6h --integration 5759613685214 --output-format toon
 ```

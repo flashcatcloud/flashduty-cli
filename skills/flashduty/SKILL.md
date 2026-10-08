@@ -1,20 +1,20 @@
 ---
 name: flashduty
 version: "3.0"
-description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, automations, RUM, sourcemaps, members. `fduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running fduty. Don't guess or --help-dance."
+description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, automations, RUM, sourcemaps, members. `flashduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running flashduty. Don't guess or --help-dance."
 allowed-tools: bash, read
 hidden: true  # internal-only: withheld from skills.sh public discovery (Safari embeds this skill directly).
 ---
 
 # Flashduty CLI
 
-`fduty` is your interface to Flashduty — invoke it from `bash`. This SKILL.md is a **router**: shared model + conventions below, then a domain index. For a real task, **read the one `reference/<domain>.md` card first** — it carries every command, flag, enum, and the worked flow for that domain, so you operate without `--help` trial-and-error or guessing command names.
+`flashduty` is your interface to Flashduty — invoke it from `bash`. This SKILL.md is a **router**: shared model + conventions below, then a domain index. For a real task, **read the one `reference/<domain>.md` card first** — it carries every command, flag, enum, and the worked flow for that domain, so you operate without `--help` trial-and-error or guessing command names.
 
 ## Auth & availability
 
 - **Auth.** Set your Flashduty app key once — `export FLASHDUTY_APP_KEY=<key>` — or pass `--app-key <key>` per call. Then just call the verb.
 - **No curl for the API.** The CLI is the only supported path to Flashduty — never hand-roll an HTTP call.
-- **If `fduty: command not found`** (rare — it is normally on PATH at startup): install from the Flashduty CDN into a user-writable dir (no sudo, no hang), then tell the user — don't work around it: `curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | FLASHDUTY_INSTALL_DIR="$HOME/.local/bin" INSTALLED_NAME=fduty sh && export PATH="$HOME/.local/bin:$PATH"`.
+- **If `flashduty: command not found`** (rare — it is normally on PATH at startup): install from the Flashduty CDN into a user-writable dir (no sudo, no hang), then tell the user — don't work around it: `curl -sSL https://static.flashcat.cloud/flashduty-cli/install.sh | FLASHDUTY_INSTALL_DIR="$HOME/.local/bin" sh && export PATH="$HOME/.local/bin:$PATH"`.
 - **If `jq` is missing** and you genuinely need JSON filtering, it is fine to install it into a user-writable dir the same way (`$HOME/.local/bin`) and continue. But first ask whether you can avoid `jq` entirely by using `--output-format toon`, `--fields`, a returned `total`, or a server-side aggregation verb (`insight`, `rule-counter-*`, etc.).
 
 ## Data model — 3 layers
@@ -37,19 +37,19 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 ## Timestamps — convert before quoting
 
-fduty renders timestamp fields (created_at / updated_at / start_time / …) as **RFC3339 strings in the process's local timezone** in `--json` and `toon` output; unset values are `null` in `--json` (the string `0` in `toon`). In the AI-SRE runner the process timezone is **Etc/UTC** (the env block's `Environment Timezone`), so those strings come out **UTC** — not the user's local time. The env block's `User Timezone` (Asia/Shanghai for zh-CN accounts) is the zone the user reads.
+flashduty renders timestamp fields (created_at / updated_at / start_time / …) as **RFC3339 strings in the process's local timezone** in `--json` and `toon` output; unset values are `null` in `--json` (the string `0` in `toon`). In the AI-SRE runner the process timezone is **Etc/UTC** (the env block's `Environment Timezone`), so those strings come out **UTC** — not the user's local time. The env block's `User Timezone` (Asia/Shanghai for zh-CN accounts) is the zone the user reads.
 
-**Rule: before quoting ANY fduty timestamp to the user, convert it to the user's timezone** (Asia/Shanghai for zh-CN accounts; the runner env block states `User Timezone`). Report the converted time and label it 北京时间/本地时间. Never present a raw UTC wall-clock as if it were the user's local time — e.g. a change logged at `2026-08-13T13:05:03Z` happened at **21:05 北京时间**, not 13:05. A timestamp you can't convert must be reported with its original offset and an explicit "(UTC)" tag.
+**Rule: before quoting ANY flashduty timestamp to the user, convert it to the user's timezone** (Asia/Shanghai for zh-CN accounts; the runner env block states `User Timezone`). Report the converted time and label it 北京时间/本地时间. Never present a raw UTC wall-clock as if it were the user's local time — e.g. a change logged at `2026-08-13T13:05:03Z` happened at **21:05 北京时间**, not 13:05. A timestamp you can't convert must be reported with its original offset and an explicit "(UTC)" tag.
 
 ## Command names — don't guess, read the card
 
-The hot path: **read the domain card** (index below) for the exact verb + flags. Command groups are hyphenated (`status-page`, `alert-event`), not concatenated (`statuspage`) — guessing the wrong form costs a failed call. For a command outside the cards, derive it from its API path: **group = first path segment, verb = the rest joined by `-`** (`POST /status-page/change/create` → `fduty status-page change-create`), then confirm with `fduty <group> <verb> --help`. Pass nested-object / array fields as JSON via `--data '{...}'`; typed scalar flags override matching `--data` keys.
+The hot path: **read the domain card** (index below) for the exact verb + flags. Command groups are hyphenated (`status-page`, `alert-event`), not concatenated (`statuspage`) — guessing the wrong form costs a failed call. For a command outside the cards, derive it from its API path: **group = first path segment, verb = the rest joined by `-`** (`POST /status-page/change/create` → `flashduty status-page change-create`), then confirm with `flashduty <group> <verb> --help`. Pass nested-object / array fields as JSON via `--data '{...}'`; typed scalar flags override matching `--data` keys.
 
 **Positional arguments.** A card heading like `### change-create <page-id>` means that id can always be passed **positionally**, as the first bare argument (`change-create 5759… --type incident`). On generated/raw-passthrough commands the matching `--<field>` flag (e.g. `--page-id`) is an equally valid alternative — if both are given, the flag wins. A few curated commands (`incident detail`, `automation get`) are positional-only, with no matching flag at all. A heading with no `<…>` takes all inputs as flags. `--help` settles any doubt.
 
-## fduty answers directly — don't grep or browse
+## flashduty answers directly — don't grep or browse
 
-Configuration, permission-model, enrichment, monitor, and on-call questions are answered by `fduty` itself (the cards + the live commands). Do **not** grep external documentation or browse the web for something the CLI covers — that usually returns staler information than the live API. Read the card, run the verb.
+Configuration, permission-model, enrichment, monitor, and on-call questions are answered by `flashduty` itself (the cards + the live commands). Do **not** grep external documentation or browse the web for something the CLI covers — that usually returns staler information than the live API. Read the card, run the verb.
 
 ## Safety — confirm before mutating
 

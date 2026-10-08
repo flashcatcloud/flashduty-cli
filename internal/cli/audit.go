@@ -104,7 +104,7 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "7d", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().Int64Var(&person, "person", 0, "Filter by person ID")
-	cmd.Flags().StringVar(&operation, "operation", "", "Filter by exact operation name(s) from 'fduty audit operation-list' (e.g. monitRule:write:update); comma-separate to match several in one call. Prefixes do NOT match (\"monitRule\" returns nothing).")
+	cmd.Flags().StringVar(&operation, "operation", "", "Filter by exact operation name(s) from 'flashduty audit operation-list' (e.g. monitRule:write:update); comma-separate to match several in one call. Prefixes do NOT match (\"monitRule\" returns nothing).")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 99)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 

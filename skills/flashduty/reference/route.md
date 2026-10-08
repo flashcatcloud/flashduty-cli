@@ -1,12 +1,12 @@
-# fduty route — command card
+# flashduty route — command card
 
 Prereq: `SKILL.md` read. `upsert` is a **full replacement** of the rule — it overwrites all cases; always read first and pass `--version` for optimistic concurrency.
 
 ## Route here when
 
 "路由规则 / 告警路由 / 集成路由 / 分派到频道 / route rule / alert routing / integration routing / which channel gets alerts" → **route**. Key IDs needed:
-- **`integration-id`** (int) — the integration the rule belongs to. Get a real one from **`fduty alert list`** (every alert carries `integration_id` + `integration_name`). It is **NOT** a `channel_id`; `channel list` does not surface integration IDs. If none is in scope, ask which integration rather than probing IDs.
-- **`channel-id`** (int) — the target channel matched alerts route to; from `fduty channel list`.
+- **`integration-id`** (int) — the integration the rule belongs to. Get a real one from **`flashduty alert list`** (every alert carries `integration_id` + `integration_name`). It is **NOT** a `channel_id`; `channel list` does not surface integration IDs. If none is in scope, ask which integration rather than probing IDs.
+- **`channel-id`** (int) — the target channel matched alerts route to; from `flashduty channel list`.
 
 Do NOT use `route` for scheduling (→ `schedule`), templates (→ `template`), or channel management (→ `channel`).
 
@@ -22,11 +22,11 @@ Do NOT use `route` for scheduling (→ `schedule`), templates (→ `template`), 
 
 ```bash
 # 1. Read the current rule; note the returned `version` field for concurrency control.
-fduty route info <integration-id> --output-format toon
+flashduty route info <integration-id> --output-format toon
 
 # 2. Upsert: route critical alerts to channel 101, all others to channel 102 (default).
 #    Pass the `version` from step 1 to prevent races.
-fduty route upsert <integration-id> --version <version> \
+flashduty route upsert <integration-id> --version <version> \
   --data '{
     "cases": [
       {
@@ -39,15 +39,15 @@ fduty route upsert <integration-id> --version <version> \
   }'
 
 # 3. Verify
-fduty route info <integration-id> --output-format toon
+flashduty route info <integration-id> --output-format toon
 ```
 
 ```bash
 # Bulk read — check rules for several integrations at once (positional ids).
-fduty route list <integration-id-1> <integration-id-2> --output-format toon
+flashduty route list <integration-id-1> <integration-id-2> --output-format toon
 ```
 
-<!-- GENERATED:route START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:route START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### info <integration-id>
 Get routing rule detail
@@ -90,10 +90,10 @@ Upsert routing rule
 
 ```bash
 # Read current rule for integration 5000, then add a name-mapping case for team-based routing.
-fduty route info <integration-id> --output-format toon
+flashduty route info <integration-id> --output-format toon
 # → note current version, e.g. 3
 
-fduty route upsert <integration-id> --version 3 \
+flashduty route upsert <integration-id> --version 3 \
   --data '{
     "cases": [
       {

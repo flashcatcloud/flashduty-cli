@@ -67,7 +67,7 @@ alert's. Always write the canonical key.
 ## Building filters from incident labels (scoping a rule to one incident)
 
 To scope a rule to one incident's blast radius, build a single AND group from
-that incident's own data (`fduty incident detail <incident-id>`):
+that incident's own data (`flashduty incident detail <incident-id>`):
 
 1. Start the group with a severity condition:
    `{"key":"severity","oper":"IN","vals":["<incident_severity>"]}`.
