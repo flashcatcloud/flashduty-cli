@@ -106,7 +106,7 @@ func TestCommandIncidentListHelpSurfacesInsightIncidentExport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("incident list --help: %v", err)
 	}
-	if !strings.Contains(out, "fduty insight incident-export") {
+	if !strings.Contains(out, "flashduty insight incident-export") {
 		t.Fatalf("help output missing incident export discovery hint:\n%s", out)
 	}
 }

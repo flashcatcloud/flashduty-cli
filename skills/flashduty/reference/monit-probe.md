@@ -1,4 +1,4 @@
-# fduty monit — datasource queries and diagnostics
+# flashduty monit — datasource queries and diagnostics
 
 Read only the card for the selected task. Use a configured datasource for metrics, logs and database/middleware diagnostics.
 
@@ -12,7 +12,7 @@ Datasource tools use `datasource_id`, one tool per call and static tool guidance
 Investigations use named datasource tools. Trend/pattern tools take explicit `params.time_range` Unix seconds (up to six hours), while database overview tools observe the current server. Source evidence is not a confirmed root cause. Read warning/truncation fields before interpreting results.
 
 
-<!-- GENERATED:monit[query] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:monit[query] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### query-data
 Query structured data

@@ -1,4 +1,4 @@
-# fduty field — command card
+# flashduty field — command card
 
 Prereq: `SKILL.md` read. Read verbs (`list`, `info`) are free. `delete` is **irreversible** — double-check the field-id before running it.
 
@@ -23,10 +23,10 @@ You need a **`field_id`** (24-char hex ObjectID) — get it from `field list`.
 
 ```bash
 # 1. Check what already exists (avoid duplicate display-name)
-fduty field list --output-format toon
+flashduty field list --output-format toon
 
 # 2. Create a single-select field (field-type + value-type + options are all required here)
-fduty field create \
+flashduty field create \
   --display-name "Root Cause" \
   --field-name "root_cause" \
   --field-type single_select \
@@ -35,11 +35,11 @@ fduty field create \
 # → returns field_id; save it.
 
 # 3. Later: add an option (pass the full replacement list)
-fduty field update <field-id> \
+flashduty field update <field-id> \
   --options "hardware failure" --options "software bug" --options "human error" --options "network issue"
 ```
 
-<!-- GENERATED:field START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:field START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create field
@@ -91,7 +91,7 @@ Update field
 
 ## Gotchas
 
-- **`delete`, `info`, `update` take `<field-id>` positionally or via `--field-id`** — both work, e.g. `fduty field delete <field-id>` or `fduty field delete --field-id <field-id>`. If both are given, the flag wins.
+- **`delete`, `info`, `update` take `<field-id>` positionally or via `--field-id`** — both work, e.g. `flashduty field delete <field-id>` or `flashduty field delete --field-id <field-id>`. If both are given, the flag wins.
 - **`--options` replaces the whole list on `update`** — omitting it leaves options unchanged, but a partial list silently drops the missing values. Always pass the full desired set.
 - **`--field-name` is the machine key** (`[a-zA-Z0-9_]`, starts with letter/underscore, ≤40 chars). It is the stable identifier for downstream enrichment rules — choose it carefully; it cannot be renamed.
 - **`delete` is permanent and cascades** — any enrichment rules that reference the field by `field_name` will lose their target. Confirm the name against `field list` before deleting.
@@ -101,7 +101,7 @@ Update field
 
 ```bash
 # Create a checkbox field (value-type must be bool; options must be omitted)
-fduty field create \
+flashduty field create \
   --display-name "Needs Postmortem" \
   --field-name "needs_postmortem" \
   --field-type checkbox \

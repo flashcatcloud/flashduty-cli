@@ -1,8 +1,8 @@
-# fduty safari — command card
+# flashduty safari — command card
 
 Prereq: `SKILL.md` read. This is the **AI-SRE platform self-management** group: install/configure the account's own **MCP servers (connectors)**, **skills**, and **A2A agents**, plus inspect **sessions**. Mutating verbs (`create`, `update`, `delete`, `upload`) change account configuration — confirm before running. `delete` is **irreversible**.
 
-> Registering an MCP server is THIS group (`fduty safari mcp-server-create`) — **not** a tool search. A tool search only discovers callable tools on servers already connected to you; it can neither register nor configure one.
+> Registering an MCP server is THIS group (`flashduty safari mcp-server-create`) — **not** a tool search. A tool search only discovers callable tools on servers already connected to you; it can neither register nor configure one.
 
 ## Route here when
 
@@ -32,17 +32,17 @@ Pass the nested `env` / `headers` objects through `--data` (they have no scalar 
 
 ```bash
 # stdio (local process): command + args + secrets via env
-fduty safari mcp-server-create --data '{"server_name":"GitHub Tools","transport":"stdio","description":"Read issues and pull requests from GitHub.","command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_TOKEN":"ghp_xxx"},"team_id":0,"status":"enabled"}'
+flashduty safari mcp-server-create --data '{"server_name":"GitHub Tools","transport":"stdio","description":"Read issues and pull requests from GitHub.","command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_TOKEN":"ghp_xxx"},"team_id":0,"status":"enabled"}'
 
 # remote (streamable-http) with per-user OAuth — oauth_metadata stays empty (auto-discovered + DCR at runtime)
-fduty safari mcp-server-create --data '{"server_name":"Aliyun OpenAPI","transport":"streamable-http","description":"Alibaba Cloud OpenAPI MCP.","url":"https://openapi-mcp.example.com/mcp","auth_mode":"per_user_oauth","team_id":0,"status":"enabled"}'
+flashduty safari mcp-server-create --data '{"server_name":"Aliyun OpenAPI","transport":"streamable-http","description":"Alibaba Cloud OpenAPI MCP.","url":"https://openapi-mcp.example.com/mcp","auth_mode":"per_user_oauth","team_id":0,"status":"enabled"}'
 
 # confirm it registered, then inspect its live tool catalogue
-fduty safari mcp-server-list --output-format toon
-fduty safari mcp-server-get --data '{"server_id":"mcp_xxx"}'
+flashduty safari mcp-server-list --output-format toon
+flashduty safari mcp-server-get --data '{"server_id":"mcp_xxx"}'
 ```
 
-<!-- GENERATED:safari START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:safari START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### a2a-agent-create
 Create A2A agent

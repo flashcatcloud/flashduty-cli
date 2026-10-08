@@ -1,4 +1,4 @@
-# fduty role — command card
+# flashduty role — command card
 
 Prereq: `SKILL.md` read. Read verbs are free; `delete` is **irreversible** — confirm the role-id first. `upsert --permission-ids` **replaces** the entire permission set on an existing role.
 
@@ -26,39 +26,39 @@ Prereq: `SKILL.md` read. Read verbs are free; `delete` is **irreversible** — c
 
 ```bash
 # 1. Browse available permissions with role membership annotation
-fduty role permission-list --with-all --output-format toon
+flashduty role permission-list --with-all --output-format toon
 
 # 2. Create the role with chosen permission IDs (note: ids from step 1)
-fduty role upsert --role-name "Incident Responder" \
+flashduty role upsert --role-name "Incident Responder" \
   --description "Read incidents and manage on-call." \
   --permission-ids 101,102,305
 
 # 3. Find the new role ID
-fduty role list --output-format toon
+flashduty role list --output-format toon
 
 # 4. Find member IDs to assign (member-id is POSITIONAL, role-id is a flag)
-fduty member list --output-format toon
+flashduty member list --output-format toon
 
 # 5. Grant role to members (first member-id is positional; additional ids space-separated)
-fduty role member-grant <member-id> --role-id <role-id>
-# Grant to multiple: fduty role member-grant <id1> <id2> <id3> --role-id <role-id>
+flashduty role member-grant <member-id> --role-id <role-id>
+# Grant to multiple: flashduty role member-grant <id1> <id2> <id3> --role-id <role-id>
 ```
 
 ## Hot flow — audit and update an existing role
 
 ```bash
 # 1. Find the role
-fduty role list --output-format toon
+flashduty role list --output-format toon
 
 # 2. Inspect current permissions (is_granted shows which are currently set)
-fduty role permission-list --role-ids <role-id> --with-all --output-format toon
+flashduty role permission-list --role-ids <role-id> --with-all --output-format toon
 
 # 3. Update permissions (--permission-ids is the FULL replacement set)
-fduty role upsert --role-id <role-id> --role-name "Incident Responder" \
+flashduty role upsert --role-id <role-id> --role-name "Incident Responder" \
   --permission-ids 101,102,305,410
 ```
 
-<!-- GENERATED:role START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:role START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### delete <role-id>
 Delete a role
@@ -123,8 +123,8 @@ Create or update a role
 
 ## Gotchas
 
-- **`delete`, `disable`, `enable`, `info` take `<role-id>` positionally or via `--role-id`** — both work: `fduty role delete <role-id>` or `fduty role delete --role-id <role-id>`. If both are given, the flag wins.
-- **`member-grant` / `member-revoke`: `<member-id>` is POSITIONAL (one or more space-separated); `--role-id` is a flag** — easy to flip. Example: `fduty role member-grant 123 456 --role-id 7`. Member IDs can also be passed via `--member-ids` instead of the positional (same fold-then-override rule).
+- **`delete`, `disable`, `enable`, `info` take `<role-id>` positionally or via `--role-id`** — both work: `flashduty role delete <role-id>` or `flashduty role delete --role-id <role-id>`. If both are given, the flag wins.
+- **`member-grant` / `member-revoke`: `<member-id>` is POSITIONAL (one or more space-separated); `--role-id` is a flag** — easy to flip. Example: `flashduty role member-grant 123 456 --role-id 7`. Member IDs can also be passed via `--member-ids` instead of the positional (same fold-then-override rule).
 - **`upsert --permission-ids` replaces the full set** on update — omitting it clears all permissions. Always read `permission-list --role-ids <id> --with-all` first to get the current set before modifying.
 - **`upsert` with no `--role-id` (or `--role-id 0`) creates; with `--role-id N` updates** — the verb doubles as create and update; check for an existing role with `list` to avoid accidental duplicates.
 - **`delete` is irreversible** — members who had this role lose its permissions immediately. Prefer `disable` to park a role without destroying it.
@@ -134,7 +134,7 @@ Create or update a role
 
 ```bash
 # Revoke a role from a single member
-fduty role member-revoke <member-id> --role-id <role-id>
+flashduty role member-revoke <member-id> --role-id <role-id>
 # Revoke from multiple members in one call
-fduty role member-revoke <id1> <id2> <id3> --role-id <role-id>
+flashduty role member-revoke <id1> <id2> <id3> --role-id <role-id>
 ```

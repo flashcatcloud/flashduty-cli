@@ -1,4 +1,4 @@
-# fduty channel — command card
+# flashduty channel — command card
 
 Prereq: `SKILL.md` read. Read verbs are free; `create`, `update`, `delete`, `disable`, `enable` mutate state — confirm before acting. `delete` is **irreversible**.
 
@@ -27,16 +27,16 @@ Rules INSIDE a channel have their own cards: escalation / 分派策略 → `refe
 ## Hot flow — create a channel
 
 ```bash
-# 1. find owning team-id (from `fduty team list --output-format toon`)
-fduty channel list --output-format toon
+# 1. find owning team-id (from `flashduty team list --output-format toon`)
+flashduty channel list --output-format toon
 # 2. create the channel (no positional; --channel-name and --team-id are required)
-fduty channel create --channel-name "production-api" --team-id <team-id> \
+flashduty channel create --channel-name "production-api" --team-id <team-id> \
   --auto-resolve-timeout 3600 --auto-resolve-mode trigger
 # → returns channel_id; next, add an escalation rule so incidents page someone:
 #   see reference/escalation.md
 ```
 
-<!-- GENERATED:channel START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:channel START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create channel
@@ -114,7 +114,7 @@ Update channel
   `severity` — or a label written with its `labels.` prefix.** A bare label name
   is rejected: `equals: [["service"]]` returns `equal service is not supported`
   (400). This is the most common way a grouping update fails, and it bites
-  hardest right after `fduty enrichment upsert` creates a new label — the label
+  hardest right after `flashduty enrichment upsert` creates a new label — the label
   exists, but it is `labels.<name>` here, never the bare name.
 
 Escalation, silence, inhibit and unsubscribe rules live on their own cards: `reference/escalation.md` and `reference/noise.md`.
@@ -123,5 +123,5 @@ Escalation, silence, inhibit and unsubscribe rules live on their own cards: `ref
 
 - **`channel-id` can be passed positionally or via `--channel-id` — both work** on every verb of this card (`info`, `infos`, `update`, `delete`, `disable`, `enable`). The fence heading `### verb <channel-id>` shows the shorter positional form; the flag is an equally valid alternative, and if both are given the flag value wins.
 - **`channel create` requires `--channel-name` and `--team-id`** even though they are not marked `required` in the flag list — the server rejects the request without them.
-- **`--plugin-ids` subscribes integrations that already exist; no `fduty` verb creates or configures one.** Creating an integration (email, webhook, an alert source) and reading its inbound address/token live in the console only — they are not part of the open API this CLI speaks, so they are absent from the command tree by design. When the user asks how to *connect* something, answer from the product documentation and point at the console; do not dump and grep the command tree looking for a verb that cannot exist. `channel info` likewise reports the channel's own fields, not integration credentials.
+- **`--plugin-ids` subscribes integrations that already exist; no `flashduty` verb creates or configures one.** Creating an integration (email, webhook, an alert source) and reading its inbound address/token live in the console only — they are not part of the open API this CLI speaks, so they are absent from the command tree by design. When the user asks how to *connect* something, answer from the product documentation and point at the console; do not dump and grep the command tree looking for a verb that cannot exist. `channel info` likewise reports the channel's own fields, not integration credentials.
 - **`delete` on a channel is irreversible** — all rules within it (escalation, silence, inhibit, drop) are also removed. Confirm the `channel-id` against `list` before proceeding.

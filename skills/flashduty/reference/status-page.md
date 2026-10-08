@@ -1,4 +1,4 @@
-# fduty status-page — command card
+# flashduty status-page — command card
 
 Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on status pages — no `--help` needed.** Read verbs are free; any `change-*` create/update with `--notify-subscribers` pages subscribers immediately — confirm scope first.
 
@@ -29,25 +29,25 @@ Structure mutations (`component-upsert` / `component-delete` / `section-upsert` 
 ```bash
 # page-id is POSITIONAL here (see fence headings: `### change-active-list <page-id>`); change-id stays a flag.
 # 1. find the page + impacted component IDs
-fduty status-page list --output-format toon
+flashduty status-page list --output-format toon
 # 2. confirm nothing already open (empty = nothing open; if one exists, reuse its change_id)
-fduty status-page change-active-list <page_id> --type incident
+flashduty status-page change-active-list <page_id> --type incident
 # 3. open it (page-id positional; scalars as flags; the required `updates` array via --data); save change_id
-fduty status-page change-create <page_id> --type incident \
+flashduty status-page change-create <page_id> --type incident \
   --title "API latency elevated" --status investigating --description "Investigating elevated latency." \
   --data '{"updates":[{"status":"investigating","description":"Team is investigating.","component_changes":[{"component_id":"<component_id>","status":"degraded"}]}]}'
 # 4. post progress: investigating → identified → monitoring (change-timeline-create takes BOTH ids as flags)
-fduty status-page change-timeline-create --page-id <page_id> --change-id <change_id> \
+flashduty status-page change-timeline-create --page-id <page_id> --change-id <change_id> \
   --status identified --description "Root cause identified."
 # 5. resolve — every referenced component MUST go back to operational
-fduty status-page change-timeline-create --page-id <page_id> --change-id <change_id> \
+flashduty status-page change-timeline-create --page-id <page_id> --change-id <change_id> \
   --status resolved --description "Recovered." \
   --data '{"component_changes":[{"component_id":"<component_id>","status":"operational"}]}'
 # 6. confirm closed
-fduty status-page change-active-list <page_id> --type incident
+flashduty status-page change-active-list <page_id> --type incident
 ```
 
-<!-- GENERATED:status-page START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:status-page START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### change-active-list <page-id>
 List active status page events
@@ -284,7 +284,7 @@ Update status page
 ## Worked example — open an incident
 
 ```bash
-fduty status-page change-create <page_id> --type incident \
+flashduty status-page change-create <page_id> --type incident \
   --title "Web Console Degraded" --status investigating \
   --description "Investigating degraded performance on the web console." \
   --data '{"updates":[{"status":"investigating","description":"Team is investigating.","component_changes":[{"component_id":"<component_id>","status":"degraded"}]}]}'

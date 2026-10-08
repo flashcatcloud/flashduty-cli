@@ -1,4 +1,4 @@
-# fduty insight — command card
+# flashduty insight — command card
 
 Prereq: `SKILL.md` read. All `insight` verbs are **read-only** — no mutations, no confirmations needed.
 
@@ -8,7 +8,7 @@ Prereq: `SKILL.md` read. All `insight` verbs are **read-only** — no mutations,
 
 "per-person notification counts / 通知次数 / 通知量 (how many notifications did a person receive)" → **insight responder** (`total_notifications`); per-person delivery outcome detail lives in `incident timeline` `i_notify` entries (`person_id` + `failed_reason` only — no answer/接通 field), not here.
 
-Do **not** hand-aggregate from `alert list` / `incident list` — `insight` does server-side aggregation and gives authoritative numbers. Key IDs you may need: `--team-ids` and `--channel-ids` from `fduty channel list` or `fduty team list`; `--responder-ids` from `fduty member list`.
+Do **not** hand-aggregate from `alert list` / `incident list` — `insight` does server-side aggregation and gives authoritative numbers. Key IDs you may need: `--team-ids` and `--channel-ids` from `flashduty channel list` or `flashduty team list`; `--responder-ids` from `flashduty member list`.
 
 ## Intent → verb
 
@@ -31,20 +31,20 @@ Do **not** hand-aggregate from `alert list` / `incident list` — `insight` does
 
 ```bash
 # account-level roll-up for past 30 days
-fduty insight account --start-time 30d --end-time now --output-format toon
+flashduty insight account --start-time 30d --end-time now --output-format toon
 
 # per-team and per-channel breakdowns (same flags)
-fduty insight team    --start-time 30d --end-time now --output-format toon
-fduty insight channel --start-time 30d --end-time now --output-format toon
+flashduty insight team    --start-time 30d --end-time now --output-format toon
+flashduty insight channel --start-time 30d --end-time now --output-format toon
 
 # who responded slowest (per-responder MTTA)
-fduty insight responder --start-time 30d --end-time now --output-format toon
+flashduty insight responder --start-time 30d --end-time now --output-format toon
 
 # top-10 noisiest check sources this week
-fduty insight top-alerts --label check --since 7d --output-format toon
+flashduty insight top-alerts --label check --since 7d --output-format toon
 
 # per-incident list with MTTA/MTTR (uses --since not --start-time)
-fduty insight incidents --since 30d --limit 50 --output-format toon
+flashduty insight incidents --since 30d --limit 50 --output-format toon
 ```
 
 ## Hot flow — 月报 CSV export
@@ -52,15 +52,15 @@ fduty insight incidents --since 30d --limit 50 --output-format toon
 ```bash
 # incident-export takes epoch seconds ONLY (int64, not relative strings)
 S=$(date -v-30d +%s); E=$(date +%s)
-fduty insight incident-export --start-time $S --end-time $E > incidents.csv
+flashduty insight incident-export --start-time $S --end-time $E > incidents.csv
 
 # responder/channel/team-export accept relative strings
-fduty insight responder-export --start-time 30d --end-time now > responders.csv
-fduty insight channel-export   --start-time 30d --end-time now > channels.csv
-fduty insight team-export      --start-time 30d --end-time now > teams.csv
+flashduty insight responder-export --start-time 30d --end-time now > responders.csv
+flashduty insight channel-export   --start-time 30d --end-time now > channels.csv
+flashduty insight team-export      --start-time 30d --end-time now > teams.csv
 ```
 
-<!-- GENERATED:insight START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:insight START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### account
 Get account-level insight
@@ -380,13 +380,13 @@ Both families accept: relative duration (`30d`, `24h`), `now`, `+7d`, a date, or
 - **`--aggregate-unit`** (on `account`, `alert-topk-by-label`, `channel`, `responder`, `team` and their exports) splits results into time buckets: `day` / `week` / `month`. When set, the window must span ≥24 h; `day` additionally caps the range at 31 days.
 - **`top-alerts` and `alert-topk-by-label` return the same top-K breakdown** (`label`, `hours`, `total_alert_cnt`, `total_alert_event_cnt`) — `alert-topk-by-label` is the superset (adds `--team-ids`/`--channel-ids`/severity filters and `--start-time`/`--end-time`). Pick one; don't call both for the same question.
 - **`responder` has no `--limit`/`--page`** — one call returns every responder's rollup for the account. For account-wide load analysis, use that single response; don't cap it and re-fetch for the rest.
-- **Iterating on a `jq` filter? Save `--json` once, then re-run `jq` against the saved file.** Each `fduty insight ...` invocation is a real backend query — re-running the whole command per filter tweak multiplies OLAP load for nothing and risks a timeout on a heavy window.
+- **Iterating on a `jq` filter? Save `--json` once, then re-run `jq` against the saved file.** Each `flashduty insight ...` invocation is a real backend query — re-running the whole command per filter tweak multiplies OLAP load for nothing and risks a timeout on a heavy window.
 
 ## Worked example — identify noisiest check sources
 
 ```bash
 # Top-20 noisiest check sources in the past 7 days, sorted by raw event count
-fduty insight alert-topk-by-label \
+flashduty insight alert-topk-by-label \
   --label check \
   --k 20 \
   --orderby total_alert_event_cnt \

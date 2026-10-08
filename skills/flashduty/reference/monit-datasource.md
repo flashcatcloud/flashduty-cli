@@ -1,4 +1,4 @@
-# fduty monit — datasources
+# flashduty monit — datasources
 
 Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other Flashmonit surface points at: a rule evaluates one, a probe queries one.
 
@@ -6,7 +6,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 
 "数据源 / 连接数据源 / SLS project / logstore" or "datasource / connect a datasource / SLS discovery" → this card, **when the datasource is something Flashmonit queries** (Prometheus, Loki, VictoriaLogs, SQL engines, SLS).
 
-**"Datasource" is two unrelated things in this product — check which one the user means.** This card is `POST /monit/datasource/*`: the Flashmonit config surface, i.e. the systems Flashmonit *queries*. On-call has its own, older use of the word: the top-level `datasource` group is `POST /datasource/*` and holds IM-integration plumbing (`fduty datasource im-war-room-enabled-list`, `fduty datasource im-person-try-link`), while the On-call **integrations** that *receive* alerts into a channel live in `reference/channel.md`. So 接入告警 / 集成 / 告警来源 → On-call, not here; "连一个 Prometheus / Loki / MySQL 上来查" → here.
+**"Datasource" is two unrelated things in this product — check which one the user means.** This card is `POST /monit/datasource/*`: the Flashmonit config surface, i.e. the systems Flashmonit *queries*. On-call has its own, older use of the word: the top-level `datasource` group is `POST /datasource/*` and holds IM-integration plumbing (`flashduty datasource im-war-room-enabled-list`, `flashduty datasource im-person-try-link`), while the On-call **integrations** that *receive* alerts into a channel live in `reference/channel.md`. So 接入告警 / 集成 / 告警来源 → On-call, not here; "连一个 Prometheus / Loki / MySQL 上来查" → here.
 
 **Mutating:** `datasource-create`, `datasource-update`, `datasource-delete` — confirm before running. **`datasource-delete` is irreversible**; confirm the target with `datasource-info` first.
 
@@ -33,9 +33,9 @@ Use the selected `id`, never an Agent locator. `enabled=true` is required; `aler
 Invoke tools through `monit-query` (see `reference/monit-query.md`); the generated `monit datasource-tools-invoke` below is the spec-mirror equivalent entry for the same endpoint.
 
 ```bash
-fduty monit datasource-list --type redis_node --output-format json \
+flashduty monit datasource-list --type redis_node --output-format json \
   | jq '[.[] | {id,name,type_ident,address,edge_cluster_name,enabled,alerting_enabled}]'
-fduty monit-query 12345 --tool redis_node.overview --output-format json
+flashduty monit-query 12345 --tool redis_node.overview --output-format json
 ```
 
 One call invokes one named tool. The CLI unwraps HTTP data to `{datasource_id,tool,data,summary?,truncated?}`. The endpoint has no tool catalog: use the datasource-specific skill reference for static names and parameters. Examples include `mysql.lock_contention`, `postgres.activity`, `redis_node.slowlog`, `kafka.consumer_lag`, `elasticsearch.cat`, `prometheus.metric_trends`, `loki.log_patterns`, and `victorialogs.log_patterns`. Do not guess tool parameters.
@@ -47,14 +47,14 @@ Tools require all currently routable Edge sessions in the selected cluster to su
 The same invoke entry also runs query tools named `<type>.query` for ten datasource types: `prometheus`, `mysql`, `postgres`, `oracle`, `clickhouse`, `elasticsearch`, `loki`, `victorialogs`, `sls`, `tencent_cls`. The tool prefix must match the datasource type. `params` is a per-datasource structure: always `expr` plus `execution` (`kind: instant|range|window`, `from_ms`/`to_ms` Unix milliseconds; `range` also needs `max_data_points`). Log types can add `limit`/`direction`; `sls` requires `project`/`logstore`; `tencent_cls` requires `region`/`topic_id`/`syntax`. SQL types take a single read-only statement with `window` execution.
 
 ```bash
-fduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
+flashduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
 {"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}
 FDUTY
 ```
 
 Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to another endpoint automatically.
 
-<!-- GENERATED:monit[datasource] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:monit[datasource] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### datasource-create
 Create datasource
