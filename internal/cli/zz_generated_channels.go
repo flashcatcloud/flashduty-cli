@@ -1441,13 +1441,13 @@ Request fields:
   --search-after-ctx string
   --asc bool — When true, sort ascending; defaults to false (descending).
   --channel-ids []int — Filter by explicit channel IDs.
-  --channel-name string — Exact-match filter on channel name. Takes priority over 'query' for name filtering.
+  --channel-name string — Exact-match filter on channel name. Takes priority over 'query' for name filtering. Must be valid UTF-8 — invalid byte sequences are rejected with 'InvalidParameter'.
   --is-brief bool — When true, return only 'channel_id', 'channel_name', 'description' and 'status', and return all matches without pagination.
   --is-my-managed bool — When true, return only channels the caller manages.
   --is-my-starred bool — When true, return only channels the caller has starred. Mutually exclusive with 'is_my_team'.
   --is-my-team bool — When true, return channels owned by the caller's teams. Mutually exclusive with 'is_my_starred'.
   --orderby string — Field used to order results. Defaults to 'created_at'. [ranking, created_at, updated_at, channel_name, last_incident_at]
-  --query string — Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match.
+  --query string — Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match. Must be valid UTF-8 — invalid byte sequences are rejected with 'InvalidParameter'.
   --team-ids []int — Filter by team IDs.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -1567,13 +1567,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "When true, sort ascending; defaults to false (descending).")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by explicit channel IDs.")
-	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "Exact-match filter on channel name. Takes priority over 'query' for name filtering.")
+	cmd.Flags().StringVar(&fChannelName, "channel-name", "", "Exact-match filter on channel name. Takes priority over 'query' for name filtering. Must be valid UTF-8 — invalid byte sequences are rejected with 'InvalidParameter'.")
 	cmd.Flags().BoolVar(&fIsBrief, "is-brief", false, "When true, return only 'channel_id', 'channel_name', 'description' and 'status', and return all matches without pagination.")
 	cmd.Flags().BoolVar(&fIsMyManaged, "is-my-managed", false, "When true, return only channels the caller manages.")
 	cmd.Flags().BoolVar(&fIsMyStarred, "is-my-starred", false, "When true, return only channels the caller has starred. Mutually exclusive with 'is_my_team'.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, return channels owned by the caller's teams. Mutually exclusive with 'is_my_starred'.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Field used to order results. Defaults to 'created_at'. [ranking, created_at, updated_at, channel_name, last_incident_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive regular expression matched against channel name and description; invalid regex syntax falls back to a literal match. Must be valid UTF-8 — invalid byte sequences are rejected with 'InvalidParameter'.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

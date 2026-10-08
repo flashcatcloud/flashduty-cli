@@ -69,12 +69,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - can_fork (boolean) (required) — True when the caller can fork this session.
     - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
     - can_view (boolean) (required) — True when the caller can view this session.
-    - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
-      - account_pack_id (string) — Resolved account-scoped pack id.
+    - context_resolved (object) — Snapshot of the three-tier knowledge resolution for this session.
+      - account_pack_id (string) — Resolved account-scope knowledge ID.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the packs were resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - team_pack_id (string) — Resolved team-scoped pack id.
-      - versions (object) — Per-pack resolved version map.
+      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - team_pack_id (string) — Resolved team-scope knowledge ID.
+      - versions (object) — Resolved version map, one entry per knowledge.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
@@ -84,6 +84,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
     - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
+    - has_open_tasks (boolean) — Whether the session still has open tasks, used to tell a handed-off turn from a settled session. Best-effort: when the read fails the field is absent ('omitempty'), which callers must treat as "unknown", never as proof the session is idle.
     - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
@@ -110,7 +111,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
     - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not specific to this session.
+  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has no knowledge in any scope; not specific to this session.
 `,
 		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-get --data '{"num_recent_events":50,"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
@@ -172,6 +173,7 @@ func genSessionsReadListCmd() *cobra.Command {
 	var fIncludeSubagentSessions bool
 	var fKeyword string
 	var fOrderby string
+	var fPersonIDs []int
 	var fScope string
 	var fStatus string
 	var fTeamIDs []int
@@ -194,6 +196,7 @@ Request fields:
   --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
   --keyword string — Filter by session-name keyword. (≤64 chars)
   --orderby string — Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]
+  --person-ids []int — Filter by who started the session: returns only sessions started by these members (a session is kept when 'person_id' matches any of them). Intersects with 'scope' and 'team_ids', so it never widens what the caller is allowed to see.
   --scope string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]
   --status string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]
   --team-ids []int — Optional explicit team filter; intersects with 'scope' and never expands access.
@@ -212,12 +215,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - can_fork (boolean) (required) — True when the caller can fork this session.
     - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
     - can_view (boolean) (required) — True when the caller can view this session.
-    - context_resolved (object) — Snapshot of the three-tier knowledge-pack resolution for this session.
-      - account_pack_id (string) — Resolved account-scoped pack id.
+    - context_resolved (object) — Snapshot of the three-tier knowledge resolution for this session.
+      - account_pack_id (string) — Resolved account-scope knowledge ID.
       - incident_id (string) — Bound incident id, when war-room originated.
-      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the packs were resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - team_pack_id (string) — Resolved team-scoped pack id.
-      - versions (object) — Per-pack resolved version map.
+      - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - team_pack_id (string) — Resolved team-scope knowledge ID.
+      - versions (object) — Resolved version map, one entry per knowledge.
     - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
@@ -227,6 +230,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
     - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
+    - has_open_tasks (boolean) — Whether the session still has open tasks, used to tell a handed-off turn from a settled session. Best-effort: when the read fails the field is absent ('omitempty'), which callers must treat as "unknown", never as proof the session is idle.
     - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
@@ -253,7 +257,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
     - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has zero knowledge packs in any scope; not dependent on this call's filters.
+  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has no knowledge in any scope; not dependent on this call's filters.
   - total (integer) (required) — Total number of sessions matching the filter (ignoring pagination).
 `,
 		Example: `  flashduty safari session-list --data '{"app_name":"ai-sre","limit":2,"orderby":"updated_at","scope":"all"}'`,
@@ -286,6 +290,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("orderby") {
 						body["orderby"] = fOrderby
+					}
+					if cmd.Flags().Changed("person-ids") {
+						body["person_ids"] = fPersonIDs
 					}
 					if cmd.Flags().Changed("scope") {
 						body["scope"] = fScope
@@ -322,6 +329,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
 	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Filter by who started the session: returns only sessions started by these members (a session is kept when 'person_id' matches any of them). Intersects with 'scope' and 'team_ids', so it never widens what the caller is allowed to see.")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope' and never expands access.")

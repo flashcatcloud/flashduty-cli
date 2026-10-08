@@ -22,17 +22,17 @@ Return a knowledge file's metadata and its base64-encoded content.
 API: POST /safari/knowledge/file/get (knowledge-file-read-get)
 
 Request fields:
-  --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
-  --rel-path string (required) — Path of the file relative to the pack root.
+  --pack-id string — Knowledge ID; defaults to the caller's account-scope knowledge.
+  --rel-path string (required) — Path of the file relative to the knowledge root.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - content_b64 (string) (required) — Base64-encoded file content; decodes to UTF-8 text.
-  - file (object) (required) — Metadata of one file inside a knowledge pack. Content is fetched separately via file/get.
+  - file (object) (required) — Metadata of one knowledge file. Content is fetched separately via file/get.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
-    - pack_id (string) (required) — ID of the knowledge pack that contains the file.
-    - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
+    - pack_id (string) (required) — ID of the knowledge that contains the file.
+    - rel_path (string) (required) — Path relative to the knowledge root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
@@ -64,8 +64,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
-	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Path of the file relative to the pack root. (required)")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID; defaults to the caller's account-scope knowledge.")
+	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Path of the file relative to the knowledge root. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -81,7 +81,7 @@ func genKnowledgeFileReadListCmd() *cobra.Command {
 		Short: "List knowledge files",
 		Long: `List knowledge files.
 
-List the files in a knowledge pack with metadata such as size and checksum.
+List knowledge files with metadata such as size and checksum.
 
 API: POST /safari/knowledge/file/list (knowledge-file-read-list)
 
@@ -89,19 +89,19 @@ Request fields:
   --page int — Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.
   --limit int — Page size. Accepted but currently ignored — the response always contains the full file list.
   --search-after-ctx string
-  --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
+  --pack-id string — Knowledge ID; defaults to the caller's account-scope knowledge.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - files (array<object>) (required) — Array of files in the specified knowledge pack; empty array when the pack has no files.
+  - files (array<object>) (required) — Array of files in the specified knowledge; empty array when it has no files.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
-    - pack_id (string) (required) — ID of the knowledge pack that contains the file.
-    - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
+    - pack_id (string) (required) — ID of the knowledge that contains the file.
+    - rel_path (string) (required) — Path relative to the knowledge root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
-  - total (integer) (required) — Total number of files in the pack.
+  - total (integer) (required) — Total number of files in the knowledge.
 `,
 		Example: `  flashduty safari knowledge-file-list --data '{"pack_id":"kpk_kE49k3FhecfJBwutbshEEc"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -139,7 +139,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Accepted but currently ignored — the response always contains the full file list.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID; defaults to the caller's account-scope knowledge.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -154,18 +154,18 @@ func genKnowledgeFileWriteDeleteCmd() *cobra.Command {
 		Short: "Delete knowledge file",
 		Long: `Delete knowledge file.
 
-Delete a file from a knowledge pack by its relative path.
+Delete a knowledge file by its relative path.
 
 API: POST /safari/knowledge/file/delete (knowledge-file-write-delete)
 
 Request fields:
-  --force bool — Delete even when other pack files reference this file; the referrers are then returned as warnings instead of blocking the delete.
-  --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
-  --rel-path string (required) — Path of the file relative to the pack root.
+  --force bool — Delete even when other knowledge files reference this file; the referrers are then returned as warnings instead of blocking the delete.
+  --pack-id string — Knowledge ID; defaults to the caller's account-scope knowledge.
+  --rel-path string (required) — Path of the file relative to the knowledge root.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - warnings (array<object>) — Non-blocking warnings after deletion; 'code=still_referenced_by' means the (force-)deleted file is still @ref-referenced by other files in the pack ('refs' lists the referrers). Absent when there are no warnings (omitempty).
-    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the pack; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the pack; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
+  - warnings (array<object>) — Non-blocking warnings after deletion; 'code=still_referenced_by' means the (force-)deleted file is still @ref-referenced by other files in the knowledge ('refs' lists the referrers). Absent when there are no warnings (omitempty).
+    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the knowledge; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the knowledge; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
     - ref (string) — Single reference related to the warning.
     - refs (array<string>) — Multiple references related to the warning.
 `,
@@ -199,9 +199,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fForce, "force", false, "Delete even when other pack files reference this file; the referrers are then returned as warnings instead of blocking the delete.")
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
-	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Path of the file relative to the pack root. (required)")
+	cmd.Flags().BoolVar(&fForce, "force", false, "Delete even when other knowledge files reference this file; the referrers are then returned as warnings instead of blocking the delete.")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID; defaults to the caller's account-scope knowledge.")
+	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Path of the file relative to the knowledge root. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -217,28 +217,28 @@ func genKnowledgeFileWritePutCmd() *cobra.Command {
 		Short: "Upload knowledge file",
 		Long: `Upload knowledge file.
 
-Create or overwrite a file in a knowledge pack with base64-encoded content.
+Create or overwrite a knowledge file with base64-encoded content.
 
 API: POST /safari/knowledge/file/put (knowledge-file-write-put)
 
 Request fields:
   --content-b64 string — Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.
   --content-type string — MIME type; inferred from the file extension when omitted.
-  --pack-id string — Knowledge pack ID; defaults to the caller's account-scope pack.
-  --rel-path string (required) — Destination path relative to the pack root; existing files are overwritten.
+  --pack-id string — Knowledge ID; defaults to the caller's account-scope knowledge.
+  --rel-path string (required) — Destination path relative to the knowledge root; existing files are overwritten.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - file (object) (required) — Metadata of one file inside a knowledge pack. Content is fetched separately via file/get.
+  - file (object) (required) — Metadata of one knowledge file. Content is fetched separately via file/get.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
-    - pack_id (string) (required) — ID of the knowledge pack that contains the file.
-    - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
+    - pack_id (string) (required) — ID of the knowledge that contains the file.
+    - rel_path (string) (required) — Path relative to the knowledge root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
-  - warnings (array<object>) — Non-blocking warnings after a successful write; 'code=unresolved_reference' means an @ref in the file content points to a file that does not exist in the pack. Absent when there are no warnings (omitempty).
-    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the pack; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the pack; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
+  - warnings (array<object>) — Non-blocking warnings after a successful write; 'code=unresolved_reference' means an @ref in the file content points to a file that does not exist in the knowledge. Absent when there are no warnings (omitempty).
+    - code (string) (required) — Warning code. One of: 'unresolved_reference' (an @ref in the written file's content points to a file that does not exist in the knowledge; 'ref' carries it), 'still_referenced_by' (the deleted file is still @ref-referenced by other files in the knowledge; 'refs' lists the referrers). [unresolved_reference, still_referenced_by]
     - ref (string) — Single reference related to the warning.
     - refs (array<string>) — Multiple references related to the warning.
 `,
@@ -277,8 +277,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fContentB64, "content-b64", "", "Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.")
 	cmd.Flags().StringVar(&fContentType, "content-type", "", "MIME type; inferred from the file extension when omitted.")
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID; defaults to the caller's account-scope pack.")
-	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Destination path relative to the pack root; existing files are overwritten. (required)")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID; defaults to the caller's account-scope knowledge.")
+	cmd.Flags().StringVar(&fRelPath, "rel-path", "", "Destination path relative to the knowledge root; existing files are overwritten. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -287,37 +287,37 @@ func genKnowledgePackReadGetCmd() *cobra.Command {
 	var dataJSON string
 	cmd := &cobra.Command{
 		Use:   "knowledge-get",
-		Short: "Get account knowledge pack",
-		Long: `Get account knowledge pack.
+		Short: "Get account knowledge",
+		Long: `Get account knowledge.
 
-Return the account-scope knowledge pack metadata and its file list.
+Return the metadata and file list of the account-scope knowledge.
 
 API: POST /safari/knowledge/get (knowledge-pack-read-get)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - files (array<object>) (required) — Array of files in this knowledge pack; empty array when the pack has no files.
+  - files (array<object>) (required) — Array of files in this knowledge; empty array when it has no files.
     - checksum (string) (required) — SHA-256 hex digest of the file content.
     - content_type (string) (required) — MIME type; inferred from the file extension when not set on upload.
     - file_id (string) (required) — File ID ('kfl_' prefix).
-    - pack_id (string) (required) — ID of the knowledge pack that contains the file.
-    - rel_path (string) (required) — Path relative to the pack root, e.g. 'runbooks/restart.md'.
+    - pack_id (string) (required) — ID of the knowledge that contains the file.
+    - rel_path (string) (required) — Path relative to the knowledge root, e.g. 'runbooks/restart.md'.
     - size_bytes (integer) (required) — File size in bytes.
     - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the file was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID of the member who last modified the file.
-  - pack (object) (required) — A knowledge pack — a versioned file tree staged into every AI SRE sandbox at session start. One pack exists per (account, scope, scope_id).
-    - account_id (integer) (required) — Account that owns the pack.
-    - can_edit (boolean) (required) — Whether the caller can edit this pack.
-    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - created_by (integer) (required) — Person ID of the member who created the pack.
-    - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
-    - file_count (integer) (required) — Number of files in the pack.
-    - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
-    - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
+  - pack (object) (required) — Knowledge — a versioned file tree staged into every AI SRE sandbox at session start. One knowledge exists per (account, scope, scope_id).
+    - account_id (integer) (required) — Account that owns the knowledge.
+    - can_edit (boolean) (required) — Whether the caller can edit this knowledge.
+    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_by (integer) (required) — Person ID of the member who created the knowledge.
+    - duty_version (integer) (required) — Knowledge version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the knowledge.
+    - file_count (integer) (required) — Number of files in the knowledge.
+    - pack_id (string) (required) — Knowledge ID ('kpk_' prefix).
+    - scope (string) (required) — Knowledge scope. 'channel' is a legacy scope; new knowledge is 'account' or 'team' scope. [account, team, channel]
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
     - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
     - total_bytes (integer) (required) — Total size of all files in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - version (integer) (required) — Pack version, incremented on every file change.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - version (integer) (required) — Knowledge version, incremented on every file change.
 `,
 		Example: `  flashduty safari knowledge-get --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -352,10 +352,10 @@ func genKnowledgePackReadListCmd() *cobra.Command {
 	var fTeamIDs []int
 	cmd := &cobra.Command{
 		Use:   "knowledge-pack-list",
-		Short: "List knowledge packs",
-		Long: `List knowledge packs.
+		Short: "List knowledge",
+		Long: `List knowledge.
 
-List knowledge packs visible to the caller across account and team scopes.
+List the knowledge visible to the caller across account and team scopes.
 
 API: POST /safari/knowledge/pack/list (knowledge-pack-read-list)
 
@@ -363,27 +363,27 @@ Request fields:
   --page int — Page number, 1-based; returns all results when both 'p' and 'limit' are unset.
   --limit int — Page size.
   --search-after-ctx string
-  --include-account bool — Include the account-scope pack; defaults to true.
-  --query string — Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)
-  --scope string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]
+  --include-account bool — Include the account-scope knowledge; defaults to true.
+  --query string — Case-insensitive substring filter over knowledge ID, scope, scope ID/account ID, and team name. (≤128 chars)
+  --scope string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level knowledge only), 'team' (team-level knowledge only, can be combined with 'team_ids'). [all, account, team]
   --team-ids []int — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - packs (array<object>) (required) — Array of visible knowledge packs after filtering (current page), used with 'total' for pagination.
-    - account_id (integer) (required) — Account that owns the pack.
-    - can_edit (boolean) (required) — Whether the caller can edit this pack.
-    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - created_by (integer) (required) — Person ID of the member who created the pack.
-    - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
-    - file_count (integer) (required) — Number of files in the pack.
-    - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
-    - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
+  - packs (array<object>) (required) — Array of visible knowledge after filtering (current page), used with 'total' for pagination.
+    - account_id (integer) (required) — Account that owns the knowledge.
+    - can_edit (boolean) (required) — Whether the caller can edit this knowledge.
+    - created_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_by (integer) (required) — Person ID of the member who created the knowledge.
+    - duty_version (integer) (required) — Knowledge version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the knowledge.
+    - file_count (integer) (required) — Number of files in the knowledge.
+    - pack_id (string) (required) — Knowledge ID ('kpk_' prefix).
+    - scope (string) (required) — Knowledge scope. 'channel' is a legacy scope; new knowledge is 'account' or 'team' scope. [account, team, channel]
     - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
     - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
     - total_bytes (integer) (required) — Total size of all files in bytes.
-    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - version (integer) (required) — Pack version, incremented on every file change.
-  - total (integer) (required) — Total number of packs after filtering, before pagination.
+    - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - version (integer) (required) — Knowledge version, incremented on every file change.
+  - total (integer) (required) — Total number of knowledge entries after filtering, before pagination.
 `,
 		Example: `  flashduty safari knowledge-pack-list --data '{"include_account":true,"limit":20,"p":1,"scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -430,9 +430,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based; returns all results when both 'p' and 'limit' are unset.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include the account-scope pack; defaults to true.")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). [all, account, team]")
+	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include the account-scope knowledge; defaults to true.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring filter over knowledge ID, scope, scope ID/account ID, and team name. (≤128 chars)")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level knowledge only), 'team' (team-level knowledge only, can be combined with 'team_ids'). [all, account, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to these team IDs; for non-admins the list is intersected with their own teams.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -443,18 +443,18 @@ func genKnowledgePackWriteDeleteCmd() *cobra.Command {
 	var fPackID string
 	cmd := &cobra.Command{
 		Use:   "knowledge-pack-delete <pack-id>",
-		Short: "Delete knowledge pack",
-		Long: `Delete knowledge pack.
+		Short: "Delete knowledge",
+		Long: `Delete knowledge.
 
-Delete a knowledge pack and all of its files.
+Delete knowledge and all of its files.
 
 API: POST /safari/knowledge/pack/delete (knowledge-pack-write-delete)
 
 Request fields:
-  --pack-id string (required) — Knowledge pack ID to delete.
+  --pack-id string (required) — Knowledge ID to delete.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - ok (boolean) (required) — True when the pack was deleted.
+  - ok (boolean) (required) — True when the knowledge was deleted.
 `,
 		Args:    requireBodyFieldOrExactArg("pack_id", "pack-id"),
 		Example: `  flashduty safari knowledge-pack-delete --data '{"pack_id":"kpk_YqHXPTEUHQFGepUfRS7vsh"}'`,
@@ -484,7 +484,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID to delete. (required)")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID to delete. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -495,31 +495,31 @@ func genKnowledgePackWriteEnsureCmd() *cobra.Command {
 	var fScopeID int64
 	cmd := &cobra.Command{
 		Use:   "knowledge-pack-ensure",
-		Short: "Ensure knowledge pack",
-		Long: `Ensure knowledge pack.
+		Short: "Ensure knowledge",
+		Long: `Ensure knowledge.
 
-Idempotently create the knowledge pack at the given scope, or return the existing one.
+Idempotently create the knowledge at the given scope, or return the existing one.
 
 API: POST /safari/knowledge/pack/ensure (knowledge-pack-write-ensure)
 
 Request fields:
-  --scope string (required) — Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). [account, team]
+  --scope string (required) — Scope of the knowledge to ensure. One of: 'account' (account-level knowledge; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level knowledge; the 'scope_id' team ID is required and the caller must belong to that team). [account, team]
   --scope-id int — Team ID; required for 'team' scope, ignored for 'account' scope.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account that owns the pack.
-  - can_edit (boolean) (required) — Whether the caller can edit this pack.
-  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - created_by (integer) (required) — Person ID of the member who created the pack.
-  - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
-  - file_count (integer) (required) — Number of files in the pack.
-  - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
-  - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
+  - account_id (integer) (required) — Account that owns the knowledge.
+  - can_edit (boolean) (required) — Whether the caller can edit this knowledge.
+  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_by (integer) (required) — Person ID of the member who created the knowledge.
+  - duty_version (integer) (required) — Knowledge version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the knowledge.
+  - file_count (integer) (required) — Number of files in the knowledge.
+  - pack_id (string) (required) — Knowledge ID ('kpk_' prefix).
+  - scope (string) (required) — Knowledge scope. 'channel' is a legacy scope; new knowledge is 'account' or 'team' scope. [account, team, channel]
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
   - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
   - total_bytes (integer) (required) — Total size of all files in bytes.
-  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - version (integer) (required) — Pack version, incremented on every file change.
+  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - version (integer) (required) — Knowledge version, incremented on every file change.
 `,
 		Example: `  flashduty safari knowledge-pack-ensure --data '{"scope":"team","scope_id":2477033058131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -548,7 +548,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fScope, "scope", "", "Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). (required) [account, team]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Scope of the knowledge to ensure. One of: 'account' (account-level knowledge; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level knowledge; the 'scope_id' team ID is required and the caller must belong to that team). (required) [account, team]")
 	cmd.Flags().Int64Var(&fScopeID, "scope-id", 0, "Team ID; required for 'team' scope, ignored for 'account' scope.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -561,32 +561,32 @@ func genKnowledgePackWriteUpdateCmd() *cobra.Command {
 	var fScopeID int64
 	cmd := &cobra.Command{
 		Use:   "knowledge-pack-update <pack-id>",
-		Short: "Update knowledge pack",
-		Long: `Update knowledge pack.
+		Short: "Update knowledge",
+		Long: `Update knowledge.
 
-Move a knowledge pack to a different account or team scope.
+Move knowledge to a different account or team scope.
 
 API: POST /safari/knowledge/pack/update (knowledge-pack-write-update)
 
 Request fields:
-  --pack-id string (required) — Knowledge pack ID to update.
-  --scope string — Destination scope; omit for a no-op that returns the current pack. [account, team]
+  --pack-id string (required) — Knowledge ID to update.
+  --scope string — Destination scope; omit for a no-op that returns the current knowledge. [account, team]
   --scope-id int — Destination team ID; required when 'scope' is 'team', set automatically for 'account'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account that owns the pack.
-  - can_edit (boolean) (required) — Whether the caller can edit this pack.
-  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - created_by (integer) (required) — Person ID of the member who created the pack.
-  - duty_version (integer) (required) — Pack version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the pack.
-  - file_count (integer) (required) — Number of files in the pack.
-  - pack_id (string) (required) — Knowledge pack ID ('kpk_' prefix).
-  - scope (string) (required) — Pack scope. 'channel' is a legacy scope; new packs are 'account' or 'team'. [account, team, channel]
+  - account_id (integer) (required) — Account that owns the knowledge.
+  - can_edit (boolean) (required) — Whether the caller can edit this knowledge.
+  - created_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_by (integer) (required) — Person ID of the member who created the knowledge.
+  - duty_version (integer) (required) — Knowledge version at which DUTY.md was last authored or re-affirmed. When 'version' is greater, DUTY.md no longer reflects every file in the knowledge.
+  - file_count (integer) (required) — Number of files in the knowledge.
+  - pack_id (string) (required) — Knowledge ID ('kpk_' prefix).
+  - scope (string) (required) — Knowledge scope. 'channel' is a legacy scope; new knowledge is 'account' or 'team' scope. [account, team, channel]
   - scope_id (integer) (required) — Scope owner: the account ID for 'account' scope, the team ID for 'team' scope.
   - team_name (string) — Display name of the owning team (team scope only). Omitted when empty (account scope, or the team name could not be resolved).
   - total_bytes (integer) (required) — Total size of all files in bytes.
-  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the pack was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - version (integer) (required) — Pack version, incremented on every file change.
+  - updated_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was last modified. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - version (integer) (required) — Knowledge version, incremented on every file change.
 `,
 		Args:    requireBodyFieldOrExactArg("pack_id", "pack-id"),
 		Example: `  flashduty safari knowledge-pack-update --data '{"pack_id":"kpk_5qRL34nKtoWM4nQVT2kHzy","scope":"team","scope_id":2477033058131}'`,
@@ -622,8 +622,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge pack ID to update. (required)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Destination scope; omit for a no-op that returns the current pack. [account, team]")
+	cmd.Flags().StringVar(&fPackID, "pack-id", "", "Knowledge ID to update. (required)")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Destination scope; omit for a no-op that returns the current knowledge. [account, team]")
 	cmd.Flags().Int64Var(&fScopeID, "scope-id", 0, "Destination team ID; required when 'scope' is 'team', set automatically for 'account'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
