@@ -1,4 +1,4 @@
-# fduty incident post-mortems — command card
+# flashduty incident post-mortems — command card
 
 Prereq: `SKILL.md` read. `post-mortem-list` / `post-mortem-info` /
 `post-mortem-template-list` / `post-mortem-template-info` are free reads;
@@ -14,7 +14,7 @@ linked to 1–10 incidents; the incidents themselves (triage, resolve, merge)
 are `reference/incident.md`. Key IDs: **`post-mortem-id` (string)** from
 `post-mortem-list` (deterministic hash of the linked incident set);
 **`template-id` (string)** from `post-mortem-template-list`;
-**`incident-id` (24-char MongoDB ObjectID)** from `fduty incident list`.
+**`incident-id` (24-char MongoDB ObjectID)** from `flashduty incident list`.
 
 ## Intent → verb
 
@@ -35,9 +35,9 @@ are `reference/incident.md`. Key IDs: **`post-mortem-id` (string)** from
 
 ```bash
 # 1. pick a template
-fduty incident post-mortem-template-list --output-format toon
+flashduty incident post-mortem-template-list --output-format toon
 # 2. initialize the report from the incident (returns post_mortem_id in meta)
-fduty incident post-mortem-init <incident-id> --template-id <template-id>
+flashduty incident post-mortem-init <incident-id> --template-id <template-id>
 # 3. write the narrative — Markdown goes into a file, then content-reset
 BODY_FILE=$(mktemp)
 cat > "$BODY_FILE" <<'FDUTY_PM_7F3A9C2E_EOF'
@@ -46,13 +46,13 @@ cat > "$BODY_FILE" <<'FDUTY_PM_7F3A9C2E_EOF'
 ## Root cause
 ...
 FDUTY_PM_7F3A9C2E_EOF
-fduty incident post-mortem-content-reset <post-mortem-id> --markdown-file "$BODY_FILE"
+flashduty incident post-mortem-content-reset <post-mortem-id> --markdown-file "$BODY_FILE"
 # 4. follow-ups + publish
-fduty incident post-mortem-follow-ups-reset <post-mortem-id> --follow-ups "Add alert on replica lag; tune failover timeout"
-fduty incident post-mortem-status-reset <post-mortem-id> --status published
+flashduty incident post-mortem-follow-ups-reset <post-mortem-id> --follow-ups "Add alert on replica lag; tune failover timeout"
+flashduty incident post-mortem-status-reset <post-mortem-id> --status published
 ```
 
-<!-- GENERATED:incident[post-mortem] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:incident[post-mortem] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### post-mortem-basics-reset <post-mortem-id>
 Update post-mortem basics
@@ -147,7 +147,7 @@ Update post-mortem title
 ## Gotchas
 
 - **Post-mortem verbs live under the `incident` command group** —
-  `fduty incident post-mortem-list`; there is no standalone post-mortem
+  `flashduty incident post-mortem-list`; there is no standalone post-mortem
   group.
 - **`post-mortem-id` ≠ `incident-id`**: init takes incident IDs and returns
   the report; every later verb takes the `post-mortem-id` from

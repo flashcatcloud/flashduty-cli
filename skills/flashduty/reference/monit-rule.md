@@ -1,4 +1,4 @@
-# fduty monit — alert rules
+# flashduty monit — alert rules
 
 Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit surface: rule CRUD, the folder tree, counters, and change history.
 
@@ -27,8 +27,8 @@ Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit s
 Use `rule-list-basic --folder-id <id>` only when a real folder ID is available from the user or trusted context; it lists direct rules, not descendants. Add `--include-descendants` (optionally `--query` / `--limit`, capped at 100) to enumerate subtree rules as id/folder_id/name rows. Omitting the ID or passing `0` returns "Folder not found".
 
 ```bash
-fduty monit rule-list-basic --folder-id <known-folder-id> --output-format toon
-fduty monit rule-list-basic --folder-id <known-folder-id> --include-descendants --limit 100 --output-format toon
+flashduty monit rule-list-basic --folder-id <known-folder-id> --output-format toon
+flashduty monit rule-list-basic --folder-id <known-folder-id> --include-descendants --limit 100 --output-format toon
 ```
 
 The public CLI cannot discover the folder tree itself. If folder IDs are unavailable, report that limit rather than guessing IDs or treating a partial rule list as complete.
@@ -59,18 +59,18 @@ The public CLI cannot discover the folder tree itself. If folder IDs are unavail
 
 ```bash
 # 1. list direct rules in a folder whose ID is separately known
-fduty monit rule-list-basic --folder-id <folder-id> --output-format toon
+flashduty monit rule-list-basic --folder-id <folder-id> --output-format toon
 # 2. enumerate subtree rules (id/folder_id/name only, capped at 100)
-fduty monit rule-list-basic --folder-id <folder-id> --include-descendants --limit 100 --output-format toon
+flashduty monit rule-list-basic --folder-id <folder-id> --include-descendants --limit 100 --output-format toon
 
 # 3. get full config of one rule
-fduty monit rule-v2-info --id <rule-id> --output-format toon
+flashduty monit rule-v2-info --id <rule-id> --output-format toon
 
 # 4. disable several rules at once without touching other fields
-fduty monit rule-update-fields --ids <id1>,<id2> --fields enabled --enabled false
+flashduty monit rule-update-fields --ids <id1>,<id2> --fields enabled --enabled false
 ```
 
-<!-- GENERATED:monit[rule] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:monit[rule] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### rule-audit-detail
 Get rule audit snapshot

@@ -1,10 +1,10 @@
-# fduty member — command card
+# flashduty member — command card
 
 Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 per call). `delete` is **irreversible** — it removes the member from the organization. Default safety check rejects deletes when the member is referenced by escalation rules, schedules, team membership, etc. (pass `--is-force` to bypass). A member provisioned via SSO cannot be deleted at all, even with `--is-force` — disable SSO management for them first. `role-update` **replaces** all role assignments atomically; `role-grant`/`role-revoke` are additive/subtractive.
 
 ## Route here when
 
-"成员 / 邀请 / 用户 / 角色 / member / invite / user profile / role assignment / org roster" → **member**. Sibling domains: `team` (team membership lists, not org-level members); `role` (role definitions — get role IDs here first); `person` (resolve a `person_id` → name with `fduty person infos <person_id> …`, e.g. ids returned by `schedule`/`oncall`/`incident`/`alert` output). Key IDs: **`member_id` (int)** from `member list`; **`role_id` (int)** from `fduty role list`.
+"成员 / 邀请 / 用户 / 角色 / member / invite / user profile / role assignment / org roster" → **member**. Sibling domains: `team` (team membership lists, not org-level members); `role` (role definitions — get role IDs here first); `person` (resolve a `person_id` → name with `flashduty person infos <person_id> …`, e.g. ids returned by `schedule`/`oncall`/`incident`/`alert` output). Key IDs: **`member_id` (int)** from `member list`; **`role_id` (int)** from `flashduty role list`.
 
 ## Intent → verb
 
@@ -24,35 +24,35 @@ Prereq: `SKILL.md` read. `invite` sends invitation emails immediately (up to 20 
 
 ```bash
 # 1. find available role IDs
-fduty role list --output-format toon
+flashduty role list --output-format toon
 
 # 2. invite up to 20 members in one call; members array MUST go via --data
-fduty member invite \
+flashduty member invite \
   --data '{"members":[{"email":"alice@example.com","member_name":"Alice","role_ids":[<role_id>]},{"email":"bob@example.com","member_name":"Bob","role_ids":[<role_id>]}]}'
 # → returns items[].member_id for each new member
 
 # 3. confirm they appear (status will be 'pending' until invite accepted)
-fduty member list --query "alice" --output-format toon
+flashduty member list --query "alice" --output-format toon
 ```
 
 ## Hot flow — role change for an existing member
 
 ```bash
 # 1. look up the member
-fduty member list --query "alice" --output-format toon
+flashduty member list --query "alice" --output-format toon
 # note member_id and current account_role_ids
 
 # 2a. add a role without disturbing others (role-id is POSITIONAL)
-fduty member role-grant <role_id> --member-id <member_id>
+flashduty member role-grant <role_id> --member-id <member_id>
 
 # 2b. OR: set the complete new role list (role-ids positional; replaces ALL roles)
-fduty member role-update <role_id> <role_id2> --member-id <member_id>
+flashduty member role-update <role_id> <role_id2> --member-id <member_id>
 
 # 3. verify
-fduty member list --query "alice" --output-format toon
+flashduty member list --query "alice" --output-format toon
 ```
 
-<!-- GENERATED:member START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:member START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### delete
 Delete member
@@ -135,12 +135,12 @@ Update member roles
   ```bash
   jq -n --rawfile h /tmp/report.html --argjson pids '[<person_id1>,<person_id2>]' \
     '{html: $h, subject: "<subject>", person_ids: $pids}' \
-    | fduty member notify --data -
+    | flashduty member notify --data -
   ```
-- **Resolving a `person_id` → name: use `fduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `fduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
+- **Resolving a `person_id` → name: use `flashduty person infos <person_id> …`, NOT `member list`.** `schedule`/`oncall`/`incident`/`alert` output returns `person_id`s, a **different namespace from `member_id`**. `flashduty person infos` (the sibling `person` group) batch-resolves any number of `person_id`s to `person_name` in one call (rows under `.items[]`). Matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster to find them silently misses people on later pages.
 - **`invite` members array is body-only — use `--data`.** Individual members cannot be passed as flat flags; the `members` array (with nested `role_ids`, `email`, `phone`, etc.) lives only in the JSON body. Up to 20 members per call.
-- **`info-reset <member-id>` can be passed positionally or via `--member-id`** — both work: `fduty member info-reset <member_id> --member-name "New Name"` or `fduty member info-reset --member-id <member_id> --member-name "New Name"`. If both are given, the flag wins.
-- **`role-grant` / `role-revoke` / `role-update` — role IDs can be passed positionally or via `--role-ids`.** Positional is shorter: `fduty member role-grant <role_id> [<role_id2>...] --member-id <member_id>`, or pass `--role-ids <role_id>,<role_id2>` instead. If both are given, the flag wins.
+- **`info-reset <member-id>` can be passed positionally or via `--member-id`** — both work: `flashduty member info-reset <member_id> --member-name "New Name"` or `flashduty member info-reset --member-id <member_id> --member-name "New Name"`. If both are given, the flag wins.
+- **`role-grant` / `role-revoke` / `role-update` — role IDs can be passed positionally or via `--role-ids`.** Positional is shorter: `flashduty member role-grant <role_id> [<role_id2>...] --member-id <member_id>`, or pass `--role-ids <role_id>,<role_id2>` instead. If both are given, the flag wins.
 - **`role-update` is a full replacement.** List current roles with `member list` first; omitting a role removes it.
 - **`delete` default is safe** (checks escalation rules / schedules / team membership). If it rejects with a reference error, review those references before using `--is-force`. An SSO-provisioned member rejects unconditionally — `--is-force` does not override that check.
 - **Empty `member list` result is authoritative** — if `--query` returns nothing the member does not exist; do not widen the query.
@@ -151,16 +151,16 @@ Look up a member then promote them to a new role:
 
 ```bash
 # find member
-fduty member list --query "carol" --output-format toon
+flashduty member list --query "carol" --output-format toon
 # → member_id=4217, account_role_ids=[2]
 
 # find the admin role ID
-fduty role list --output-format toon
+flashduty role list --output-format toon
 # → role_id=1 is "Admin"
 
 # grant admin role (keeps existing role 2)
-fduty member role-grant 1 --member-id 4217
+flashduty member role-grant 1 --member-id 4217
 
 # confirm
-fduty member list --query "carol" --output-format toon
+flashduty member list --query "carol" --output-format toon
 ```

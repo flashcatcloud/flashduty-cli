@@ -80,7 +80,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url; pass --fields to choose a different projection.\n\nSee also: fduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), fduty insight incident-list for metric-rich filtered incident rows, and fduty insight incident-export for CSV incident exports.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url; pass --fields to choose a different projection.\n\nSee also: flashduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), flashduty insight incident-list for metric-rich filtered incident rows, and flashduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -1004,7 +1004,7 @@ const maxIncidentVerifyConcurrency = 8
 // symbol instead of pinning a copy of the sentence: reword this constant and
 // every caller (production and test) picks up the new wording automatically,
 // with nothing left to fall out of sync.
-const commentVerificationGuidance = "The write API already reported success for the whole batch (a single POST covering every requested incident), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. Run `fduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further"
+const commentVerificationGuidance = "The write API already reported success for the whole batch (a single POST covering every requested incident), and not finding a match here does not mean a comment is missing — this check can only confirm presence, never confirm absence. Do not write the comment again, for the full batch or for the incident(s) listed above alone: either risks a duplicate on a write that most likely already landed. Run `flashduty incident timeline <id>` on the listed incident(s) to check by hand before deciding on anything further"
 
 // commentVerificationNotFoundDetailFmt is the per-incident detail appended to
 // commentVerificationGuidance's problem list when the page walk completes

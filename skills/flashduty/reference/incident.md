@@ -1,4 +1,4 @@
-# fduty incident — command card
+# flashduty incident — command card
 
 Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders or alter state** — confirm scope first. `merge` and `remove` are **irreversible**; `remove` permanently deletes.
 
@@ -11,7 +11,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | want | verb |
 |---|---|
 | list / search active incidents | `list` |
-| CSV export of incidents | `fduty insight incident-export` |
+| CSV export of incidents | `flashduty insight incident-export` |
 | look up by 6-char UI num | `info --num <num>` |
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
@@ -47,19 +47,19 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ```bash
 # 1. Find unacknowledged critical incidents (last 4h)
-fduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url --output-format toon
+flashduty incident list --severity Critical --progress Triggered --since 4h --fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url --output-format toon
 
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
-fduty incident detail <incident-id> --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon
+flashduty incident detail <incident-id> --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon
 
 # 3. See contributing alerts
-fduty incident alerts <incident-id>
+flashduty incident alerts <incident-id>
 
 # 4. Check for prior similar incidents (channel-backed only; see Gotchas)
-fduty incident similar <incident-id> --limit 5 --output-format toon
+flashduty incident similar <incident-id> --limit 5 --output-format toon
 
 # 5. Acknowledge ownership
-fduty incident ack <incident-id>
+flashduty incident ack <incident-id>
 
 # 6. Post a status comment — content goes into a file, never a shell argument
 ID=<incident-id>
@@ -69,10 +69,10 @@ cat > "$COMMENT_FILE" <<'FDUTY_COMMENT_7F3A9C2E_EOF'
 Root cause identified: DB failover.
 Fix deploying.
 FDUTY_COMMENT_7F3A9C2E_EOF
-fduty incident comment "$ID" --comment-file "$COMMENT_FILE"
+flashduty incident comment "$ID" --comment-file "$COMMENT_FILE"
 
 # 7. Resolve with root-cause note
-fduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
+flashduty incident resolve <incident-id> --root-cause "DB primary failover delay" --resolution "Failover completed; latency normal."
 ```
 
 Projected `similar` lists stay below 16 KiB: when the page would overflow, only the leading rows that fit are emitted — every value intact — and a stderr note says how many rows were emitted. A trailing `...` in a list row, with a stderr note naming the clipped fields, appears only when one row alone exceeds the budget. `detail --fields` is different: it never shortens values — the projection must fit within 8 KiB as requested or the command fails and names the largest fields, so drop some fields (or drop `--fields` for the full unbounded detail) and retry.
@@ -95,13 +95,13 @@ If you fetch the pieces by hand instead, run **all seven** — they are cheap re
 
 ```bash
 ID=<incident-id>                                          # 24-char id from `incident list`
-fduty incident detail   "$ID" --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon  # ① 详情 + AI summary + alert counts + channel
-fduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
-fduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
-fduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
-fduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel (verb card: reference/postmortem.md)
-fduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
-fduty incident list --since <start-15m> --until <start+15m> --limit 50 --fields incident_id,num,title,incident_severity,progress,start_time,channel_id --output-format toon  # ⑦ concurrent incidents — all channels, any progress, ±15 min around this incident's start_time (from ①)
+flashduty incident detail   "$ID" --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon  # ① 详情 + AI summary + alert counts + channel
+flashduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+flashduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
+flashduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
+flashduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel (verb card: reference/postmortem.md)
+flashduty change list --since 24h                              # ③ correlated changes — by shared labels + time; see reference/change.md
+flashduty incident list --since <start-15m> --until <start+15m> --limit 50 --fields incident_id,num,title,incident_severity,progress,start_time,channel_id --output-format toon  # ⑦ concurrent incidents — all channels, any progress, ±15 min around this incident's start_time (from ①)
 ```
 
 > **Never report a result you didn't fetch.** Do not write "返回空" / "无" / a count for any aspect whose command is **absent from your tool-call history this turn** — write `未查询 — 可运行 <command>` instead. "Empty" is a claim only a command you actually ran can make; inventing it is the worst failure mode of a fault summary.
@@ -112,19 +112,19 @@ fduty incident list --since <start-15m> --until <start+15m> --limit 50 --fields 
 
 ```bash
 # Merge two duplicate incidents into a primary (IRREVERSIBLE — confirm first)
-fduty incident merge <primary-incident-id> --source <dup1-id>,<dup2-id>
+flashduty incident merge <primary-incident-id> --source <dup1-id>,<dup2-id>
 
 # Record post-incident narrative on the primary
-fduty incident reset <primary-incident-id> \
+flashduty incident reset <primary-incident-id> \
   --root-cause "Redis OOM on shard-3" \
   --impact "Checkout latency P99 >5s for 12 min" \
   --resolution "Increased memory limit; deployed hot patch"
 
 # Review the event timeline
-fduty incident timeline <primary-incident-id>
+flashduty incident timeline <primary-incident-id>
 ```
 
-<!-- GENERATED:incident START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:incident START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### ack <incident-id> [<id2>...]
 Acknowledge incident
@@ -509,20 +509,20 @@ Update a work item
 - **`merge` is irreversible**: source incidents are absorbed into target permanently. Always list and confirm both IDs before running.
 - **`remove --force`** bypasses the interactive confirmation prompt — never pass `--force` unless the user has explicitly said so.
 - **`assign` needs `--data` for the nested `assigned_to` object** (either `person_ids` or `escalate_rule_id`). Pass member IDs from `member list` in the API field: `--data '{"incident_ids":["<id>"],"assigned_to":{"person_ids":[101]}}'`. `reassign <id> --person <ids>` is simpler for direct member assignment.
-- **Responders live in the `responders` array on `detail` / `get` / `list` records — names come resolved, no `member list` join needed.** Canonical extraction: `fduty incident detail <id> --json | jq -r '.responders[] | "\(.person_name) <\(.email)>"'`. On `get` the same array sits one level down because `get` prints a top-level array: `jq -r '.[0].responders[] | ...'`. Each responder object carries `person_id`, `person_name` (server-resolved display name), `email`, `assigned_at`, `acknowledged_at` (`0` until acknowledged), and `as` (role label). Two selection traps: `list` omits `responders` from its default compact projection — add it via `--fields ...,responders`; and `detail --fields` projects only what you name — include `responders` in the list or the key is absent (absent ≠ empty). In plain-text mode both `detail` and single-id `get` already print a `Responders: name1, name2` line.
+- **Responders live in the `responders` array on `detail` / `get` / `list` records — names come resolved, no `member list` join needed.** Canonical extraction: `flashduty incident detail <id> --json | jq -r '.responders[] | "\(.person_name) <\(.email)>"'`. On `get` the same array sits one level down because `get` prints a top-level array: `jq -r '.[0].responders[] | ...'`. Each responder object carries `person_id`, `person_name` (server-resolved display name), `email`, `assigned_at`, `acknowledged_at` (`0` until acknowledged), and `as` (role label). Two selection traps: `list` omits `responders` from its default compact projection — add it via `--fields ...,responders`; and `detail --fields` projects only what you name — include `responders` in the list or the key is absent (absent ≠ empty). In plain-text mode both `detail` and single-id `get` already print a `Responders: name1, name2` line.
 
 ## Worked example
 
 ```bash
 # Start: a prod alert paged out; you have the 6-char num "A3F9B1" from Slack.
 # Step 1: resolve the num to full id and get AI summary in one call.
-fduty incident info --num A3F9B1 --output-format toon
+flashduty incident info --num A3F9B1 --output-format toon
 
 # Step 2: acknowledge so teammates see it's being handled.
-fduty incident ack <incident-id>
+flashduty incident ack <incident-id>
 
 # Step 3: after fix, resolve with context.
-fduty incident resolve <incident-id> \
+flashduty incident resolve <incident-id> \
   --root-cause "Misconfigured health-check threshold after deploy" \
   --resolution "Reverted threshold; all pods healthy."
 ```

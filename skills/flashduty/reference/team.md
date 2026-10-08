@@ -1,12 +1,12 @@
-# fduty team — command card
+# flashduty team — command card
 
 Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on teams — no `--help` needed.** Read verbs are free; `delete` is **irreversible** (always `--force` in scripted contexts); `update --person-ids` **replaces** the entire member list — dangerous without a prior `get`.
 
 ## Route here when
 
 "团队 / 成员管理 / 创建团队 / 查找团队 / HR同步 / team ID / person ID归属" → **team**. Key IDs:
-- **`team_id` (int64)** — from `fduty team list` or `team get --name`.
-- **`--person-ids` inputs are member IDs** — look up via `fduty member list --query <name-or-email>` (member card, not here). The API field is named `person_ids`, but team membership expects member IDs.
+- **`team_id` (int64)** — from `flashduty team list` or `team get --name`.
+- **`--person-ids` inputs are member IDs** — look up via `flashduty member list --query <name-or-email>` (member card, not here). The API field is named `person_ids`, but team membership expects member IDs.
 
 NOT this card: on-call schedules (oncall), incidents (incident), channels (channel).
 
@@ -27,24 +27,24 @@ NOT this card: on-call schedules (oncall), incidents (incident), channels (chann
 
 ```bash
 # 1. Check name doesn't already exist
-fduty team list --name "SRE Platform" --output-format toon
+flashduty team list --name "SRE Platform" --output-format toon
 # 2. Create with initial members (member IDs from member list)
-fduty team create --name "SRE Platform" --description "Site Reliability" \
+flashduty team create --name "SRE Platform" --description "Site Reliability" \
   --person-ids 1001,1002,1003
 # 3. Verify — note the returned team_id
-fduty team get --name "SRE Platform" --output-format toon
+flashduty team get --name "SRE Platform" --output-format toon
 ```
 
 ## Hot flow — update members safely
 
 ```bash
 # ALWAYS read current members before --person-ids (it REPLACES, not appends)
-fduty team get --id <team-id> --output-format toon
+flashduty team get --id <team-id> --output-format toon
 # Then pass the FULL desired set (existing + new)
-fduty team update --id <team-id> --person-ids 1001,1002,1003,1004
+flashduty team update --id <team-id> --person-ids 1001,1002,1003,1004
 ```
 
-<!-- GENERATED:team START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:team START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create a new team
@@ -125,14 +125,14 @@ Create or update a team
 - **`--person-ids` on `update` / `create` / `upsert` is a full replacement**, not an append. Read the current list with `get --id` first, or you will silently remove members.
 - **`get` vs `info`** — both fetch a single team; `get` accepts `--id`/`--name`/`--ref-id`; `get [<id>]` also allows the ID as a positional arg. `info` uses `--team-id`/`--team-name`/`--ref-id` flags only. Prefer `get` for interactive lookup.
 - **`delete` is irreversible** and requires confirmation unless `--force` is set. Always confirm the correct `--id` (not `--name`) in scripts to avoid name-collision accidents.
-- **`infos` accepts IDs either way** — space-separated positional args or comma-separated `--team-ids`: `fduty team infos 101 102 103` or `fduty team infos --team-ids 101,102,103`. If both are given, the flag wins.
+- **`infos` accepts IDs either way** — space-separated positional args or comma-separated `--team-ids`: `flashduty team infos 101 102 103` or `flashduty team infos --team-ids 101,102,103`. If both are given, the flag wins.
 - **`upsert` requires `--team-name`** even when updating by `--team-id`; omitting it returns a validation error.
 
 ## Worked example
 
 ```bash
 # Idempotent HR-sync upsert: create "Payments" or reset its membership if it already exists
-fduty team upsert --team-name "Payments" \
+flashduty team upsert --team-name "Payments" \
   --description "Payments engineering" \
   --person-ids 2001,2002,2003 \
   --reset-if-name-exist \

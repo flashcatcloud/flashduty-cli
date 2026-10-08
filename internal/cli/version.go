@@ -45,6 +45,8 @@ func newVersionCmd() *cobra.Command {
 				_, _ = fmt.Fprintln(out, string(b))
 				return
 			}
+			// Fixed "flashduty version" prefix whatever the invoked name: tests,
+			// the issue template and external tooling match on it.
 			_, _ = fmt.Fprintf(out, "flashduty version %s (%s) built %s\n", versionStr, commitStr, dateStr)
 		},
 	}

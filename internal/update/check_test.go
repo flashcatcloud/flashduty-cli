@@ -300,23 +300,31 @@ func TestUpdateBaseURLAndInstallerURLs(t *testing.T) {
 	}
 }
 
-func TestInstallerEnvPassesUpdateBaseAsMirrorURL(t *testing.T) {
+func TestInstallerEnvTargetsUpdateBaseAndRunningBinary(t *testing.T) {
 	t.Setenv("FLASHDUTY_UPDATE_BASE_URL", "https://mirror.example.com/fduty/")
 	t.Setenv("MIRROR_URL", "")
 
-	env := InstallerEnv([]string{"PATH=/bin", "MIRROR_URL=https://old.example.com"})
-	want := "MIRROR_URL=https://mirror.example.com/fduty"
-	found := 0
-	for _, item := range env {
-		if strings.HasPrefix(item, "MIRROR_URL=") {
-			found++
-			if item != want {
-				t.Fatalf("MIRROR_URL entry = %q, want %q", item, want)
+	binPath := filepath.Join("opt", "tools", "fduty")
+	env := InstallerEnv([]string{
+		"PATH=/bin",
+		"MIRROR_URL=https://old.example.com",
+		"FLASHDUTY_INSTALL_DIR=/usr/local/bin",
+		"INSTALLED_NAME=flashduty",
+	}, binPath)
+	for key, want := range map[string]string{
+		"MIRROR_URL":            "https://mirror.example.com/fduty",
+		"FLASHDUTY_INSTALL_DIR": filepath.Join("opt", "tools"),
+		"INSTALLED_NAME":        "fduty",
+	} {
+		var got []string
+		for _, item := range env {
+			if v, ok := strings.CutPrefix(item, key+"="); ok {
+				got = append(got, v)
 			}
 		}
-	}
-	if found != 1 {
-		t.Fatalf("found %d MIRROR_URL entries, want 1 in %#v", found, env)
+		if len(got) != 1 || got[0] != want {
+			t.Errorf("%s entries = %q, want exactly [%q]", key, got, want)
+		}
 	}
 }
 

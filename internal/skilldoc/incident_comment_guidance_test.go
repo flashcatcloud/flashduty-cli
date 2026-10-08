@@ -17,7 +17,7 @@ func TestIncidentCardCommentWorkflow(t *testing.T) {
 
 	body := string(card)
 	quotedHeredoc := "cat > \"$COMMENT_FILE\" <<'FDUTY_COMMENT_7F3A9C2E_EOF'"
-	commentCommand := `fduty incident comment "$ID" --comment-file "$COMMENT_FILE"`
+	commentCommand := `flashduty incident comment "$ID" --comment-file "$COMMENT_FILE"`
 
 	previous := -1
 	for _, requirement := range []string{quotedHeredoc, commentCommand} {
@@ -63,7 +63,7 @@ func TestIncidentCommentFileHeredocPreservesMarkdown(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	script := `fduty() {
+	script := `flashduty() {
   # Mimic --comment-file: print the referenced file's bytes verbatim.
   cat "$5"
 }
@@ -76,7 +76,7 @@ Use ` + "`kubectl get pod`" + ` to inspect the restart.
 COMMENT_EOF
 The follow-up is still pending.
 FDUTY_COMMENT_7F3A9C2E_EOF
-fduty incident comment "$ID" --comment-file "$COMMENT_FILE"
+flashduty incident comment "$ID" --comment-file "$COMMENT_FILE"
 `
 
 	output, err := exec.Command("bash", "-c", script).CombinedOutput()

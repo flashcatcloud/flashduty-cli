@@ -1,4 +1,4 @@
-# fduty schedule — command card
+# flashduty schedule — command card
 
 Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — confirm IDs before executing. `create` / `update` immediately change the live rotation — confirm scope first.**
 
@@ -27,37 +27,37 @@ Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — con
 
 ```bash
 # 1. Find the schedule ID(s) — scope by name or team; don't fetch every schedule
-fduty schedule list --query "SRE" --output-format toon
-# or, for several: fduty schedule list --team-ids <team-id> --output-format toon
+flashduty schedule list --query "SRE" --output-format toon
+# or, for several: flashduty schedule list --team-ids <team-id> --output-format toon
 
 # 2. Current on-call for each schedule — a tiny now-window yields the live shift
-fduty schedule info <schedule-id> --start now --end +1h --output-format toon
+flashduty schedule info <schedule-id> --start now --end +1h --output-format toon
 ```
 
 `--output-format toon` is for reading, not piping — it is **not** jq-parseable. If you need to filter/extract with `jq`, use `--json` instead.
 
-`schedule info`'s on-call groups carry `person_ids` (integers), not names. Resolve every id in **one batch call** with `fduty person infos` (the sibling `person` group — takes positional ids or `--person-ids`):
+`schedule info`'s on-call groups carry `person_ids` (integers), not names. Resolve every id in **one batch call** with `flashduty person infos` (the sibling `person` group — takes positional ids or `--person-ids`):
 
 ```bash
 # person_ids come straight from the schedule/oncall output above
-fduty person infos <person-id> [<person-id2> …] --output-format toon
+flashduty person infos <person-id> [<person-id2> …] --output-format toon
 # → rows under .items[] with person_id + person_name; join on person_id client-side
 ```
 
-**`person_id` ≠ `member_id` — do NOT resolve schedule/oncall people via `member list`.** They are different id namespaces, so matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster (often 20+ pages) silently drops people who land on later pages — a real prod miss. Always feed the `person_id`s to `fduty person infos`. If a lookup genuinely fails, report the bare `person_id` rather than guessing.
+**`person_id` ≠ `member_id` — do NOT resolve schedule/oncall people via `member list`.** They are different id namespaces, so matching `member list` rows on `member_id == <person_id>` is wrong, and paginating the full roster (often 20+ pages) silently drops people who land on later pages — a real prod miss. Always feed the `person_id`s to `flashduty person infos`. If a lookup genuinely fails, report the bare `person_id` rather than guessing.
 
 ## Hot flow — inspect a schedule's upcoming shifts
 
 ```bash
-fduty schedule list --query "SRE" --output-format toon          # find the schedule_id
-fduty schedule info <schedule-id> --start now --end +7d --output-format toon   # next 7 days
+flashduty schedule list --query "SRE" --output-format toon          # find the schedule_id
+flashduty schedule info <schedule-id> --start now --end +7d --output-format toon   # next 7 days
 ```
 
 ## Hot flow — create a schedule via --data
 
 ```bash
 # Layers are deeply nested; pass the full body via --data; scalar flags override matching keys.
-fduty schedule create --schedule-name "SRE Weekly" --team-id <team-id> \
+flashduty schedule create --schedule-name "SRE Weekly" --team-id <team-id> \
   --data '{
     "layers": [{
       "layer_name": "Week rotation",
@@ -93,10 +93,10 @@ fduty schedule create --schedule-name "SRE Weekly" --team-id <team-id> \
       "update_by": 0
     }]
   }'
-# → returns schedule_id; verify with: fduty schedule info <schedule-id> --start now --end +7d
+# → returns schedule_id; verify with: flashduty schedule info <schedule-id> --start now --end +7d
 ```
 
-<!-- GENERATED:schedule START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:schedule START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### by-person <person-id>
 Get member on-call status
@@ -189,7 +189,7 @@ Update schedule
 
 ## Gotchas
 
-- **`info` takes `<schedule-id>` positionally or via `--schedule-id`** — both work: `fduty schedule info 123 --start now --end +7d` or `fduty schedule info --schedule-id 123 --start now --end +7d`. If both are given, the flag wins. **`infos` and `delete` have no singular `--schedule-id` flag** — only the plural `--schedule-ids` (comma-separated), which folds the same way as the positional list; passing `--schedule-id` there is an unknown-flag error, not a rejected alternative.
+- **`info` takes `<schedule-id>` positionally or via `--schedule-id`** — both work: `flashduty schedule info 123 --start now --end +7d` or `flashduty schedule info --schedule-id 123 --start now --end +7d`. If both are given, the flag wins. **`infos` and `delete` have no singular `--schedule-id` flag** — only the plural `--schedule-ids` (comma-separated), which folds the same way as the positional list; passing `--schedule-id` there is an unknown-flag error, not a rejected alternative.
 - **`create` / `update` / `preview` take all inputs as flags** (no positional). `update` requires `--schedule-id` as a flag to identify the target.
 - **`layers` is body-only.** There is no per-layer typed flag — you must pass the entire `layers` array via `--data`. Scalar top-level flags (`--schedule-name`, `--team-id`) override matching `--data` keys.
 - **`list` without `--start`/`--end` omits computed shifts** — only schedule metadata is returned. Pass both flags (≤45 day span) to get rotation slots in the list response.
@@ -201,5 +201,5 @@ Update schedule
 
 ```bash
 # Find my own on-call windows for the next two weeks
-fduty schedule self --start now --end +14d --output-format toon
+flashduty schedule self --start now --end +14d --output-format toon
 ```

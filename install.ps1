@@ -4,6 +4,7 @@
 # Environment variables:
 #   FLASHDUTY_VERSION     - specific version to install (e.g. "v0.1.2")
 #   FLASHDUTY_INSTALL_DIR - install directory (default: $HOME\.flashduty\bin)
+#   INSTALLED_NAME        - installed command name (default: flashduty)
 #   MIRROR_URL            - fetch release assets from this https mirror prefix.
 #                           Default: https://static.flashcat.cloud/flashduty-cli.
 #                           The mirror must replicate
@@ -17,7 +18,8 @@ $ErrorActionPreference = "Stop"
 
 $Repo = "flashcatcloud/flashduty-cli"
 $Binary = "flashduty-cli.exe"
-$InstalledName = "flashduty.exe"
+$CommandName = if ($env:INSTALLED_NAME) { $env:INSTALLED_NAME -replace '\.exe$', '' } else { "flashduty" }
+$InstalledName = "$CommandName.exe"
 
 # By default release downloads are fetched from the Flashcat CDN. Set MIRROR_URL
 # to another prefix to override, or to an empty string to force GitHub fallback.
@@ -153,6 +155,15 @@ try {
     }
 
     $DestPath = Join-Path $InstallDir $InstalledName
+    if (Test-Path $DestPath) {
+        # A running .exe can't be overwritten or deleted but can be renamed:
+        # move it aside under a unique name so `update` can replace the binary
+        # it is running from. Copies moved aside earlier are deleted; one that
+        # is still running stays locked and is left for a later install.
+        Get-ChildItem -Path $InstallDir -Filter "$InstalledName.*.old" -File |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        Move-Item -Path $DestPath -Destination "$DestPath.$([System.Guid]::NewGuid().ToString('N')).old"
+    }
     Move-Item -Path $BinaryPath -Destination $DestPath -Force
 
     Write-Info "Installed to $DestPath"
@@ -165,7 +176,7 @@ try {
         Write-Info "Added $InstallDir to user PATH (restart your terminal for it to take effect)"
     }
 
-    Write-Info "Run 'flashduty version' to verify"
+    Write-Info "Run '$CommandName version' to verify"
 } finally {
     Remove-Item -Path $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }

@@ -1,4 +1,4 @@
-# fduty calendar — command card
+# flashduty calendar — command card
 
 Prereq: `SKILL.md` read. **`delete` is irreversible** (calendar + all its events gone). `event-delete` is irreversible per event. Reads are free; confirm IDs before any delete.
 
@@ -28,21 +28,21 @@ Public holiday calendars (e.g. `zh-cn.china.official`) are read-only — list th
 
 ```bash
 # 1. Find available public-holiday cal IDs for your locale
-fduty calendar list --kind region.official.holiday --output-format toon
+flashduty calendar list --kind region.official.holiday --output-format toon
 
 # 2. Create a personal calendar that inherits CN public holidays, Mon–Fri workdays
-fduty calendar create --cal-name "Ops Workdays" \
+flashduty calendar create --cal-name "Ops Workdays" \
   --timezone Asia/Shanghai \
   --workdays 1,2,3,4,5 \
   --extra-cal-ids zh-cn.china.official
 # → returns cal_id; save it
 
 # 3. Mark a make-up workday (補班) on a Saturday
-fduty calendar event-upsert <cal-id> --summary "補班 (New Year)" \
+flashduty calendar event-upsert <cal-id> --summary "補班 (New Year)" \
   --start-at 2026-01-17 --end-at 2026-01-18 --is-off false
 
 # 4. Mark a custom holiday (non-working)
-fduty calendar event-upsert <cal-id> --summary "Team offsite" \
+flashduty calendar event-upsert <cal-id> --summary "Team offsite" \
   --start-at 2026-03-20 --end-at 2026-03-22 --is-off true
 ```
 
@@ -50,13 +50,13 @@ fduty calendar event-upsert <cal-id> --summary "Team offsite" \
 
 ```bash
 # List all events in January 2026
-fduty calendar event-list <cal-id> --year 2026 --month 1 --output-format toon
+flashduty calendar event-list <cal-id> --year 2026 --month 1 --output-format toon
 
 # Delete a specific event (get event_id from the list above)
-fduty calendar event-delete --cal-id <cal-id> --event-id <event-id>
+flashduty calendar event-delete --cal-id <cal-id> --event-id <event-id>
 ```
 
-<!-- GENERATED:calendar START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:calendar START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### create
 Create calendar
@@ -129,7 +129,7 @@ Update calendar
 
 ## Gotchas
 
-- **`cal-id` is POSITIONAL on `info`, `update`, `delete`, `event-list`, `event-upsert`** — pass it as the first bare argument: `fduty calendar info <cal-id>`. On `event-delete` both `--cal-id` and `--event-id` are flags (no positional — `use` is bare `event-delete`).
+- **`cal-id` is POSITIONAL on `info`, `update`, `delete`, `event-list`, `event-upsert`** — pass it as the first bare argument: `flashduty calendar info <cal-id>`. On `event-delete` both `--cal-id` and `--event-id` are flags (no positional — `use` is bare `event-delete`).
 - **`event-upsert` creates OR updates** — omit `--event-id` to create; supply it to edit an existing event. The returned `event_id` is what to save for future edits or deletes.
 - **`list` defaults to `--kind personal`** — you will NOT see public-holiday calendars unless you pass `--kind region.official.holiday`. Add `--no-locale` to see all locales, not just yours.
 - **`delete` removes the calendar and ALL its events** — confirm `cal_id` with `list` first; irreversible.
@@ -140,7 +140,7 @@ Update calendar
 Mark the Spring Festival week (2026) as non-working in a personal calendar:
 
 ```bash
-fduty calendar event-upsert cal.abc123 \
+flashduty calendar event-upsert cal.abc123 \
   --summary "Spring Festival" \
   --start-at 2026-01-28 --end-at 2026-02-04 \
   --is-off true \

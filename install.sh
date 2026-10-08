@@ -5,6 +5,7 @@
 # Environment:
 #   FLASHDUTY_VERSION      Install a specific version (e.g. v0.1.2). Default: latest.
 #   FLASHDUTY_INSTALL_DIR  Install directory. Default: /usr/local/bin.
+#   INSTALLED_NAME         Installed command name. Default: flashduty.
 #   MIRROR_URL             Fetch release assets from this https mirror prefix.
 #                          Default: https://static.flashcat.cloud/flashduty-cli.
 #                          The mirror must replicate
@@ -134,17 +135,6 @@ detect_shell() {
     esac
 }
 
-# Emit the completion script for the shell named in $1. Cobra bakes the root
-# command name "flashduty" into the script (#compdef / complete -c / function
-# names); when installed under a different name, rewrite every occurrence so the
-# completion binds to the actual command (the runtime dispatch line already uses
-# the typed command word, so it needs no rewrite). The `|` sed delimiter is safe
-# because a binary name can't contain it, and the rewrite is a no-op for the
-# default "flashduty".
-gen_completion() {
-    "${BIN}" completion "$1" | sed "s|flashduty|${INSTALLED_NAME}|g"
-}
-
 # Install completion for the current shell into a directory the shell already
 # auto-loads, without ever editing the user's rc files. zsh has no guaranteed
 # writable fpath dir, so it only succeeds when a standard site-functions dir is
@@ -161,7 +151,7 @@ setup_completion() {
             dir="${XDG_CONFIG_HOME:-${HOME}/.config}/fish/completions"
             mkdir -p "${dir}" 2>/dev/null || true
             if [ -w "${dir}" ]; then
-                gen_completion fish > "${dir}/${INSTALLED_NAME}.fish" && {
+                "${BIN}" completion fish > "${dir}/${INSTALLED_NAME}.fish" && {
                     info "Installed fish completion to ${dir}/${INSTALLED_NAME}.fish (restart fish to load)"
                     return 0
                 }
@@ -171,7 +161,7 @@ setup_completion() {
             dir="${XDG_DATA_HOME:-${HOME}/.local/share}/bash-completion/completions"
             mkdir -p "${dir}" 2>/dev/null || true
             if [ -w "${dir}" ]; then
-                gen_completion bash > "${dir}/${INSTALLED_NAME}" && {
+                "${BIN}" completion bash > "${dir}/${INSTALLED_NAME}" && {
                     info "Installed bash completion to ${dir}/${INSTALLED_NAME} (needs the bash-completion package; restart bash to load)"
                     return 0
                 }
@@ -183,7 +173,7 @@ setup_completion() {
                 "/usr/local/share/zsh/site-functions" \
                 "/usr/share/zsh/site-functions"; do
                 if [ -d "${dir}" ] && [ -w "${dir}" ]; then
-                    gen_completion zsh > "${dir}/_${INSTALLED_NAME}" && {
+                    "${BIN}" completion zsh > "${dir}/_${INSTALLED_NAME}" && {
                         info "Installed zsh completion to ${dir}/_${INSTALLED_NAME}"
                         info "  Run 'rm -f ~/.zcompdump*' and restart zsh to load."
                         return 0

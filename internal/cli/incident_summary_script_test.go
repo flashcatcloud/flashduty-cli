@@ -19,12 +19,12 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 		t.Fatalf("resolve repository root: %v", err)
 	}
 	script := filepath.Join(root, "skills", "flashduty", "scripts", "incident-summary.sh")
-	log := filepath.Join(t.TempDir(), "fduty.log")
-	bin := filepath.Join(t.TempDir(), "fduty")
-	if err := os.WriteFile(bin, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$FDUTY_LOG\"\nprintf 'compact result\\n'\n"), 0o755); err != nil {
-		t.Fatalf("write fake fduty: %v", err)
+	log := filepath.Join(t.TempDir(), "flashduty.log")
+	bin := filepath.Join(t.TempDir(), "flashduty")
+	if err := os.WriteFile(bin, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$FAKE_FLASHDUTY_LOG\"\nprintf 'compact result\\n'\n"), 0o755); err != nil {
+		t.Fatalf("write fake flashduty: %v", err)
 	}
-	t.Setenv("FDUTY_LOG", log)
+	t.Setenv("FAKE_FLASHDUTY_LOG", log)
 	t.Setenv("PATH", filepath.Dir(bin)+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	output, err := exec.Command("bash", script, "inc-1").CombinedOutput()
@@ -33,11 +33,11 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 	}
 	invocations, err := os.ReadFile(log)
 	if err != nil {
-		t.Fatalf("read fake fduty log: %v", err)
+		t.Fatalf("read fake flashduty log: %v", err)
 	}
 	lines := strings.FieldsFunc(strings.TrimSpace(string(invocations)), func(r rune) bool { return r == '\n' })
 	if len(lines) != 7 {
-		t.Fatalf("fduty calls = %d, want 7 (six reads + the start_time probe):\n%s", len(lines), invocations)
+		t.Fatalf("flashduty calls = %d, want 7 (six reads + the start_time probe):\n%s", len(lines), invocations)
 	}
 	wantDetail := "incident detail inc-1 --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon"
 	if lines[0] != wantDetail {

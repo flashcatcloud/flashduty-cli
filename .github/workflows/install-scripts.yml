@@ -8,12 +8,14 @@ on:
       - install.sh
       - install.ps1
       - tests/install_sh_sudo_test.sh
+      - tests/install_ps1_test.ps1
       - .github/workflows/install-scripts.yml
   pull_request:
     paths:
       - install.sh
       - install.ps1
       - tests/install_sh_sudo_test.sh
+      - tests/install_ps1_test.ps1
       - .github/workflows/install-scripts.yml
 
 permissions:
@@ -33,6 +35,23 @@ jobs:
         run: bash -n install.sh
       - name: installer behavior tests
         run: sh tests/install_sh_sudo_test.sh
+
+  windows:
+    name: install.ps1 behavior (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: "go.mod"
+          cache: false
+      - name: installer behavior tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: ./tests/install_ps1_test.ps1
+      - name: installer behavior tests (PowerShell 7)
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ./tests/install_ps1_test.ps1
 
   mirror:
     name: mirror install scripts

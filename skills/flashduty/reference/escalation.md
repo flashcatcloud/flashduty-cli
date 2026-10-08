@@ -1,4 +1,4 @@
-# fduty channel escalation rules — 分派策略
+# flashduty channel escalation rules — 分派策略
 
 Prereq: `SKILL.md` read. `escalate-rule-list` / `escalate-rule-info` are free
 reads; `escalate-rule-create/update/delete/enable/disable` mutate who gets
@@ -12,8 +12,8 @@ card. Escalation rules live INSIDE a channel (协作空间) and pick the PEOPLE
 notified once an incident lands there — NOT `reference/route.md` (alert
 routing picks the *channel*), NOT `reference/schedule.md` (on-call schedules
 are a notify *target* referenced from layers). Key IDs: **`channel-id`
-(int)** from `fduty channel list`; **`rule-id` (MongoDB ObjectID string)**
-from `escalate-rule-list`; **`template-id`** from `fduty template list`.
+(int)** from `flashduty channel list`; **`rule-id` (MongoDB ObjectID string)**
+from `escalate-rule-list`; **`template-id`** from `flashduty template list`.
 
 ## Intent → verb
 
@@ -30,15 +30,15 @@ from `escalate-rule-list`; **`template-id`** from `fduty template list`.
 
 ```bash
 # 1. find the channel and its existing rules
-fduty channel escalate-rule-list <channel-id> --output-format toon
+flashduty channel escalate-rule-list <channel-id> --output-format toon
 # 2. add the rule (layers is required via --data)
-# API field `person_ids` expects member IDs from `fduty member list`.
-fduty channel escalate-rule-create \
+# API field `person_ids` expects member IDs from `flashduty member list`.
+flashduty channel escalate-rule-create \
   --channel-id <channel-id> --rule-name "P1 on-call" --template-id <template-id> \
   --data '{"layers":[{"target":{"person_ids":[<member-id>],"by":{"critical":["voice","sms"],"warning":["feishu"]}},"notify_step":5,"max_times":3,"escalate_window":30}]}'
 ```
 
-<!-- GENERATED:channel[escalate-rule] START · 由 fduty __dump-commands 同步 · 勿手改 fence 内 -->
+<!-- GENERATED:channel[escalate-rule] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
 ### escalate-rule-create
 Create escalation rule
@@ -115,9 +115,9 @@ Update escalation rule
 ## Worked example — inspect a channel's escalation policy
 
 ```bash
-fduty channel list --name "payments" --output-format toon
+flashduty channel list --name "payments" --output-format toon
 # → find channel_id (e.g. 4201)
-fduty channel escalate-rule-list 4201 --output-format toon
+flashduty channel escalate-rule-list 4201 --output-format toon
 # → find rule_id (MongoDB ObjectID string, e.g. "6643abc123def456789012aa")
-fduty channel escalate-rule-info --channel-id 4201 --rule-id "6643abc123def456789012aa" --output-format toon
+flashduty channel escalate-rule-info --channel-id 4201 --rule-id "6643abc123def456789012aa" --output-format toon
 ```
