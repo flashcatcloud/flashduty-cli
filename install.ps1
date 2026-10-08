@@ -156,11 +156,13 @@ try {
 
     $DestPath = Join-Path $InstallDir $InstalledName
     if (Test-Path $DestPath) {
-        # A running .exe can't be overwritten but can be renamed: move it aside
-        # so `update` can replace the binary it is running from.
-        $OldPath = "$DestPath.old"
-        Remove-Item -Path $OldPath -Force -ErrorAction SilentlyContinue
-        Move-Item -Path $DestPath -Destination $OldPath -Force
+        # A running .exe can't be overwritten or deleted but can be renamed:
+        # move it aside under a unique name so `update` can replace the binary
+        # it is running from. Copies moved aside earlier are deleted; one that
+        # is still running stays locked and is left for a later install.
+        Get-ChildItem -Path $InstallDir -Filter "$InstalledName.*.old" -File |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        Move-Item -Path $DestPath -Destination "$DestPath.$([System.Guid]::NewGuid().ToString('N')).old"
     }
     Move-Item -Path $BinaryPath -Destination $DestPath -Force
 
