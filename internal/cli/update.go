@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -54,13 +55,23 @@ func newUpdateCmd() *cobra.Command {
 }
 
 func runInstaller(cmd *cobra.Command) error {
+	// The installer replaces the binary that is running, under its own name
+	// and directory, not a default-named copy elsewhere.
+	binPath, err := os.Executable()
+	if err == nil {
+		binPath, err = filepath.EvalSymlinks(binPath)
+	}
+	if err != nil {
+		return fmt.Errorf("locate the running binary: %w", err)
+	}
+
 	name, args := installerCommandSpec(runtime.GOOS, update.InstallShellURL(), update.InstallPowerShellURL())
 	c := exec.Command(name, args...)
 
 	c.Stdout = cmd.OutOrStdout()
 	c.Stderr = cmd.ErrOrStderr()
 	c.Stdin = os.Stdin
-	c.Env = update.InstallerEnv(os.Environ())
+	c.Env = update.InstallerEnv(os.Environ(), binPath)
 
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("update failed: %w", err)

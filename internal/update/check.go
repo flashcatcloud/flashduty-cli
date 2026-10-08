@@ -54,15 +54,25 @@ func UpdateBaseURL() string {
 func InstallShellURL() string      { return UpdateBaseURL() + "/install.sh" }
 func InstallPowerShellURL() string { return UpdateBaseURL() + "/install.ps1" }
 
-func InstallerEnv(base []string) []string {
-	env := make([]string, 0, len(base)+1)
+// InstallerEnv returns base with the installer's MIRROR_URL,
+// FLASHDUTY_INSTALL_DIR and INSTALLED_NAME pointed at the update source and at
+// binPath, the running binary, so the installer replaces that binary in place
+// instead of installing a default-named copy elsewhere.
+func InstallerEnv(base []string, binPath string) []string {
+	env := make([]string, 0, len(base)+3)
 	for _, item := range base {
-		if strings.HasPrefix(item, "MIRROR_URL=") {
+		if strings.HasPrefix(item, "MIRROR_URL=") ||
+			strings.HasPrefix(item, "FLASHDUTY_INSTALL_DIR=") ||
+			strings.HasPrefix(item, "INSTALLED_NAME=") {
 			continue
 		}
 		env = append(env, item)
 	}
-	return append(env, "MIRROR_URL="+UpdateBaseURL())
+	return append(env,
+		"MIRROR_URL="+UpdateBaseURL(),
+		"FLASHDUTY_INSTALL_DIR="+filepath.Dir(binPath),
+		"INSTALLED_NAME="+filepath.Base(binPath),
+	)
 }
 
 func latestPointerURL() string {

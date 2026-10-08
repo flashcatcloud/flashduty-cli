@@ -27,6 +27,10 @@ func TestRenameCLI(t *testing.T) {
 			t.Errorf("renameCLI(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
+	// "$" in the name is literal text, not a regexp group reference.
+	if got, want := renameCLI("run flashduty login", "fd$1"), "run fd$1 login"; got != want {
+		t.Errorf("renameCLI with $ in name = %q, want %q", got, want)
+	}
 }
 
 func TestRenameCommandText(t *testing.T) {

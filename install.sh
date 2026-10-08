@@ -5,6 +5,7 @@
 # Environment:
 #   FLASHDUTY_VERSION      Install a specific version (e.g. v0.1.2). Default: latest.
 #   FLASHDUTY_INSTALL_DIR  Install directory. Default: /usr/local/bin.
+#   INSTALLED_NAME         Installed command name. Default: flashduty.
 #   MIRROR_URL             Fetch release assets from this https mirror prefix.
 #                          Default: https://static.flashcat.cloud/flashduty-cli.
 #                          The mirror must replicate

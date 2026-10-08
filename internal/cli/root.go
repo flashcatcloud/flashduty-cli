@@ -202,7 +202,7 @@ var cliWord = regexp.MustCompile(`(^|[^\w./~-])flashduty `)
 
 // renameCLI replaces every command-word "flashduty" in s with name.
 func renameCLI(s, name string) string {
-	return cliWord.ReplaceAllString(s, "${1}"+name+" ")
+	return cliWord.ReplaceAllString(s, "${1}"+strings.ReplaceAll(name, "$", "$$")+" ")
 }
 
 // newClient creates a go-flashduty client using the current factory.

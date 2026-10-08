@@ -33,7 +33,10 @@ func main() {
 	// The CLI names itself after the command word the user typed, so a copy
 	// installed under another name (install.sh INSTALLED_NAME) shows that name
 	// in help, errors and completion scripts.
-	name := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
+	name := filepath.Base(os.Args[0])
+	if ext := filepath.Ext(name); strings.EqualFold(ext, ".exe") {
+		name = strings.TrimSuffix(name, ext)
+	}
 	if name == "" || name == "." || name == string(filepath.Separator) {
 		name = "flashduty"
 	}
