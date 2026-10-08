@@ -59,6 +59,645 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genIntegrationsIntegrationAPIReadInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "info <integration-id>",
+		Short: "Get integration detail",
+		Long: `Get integration detail.
+
+Return one integration, including its settings with sensitive values masked.
+
+API: POST /integration/info (integration-api-read-info)
+
+Request fields:
+  --integration-id int (required) — Integration ID. (min 1)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - category (any) (required)
+  - created_at (any) (required)
+  - description (any) (required)
+  - integration_id (any) (required)
+  - last_time (any) (required)
+  - name (any) (required)
+  - plugin_type (any) (required)
+  - plugin_type_name (any) (required)
+  - ref_id (any) (required)
+  - settings (object) (required) — Type-specific configuration. Sensitive values (endpoint, headers, secrets, passwords) are returned masked as '******'.
+  - status (any) (required)
+  - team_id (any) (required)
+  - updated_at (any) (required)
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration info --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.GetIntegrationRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIReadInfo(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIReadListCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fAsc bool
+	var fCategory string
+	var fIsMyTeam bool
+	var fName string
+	var fOrderby string
+	var fPluginType string
+	var fRefIDs []string
+	var fStatus string
+	var fTeamIDs []int
+	var fType string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List integrations",
+		Long: `List integrations.
+
+List the account's alert-source and change-source integrations.
+
+API: POST /integration/list (integration-api-read-list)
+
+Request fields:
+  --page int — Page number, 1-based. (min 1)
+  --limit int — Page size. Defaults to 100, maximum 100. (1-100)
+  --search-after-ctx string
+  --asc bool — Sort ascending when true, descending when false.
+  --category string — Filter by category. Accepts a comma-separated list.
+  --is-my-team bool — Limit the result to integrations owned by your teams.
+  --name string — Filter by integration name.
+  --orderby string — Sort field. Defaults to 'created_at'; 'plugin_type' is sorted by the underlying plugin. [created_at, updated_at, name, plugin_type, status]
+  --plugin-type string — Filter by integration type. Accepts a comma-separated list.
+  --ref-ids []string — Filter by source reference IDs. Each value must start with 'c_' (channel), 'a_' (account) or 'w_'.
+  --status string — Filter by status. Accepts a comma-separated list.
+  --team-ids []int — Filter by team IDs. With 'is_my_team', the values narrow that set further.
+  --type string — Deprecated. Merged into 'plugin_type' when both are set.
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - items (array<object>) (required) — Integrations on the current page.
+    - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
+    - created_at (string) (required) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) (required) — Free-form description.
+    - integration_id (integer) (required) — Integration ID.
+    - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - name (string) (required) — Integration name.
+    - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
+    - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
+    - ref_id (string) (required) — Source reference ID: 'a_'-prefixed for an account-scoped integration, 'c_'-prefixed when it is shared into a channel, 'w_'-prefixed on legacy workspace-scoped integrations.
+    - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
+    - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
+    - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - limit (integer) (required) — Page size echoed back.
+  - p (integer) (required) — Page number echoed back.
+  - total (integer) (required) — Total number of matching integrations.
+`,
+		Example: `  flashduty integration list --data '{"limit":20,"p":1,"status":"enabled"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("category") {
+						body["category"] = fCategory
+					}
+					if cmd.Flags().Changed("is-my-team") {
+						body["is_my_team"] = fIsMyTeam
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("orderby") {
+						body["orderby"] = fOrderby
+					}
+					if cmd.Flags().Changed("plugin-type") {
+						body["plugin_type"] = fPluginType
+					}
+					if cmd.Flags().Changed("ref-ids") {
+						body["ref_ids"] = fRefIDs
+					}
+					if cmd.Flags().Changed("status") {
+						body["status"] = fStatus
+					}
+					if cmd.Flags().Changed("team-ids") {
+						body["team_ids"] = fTeamIDs
+					}
+					if cmd.Flags().Changed("type") {
+						body["type"] = fType
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListIntegrationsRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIReadList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100, maximum 100. (1-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when true, descending when false.")
+	cmd.Flags().StringVar(&fCategory, "category", "", "Filter by category. Accepts a comma-separated list.")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Limit the result to integrations owned by your teams.")
+	cmd.Flags().StringVar(&fName, "name", "", "Filter by integration name.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Defaults to 'created_at'; 'plugin_type' is sorted by the underlying plugin. [created_at, updated_at, name, plugin_type, status]")
+	cmd.Flags().StringVar(&fPluginType, "plugin-type", "", "Filter by integration type. Accepts a comma-separated list.")
+	cmd.Flags().StringSliceVar(&fRefIDs, "ref-ids", nil, "Filter by source reference IDs. Each value must start with 'c_' (channel), 'a_' (account) or 'w_'.")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by status. Accepts a comma-separated list.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. With 'is_my_team', the values narrow that set further.")
+	cmd.Flags().StringVar(&fType, "type", "", "Deprecated. Merged into 'plugin_type' when both are set.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIReadTypeListCmd() *cobra.Command {
+	var dataJSON string
+	var fP int64
+	var fLimit int64
+	var fSearchAfterCtx string
+	var fAsc bool
+	var fCategory string
+	var fOrderby string
+	cmd := &cobra.Command{
+		Use:   "type-list",
+		Short: "List integration types",
+		Long: `List integration types.
+
+List the integration types the account can configure.
+
+API: POST /integration/type/list (integration-api-read-type-list)
+
+Request fields:
+  --page int — Page number, 1-based. (min 1)
+  --limit int — Page size. Defaults to 20, maximum 100. (1-100)
+  --search-after-ctx string
+  --asc bool — Sort ascending when 'true' (the default); descending when 'false'.
+  --category string — Filter by category. Accepts a comma-separated list, for example 'event.alert,event.change'.
+  --orderby string — Sort field. When omitted, types are returned in console ranking order. [id, created_at, updated_at, name, type]
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - items (array<object>) (required) — Integration types on the current page.
+    - category (string) (required) — Category the type belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
+    - plugin_type (string) (required) — Type identifier to pass as 'plugin_type' when creating an integration.
+    - plugin_type_logo_url (string) (required) — Logo URL of the type.
+    - plugin_type_name (string) (required) — Display name of the type.
+    - status (string) (required) — Platform status of the type.
+    - supports_api_create (boolean) (required) — Whether 'POST /integration/create' accepts this type.
+  - limit (integer) (required) — Page size echoed back.
+  - p (integer) (required) — Page number echoed back.
+  - total (integer) (required) — Total number of matching types.
+`,
+		Example: `  flashduty integration type-list --data '{"category":"event.alert","limit":20,"p":1}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("page") {
+						body["p"] = fP
+					}
+					if cmd.Flags().Changed("limit") {
+						body["limit"] = fLimit
+					}
+					if cmd.Flags().Changed("search-after-ctx") {
+						body["search_after_ctx"] = fSearchAfterCtx
+					}
+					if cmd.Flags().Changed("asc") {
+						body["asc"] = fAsc
+					}
+					if cmd.Flags().Changed("category") {
+						body["category"] = fCategory
+					}
+					if cmd.Flags().Changed("orderby") {
+						body["orderby"] = fOrderby
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IntegrationTypeListRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIReadTypeList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20, maximum 100. (1-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true' (the default); descending when 'false'.")
+	cmd.Flags().StringVar(&fCategory, "category", "", "Filter by category. Accepts a comma-separated list, for example 'event.alert,event.change'.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. When omitted, types are returned in console ranking order. [id, created_at, updated_at, name, type]")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fDescription string
+	var fName string
+	var fPluginType string
+	var fTeamID int64
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create integration",
+		Long: `Create integration.
+
+Create an integration for an alert source or change source.
+
+API: POST /integration/create (integration-api-write-create)
+
+Request fields:
+  --description string — Free-form description, at most 499 characters. (≤499 chars)
+  --name string — Integration name. 2–49 characters. (2-49 chars)
+  --plugin-type string (required) — Integration type. Must be one listed by 'POST /integration/type/list' with 'supports_api_create: true'.
+  --team-id int — Owning team ID. (min 1)
+  settings (object, via --data) — Type-specific configuration; the accepted keys depend on 'plugin_type'.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - integration_id (integer) (required) — ID of the new integration.
+  - integration_key (string) (required) — Key used to authenticate inbound pushes to this integration. Returned here only; fetch a new one with 'POST /integration/key/rotate'.
+`,
+		Example: `  flashduty integration create --data '{"description":"Alerts pushed by the production Prometheus stack","name":"Prod metrics alerts","plugin_type":"standard.alert","settings":{"severity_mapping":[{"P1":"Critical"}]},"team_id":1467226103121}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("plugin-type") {
+						body["plugin_type"] = fPluginType
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CreateIntegrationRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteCreate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description, at most 499 characters. (≤499 chars)")
+	cmd.Flags().StringVar(&fName, "name", "", "Integration name. 2–49 characters. (2-49 chars)")
+	cmd.Flags().StringVar(&fPluginType, "plugin-type", "", "Integration type. Must be one listed by 'POST /integration/type/list' with 'supports_api_create: true'. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "delete <integration-id>",
+		Short: "Delete integration",
+		Long: `Delete integration.
+
+Delete an integration that nothing else references.
+
+API: POST /integration/delete (integration-api-write-delete)
+
+Request fields:
+  --integration-id int (required) — Integration ID. (min 1)
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration delete --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IntegrationLifecycleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Integrations.IntegrationAPIWriteDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /integration/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteDisableCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "disable <integration-id>",
+		Short: "Disable integration",
+		Long: `Disable integration.
+
+Disable an integration without deleting its configuration.
+
+API: POST /integration/disable (integration-api-write-disable)
+
+Request fields:
+  --integration-id int (required) — Integration ID. (min 1)
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration disable --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IntegrationLifecycleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Integrations.IntegrationAPIWriteDisable(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /integration/disable")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteEnableCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "enable <integration-id>",
+		Short: "Enable integration",
+		Long: `Enable integration.
+
+Re-enable a disabled integration so it accepts events again.
+
+API: POST /integration/enable (integration-api-write-enable)
+
+Request fields:
+  --integration-id int (required) — Integration ID. (min 1)
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration enable --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IntegrationLifecycleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Integrations.IntegrationAPIWriteEnable(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /integration/enable")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteRotateKeyCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "key-rotate <integration-id>",
+		Short: "Rotate integration key",
+		Long: `Rotate integration key.
+
+Issue a new integration key and invalidate the previous one.
+
+API: POST /integration/key/rotate (integration-api-write-rotate-key)
+
+Request fields:
+  --integration-id int (required) — Integration ID. (min 1)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - integration_key (string) (required) — The new key. The previous key stops working immediately; this value cannot be read again later.
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration key-rotate --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.IntegrationLifecycleRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteRotateKey(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genIntegrationsIntegrationAPIWriteUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fDescription string
+	var fIntegrationID int64
+	var fName string
+	var fTeamID int64
+	cmd := &cobra.Command{
+		Use:   "update <integration-id>",
+		Short: "Update integration",
+		Long: `Update integration.
+
+Update an integration's name, description, team, or settings.
+
+API: POST /integration/update (integration-api-write-update)
+
+Request fields:
+  --description string — New description, at most 499 characters. (≤499 chars)
+  --integration-id int (required) — Integration ID. (min 1)
+  --name string — New name, 2–49 characters. (2-49 chars)
+  --team-id int — New owning team ID; '0' clears the team assignment. (min 0)
+  settings (object, via --data) — Replacement configuration for the integration type. Sensitive entries left out, or sent back as the masked '******', keep their stored value.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - category (any) (required)
+  - created_at (any) (required)
+  - description (any) (required)
+  - integration_id (any) (required)
+  - last_time (any) (required)
+  - name (any) (required)
+  - plugin_type (any) (required)
+  - plugin_type_name (any) (required)
+  - ref_id (any) (required)
+  - settings (object) (required) — Type-specific configuration. Sensitive values (endpoint, headers, secrets, passwords) are returned masked as '******'.
+  - status (any) (required)
+  - team_id (any) (required)
+  - updated_at (any) (required)
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty integration update --data '{"integration_id":6113996590131,"name":"Prod metrics alerts (primary)","team_id":1467226103121}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.UpdateIntegrationRequest)
+				if err := genBindBody(body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteUpdate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description, at most 499 characters. (≤499 chars)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().StringVar(&fName, "name", "", "New name, 2–49 characters. (2-49 chars)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; '0' clears the team assignment. (min 0)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIntegrationsDetailCmd() *cobra.Command {
 	var dataJSON string
 	var fEventID string
@@ -253,6 +892,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func registerGeneratedIntegrations(root *cobra.Command) {
 	gDatasource := genGroup(root, "datasource", "On-call API")
 	genAddLeaf(gDatasource, genIntegrationsDatasourceImPersonTryLinkCmd())
+	gIntegration := genGroup(root, "integration", "On-call/Integrations API")
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIReadInfoCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIReadListCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIReadTypeListCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteCreateCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteDeleteCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteDisableCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteEnableCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteRotateKeyCmd())
+	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIWriteUpdateCmd())
 	gWebhook := genGroup(root, "webhook", "On-call/Integrations API")
 	genAddLeaf(gWebhook, genIntegrationsDetailCmd())
 	genAddLeaf(gWebhook, genIntegrationsListCmd())

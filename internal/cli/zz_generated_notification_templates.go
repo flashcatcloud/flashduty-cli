@@ -31,6 +31,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - description (string) (required) — Free-form description.
   - dingtalk (string) (required) — DingTalk robot message template source.
   - dingtalk_app (string) (required) — DingTalk app message template source.
+  - dingtalk_app_war_room_enabled (boolean) (required) — Whether DingTalk app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
   - email (string) (required) — Email body template source (Go 'html/template' syntax).
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
@@ -41,6 +42,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
+  - slack_app_war_room_enabled (boolean) (required) — Whether Slack app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
   - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
   - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
@@ -130,6 +132,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - description (string) (required) — Free-form description.
     - dingtalk (string) (required) — DingTalk robot message template source.
     - dingtalk_app (string) (required) — DingTalk app message template source.
+    - dingtalk_app_war_room_enabled (boolean) (required) — Whether DingTalk app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
     - email (string) (required) — Email body template source (Go 'html/template' syntax).
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
@@ -140,6 +143,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
+    - slack_app_war_room_enabled (boolean) (required) — Whether Slack app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
     - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
     - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
@@ -299,6 +303,7 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 	var fDescription string
 	var fDingtalk string
 	var fDingtalkApp string
+	var fDingtalkAppWarRoomEnabled bool
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
@@ -308,6 +313,7 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 	var fIncidentCardClosedActionApps []string
 	var fSlack string
 	var fSlackApp string
+	var fSlackAppWarRoomEnabled bool
 	var fSMS string
 	var fTeamID int64
 	var fTeamsApp string
@@ -331,6 +337,7 @@ Request fields:
   --description string — Free-form description. Up to 500 characters. (≤500 chars)
   --dingtalk string — DingTalk robot message template source.
   --dingtalk-app string — DingTalk app message template source.
+  --dingtalk-app-war-room-enabled bool — Show the Create War Room button on DingTalk app cards.
   --email string — Email body template source (Go 'html/template' syntax).
   --feishu string — Feishu robot message template source.
   --feishu-app string — Feishu app message template source.
@@ -340,6 +347,7 @@ Request fields:
   --incident-card-closed-action-apps []string — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source.
   --slack-app string — Slack app message template source.
+  --slack-app-war-room-enabled bool — Show the Create War Room button on Slack app cards.
   --sms string — SMS template source (Go 'text/template' syntax).
   --team-id int — Team scope. 0 for account-wide.
   --teams-app string — Microsoft Teams app message template source.
@@ -369,6 +377,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("dingtalk-app") {
 						body["dingtalk_app"] = fDingtalkApp
 					}
+					if cmd.Flags().Changed("dingtalk-app-war-room-enabled") {
+						body["dingtalk_app_war_room_enabled"] = fDingtalkAppWarRoomEnabled
+					}
 					if cmd.Flags().Changed("email") {
 						body["email"] = fEmail
 					}
@@ -395,6 +406,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("slack-app") {
 						body["slack_app"] = fSlackApp
+					}
+					if cmd.Flags().Changed("slack-app-war-room-enabled") {
+						body["slack_app_war_room_enabled"] = fSlackAppWarRoomEnabled
 					}
 					if cmd.Flags().Changed("sms") {
 						body["sms"] = fSMS
@@ -446,6 +460,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. (≤500 chars)")
 	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source.")
 	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source.")
+	cmd.Flags().BoolVar(&fDingtalkAppWarRoomEnabled, "dingtalk-app-war-room-enabled", false, "Show the Create War Room button on DingTalk app cards.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax).")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
@@ -455,6 +470,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
+	cmd.Flags().BoolVar(&fSlackAppWarRoomEnabled, "slack-app-war-room-enabled", false, "Show the Create War Room button on Slack app cards.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
@@ -526,6 +542,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fDescription string
 	var fDingtalk string
 	var fDingtalkApp string
+	var fDingtalkAppWarRoomEnabled bool
 	var fEmail string
 	var fFeishu string
 	var fFeishuApp string
@@ -535,6 +552,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 	var fIncidentCardClosedActionApps []string
 	var fSlack string
 	var fSlackApp string
+	var fSlackAppWarRoomEnabled bool
 	var fSMS string
 	var fTeamID int64
 	var fTeamsApp string
@@ -559,6 +577,7 @@ Request fields:
   --description string — Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)
   --dingtalk string — DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.
   --dingtalk-app string — DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.
+  --dingtalk-app-war-room-enabled bool — When set, show or hide the Create War Room button on DingTalk app cards. Omit to keep the existing setting.
   --email string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
   --feishu string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
   --feishu-app string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
@@ -568,6 +587,7 @@ Request fields:
   --incident-card-closed-action-apps []string — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
   --slack-app string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
+  --slack-app-war-room-enabled bool — When set, show or hide the Create War Room button on Slack app cards. Omit to keep the existing setting.
   --sms string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
   --team-id int — Team scope. 0 for account-wide. Omit to keep the template's current team.
   --teams-app string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.
@@ -598,6 +618,9 @@ Request fields:
 					if cmd.Flags().Changed("dingtalk-app") {
 						body["dingtalk_app"] = fDingtalkApp
 					}
+					if cmd.Flags().Changed("dingtalk-app-war-room-enabled") {
+						body["dingtalk_app_war_room_enabled"] = fDingtalkAppWarRoomEnabled
+					}
 					if cmd.Flags().Changed("email") {
 						body["email"] = fEmail
 					}
@@ -624,6 +647,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("slack-app") {
 						body["slack_app"] = fSlackApp
+					}
+					if cmd.Flags().Changed("slack-app-war-room-enabled") {
+						body["slack_app_war_room_enabled"] = fSlackAppWarRoomEnabled
 					}
 					if cmd.Flags().Changed("sms") {
 						body["sms"] = fSMS
@@ -682,6 +708,7 @@ Request fields:
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)")
 	cmd.Flags().StringVar(&fDingtalk, "dingtalk", "", "DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fDingtalkApp, "dingtalk-app", "", "DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().BoolVar(&fDingtalkAppWarRoomEnabled, "dingtalk-app-war-room-enabled", false, "When set, show or hide the Create War Room button on DingTalk app cards. Omit to keep the existing setting.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source. Omit to keep the current content; send an empty string to clear it.")
@@ -691,6 +718,7 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source. Omit to keep the current content; send an empty string to clear it.")
+	cmd.Flags().BoolVar(&fSlackAppWarRoomEnabled, "slack-app-war-room-enabled", false, "When set, show or hide the Create War Room button on Slack app cards. Omit to keep the existing setting.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide. Omit to keep the template's current team.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.")

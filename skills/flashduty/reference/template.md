@@ -92,6 +92,7 @@ Create a template
 - `--description` string — Free-form description. Up to 500 characters. (≤500 chars)
 - `--dingtalk` string — DingTalk robot message template source.
 - `--dingtalk-app` string — DingTalk app message template source.
+- `--dingtalk-app-war-room-enabled` bool — Show the Create War Room button on DingTalk app cards.
 - `--email` string — Email body template source (Go 'html/template' syntax).
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
@@ -101,6 +102,7 @@ Create a template
 - `--incident-card-closed-action-apps` stringSlice — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
+- `--slack-app-war-room-enabled` bool — Show the Create War Room button on Slack app cards.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
 - `--team-id` int64 — Team scope. 0 for account-wide.
 - `--teams-app` string — Microsoft Teams app message template source.
@@ -125,7 +127,7 @@ List available template functions
 ### get-preset
 Get the preset template for a channel
 - `--channel` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); dingtalk_app_war_room_enabled (boolean); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); slack_app_war_room_enabled (boolean); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
 
 ### info <template-id>
 Get template detail
@@ -143,7 +145,7 @@ List templates
 - `--query` string — Regex or substring match on template_name.
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Filter by specific team IDs.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); dingtalk_app_war_room_enabled (boolean); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); slack_app_war_room_enabled (boolean); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
 
 ### preview
 Preview template
@@ -160,6 +162,7 @@ Update a template
 - `--description` string — Free-form description. Up to 500 characters. Omit to keep the current content; send an empty string to clear it. (≤500 chars)
 - `--dingtalk` string — DingTalk robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--dingtalk-app` string — DingTalk app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--dingtalk-app-war-room-enabled` bool — When set, show or hide the Create War Room button on DingTalk app cards. Omit to keep the existing setting.
 - `--email` string — Email body template source (Go 'html/template' syntax). Omit to keep the current content; send an empty string to clear it.
 - `--feishu` string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--feishu-app` string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
@@ -169,6 +172,7 @@ Update a template
 - `--incident-card-closed-action-apps` stringSlice — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--slack-app` string — Slack app message template source. Omit to keep the current content; send an empty string to clear it.
+- `--slack-app-war-room-enabled` bool — When set, show or hide the Create War Room button on Slack app cards. Omit to keep the existing setting.
 - `--sms` string — SMS template source (Go 'text/template' syntax). Omit to keep the current content; send an empty string to clear it.
 - `--team-id` int64 — Team scope. 0 for account-wide. Omit to keep the template's current team.
 - `--teams-app` string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.

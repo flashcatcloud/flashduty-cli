@@ -332,6 +332,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
     - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
       - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+      - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
       - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
       - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
       - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -341,6 +343,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
       - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
         - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+        - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
         - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
         - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
         - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -413,6 +417,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
       - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
         - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+        - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
         - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
         - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
         - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -508,6 +514,8 @@ Request fields:
     - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
     - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
       - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+      - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
       - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
       - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
       - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -517,6 +525,8 @@ Request fields:
       - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
       - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
         - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+        - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
         - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
         - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
         - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -525,6 +535,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - hit_rule_index (integer) — 0-based index of the rule that decided the result, or -1 when only the default applied.
   - values (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
     - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+    - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+    - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
     - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
     - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
     - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -658,6 +670,8 @@ Request fields:
     - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
     - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
       - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+      - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
       - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
       - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
       - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
@@ -667,6 +681,8 @@ Request fields:
       - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
       - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
         - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
+        - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
         - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
         - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
         - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)

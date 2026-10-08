@@ -253,21 +253,21 @@ Fire an Automation HTTP POST trigger
 
 ### knowledge-file-delete
 Delete knowledge file
-- `--force` bool — Delete even when other pack files reference this file; the referrers are then returned as warnings instead of blocking the delete.
-- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
-- `--rel-path` string (required) — Path of the file relative to the pack root.
+- `--force` bool — Delete even when other knowledge files reference this file; the referrers are then returned as warnings instead of blocking the delete.
+- `--pack-id` string — Knowledge ID; defaults to the caller's account-scope knowledge.
+- `--rel-path` string (required) — Path of the file relative to the knowledge root.
 - response: single object (`data` unwrapped to the top level) — fields: warnings (array<object>)
 
 ### knowledge-file-get
 Get knowledge file
-- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
-- `--rel-path` string (required) — Path of the file relative to the pack root.
+- `--pack-id` string — Knowledge ID; defaults to the caller's account-scope knowledge.
+- `--rel-path` string (required) — Path of the file relative to the knowledge root.
 - response: single object (`data` unwrapped to the top level) — fields: content_b64 (string); file (object)
 
 ### knowledge-file-list
 List knowledge files
 - `--limit` int64 — Page size. Accepted but currently ignored — the response always contains the full file list.
-- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
+- `--pack-id` string — Knowledge ID; defaults to the caller's account-scope knowledge.
 - `--page` int64 — Page number, 1-based. Accepted but currently ignored — the response always contains the full file list.
 - `--search-after-ctx` string
 - response: single object (`data` unwrapped to the top level) — fields: files (array<object>); total (integer)
@@ -276,40 +276,40 @@ List knowledge files
 Upload knowledge file
 - `--content-b64` string — Base64-encoded file content; must decode to valid UTF-8 text (binary is rejected). Per-file limit 1 MiB.
 - `--content-type` string — MIME type; inferred from the file extension when omitted.
-- `--pack-id` string — Knowledge pack ID; defaults to the caller's account-scope pack.
-- `--rel-path` string (required) — Destination path relative to the pack root; existing files are overwritten.
+- `--pack-id` string — Knowledge ID; defaults to the caller's account-scope knowledge.
+- `--rel-path` string (required) — Destination path relative to the knowledge root; existing files are overwritten.
 - response: single object (`data` unwrapped to the top level) — fields: file (object); warnings (array<object>)
 
 ### knowledge-get
-Get account knowledge pack
+Get account knowledge
 - response: single object (`data` unwrapped to the top level) — fields: files (array<object>); pack (object)
 
 ### knowledge-pack-delete <pack-id>
-Delete knowledge pack
-- `<pack-id>` (positional, required) string — Knowledge pack ID to delete.
+Delete knowledge
+- `<pack-id>` (positional, required) string — Knowledge ID to delete.
 - response: single object (`data` unwrapped to the top level) — fields: ok (boolean)
 
 ### knowledge-pack-ensure
-Ensure knowledge pack
-- `--scope` string (required) — Scope of the pack to ensure. One of: 'account' (account-level pack; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level pack; the 'scope_id' team ID is required and the caller must belong to that team). · enum: account | team
+Ensure knowledge
+- `--scope` string (required) — Scope of the knowledge to ensure. One of: 'account' (account-level knowledge; scope_id is forced to the caller's account ID and only account admins may create it; first creation seeds a default DUTY.md), 'team' (team-level knowledge; the 'scope_id' team ID is required and the caller must belong to that team). · enum: account | team
 - `--scope-id` int64 — Team ID; required for 'team' scope, ignored for 'account' scope.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at_ms (string); created_by (integer); duty_version (integer); file_count (integer); pack_id (string); scope (string); scope_id (integer); team_name (string); total_bytes (integer); updated_at_ms (string); version (integer)
 
 ### knowledge-pack-list
-List knowledge packs
-- `--include-account` bool — Include the account-scope pack; defaults to true.
+List knowledge
+- `--include-account` bool — Include the account-scope knowledge; defaults to true.
 - `--limit` int64 — Page size.
 - `--page` int64 — Page number, 1-based; returns all results when both 'p' and 'limit' are unset.
-- `--query` string — Case-insensitive substring filter over pack ID, scope, scope ID/account ID, and team name. (≤128 chars)
-- `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level packs only), 'team' (team-level packs only, can be combined with 'team_ids'). · enum: all | account | team
+- `--query` string — Case-insensitive substring filter over knowledge ID, scope, scope ID/account ID, and team name. (≤128 chars)
+- `--scope` string — Restrict to one scope; 'all' (default) overrides 'include_account'. One of: 'all' (account scope plus visible team scopes), 'account' (account-level knowledge only), 'team' (team-level knowledge only, can be combined with 'team_ids'). · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Restrict to these team IDs; for non-admins the list is intersected with their own teams.
 - response: single object (`data` unwrapped to the top level) — fields: packs (array<object>); total (integer)
 
 ### knowledge-pack-update <pack-id>
-Update knowledge pack
-- `<pack-id>` (positional, required) string — Knowledge pack ID to update.
-- `--scope` string — Destination scope; omit for a no-op that returns the current pack. · enum: account | team
+Update knowledge
+- `<pack-id>` (positional, required) string — Knowledge ID to update.
+- `--scope` string — Destination scope; omit for a no-op that returns the current knowledge. · enum: account | team
 - `--scope-id` int64 — Destination team ID; required when 'scope' is 'team', set automatically for 'account'.
 - response: same shape as `knowledge-pack-ensure` above
 
@@ -411,6 +411,7 @@ List sessions
 - `--limit` int64 — Page size, 1–100. (1-100)
 - `--orderby` string — Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. · enum: created_at | updated_at
 - `--page` int64 — Page number, 1-based. (min 1)
+- `--person-ids` intSlice — Filter by who started the session: returns only sessions started by these members (a session is kept when 'person_id' matches any of them). Intersects with 'scope' and 'team_ids', so it never widens what the caller is allowed to see.
 - `--scope` string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. · enum: all | personal | team
 - `--search-after-ctx` string
 - `--status` string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. · enum: active | archived | all
