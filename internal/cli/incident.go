@@ -73,6 +73,8 @@ func pastIncidentColumns() []output.Column {
 
 func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields, channel string
+	var incidentIDs, ackerIDs, closerIDs, creatorIDs, responderIDs, teamIDs string
+	var asc, everMuted, isMyChannel, isMyTeam, isRare, isSnoozed bool
 	var channelID int64
 	var limit, page int
 	defaultStructuredFields := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"}
@@ -117,6 +119,30 @@ func newIncidentListCmd() *cobra.Command {
 				if nums != "" {
 					req.Nums = parseStringSlice(nums)
 				}
+				req.IncidentIDs = parseStringSlice(incidentIDs)
+				for _, f := range []struct {
+					flag string
+					raw  string
+					dst  *[]int64
+				}{
+					{"acker-ids", ackerIDs, &req.AckerIDs},
+					{"closer-ids", closerIDs, &req.CloserIDs},
+					{"creator-ids", creatorIDs, &req.CreatorIDs},
+					{"responder-ids", responderIDs, &req.ResponderIDs},
+					{"team-ids", teamIDs, &req.TeamIDs},
+				} {
+					ids, err := parseIntSlice(f.raw)
+					if err != nil {
+						return fmt.Errorf("invalid --%s: %w", f.flag, err)
+					}
+					*f.dst = ids
+				}
+				req.Asc = asc
+				req.EverMuted = everMuted
+				req.IsMyChannel = isMyChannel
+				req.IsMyTeam = isMyTeam
+				req.IsRare = isRare
+				req.IsSnoozed = isSnoozed
 
 				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
@@ -171,6 +197,18 @@ func newIncidentListCmd() *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("channel-id", "use --channel instead")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
+	cmd.Flags().StringVar(&incidentIDs, "incident-ids", "", "Comma-separated full incident IDs to restrict to")
+	cmd.Flags().StringVar(&ackerIDs, "acker-ids", "", "Comma-separated acker member IDs to filter by")
+	cmd.Flags().StringVar(&closerIDs, "closer-ids", "", "Comma-separated closer member IDs to filter by (0 = closed automatically)")
+	cmd.Flags().StringVar(&creatorIDs, "creator-ids", "", "Comma-separated creator member IDs to filter by (0 = created automatically)")
+	cmd.Flags().StringVar(&responderIDs, "responder-ids", "", "Comma-separated responder member IDs to filter by")
+	cmd.Flags().StringVar(&teamIDs, "team-ids", "", "Comma-separated team IDs; resolved to the channels those teams own")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort ascending (oldest first)")
+	cmd.Flags().BoolVar(&everMuted, "ever-muted", false, "Only incidents that were ever silenced")
+	cmd.Flags().BoolVar(&isMyChannel, "is-my-channel", false, "Only incidents in channels you own")
+	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only incidents in channels owned by your teams")
+	cmd.Flags().BoolVar(&isRare, "is-rare", false, "Only outlier (rare) incidents")
+	cmd.Flags().BoolVar(&isSnoozed, "is-snoozed", false, "Only snoozed incidents")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
@@ -704,7 +742,7 @@ func validateIncidentIDBatch(incidentIDs []string) error {
 }
 
 func newIncidentMergeCmd() *cobra.Command {
-	var source string
+	var source, title, commentFile string
 	var removeSource bool
 
 	cmd := &cobra.Command{
@@ -721,11 +759,20 @@ func newIncidentMergeCmd() *cobra.Command {
 					return fmt.Errorf("--source accepts at most 100 incident IDs")
 				}
 
-				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsRequest{
+				req := &flashduty.MergeIncidentsRequest{
 					SourceIncidentIDs:     sourceIDs,
 					TargetIncidentID:      ctx.Args[0],
 					RemoveSourceIncidents: removeSource,
-				}); err != nil {
+					Title:                 title,
+				}
+				if cmd.Flags().Changed("comment-file") {
+					comment, err := resolveCommentFile(commentFile)
+					if err != nil {
+						return err
+					}
+					req.Comment = comment
+				}
+				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), req); err != nil {
 					return err
 				}
 
@@ -737,6 +784,8 @@ func newIncidentMergeCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&source, "source", "", "Comma-separated source incident IDs (max 100)")
 	cmd.Flags().BoolVar(&removeSource, "remove-source-incidents", false, "Delete the source incidents after merging; by default they are closed and kept")
+	cmd.Flags().StringVar(&title, "title", "", "New title for the target incident")
+	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing an optional comment for the merge timeline entry (- reads stdin)")
 	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
@@ -891,7 +940,7 @@ personal channels, or a template.`,
 }
 
 func newIncidentCommentCmd() *cobra.Command {
-	var commentFile string
+	var commentFile, commentTypeID string
 	var muteReply bool
 
 	cmd := &cobra.Command{
@@ -944,11 +993,15 @@ success.`,
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), &flashduty.CommentIncidentRequest{
+				req := &flashduty.CommentIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
 					MuteReply:   muteReply,
-				}); err != nil {
+				}
+				if cmd.Flags().Changed("comment-type-id") {
+					req.CommentTypeID = flashduty.String(commentTypeID)
+				}
+				if _, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), req); err != nil {
 					return err
 				}
 
@@ -963,6 +1016,7 @@ success.`,
 	}
 
 	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing the comment text (- reads stdin)")
+	cmd.Flags().StringVar(&commentTypeID, "comment-type-id", "", "ID of an account-level comment type to attach to the comment")
 	cmd.Flags().BoolVar(&muteReply, "mute-reply", false, "Do not trigger webhook reply behavior for this comment")
 	_ = cmd.MarkFlagRequired("comment-file")
 
@@ -1492,6 +1546,8 @@ func printWarRoomDetail(w io.Writer, warRoom *flashduty.WarRoom) {
 
 func newIncidentFeedCmd() *cobra.Command {
 	var limit, page int
+	var asc bool
+	var types string
 
 	cmd := &cobra.Command{
 		Use:   "feed <id>",
@@ -1503,6 +1559,10 @@ func newIncidentFeedCmd() *cobra.Command {
 				feedReq := &flashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
 				feedReq.Page = page
 				feedReq.Limit = limit
+				feedReq.Asc = asc
+				for _, t := range parseStringSlice(types) {
+					feedReq.Types = append(feedReq.Types, flashduty.IncidentFeedType(t))
+				}
 				result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), feedReq)
 				if err != nil {
 					return err
@@ -1548,6 +1608,8 @@ func newIncidentFeedCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Oldest entries first")
+	cmd.Flags().StringVar(&types, "types", "", "Comma-separated entry types to keep (e.g. i_comm,i_assign)")
 
 	return cmd
 }

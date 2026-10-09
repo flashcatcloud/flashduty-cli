@@ -54,6 +54,7 @@ var curatedFieldRoutes = map[string]map[string]string{
 	"incident merge": {
 		"source_incident_ids": "--source",
 		"target_incident_id":  "args",
+		"comment":             "--comment-file",
 		"owner_id":            "omit: ignored by the server; the merge never changes the target owner",
 	},
 	"audit search": {
@@ -87,6 +88,39 @@ var curatedFieldRoutes = map[string]map[string]string{
 	"insight incident-export": {
 		"fields": "omit: object field; pass it through --data",
 		"labels": "omit: object field; pass it through --data",
+	},
+	"incident list": {
+		"start_time":        "--since",
+		"end_time":          "--until",
+		"p":                 "--page",
+		"channel_ids":       "--channel",
+		"incident_severity": "--severity",
+		"search_after_ctx":  "omit: pagination cursor; the command pages with --page",
+	},
+	"incident create": {
+		"channel_id":        "--channel",
+		"incident_severity": "--severity",
+		"assigned_to":       "--assign",
+		"fields":            "omit: the SDK models custom field values as an empty struct, so the typed request cannot carry them; set them after creation with incident update --field",
+	},
+	"incident feed": {
+		"incident_id": "args",
+		"p":           "--page",
+	},
+	"incident comment": {
+		"incident_ids": "args",
+		"comment":      "--comment-file",
+	},
+	"incident remove": {
+		"incident_ids": "args",
+	},
+	"incident snooze": {
+		"incident_ids": "args",
+		"minutes":      "--duration",
+	},
+	"incident post-mortem-content-reset": {
+		"post_mortem_id": "args",
+		"markdown":       "--markdown-file",
 	},
 }
 
