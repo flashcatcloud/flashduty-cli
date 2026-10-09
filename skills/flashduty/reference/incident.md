@@ -258,6 +258,7 @@ List incidents by IDs
 
 ### merge <target_id>
 Merge incidents into a target incident
+- `--remove-source-incidents` bool
 - `--source` string
 
 ### past-list <incident-id>

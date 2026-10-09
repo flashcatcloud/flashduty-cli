@@ -705,6 +705,7 @@ func validateIncidentIDBatch(incidentIDs []string) error {
 
 func newIncidentMergeCmd() *cobra.Command {
 	var source string
+	var removeSource bool
 
 	cmd := &cobra.Command{
 		Use:   "merge <target_id>",
@@ -721,8 +722,9 @@ func newIncidentMergeCmd() *cobra.Command {
 				}
 
 				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsRequest{
-					SourceIncidentIDs: sourceIDs,
-					TargetIncidentID:  ctx.Args[0],
+					SourceIncidentIDs:     sourceIDs,
+					TargetIncidentID:      ctx.Args[0],
+					RemoveSourceIncidents: removeSource,
 				}); err != nil {
 					return err
 				}
@@ -734,6 +736,7 @@ func newIncidentMergeCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&source, "source", "", "Comma-separated source incident IDs (max 100)")
+	cmd.Flags().BoolVar(&removeSource, "remove-source-incidents", false, "Delete the source incidents after merging; by default they are closed and kept")
 	_ = cmd.MarkFlagRequired("source")
 
 	return cmd

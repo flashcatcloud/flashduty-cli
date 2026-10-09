@@ -403,6 +403,34 @@ func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
 	}
 }
 
+func TestCommandIncidentMergeRemoveSourceIncidents(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra []string
+		want  any
+	}{
+		{name: "default keeps sources", want: nil},
+		{name: "flag removes sources", extra: []string{"--remove-source-incidents"}, want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			args := append([]string{"incident", "merge", "target-1", "--source", "inc-1,inc-2"}, tc.extra...)
+			if _, err := execCommand(args...); err != nil {
+				t.Fatalf("[incident-merge-remove-source] unexpected error: %v", err)
+			}
+			if stub.lastPath != "/incident/merge" {
+				t.Fatalf("[incident-merge-remove-source] expected /incident/merge, got %q", stub.lastPath)
+			}
+			if got := stub.lastBody["remove_source_incidents"]; got != tc.want {
+				t.Fatalf("[incident-merge-remove-source] remove_source_incidents: want %#v, got %#v", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestCommandIncidentLifecycleHelpDocumentsSafetyAndLookupHints(t *testing.T) {
 	saveAndResetGlobals(t)
 
