@@ -63,7 +63,11 @@ Get field detail
 
 ### list
 List custom fields
+- `--asc` bool
+- `--creator-id` int64
 - `--name` string
+- `--orderby` string
+- `--query` string
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); value_type (string)
 
 ### update <field-id>

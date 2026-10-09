@@ -20,6 +20,7 @@ func newAlertEventCmd() *cobra.Command {
 func newAlertEventListCmd() *cobra.Command {
 	var severity, channel, integration, integrationType, since, until, fields string
 	var limit, page int
+	var asc bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -46,6 +47,7 @@ func newAlertEventListCmd() *cobra.Command {
 				}
 				input.Limit = limit
 				input.Page = page
+				input.Asc = asc
 
 				if severity != "" {
 					// go-flashduty takes severities as a comma-separated string.
@@ -120,6 +122,7 @@ func newAlertEventListCmd() *cobra.Command {
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
 	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types (plugin keys, e.g. AliCloud,Prometheus) — not integration IDs; use --integration for that")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort oldest first (default newest first)")
 	cmd.Flags().StringVar(&since, "since", "1h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
