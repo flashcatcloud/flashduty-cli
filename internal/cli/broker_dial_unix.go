@@ -14,11 +14,6 @@ import (
 	"time"
 )
 
-// errBrokerUnsupported is returned when broker mode is requested on a build that
-// cannot provide it. On unix this is effectively unreachable (newBrokerHTTPClient
-// never returns nil), but defaultNewClient references it on every platform.
-var errBrokerUnsupported = errors.New("flashduty: broker mode is not supported on this platform")
-
 // errBrokerClosed is returned (wrapped) when the runner-side broker control
 // channel is gone: the runner exited, or reclaimed the channel once the
 // command that started this process finished, so fduty calls from a
@@ -110,7 +105,21 @@ func (d *brokerDialer) dial(_ context.Context, _, _ string) (net.Conn, error) {
 // every connection over the inherited control fd. Timeout matches the SDK's
 // historical default (30s) so behavior is unchanged for non-streaming calls;
 // streaming export relies on request context like before.
-func newBrokerHTTPClient(credFD int) *http.Client {
+//
+// It first checks that credFD is an open socket in this process. The runner
+// hands the control end to bash, and only processes that inherit fd credFD
+// reach fduty with it intact: Python's subprocess (close_fds=True by default),
+// Node's child_process and sudo all close it. Without the check that surfaces
+// as a handshake EBADF/ENOTSOCK at the first request, after the SDK's URL
+// prefix, with nothing saying how to fix it.
+func newBrokerHTTPClient(credFD int) (*http.Client, error) {
+	if _, err := syscall.GetsockoptInt(credFD, syscall.SOL_SOCKET, syscall.SO_TYPE); err != nil {
+		return nil, fmt.Errorf("FLASHDUTY_CRED_FD=%d is not an open socket in this process (%v): "+
+			"the program that started fduty did not pass the credential channel down. "+
+			"Run fduty from the shell, or keep fd %d open when spawning it: "+
+			"Python subprocess.run(cmd, pass_fds=(%d,)); Node: set entry %d of spawn's stdio array to %d",
+			credFD, err, credFD, credFD, credFD, credFD)
+	}
 	d := &brokerDialer{credFD: credFD}
 	return &http.Client{
 		Timeout: 30 * time.Second,
@@ -125,5 +134,5 @@ func newBrokerHTTPClient(credFD int) *http.Client {
 			IdleConnTimeout:       90 * time.Second,
 			ResponseHeaderTimeout: 0,
 		},
-	}
+	}, nil
 }
