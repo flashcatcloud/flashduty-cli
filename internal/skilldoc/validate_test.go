@@ -18,6 +18,7 @@ func validatorDump() Dump {
 		},
 		Root: []Flag{
 			{Name: "output-format", Persistent: true},
+			{Name: "json", Persistent: true},
 			{Name: "help", Persistent: true},
 			{Name: "version"},
 		},
@@ -146,6 +147,8 @@ func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
 		{Path: "bare", Body: "The `fduty` CLI is the interface. Each `fduty` subprocess gets auth.\n"},
 		{Path: "tmpl", Body: "Derive it then run `fduty <group> <verb> --help`.\n"},
 		{Path: "drift", Body: "```bash\nfduty statuspage list\n```\n"},
+		{Path: "root-bogus", Body: "Run `fduty --bogus` first.\n"},
+		{Path: "root-json", Body: "Run `fduty --json`.\n"},
 	}
 	byDoc := map[string][]Issue{}
 	for _, is := range Validate(d, docs) {
@@ -159,5 +162,12 @@ func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
 	}
 	if n := len(byDoc["drift"]); n != 1 || byDoc["drift"][0].Kind != "unknown-command" {
 		t.Errorf("drift `statuspage`: want 1 unknown-command, got %+v", byDoc["drift"])
+	}
+	// A bare `fduty` followed by flags is a root invocation, not prose.
+	if n := len(byDoc["root-bogus"]); n != 1 || byDoc["root-bogus"][0].Kind != "unknown-flag" {
+		t.Errorf("`fduty --bogus`: want 1 unknown-flag, got %+v", byDoc["root-bogus"])
+	}
+	if n := len(byDoc["root-json"]); n != 0 {
+		t.Errorf("`fduty --json`: want 0 issues, got %+v", byDoc["root-json"])
 	}
 }
