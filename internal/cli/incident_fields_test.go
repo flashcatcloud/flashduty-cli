@@ -213,6 +213,7 @@ func TestCommandIncidentCustomFieldErrors(t *testing.T) {
 		args []string
 		want string
 	}{
+		{"layer without rule", []string{"incident", "create", "--title", "db down", "--severity", "Info", "--escalate-layer", "1"}, "--escalate-layer requires --escalate-rule-id"},
 		{"unknown field", []string{"incident", "create", "--title", "db down", "--severity", "Info", "--field", "nope=1"}, "unknown custom field"},
 		{"bad checkbox", []string{"incident", "update", "inc-1", "--field", "urgent=maybe"}, "true or false"},
 		{"bad multi-select json", []string{"incident", "update", "inc-1", "--field", "tags=[oops"}, "invalid JSON array"},

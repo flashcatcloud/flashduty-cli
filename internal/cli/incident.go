@@ -390,6 +390,9 @@ func newIncidentCreateCmd() *cobra.Command {
 			if severity == "" {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
+			if cmd.Flags().Changed("escalate-layer") && escalateRuleID == "" {
+				return fmt.Errorf("--escalate-layer requires --escalate-rule-id")
+			}
 			customFields, err := parseCustomFieldFlags(fieldFlags)
 			if err != nil {
 				return err
