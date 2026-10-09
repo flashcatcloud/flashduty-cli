@@ -56,6 +56,38 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"target_incident_id":  "args",
 		"owner_id":            "omit: ignored by the server; the merge never changes the target owner",
 	},
+	"audit search": {
+		"start_time":       "--since",
+		"end_time":         "--until",
+		"person_id":        "--person",
+		"operations":       "--operation",
+		"search_after_ctx": "omit: the cursor is managed by the command; --page walks it",
+	},
+	"change list": {
+		"start_time":      "--since",
+		"end_time":        "--until",
+		"p":               "--page",
+		"channel_ids":     "--channel",
+		"integration_ids": "--integration",
+		"integration_id":  "omit: deprecated single-value alias of integration_ids, which --integration sets",
+		"data_source_id":  "omit: deprecated single-value alias of integration_ids, which --integration sets",
+		"data_source_ids": "omit: deprecated alias of integration_ids, which --integration sets",
+	},
+	"channel list": {
+		"p": "--page",
+	},
+	"team list": {
+		"p":     "--page",
+		"query": "--name",
+	},
+	"team delete": {
+		"team_id":   "--id",
+		"team_name": "--name",
+	},
+	"insight incident-export": {
+		"fields": "omit: object field; pass it through --data",
+		"labels": "omit: object field; pass it through --data",
+	},
 }
 
 var apiLineRe = regexp.MustCompile(`(?m)^API: [A-Z]+ \S+ \(([^)]+)\)$`)

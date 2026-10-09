@@ -26,9 +26,13 @@ flashduty change list --since 48h --integration <integration-id> --query "deploy
 
 ### list
 List changes
+- `--asc` bool
 - `--channel` string
+- `--filters` string
+- `--include-events` bool
 - `--integration` string
 - `--limit` int
+- `--orderby` string
 - `--page` int
 - `--query` string
 - `--since` string

@@ -78,7 +78,18 @@ Batch get channels
 
 ### list
 List channels
+- `--asc` bool
+- `--channel-ids` int64Slice
+- `--channel-name` string
+- `--is-brief` bool
+- `--is-my-managed` bool
+- `--is-my-starred` bool
+- `--is-my-team` bool
+- `--limit` int
 - `--name` string
+- `--orderby` string
+- `--page` int
+- `--query` string
 - `--team-ids` int64Slice
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_incident_highest_severity (string); auto_resolve_mode (string); auto_resolve_timeout (integer); channel_id (integer); channel_name (string); created_at (string); creator_id (integer); creator_name (string); deleted_at (string); description (string); disable_auto_close (boolean); disable_outlier_detection (boolean); event_group (object); external_report_token (string); flapping (object); group (object); is_external_report_enabled (boolean); is_private (boolean); is_starred (boolean); last_incident_at (string); managing_team_ids (array<integer>); progress_to_incident_cnts (object); status (string); team_id (integer); team_name (string); updated_at (string)
 
