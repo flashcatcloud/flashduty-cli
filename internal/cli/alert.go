@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newAlertCmd() *cobra.Command {
@@ -38,13 +37,13 @@ func newAlertListCmd() *cobra.Command {
 					return fmt.Errorf("--active and --recovered are mutually exclusive")
 				}
 
-				startTime, err := timeutil.Parse(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
+				why := ""
+				if active && !cmd.Flags().Changed("since") {
+					since, why = openStateSince, "default --since "+openStateSince+" because of --active"
 				}
-				endTime, err := timeutil.Parse(until)
+				startTime, endTime, err := parseWindow(cmd, since, until, why)
 				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				req := &flashduty.AlertListRequest{
@@ -126,7 +125,7 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&alertKeys, "alert-keys", "", "Comma-separated alert deduplication keys")
 	cmd.Flags().BoolVar(&asc, "asc", false, "Sort oldest first by start time (default newest first)")
 	cmd.Flags().BoolVar(&byUpdatedAt, "by-updated-at", false, "Apply --since/--until to the last-updated time instead of the start time")
-	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
+	cmd.Flags().StringVar(&since, "since", "24h", "Start time. Defaults to 30d with --active")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")

@@ -3,17 +3,25 @@ package skilldoc
 import "testing"
 
 // validatorDump is a minimal dump fixture: one status-page leaf with flags
-// {type, title} plus the data flag.
+// {type, title} plus the data flag, under a root with the global
+// --output-format and --help and the root-only --version.
 func validatorDump() Dump {
-	return Dump{Commands: []Command{
-		{
-			Path:  "status-page change-create",
-			Group: "status-page",
-			Flags: []Flag{
-				{Name: "type"}, {Name: "title"}, {Name: "data"},
+	return Dump{
+		Commands: []Command{
+			{
+				Path:  "status-page change-create",
+				Group: "status-page",
+				Flags: []Flag{
+					{Name: "type"}, {Name: "title"}, {Name: "data"},
+				},
 			},
 		},
-	}}
+		Root: []Flag{
+			{Name: "output-format", Persistent: true},
+			{Name: "help", Persistent: true},
+			{Name: "version"},
+		},
+	}
 }
 
 func TestValidate_UnknownCommandAndFlag(t *testing.T) {
@@ -98,6 +106,33 @@ func TestValidate_GlobalFlagsAllowed(t *testing.T) {
 	}
 	if issues := Validate(d, docs); len(issues) != 0 {
 		t.Errorf("global flag --output-format should be allowed: %+v", issues)
+	}
+}
+
+// A bare `fduty` that carries flags is a root invocation, not prose: its flags
+// are checked against the flags the root accepts. Root-only flags (--version)
+// are valid there but not on a subcommand.
+func TestValidate_RootInvocationFlags(t *testing.T) {
+	d := validatorDump()
+	docs := []Doc{
+		{Path: "version", Body: "Check `fduty --version` first.\n"},
+		{Path: "help", Body: "Run `fduty --help`.\n"},
+		{Path: "bogus", Body: "Run `fduty --release-notes`.\n"},
+		{Path: "leaf-version", Body: "```bash\nfduty status-page change-create --version\n```\n"},
+	}
+	byDoc := map[string][]Issue{}
+	for _, is := range Validate(d, docs) {
+		byDoc[is.Doc] = append(byDoc[is.Doc], is)
+	}
+	for _, ok := range []string{"version", "help"} {
+		if n := len(byDoc[ok]); n != 0 {
+			t.Errorf("%s: want 0 issues, got %+v", ok, byDoc[ok])
+		}
+	}
+	for _, bad := range []string{"bogus", "leaf-version"} {
+		if n := len(byDoc[bad]); n != 1 || byDoc[bad][0].Kind != "unknown-flag" {
+			t.Errorf("%s: want 1 unknown-flag, got %+v", bad, byDoc[bad])
+		}
 	}
 }
 

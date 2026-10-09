@@ -246,7 +246,7 @@ func newTemplateVariablesCmd() *cobra.Command {
 				{Header: "EXAMPLE", MaxWidth: 40, Field: func(v any) string { return v.(templateVariable).Example }},
 			}
 
-			return newPrinter(cmd.OutOrStdout()).Print(vars, cols)
+			return newPrinter(cmd).Print(vars, cols)
 		},
 	}
 
@@ -279,7 +279,7 @@ func newTemplateFunctionsCmd() *cobra.Command {
 				{Header: "DESCRIPTION", MaxWidth: 60, Field: func(v any) string { return v.(templateFunction).Description }},
 			}
 
-			return newPrinter(cmd.OutOrStdout()).Print(funcs, cols)
+			return newPrinter(cmd).Print(funcs, cols)
 		},
 	}
 

@@ -20,17 +20,6 @@ type Issue struct {
 	Detail string
 }
 
-// globalFlags are always-valid persistent flags that any command accepts; the
-// validator never flags them as unknown. Kept in one place to stay DRY.
-var globalFlags = map[string]bool{
-	"output-format": true,
-	"json":          true,
-	"no-trunc":      true,
-	"app-key":       true,
-	"base-url":      true,
-	"data":          true,
-}
-
 // Validate checks every harvested `fduty …` example in docs against the dump:
 // an example whose leading words resolve to no command path yields an
 // unknown-command issue; an example flag absent from its command's flag set
@@ -159,11 +148,23 @@ func lineOf(body string, off int) int {
 type commandIndex struct {
 	flags map[string]map[string]bool
 	paths []string
+	// global is the flags every command accepts (the root's persistent flags
+	// and --help); root is every flag the bare root command accepts.
+	global map[string]bool
+	root   map[string]bool
 }
 
 func indexDump(d Dump) commandIndex {
 	idx := commandIndex{
-		flags: make(map[string]map[string]bool),
+		flags:  make(map[string]map[string]bool),
+		global: make(map[string]bool),
+		root:   make(map[string]bool),
+	}
+	for _, f := range d.Root {
+		idx.root[f.Name] = true
+		if f.Persistent {
+			idx.global[f.Name] = true
+		}
 	}
 	for _, c := range d.Commands {
 		set := make(map[string]bool, len(c.Flags))
@@ -191,7 +192,13 @@ func validateExample(idx commandIndex, docPath string, ex Example) []Issue {
 		// resolve is a genuine wrong command name (e.g. `statuspage`) and is
 		// reported.
 		words := leadingWords(ex.Tokens)
-		if len(words) == 0 || anyPlaceholder(words) {
+		if len(words) == 0 {
+			// A bare `fduty` mention is prose, unless it carries flags: then it
+			// is a root invocation (`fduty --version`), and its flags must be
+			// ones the root accepts.
+			return unknownFlags(docPath, ex, "fduty", idx.root)
+		}
+		if anyPlaceholder(words) {
 			return nil
 		}
 		return []Issue{{
@@ -202,6 +209,19 @@ func validateExample(idx commandIndex, docPath string, ex Example) []Issue {
 		}}
 	}
 
+	valid := make(map[string]bool, len(idx.global)+len(flagSet))
+	for name := range idx.global {
+		valid[name] = true
+	}
+	for name := range flagSet {
+		valid[name] = true
+	}
+	return unknownFlags(docPath, ex, path, valid)
+}
+
+// unknownFlags reports every flag of ex that is not in valid; path names the
+// command in the issue.
+func unknownFlags(docPath string, ex Example, path string, valid map[string]bool) []Issue {
 	var issues []Issue
 	for _, tok := range ex.Tokens {
 		name, isFlag := flagName(tok)
@@ -215,7 +235,7 @@ func validateExample(idx commandIndex, docPath string, ex Example) []Issue {
 		// never emits the bare requireExactArg/requireArgs form that would make
 		// passing the flag fail. So a folded name is just a flag like any other
 		// here: fall through to the flagSet check below.
-		if globalFlags[name] || flagSet[name] {
+		if valid[name] {
 			continue
 		}
 		issues = append(issues, Issue{

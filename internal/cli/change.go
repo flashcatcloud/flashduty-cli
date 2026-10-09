@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newChangeCmd() *cobra.Command {
@@ -31,13 +30,9 @@ func newChangeListCmd() *cobra.Command {
 		Long:  curatedLong("List changes recorded in the change feed. Time window must be < 31 days; --limit max is 100.", "Changes", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				// The legacy SDK clamped non-positive paging to sane defaults

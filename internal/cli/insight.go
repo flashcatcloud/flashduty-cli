@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newInsightCmd() *cobra.Command {
@@ -38,13 +37,9 @@ func newInsightTopAlertsCmd() *cobra.Command {
 		Long:  curatedLong("Query the top-K noisiest alert sources grouped by a label dimension over a time window.", "Analytics", "TopkAlertsByLabel"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				result, _, err := ctx.Client.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &flashduty.InsightTopkAlertByLabelRequest{
@@ -94,13 +89,9 @@ func newInsightIncidentsCmd() *cobra.Command {
 		Long:  curatedLong("List incidents with per-incident performance metrics (MTTA, MTTR, notifications) over a time window. In json/toon mode, rows default to the compact fields incident_id,title,severity,channel_name,seconds_to_ack,seconds_to_close,notifications; pass --fields to choose a different projection.", "Analytics", "IncidentList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				req := &flashduty.InsightIncidentListRequest{

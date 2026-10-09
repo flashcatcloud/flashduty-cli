@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newAuditCmd() *cobra.Command {
@@ -28,13 +27,9 @@ func newAuditSearchCmd() *cobra.Command {
 		Long:  curatedLong("Search audit logs within a time window, optionally filtered by person, operation type, write/read, risk level and request ID. The --since/--until window must be < 90 days; --limit max is 99.", "AuditLogs", "Search"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				input := &flashduty.AuditSearchRequest{

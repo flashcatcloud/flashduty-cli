@@ -18,7 +18,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newIncidentCmd() *cobra.Command {
@@ -86,13 +85,13 @@ func newIncidentListCmd() *cobra.Command {
 		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url; pass --fields to choose a different projection.\n\nSee also: flashduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), flashduty insight incident-list for metric-rich filtered incident rows, and flashduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
-				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
+				why := ""
+				if !cmd.Flags().Changed("since") && onlyOpenProgress(progress) {
+					since, why = openStateSince, "default --since "+openStateSince+" because --progress lists only open states"
 				}
-				endTime, err := timeutil.Parse(until)
+				startTime, endTime, err := parseWindow(cmd, since, until, why)
 				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				req := &flashduty.ListIncidentsRequest{
@@ -210,7 +209,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only incidents in channels owned by your teams")
 	cmd.Flags().BoolVar(&isRare, "is-rare", false, "Only outlier (rare) incidents")
 	cmd.Flags().BoolVar(&isSnoozed, "is-snoozed", false, "Only snoozed incidents")
-	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
+	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days). Defaults to 30d when --progress lists only open states (Triggered, Processing)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")

@@ -124,7 +124,9 @@ flashduty config set base_url URL  # Override the API endpoint
 | `--output-format` | `table` (default), `json`, or `toon` |
 | `--json` | Alias for `--output-format json` |
 | `--no-trunc` | Do not truncate long fields in table output |
+| `--fields` | Keep only these comma-separated top-level fields in `json`/`toon` output: each row of a list, or the keys of a single record |
 | `--base-url` | Override the API base URL |
+| `--version` | Print the version (same as `flashduty version`) |
 
 ## Output formats
 
@@ -133,6 +135,10 @@ flashduty config set base_url URL  # Override the API endpoint
 - **TOON** (`--output-format toon`): [Token-Oriented Object Notation](https://github.com/toon-format/toon-go). It drops the keys JSON repeats on every row, so lists cost far fewer tokens. Use it when an LLM or agent reads the output.
 
 Every structured list page is capped at 16 KiB. A page that had to be reduced is reported on stderr, and list envelopes also carry `"truncated": true` in the payload. With `"emitted_rows": N`, only the first N rows were returned: re-request with a smaller `--limit` until the rows you hold reach `total`. Without it, every row is present but long values were clipped: narrow `--fields`.
+
+Commands that query a time range print the window they actually sent on stderr, in the local timezone, e.g. `note: window 2026-10-08T14:00:00+08:00..2026-10-09T14:00:00+08:00 (1d, ended now)`. stdout stays pure `json`/`toon`. `incident list --progress Triggered,Processing` and `alert list --active` default to the last 30 days when `--since` is not given, since open records can be older than a day.
+
+An unknown flag or command error lists the closest valid names and the valid choices at that level.
 
 ## Updating
 

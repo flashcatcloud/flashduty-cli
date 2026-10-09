@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newOncallCmd() *cobra.Command {
@@ -36,13 +35,9 @@ func newOncallWhoCmd() *cobra.Command {
 		Long:  curatedLong("Show who is currently on call across schedules within a time window, optionally filtered by team or schedule name. The table output already resolves person_ids to display names; when you have raw person_ids elsewhere, batch-resolve them with 'flashduty person infos <person_id> ...' (NOT by paginating 'flashduty member list' — person_id and member_id are different id namespaces).", "Schedules", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				req := &flashduty.ScheduleListRequest{
@@ -111,13 +106,9 @@ func newOncallScheduleListCmd() *cobra.Command {
 		Long:  curatedLong("List on-call schedules within a time window, optionally filtered by team or schedule name.", "Schedules", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				req := &flashduty.ScheduleListRequest{
@@ -190,13 +181,9 @@ func newOncallScheduleGetCmd() *cobra.Command {
 					return fmt.Errorf("invalid schedule_id %q: %w", ctx.Args[0], err)
 				}
 
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				s, _, err := ctx.Client.Schedules.Info(cmdContext(ctx.Cmd), &flashduty.ScheduleInfoRequest{

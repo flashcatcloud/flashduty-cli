@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 func newAlertEventCmd() *cobra.Command {
@@ -32,13 +31,9 @@ func newAlertEventListCmd() *cobra.Command {
 					return fmt.Errorf("--fields must name at least one field")
 				}
 
-				startTime, err := timeutil.Parse(since)
+				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
-					return fmt.Errorf("invalid --since: %w", err)
-				}
-				endTime, err := timeutil.Parse(until)
-				if err != nil {
-					return fmt.Errorf("invalid --until: %w", err)
+					return err
 				}
 
 				input := &flashduty.AlertEventGlobalListRequest{

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -349,6 +350,21 @@ func printGenericResult(ctx *RunContext, data any) error {
 		return err
 	}
 	if ctx.Structured() {
+		// Size the payload as it will print: project first, then bound and
+		// print through the unprojecting printer so --fields runs once.
+		if fields := requestedFields(); len(fields) > 0 {
+			proj, err := projectOutput(ctx.Cmd, data, fields)
+			if err != nil {
+				return err
+			}
+			noteFieldsMissing(ctx.Cmd, proj)
+			data = proj.out
+			if pp, ok := ctx.Printer.(projectingPrinter); ok {
+				projected := *ctx
+				projected.Printer = pp.inner
+				ctx = &projected
+			}
+		}
 		return printBoundedGenericResult(ctx, data)
 	}
 	return renderGenericTable(ctx, data)
@@ -568,6 +584,16 @@ func genParseTimeFlagAlias(cmd *cobra.Command, name, alias, raw, aliasRaw string
 		name, raw = alias, aliasRaw
 	}
 	return genParseTimeFlag(cmd, name, raw)
+}
+
+// genNoteWindow announces a generated verb's resolved --start-time/--end-time
+// window (see noteWindow), when both flags were given. A side left to --data
+// or to the server's default was not resolved by the CLI, so nothing is
+// announced rather than half a window.
+func genNoteWindow(cmd *cobra.Command, start, end int64, both bool) {
+	if both {
+		noteWindow(cmd.ErrOrStderr(), time.Unix(start, 0), time.Unix(end, 0), "")
+	}
 }
 
 // genGroup finds an existing subcommand named `name` under parent, or creates a
