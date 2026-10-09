@@ -84,6 +84,21 @@ func Parse(s string) (int64, error) {
 	return 0, fmt.Errorf("unable to parse time %q: expected duration (24h), RFC3339 (2006-01-02T15:04:05Z07:00), date (2006-01-02), datetime (2006-01-02 15:04:05), or unix timestamp in seconds or milliseconds", s)
 }
 
+// Lookback reports the span of a past-relative duration ("24h", "30d") — the
+// form Parse reads as "now minus duration". ok is false for every other form
+// (absolute times, "now", "+" future offsets).
+func Lookback(s string) (d time.Duration, ok bool) {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "+") {
+		return 0, false
+	}
+	d, err := time.ParseDuration(expandDays(s))
+	if err != nil || d < 0 {
+		return 0, false
+	}
+	return d, true
+}
+
 // msThreshold is the magnitude cutoff separating a unix timestamp in seconds
 // from one in milliseconds: 100,000,000,000 as seconds is the year 5138, so
 // any input at or above it is treated as milliseconds instead.

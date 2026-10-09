@@ -116,10 +116,17 @@ func noteFieldsMissing(cmd *cobra.Command, p projection) {
 	}
 }
 
-// noteFieldsNotApplied says --fields left a command's structured output as it
-// was: an acknowledgement or a raw (file/CSV) body has no record to project.
+// fieldsApplied records that the global --fields projected something during
+// the current run; the root resets it before each command runs.
+var fieldsApplied bool
+
+// noteFieldsNotApplied runs after every command (root PersistentPostRun) and
+// says so when --fields was given but projected nothing: table output, an
+// acknowledgement, a raw (file/CSV) body, or a command that prints its own
+// text (version, config show). One hook covers every output path, so no
+// command can ignore the flag silently.
 func noteFieldsNotApplied(cmd *cobra.Command) {
-	if flagFields != "" && currentOutputFormat().Structured() {
+	if flagFields != "" && !fieldsApplied {
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: --fields does not apply to the output of %q; printed unchanged\n", cmd.CommandPath())
 	}
 }
@@ -150,5 +157,6 @@ func (p projectingPrinter) Print(data any, columns []output.Column) error {
 		return err
 	}
 	noteFieldsMissing(p.cmd, proj)
+	fieldsApplied = true
 	return p.inner.Print(proj.out, nil)
 }

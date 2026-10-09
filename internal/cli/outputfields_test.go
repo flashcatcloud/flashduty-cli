@@ -127,8 +127,29 @@ func TestGlobalFieldsOnAcknowledgement(t *testing.T) {
 	if !strings.Contains(stdout, `"message"`) {
 		t.Errorf("acknowledgement should print unchanged, got %q", stdout)
 	}
-	if !strings.Contains(stderr, `note: --fields does not apply to the output of "flashduty channel disable"; printed unchanged`) {
+	if !strings.Contains(stderr, `note: --fields does not apply to the output of "flashduty channel disable"`) {
 		t.Errorf("want not-applied note, got %q", stderr)
+	}
+}
+
+// TestGlobalFieldsOnSelfPrintedOutput: commands that print their own output
+// (version, config show) and table mode say --fields did not apply instead of
+// ignoring it silently.
+func TestGlobalFieldsOnSelfPrintedOutput(t *testing.T) {
+	for _, args := range [][]string{
+		{"version", "--fields", "version", "--output-format", "json"},
+		{"config", "show", "--fields", "base_url"},
+		{"member", "list", "--fields", "member_id"},
+	} {
+		saveAndResetGlobals(t)
+		newGFStub(t)
+		_, stderr, err := execCommandSplit(args...)
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		if !strings.Contains(stderr, "note: --fields does not apply to the output of") {
+			t.Errorf("%v: want not-applied note, got %q", args, stderr)
+		}
 	}
 }
 

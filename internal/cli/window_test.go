@@ -147,6 +147,12 @@ func TestOpenStateDefaultWindow(t *testing.T) {
 		{"alert active", []string{"alert", "list", "--active"}, 30 * day, true},
 		{"alert unfiltered", []string{"alert", "list"}, day, false},
 		{"alert active explicit since", []string{"alert", "list", "--active", "--since", "1h"}, 3600, false},
+		// A defaulted --since spans back from --until, so a moved --until
+		// neither stretches the window past 30d nor inverts it.
+		{"incident triggered future until", []string{"incident", "list", "--progress", "Triggered", "--until", "+1d"}, 30 * day, true},
+		{"alert active future until", []string{"alert", "list", "--active", "--until", "+1d"}, 30 * day, true},
+		{"incident past until", []string{"incident", "list", "--until", "2d"}, day, false},
+		{"incident explicit since and until", []string{"incident", "list", "--since", "3d", "--until", "1d"}, 2 * day, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

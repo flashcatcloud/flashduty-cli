@@ -80,7 +80,6 @@ func (ctx *RunContext) PrintTotal(items any, cols []output.Column, total int) er
 
 // WriteResult prints a success message as plain text or JSON.
 func (ctx *RunContext) WriteResult(message string) {
-	noteFieldsNotApplied(ctx.Cmd)
 	writeResult(ctx.Writer, message)
 }
 
@@ -89,7 +88,6 @@ func (ctx *RunContext) WriteResult(message string) {
 // shell redirection (`> file.csv`) captures the bytes verbatim instead of the
 // canned "OK: POST ..." acknowledgment.
 func (ctx *RunContext) WriteRaw(body []byte) error {
-	noteFieldsNotApplied(ctx.Cmd)
 	_, err := ctx.Writer.Write(body)
 	return err
 }
@@ -102,7 +100,6 @@ func (ctx *RunContext) WriteResultJSON(data any, humanMessage string) error {
 		_, _ = fmt.Fprintln(ctx.Writer, humanMessage)
 		return nil
 	}
-	noteFieldsNotApplied(ctx.Cmd)
 	out, err := marshalStructured(data)
 	if err != nil {
 		return fmt.Errorf("failed to marshal output: %w", err)

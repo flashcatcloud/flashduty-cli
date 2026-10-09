@@ -42,14 +42,20 @@ var nowFn = time.Now
 // parseWindow parses a curated verb's --since/--until pair into unix seconds
 // and announces the effective window on stderr (see noteWindow). why, when
 // non-empty, says which default produced the window.
+//
+// A defaulted lookback --since ("24h", "30d") spans back from --until, not
+// from now: with --until moved, a now-relative default would stretch the
+// window past the server's 31-day cap (future --until) or invert it (past
+// --until). With --until at its "now" default the two readings coincide.
 func parseWindow(cmd *cobra.Command, since, until, why string) (start, end int64, err error) {
-	start, err = timeutil.Parse(since)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid --since: %w", err)
-	}
 	end, err = timeutil.Parse(until)
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid --until: %w", err)
+	}
+	if span, ok := timeutil.Lookback(since); ok && !cmd.Flags().Changed("since") {
+		start = end - int64(span/time.Second)
+	} else if start, err = timeutil.Parse(since); err != nil {
+		return 0, 0, fmt.Errorf("invalid --since: %w", err)
 	}
 	noteWindow(cmd.ErrOrStderr(), time.Unix(start, 0), time.Unix(end, 0), why)
 	return start, end, nil

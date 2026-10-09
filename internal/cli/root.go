@@ -61,6 +61,7 @@ var rootCmd = &cobra.Command{
 		}
 		updateNotice = nil
 		updateCheckWarning = ""
+		fieldsApplied = false
 		if cmd.CommandPath() == cmd.Root().Name()+" update" {
 			return nil
 		}
@@ -89,6 +90,7 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+		noteFieldsNotApplied(cmd)
 		if updateCheckWarning != "" {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n%s\n", updateCheckWarning)
 		}

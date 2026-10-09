@@ -358,6 +358,7 @@ func printGenericResult(ctx *RunContext, data any) error {
 				return err
 			}
 			noteFieldsMissing(ctx.Cmd, proj)
+			fieldsApplied = true
 			data = proj.out
 			if pp, ok := ctx.Printer.(projectingPrinter); ok {
 				projected := *ctx
