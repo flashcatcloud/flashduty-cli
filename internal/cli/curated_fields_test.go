@@ -26,6 +26,31 @@ import (
 // TestCuratedCommandsCoverRequestFields instead of silently vanishing behind
 // the curated command.
 var curatedFieldRoutes = map[string]map[string]string{
+	"alert list": {
+		"alert_severity":   "--severity",
+		"channel_ids":      "--channel",
+		"integration_ids":  "--integration",
+		"start_time":       "--since",
+		"end_time":         "--until",
+		"p":                "--page",
+		"is_active":        "--active",
+		"ever_muted":       "--muted",
+		"search_after_ctx": "omit: cursor returned by the previous page; the curated list pages with --page and does not print the next-page cursor",
+	},
+	"alert merge": {
+		"comment": "--comment-file",
+	},
+	"alert-event list": {
+		"severities":        "--severity",
+		"channel_ids":       "--channel",
+		"integration_ids":   "--integration",
+		"integration_types": "--integration-type",
+		"start_time":        "--since",
+		"end_time":          "--until",
+		"p":                 "--page",
+		"orderby":           "omit: event_time is the only supported value and the server default",
+		"search_after_ctx":  "omit: cursor returned by the previous page; the curated list pages with --page and does not print the next-page cursor",
+	},
 	"incident merge": {
 		"source_incident_ids": "--source",
 		"target_incident_id":  "args",
