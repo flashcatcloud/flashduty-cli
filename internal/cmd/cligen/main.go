@@ -1281,6 +1281,21 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		}
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 	}
+	// A --start-time/--end-time pair (the one aliased to --since/--until)
+	// echoes the window it resolved, like the curated windowed verbs.
+	var startWire, endWire string
+	for wire, alias := range timeAlias {
+		switch alias {
+		case "since":
+			startWire = wire
+		case "until":
+			endWire = wire
+		}
+	}
+	if startWire != "" && endWire != "" {
+		fmt.Fprintf(&b, "\t\t\t\tgenNoteWindow(cmd, %s, %s, %s && %s)\n",
+			parsedTimeVar(startWire), parsedTimeVar(endWire), okTimeVar(startWire), okTimeVar(endWire))
+	}
 	// body assembly. The positional argument folds in first (after --data, before
 	// the typed flags) so an explicitly-set flag for the same field overrides it,
 	// matching genAssembleBody's --data-then-flags overlay order. genFoldPositional

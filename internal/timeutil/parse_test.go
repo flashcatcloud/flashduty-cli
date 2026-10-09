@@ -250,3 +250,28 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+// TestLookback: only past-relative durations are lookbacks; "+" future
+// offsets (which Atoi-based day expansion would otherwise accept), "now",
+// dates and unix timestamps are not.
+func TestLookback(t *testing.T) {
+	cases := map[string]struct {
+		want time.Duration
+		ok   bool
+	}{
+		"24h":        {24 * time.Hour, true},
+		"30d":        {30 * 24 * time.Hour, true},
+		" 90m ":      {90 * time.Minute, true},
+		"now":        {0, false},
+		"+1d":        {0, false},
+		"+24h":       {0, false},
+		"2026-04-01": {0, false},
+		"1712000000": {0, false},
+	}
+	for in, tc := range cases {
+		got, ok := Lookback(in)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("Lookback(%q) = %v, %v; want %v, %v", in, got, ok, tc.want, tc.ok)
+		}
+	}
+}

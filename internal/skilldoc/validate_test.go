@@ -3,17 +3,26 @@ package skilldoc
 import "testing"
 
 // validatorDump is a minimal dump fixture: one status-page leaf with flags
-// {type, title} plus the data flag.
+// {type, title} plus the data flag, under a root with the global
+// --output-format and --help and the root-only --version.
 func validatorDump() Dump {
-	return Dump{Commands: []Command{
-		{
-			Path:  "status-page change-create",
-			Group: "status-page",
-			Flags: []Flag{
-				{Name: "type"}, {Name: "title"}, {Name: "data"},
+	return Dump{
+		Commands: []Command{
+			{
+				Path:  "status-page change-create",
+				Group: "status-page",
+				Flags: []Flag{
+					{Name: "type"}, {Name: "title"}, {Name: "data"},
+				},
 			},
 		},
-	}}
+		Root: []Flag{
+			{Name: "output-format", Persistent: true},
+			{Name: "json", Persistent: true},
+			{Name: "help", Persistent: true},
+			{Name: "version"},
+		},
+	}
 }
 
 func TestValidate_UnknownCommandAndFlag(t *testing.T) {
@@ -101,6 +110,33 @@ func TestValidate_GlobalFlagsAllowed(t *testing.T) {
 	}
 }
 
+// A bare `fduty` that carries flags is a root invocation, not prose: its flags
+// are checked against the flags the root accepts. Root-only flags (--version)
+// are valid there but not on a subcommand.
+func TestValidate_RootInvocationFlags(t *testing.T) {
+	d := validatorDump()
+	docs := []Doc{
+		{Path: "version", Body: "Check `fduty --version` first.\n"},
+		{Path: "help", Body: "Run `fduty --help`.\n"},
+		{Path: "bogus", Body: "Run `fduty --release-notes`.\n"},
+		{Path: "leaf-version", Body: "```bash\nfduty status-page change-create --version\n```\n"},
+	}
+	byDoc := map[string][]Issue{}
+	for _, is := range Validate(d, docs) {
+		byDoc[is.Doc] = append(byDoc[is.Doc], is)
+	}
+	for _, ok := range []string{"version", "help"} {
+		if n := len(byDoc[ok]); n != 0 {
+			t.Errorf("%s: want 0 issues, got %+v", ok, byDoc[ok])
+		}
+	}
+	for _, bad := range []string{"bogus", "leaf-version"} {
+		if n := len(byDoc[bad]); n != 1 || byDoc[bad][0].Kind != "unknown-flag" {
+			t.Errorf("%s: want 1 unknown-flag, got %+v", bad, byDoc[bad])
+		}
+	}
+}
+
 // Prose mentions of the binary — a bare `fduty` word or a templated
 // `fduty <group> <verb>` — are documentation references, not runnable examples,
 // and must not be flagged. A genuine wrong command name (no placeholder) must
@@ -111,6 +147,8 @@ func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
 		{Path: "bare", Body: "The `fduty` CLI is the interface. Each `fduty` subprocess gets auth.\n"},
 		{Path: "tmpl", Body: "Derive it then run `fduty <group> <verb> --help`.\n"},
 		{Path: "drift", Body: "```bash\nfduty statuspage list\n```\n"},
+		{Path: "root-bogus", Body: "Run `fduty --bogus` first.\n"},
+		{Path: "root-json", Body: "Run `fduty --json`.\n"},
 	}
 	byDoc := map[string][]Issue{}
 	for _, is := range Validate(d, docs) {
@@ -124,5 +162,12 @@ func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
 	}
 	if n := len(byDoc["drift"]); n != 1 || byDoc["drift"][0].Kind != "unknown-command" {
 		t.Errorf("drift `statuspage`: want 1 unknown-command, got %+v", byDoc["drift"])
+	}
+	// A bare `fduty` followed by flags is a root invocation, not prose.
+	if n := len(byDoc["root-bogus"]); n != 1 || byDoc["root-bogus"][0].Kind != "unknown-flag" {
+		t.Errorf("`fduty --bogus`: want 1 unknown-flag, got %+v", byDoc["root-bogus"])
+	}
+	if n := len(byDoc["root-json"]); n != 0 {
+		t.Errorf("`fduty --json`: want 0 issues, got %+v", byDoc["root-json"])
 	}
 }

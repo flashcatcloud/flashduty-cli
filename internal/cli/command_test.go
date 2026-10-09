@@ -73,9 +73,7 @@ func execCommand(args ...string) (string, error) {
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
-	rootCmd.SetArgs(args)
-
-	err := rootCmd.Execute()
+	err := executeArgs(args)
 
 	// Reset the persistent flags cobra parsed so subsequent calls within the
 	// same test process do not carry stale values.
@@ -97,9 +95,7 @@ func execCommandSplit(args ...string) (stdout, stderr string, err error) {
 	errBuf := new(bytes.Buffer)
 	rootCmd.SetOut(outBuf)
 	rootCmd.SetErr(errBuf)
-	rootCmd.SetArgs(args)
-
-	err = rootCmd.Execute()
+	err = executeArgs(args)
 
 	rootCmd.SetArgs(nil)
 	rootCmd.SetOut(nil)

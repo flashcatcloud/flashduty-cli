@@ -316,7 +316,7 @@ func TestIncidentListStructuredDefaultUsesCompactProjection(t *testing.T) {
 		stub := newGFStub(t)
 		stub.data = map[string]any{"items": []any{incidentRow()}, "total": 1}
 
-		out, err := execCommand("incident", "list", "--fields", "incident_id,title", "--output-format", "json")
+		out, _, err := execCommandSplit("incident", "list", "--fields", "incident_id,title", "--output-format", "json")
 		if err != nil {
 			t.Fatalf("execCommand: %v", err)
 		}
@@ -466,7 +466,7 @@ func TestFieldsProjectionJSON(t *testing.T) {
 			stub.data = map[string]any{"items": []any{tc.data}, "total": 1}
 
 			args := append(append([]string(nil), tc.cmd...), "--fields", strings.Join(tc.fields, ","), "--output-format", "json")
-			out, err := execCommand(args...)
+			out, _, err := execCommandSplit(args...)
 			if err != nil {
 				t.Fatalf("execCommand: %v", err)
 			}

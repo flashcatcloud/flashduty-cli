@@ -32,6 +32,7 @@ var (
 	flagAppKey       string
 	flagBaseURL      string
 	flagOutputFormat string
+	flagFields       string
 )
 
 var (
@@ -60,6 +61,7 @@ var rootCmd = &cobra.Command{
 		}
 		updateNotice = nil
 		updateCheckWarning = ""
+		fieldsApplied = false
 		if cmd.CommandPath() == cmd.Root().Name()+" update" {
 			return nil
 		}
@@ -88,6 +90,7 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+		noteFieldsNotApplied(cmd)
 		if updateCheckWarning != "" {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\n%s\n", updateCheckWarning)
 		}
@@ -105,8 +108,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagNoTrunc, "no-trunc", false, "Do not truncate table output")
 	rootCmd.PersistentFlags().StringVar(&flagAppKey, "app-key", "", "Override app key")
 	rootCmd.PersistentFlags().StringVar(&flagBaseURL, "base-url", "", "Override base URL")
+	rootCmd.PersistentFlags().StringVar(&flagFields, "fields", "", "Comma-separated top-level fields to keep in json/toon output (per row of a list, or of a single record); ignored in table mode")
 	_ = rootCmd.PersistentFlags().MarkHidden("app-key")
 	registerEnumFlag(rootCmd, "output-format", "table", "json", "toon")
+	rootCmd.SetFlagErrorFunc(flagErrorWithCandidates)
+	// --version prints the same line as the version command.
+	rootCmd.SetVersionTemplate("flashduty version {{.Version}}\n")
+	setRootVersion()
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLoginCmd())
@@ -171,14 +179,24 @@ func init() {
 // to it, and cobra derives completion scripts from the root's name.
 func Execute(name string) error {
 	if name == rootCmd.Name() {
-		return rootCmd.Execute()
+		return executeArgs(os.Args[1:])
 	}
 	renameCommandText(rootCmd, name)
 	rootCmd.Use = name
-	if err := rootCmd.Execute(); err != nil {
+	if err := executeArgs(os.Args[1:]); err != nil {
 		return errors.New(renameCLI(err.Error(), name))
 	}
 	return nil
+}
+
+// executeArgs runs the command tree on args, rejecting an unknown subcommand
+// before cobra dispatch (see rejectUnknownSubcommand).
+func executeArgs(args []string) error {
+	if err := rejectUnknownSubcommand(rootCmd, args); err != nil {
+		return err
+	}
+	rootCmd.SetArgs(args)
+	return rootCmd.Execute()
 }
 
 // renameCommandText rewrites the CLI name in cmd's help text and flag usages,
@@ -315,12 +333,13 @@ func marshalStructured(v any) ([]byte, error) {
 	return json.MarshalIndent(output.NullUnsetInstants(v), "", "  ")
 }
 
-// newPrinter creates a Printer based on global flags.
-func newPrinter(w io.Writer) output.Printer {
-	if w == nil {
-		w = os.Stdout
+// newPrinter creates the Printer for cmd's stdout based on global flags,
+// applying the global --fields projection to structured output.
+func newPrinter(cmd *cobra.Command) output.Printer {
+	return projectingPrinter{
+		inner: output.NewPrinter(currentOutputFormat(), flagNoTrunc, cmd.OutOrStdout()),
+		cmd:   cmd,
 	}
-	return output.NewPrinter(currentOutputFormat(), flagNoTrunc, w)
 }
 
 // cmdContext returns the command's context.

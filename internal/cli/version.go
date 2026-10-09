@@ -17,6 +17,13 @@ func SetVersionInfo(version, commit, date string) {
 	versionStr = version
 	commitStr = commit
 	dateStr = date
+	setRootVersion()
+}
+
+// setRootVersion makes cobra register --version on the root, printing the
+// same line as the version command.
+func setRootVersion() {
+	rootCmd.Version = fmt.Sprintf("%s (%s) built %s", versionStr, commitStr, dateStr)
 }
 
 func newVersionCmd() *cobra.Command {

@@ -205,7 +205,7 @@ type flagRow struct {
 func flagRows(c Command, parsed map[string]parsedFlag) []flagRow {
 	var rows []flagRow
 	for _, f := range c.Flags {
-		if globalFlags[f.Name] {
+		if f.Name == "data" {
 			continue
 		}
 		row := flagRow{name: f.Name, typ: f.Type}

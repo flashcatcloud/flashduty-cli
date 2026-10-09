@@ -12,6 +12,10 @@ package skilldoc
 // contract shared between the dump oracle, the validator, and the generator.
 type Dump struct {
 	Commands []Command `json:"commands"`
+	// Root is every flag the bare root command accepts: the persistent
+	// (global) flags, which every command inherits, plus root-only flags such
+	// as --version.
+	Root []Flag `json:"root"`
 }
 
 // Command is one runnable leaf of the CLI tree.
@@ -38,4 +42,6 @@ type Flag struct {
 	Default  string `json:"default"`
 	Usage    string `json:"usage"`
 	Required bool   `json:"required"`
+	// Persistent marks a root flag every command inherits (Dump.Root only).
+	Persistent bool `json:"persistent,omitempty"`
 }

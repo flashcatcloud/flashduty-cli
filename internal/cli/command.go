@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 		Cmd:     cmd,
 		Args:    args,
 		Writer:  cmd.OutOrStdout(),
-		Printer: newPrinter(cmd.OutOrStdout()),
+		Printer: newPrinter(cmd),
 		Format:  currentOutputFormat(),
 	}
 	return fn(ctx)
@@ -127,26 +126,13 @@ func (ctx *RunContext) WriteResultJSON(data any, humanMessage string) error {
 // Pairing this validator with a real RunE (below) makes the group Runnable,
 // so cobra actually calls ValidateArgs with the leftover token and this
 // function gets a chance to reject it instead of it being silently dropped.
+// Cobra still answers --help before ValidateArgs, which is why Execute also
+// runs rejectUnknownSubcommand ahead of dispatch.
 func groupUnknownSubcommand(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
-	// Mirrors cobra's own default (see (*Command).findSuggestions): a group
-	// built via newGroupCmd never sets this itself, so the zero value would
-	// otherwise disable the Levenshtein half of SuggestionsFor.
-	if cmd.SuggestionsMinimumDistance <= 0 {
-		cmd.SuggestionsMinimumDistance = 2
-	}
-	suggestion := ""
-	if names := cmd.SuggestionsFor(args[0]); len(names) > 0 {
-		var b strings.Builder
-		b.WriteString("\n\nDid you mean this?\n")
-		for _, name := range names {
-			fmt.Fprintf(&b, "\t%s\n", name)
-		}
-		suggestion = b.String()
-	}
-	return fmt.Errorf("unknown command %q for %q%s", args[0], cmd.CommandPath(), suggestion)
+	return unknownCommandError(cmd, args[0])
 }
 
 // newGroupCmd creates a command-group node: Use/Short (with Long/Example

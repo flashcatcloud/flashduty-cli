@@ -21,6 +21,21 @@ import (
 // re-derived here; they live verbatim in Long, which cligen authored.
 func Build(root *cobra.Command) Dump {
 	var d Dump
+	// cobra adds --help/--version lazily at execution; add them now so the
+	// dump lists every flag the root accepts.
+	root.InitDefaultHelpFlag()
+	root.InitDefaultVersionFlag()
+	root.PersistentFlags().VisitAll(func(f *pflag.Flag) {
+		fl := flagOf(f)
+		fl.Persistent = true
+		d.Root = append(d.Root, fl)
+	})
+	root.LocalNonPersistentFlags().VisitAll(func(f *pflag.Flag) {
+		fl := flagOf(f)
+		// Not inherited, but cobra gives every command its own --help.
+		fl.Persistent = f.Name == "help"
+		d.Root = append(d.Root, fl)
+	})
 	walk(root, nil, &d)
 	sort.Slice(d.Commands, func(i, j int) bool {
 		return d.Commands[i].Path < d.Commands[j].Path
@@ -77,17 +92,24 @@ func command(c *cobra.Command, path []string) Command {
 	if len(path) > 0 {
 		cmd.Group = path[0]
 	}
-	c.Flags().VisitAll(func(f *pflag.Flag) {
-		if f.Hidden {
+	// LocalFlags, not Flags: once cobra has merged the root's persistent flags
+	// into a command (it does so on execution), Flags() lists them too, and a
+	// global flag is not a property of the command's own card entry.
+	c.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		if f.Hidden || f.Name == "help" {
 			return
 		}
-		cmd.Flags = append(cmd.Flags, Flag{
-			Name:     f.Name,
-			Type:     f.Value.Type(),
-			Default:  f.DefValue,
-			Usage:    f.Usage,
-			Required: f.Annotations[cobra.BashCompOneRequiredFlag] != nil,
-		})
+		cmd.Flags = append(cmd.Flags, flagOf(f))
 	})
 	return cmd
+}
+
+func flagOf(f *pflag.Flag) Flag {
+	return Flag{
+		Name:     f.Name,
+		Type:     f.Value.Type(),
+		Default:  f.DefValue,
+		Usage:    f.Usage,
+		Required: f.Annotations[cobra.BashCompOneRequiredFlag] != nil,
+	}
 }

@@ -208,6 +208,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -1826,6 +1827,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP

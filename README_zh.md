@@ -124,7 +124,9 @@ flashduty config set base_url URL  # 修改 API 地址
 | `--output-format` | `table`（默认）、`json` 或 `toon` |
 | `--json` | 等同 `--output-format json` |
 | `--no-trunc` | 表格输出不截断长字段 |
+| `--fields` | `json`/`toon` 输出只保留这些顶层字段（逗号分隔）：列表按行保留，单条记录保留对应 key |
 | `--base-url` | 覆盖 API 地址 |
+| `--version` | 打印版本（同 `flashduty version`） |
 
 ## 输出格式
 
@@ -133,6 +135,10 @@ flashduty config set base_url URL  # 修改 API 地址
 - **TOON**（`--output-format toon`）：[Token-Oriented Object Notation](https://github.com/toon-format/toon-go)。JSON 每行都重复字段名，TOON 不重复，列表输出的 token 少得多。LLM 或 Agent 读取输出时用它。
 
 每一页结构化列表最大 16 KiB。被裁剪的页会在 stderr 上提示，列表的返回体里也会带 `"truncated": true`。同时带 `"emitted_rows": N` 表示只返回了前 N 行：用更小的 `--limit` 重新请求，直到拿到的行数达到 `total`。不带 `emitted_rows` 表示行都在，但长字段被截断：用 `--fields` 缩小字段范围。
+
+按时间范围查询的命令会在 stderr 上打印实际发出的时间窗口（本地时区），例如 `note: window 2026-10-08T14:00:00+08:00..2026-10-09T14:00:00+08:00 (1d, ended now)`；stdout 仍是纯 `json`/`toon`。`incident list --progress Triggered,Processing` 和 `alert list --active` 在没给 `--since` 时默认查最近 30 天，因为未关闭的记录可能早于一天。
+
+未知 flag 或命令的报错会列出最接近的有效名称，以及该层级所有可用的选项。
 
 ## 升级
 

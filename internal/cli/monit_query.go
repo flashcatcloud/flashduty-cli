@@ -51,6 +51,7 @@ Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', '
 				if cmd.Flags().Changed("account-id") {
 					req.AccountID = uint64(accountID)
 				}
+				noteToolWindow(cmd.ErrOrStderr(), params)
 				out, _, err := ctx.Client.DataSources.ToolsInvoke(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
