@@ -30,14 +30,17 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ## Scheduling
 
 - Default create behavior: enabled immediately. Use `--disabled` only if the user asks for a disabled Automation.
-- `create`/`update` expose no `--timezone` flag. The cron expression runs in the rule's timezone, which the server resolves from the caller's member timezone, then the account timezone (a server-side default applies when neither is set).
-- Pass the user's local wall-clock time directly to `--at` or `--cron-expr` — do not convert it to UTC first. The rule already runs in the caller's own resolved timezone, so a manual UTC conversion shifts the schedule by the account's UTC offset.
-- Helper schedules (times are in the rule's resolved timezone, not UTC):
+- If the user names a timezone, pass `--timezone` with that IANA name on `create` or `update`. The cron expression is that timezone's wall clock. Do not convert it to UTC before calling.
+- `create` without `--timezone` still uses the caller's member timezone, then the account timezone, then Asia/Shanghai. Do not invent a timezone in the CLI.
+- `update` without `--timezone` keeps the stored value, including a legacy empty string.
+- `update` recalculates the next fire immediately. Read `schedule_next_fire_at_ms` from the response and tell the user. Do not assume the previously scheduled occurrence will still run.
+- An explicit empty string (`--timezone ""`) is UTC, not the account default. On `update` that empty string is sent and stored. On `create`, omit the flag for the default chain above; do not pass an empty string to mean UTC.
+- Pass the user's local wall-clock time directly to `--at` or `--cron-expr`.
+- Helper schedules (times are in the rule's timezone, not UTC):
   - `--schedule hourly --at 00:15` -> minute 15 of every hour.
   - `--schedule daily --at 01:30` -> every day at 01:30.
   - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00.
 - For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time.
-- To pin a rule to a specific timezone (e.g. UTC) regardless of the caller's default, use `safari automation-rule-create --timezone <IANA tz>` instead — the curated `create`/`update` commands cannot set it, and `update` cannot change it after creation.
 - HTTP POST-only rule: pass `--http-post-trigger` without schedule flags. The CLI sends a placeholder cron and disables the schedule trigger.
 
 ## Hot flow - create from chat
@@ -119,6 +122,7 @@ Create an Automation
 - `--schedule` string
 - `--schedule-enabled` bool
 - `--team-id` int64
+- `--timezone` string
 - `--weekday` string
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
 
@@ -177,6 +181,7 @@ Update an Automation
 - `--prompt-file` string
 - `--rotate-http-post-token` bool
 - `--schedule` string
+- `--timezone` string
 - `--weekday` string
 - response: same shape as `create` above
 
@@ -185,6 +190,7 @@ Update an Automation
 ## Gotchas
 
 - **Do not ask form-like follow-up questions** when the request is clear enough. Choose practical defaults: personal scope when no team is named, enabled on create, daily 09:00 for a vague daily schedule, Monday 09:00 for a vague weekly schedule.
+- **An explicit empty `--timezone ""` is UTC, not the account default.** On `update` that value is sent and stored. Omitting the flag on `update` keeps the stored timezone, including a legacy empty string. Omitting it on `create` uses member, then account, then Asia/Shanghai. After `update`, read `schedule_next_fire_at_ms` and tell the user; the previous occurrence is not guaranteed to run.
 - **Ask only when required data is missing**: task prompt, trigger token for `fire`, or an ambiguous target rule for update/delete.
 - **`update` cannot move personal/team scope.** If the user asks to move scope, create a replacement Automation in the new scope and then delete or disable the old one after confirmation.
 - **Use `--prompt-file` for long prompts.** Shell quoting is the most common failure when the prompt contains quotes, markdown, or JSON.

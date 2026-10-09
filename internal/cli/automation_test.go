@@ -47,13 +47,172 @@ func TestAutomationScheduleHelpDocumentsTimezone(t *testing.T) {
 		}
 		for _, want := range []string{
 			"do not convert it to UTC",
+			"--timezone",
 			automationTimezoneNote,
 		} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("%v help missing %q\n%s", args, want, out)
 			}
 		}
+		if strings.Contains(out, "has no --timezone flag") {
+			t.Fatalf("%v help still says the command has no --timezone flag\n%s", args, out)
+		}
 	}
+}
+
+func TestAutomationCreateTimezone(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Daily SRE brief",
+		"--schedule", "daily",
+		"--at", "09:00",
+		"--prompt", "Summarize yesterday's incidents",
+		"--timezone", "Asia/Shanghai",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-timezone] unexpected error: %v", err)
+	}
+	assertBody(t, stub.lastBody, "timezone", "Asia/Shanghai")
+}
+
+func TestAutomationCreateExplicitEmptyTimezoneIsOmitted(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Daily SRE brief",
+		"--prompt", "Summarize yesterday's incidents",
+		"--timezone", "",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-empty-timezone] unexpected error: %v", err)
+	}
+	// CreateRequest.Timezone is a string with omitempty, so an explicit ""
+	// is dropped. Update's pointer is what sends an empty string.
+	if _, ok := stub.lastBody["timezone"]; ok {
+		t.Fatalf("[automation-create-empty-timezone] empty string must not be on the wire, body=%#v", stub.lastBody)
+	}
+}
+
+func TestAutomationCreateOmitsTimezone(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Daily SRE brief",
+		"--prompt", "Summarize yesterday's incidents",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-omit-timezone] unexpected error: %v", err)
+	}
+	if _, ok := stub.lastBody["timezone"]; ok {
+		t.Fatalf("[automation-create-omit-timezone] timezone must be omitted, body=%#v", stub.lastBody)
+	}
+}
+
+func TestAutomationUpdateTimezone(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "update", "auto_123",
+		"--timezone", "Asia/Tokyo",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-update-timezone] unexpected error: %v", err)
+	}
+	assertBody(t, stub.lastBody, "rule_id", "auto_123")
+	assertBody(t, stub.lastBody, "timezone", "Asia/Tokyo")
+	if _, ok := stub.lastBody["cron_expr"]; ok {
+		t.Fatalf("[automation-update-timezone] cron_expr must stay omitted, body=%#v", stub.lastBody)
+	}
+}
+
+func TestAutomationUpdateEmptyTimezoneIsSent(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "update", "auto_123",
+		"--timezone", "",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-update-empty-timezone] unexpected error: %v", err)
+	}
+	assertBody(t, stub.lastBody, "timezone", "")
+}
+
+func TestAutomationUpdateOmitsTimezone(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "update", "auto_123",
+		"--name", "Daily brief v2",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-update-omit-timezone] unexpected error: %v", err)
+	}
+	assertBody(t, stub.lastBody, "name", "Daily brief v2")
+	if _, ok := stub.lastBody["timezone"]; ok {
+		t.Fatalf("[automation-update-omit-timezone] timezone must stay nil, body=%#v", stub.lastBody)
+	}
+}
+
+func TestSafariAutomationRuleUpdateTimezone(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	help, err := execCommand("safari", "automation-rule-update", "--help")
+	if err != nil {
+		t.Fatalf("[safari-update-timezone] help: %v", err)
+	}
+	if !strings.Contains(help, "--timezone") {
+		t.Fatalf("[safari-update-timezone] help missing --timezone\n%s", help)
+	}
+
+	stub := newGFStub(t)
+	_, err = execCommand(
+		"safari", "automation-rule-update", "arule_1",
+		"--name", "kept",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[safari-update-timezone] omit: %v", err)
+	}
+	if _, ok := stub.lastBody["timezone"]; ok {
+		t.Fatalf("[safari-update-timezone] omitted flag must not send timezone, body=%#v", stub.lastBody)
+	}
+
+	_, err = execCommand(
+		"safari", "automation-rule-update", "arule_1",
+		"--timezone", "",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[safari-update-timezone] empty: %v", err)
+	}
+	assertBody(t, stub.lastBody, "timezone", "")
+
+	_, err = execCommand(
+		"safari", "automation-rule-update", "arule_1",
+		"--timezone", "Europe/London",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[safari-update-timezone] named: %v", err)
+	}
+	assertBody(t, stub.lastBody, "timezone", "Europe/London")
 }
 
 func TestAutomationCreateHTTPPostOnly(t *testing.T) {
