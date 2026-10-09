@@ -280,7 +280,7 @@ func newIncidentGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id> [<id2> ...]",
 		Short: "Get incident details",
-		Long:  curatedLong("Get details for one or more incidents by ID.", "Incidents", "List"),
+		Long:  curatedLong("Get details for one or more incidents by ID.", "Incidents", "ListByIDs"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -296,7 +296,9 @@ func newIncidentGetCmd() *cobra.Command {
 					ids = append(ids, fullID)
 				}
 
-				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), &flashduty.ListIncidentsRequest{
+				// /incident/list requires a start_time/end_time window; lookup by id
+				// goes through /incident/list-by-ids, which takes ids alone.
+				result, _, err := ctx.Client.Incidents.ListByIDs(cmdContext(ctx.Cmd), &flashduty.ListIncidentsByIDsRequest{
 					IncidentIDs: ids,
 				})
 				if err != nil {
