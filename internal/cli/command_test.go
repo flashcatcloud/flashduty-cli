@@ -125,21 +125,15 @@ func resetFlagSet(flags *pflag.FlagSet) {
 		return
 	}
 	flags.VisitAll(func(flag *pflag.Flag) {
-		switch flag.Value.Type() {
-		case "bool", "int", "int64", "string":
+		// Slice-valued flags (string, int, int64, ...) accumulate across
+		// Parse() calls, and Set("") would append an empty entry, so empty
+		// them with Replace. Every other flag goes back to its default.
+		if sv, ok := flag.Value.(pflag.SliceValue); ok {
+			_ = sv.Replace([]string{})
+		} else {
 			_ = flag.Value.Set(flag.DefValue)
-			flag.Changed = false
-		case "stringSlice", "stringArray":
-			// Slice-valued flags accumulate across Parse() calls; clear them
-			// explicitly so a later test isn't observing the previous test's
-			// repeated --flag entries. pflag's SliceValue / Append interfaces
-			// don't expose a "reset to default" — Set("") would append an
-			// empty entry, so we use Replace([]) to truly empty the slice.
-			if sv, ok := flag.Value.(pflag.SliceValue); ok {
-				_ = sv.Replace([]string{})
-				flag.Changed = false
-			}
 		}
+		flag.Changed = false
 	})
 }
 
@@ -400,6 +394,34 @@ func TestCommandIncidentMergeRejectsMoreThan100Sources(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at most 100") {
 		t.Fatalf("[incident-merge-max-sources] expected error containing %q, got %q", "at most 100", err.Error())
+	}
+}
+
+func TestCommandIncidentMergeRemoveSourceIncidents(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra []string
+		want  any
+	}{
+		{name: "default keeps sources", want: nil},
+		{name: "flag removes sources", extra: []string{"--remove-source-incidents"}, want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			args := append([]string{"incident", "merge", "target-1", "--source", "inc-1,inc-2"}, tc.extra...)
+			if _, err := execCommand(args...); err != nil {
+				t.Fatalf("[incident-merge-remove-source] unexpected error: %v", err)
+			}
+			if stub.lastPath != "/incident/merge" {
+				t.Fatalf("[incident-merge-remove-source] expected /incident/merge, got %q", stub.lastPath)
+			}
+			if got := stub.lastBody["remove_source_incidents"]; got != tc.want {
+				t.Fatalf("[incident-merge-remove-source] remove_source_incidents: want %#v, got %#v", tc.want, got)
+			}
+		})
 	}
 }
 

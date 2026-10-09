@@ -88,6 +88,10 @@ Get alert detail
 ### list
 List alerts
 - `--active` bool
+- `--alert-ids` string
+- `--alert-keys` string
+- `--asc` bool
+- `--by-updated-at` bool
 - `--channel` string
 - `--fields` string
 - `--integration` string

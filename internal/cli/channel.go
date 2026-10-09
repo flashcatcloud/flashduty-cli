@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -37,8 +37,10 @@ type channelRow struct {
 }
 
 func newChannelListCmd() *cobra.Command {
-	var name string
-	var teamIDs []int64
+	var name, channelName, orderby string
+	var teamIDs, channelIDs []int64
+	var page, limit int
+	var asc, isBrief, isMyManaged, isMyStarred, isMyTeam bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -46,22 +48,34 @@ func newChannelListCmd() *cobra.Command {
 		Long:  curatedLong("List channels in the account, optionally filtered by name or owning team.", "Channels", "ChannelList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				// Legacy parity: the hand-written SDK called /channel/list with an
-				// empty body and applied the --name filter client-side as a
-				// case-insensitive substring match. go-flashduty's ChannelName field
-				// is an exact-match server filter, so we keep the client-side filter
-				// to preserve behavior. --team-ids, by contrast, is a server-side
-				// filter on the channel's owning team (empty = all teams, unchanged).
-				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{TeamIDs: teamIDs})
+				// --name keeps its case-insensitive substring semantics by sending
+				// the escaped text as the server's query regex, so the match runs
+				// across every page instead of only the page returned.
+				req := &flashduty.ListChannelsRequest{
+					TeamIDs:     teamIDs,
+					ChannelIDs:  channelIDs,
+					ChannelName: channelName,
+					Query:       regexp.QuoteMeta(name),
+					Orderby:     orderby,
+					Asc:         asc,
+					IsBrief:     isBrief,
+					IsMyManaged: isMyManaged,
+					IsMyStarred: isMyStarred,
+					IsMyTeam:    isMyTeam,
+				}
+				if cmd.Flags().Changed("page") {
+					req.Page = page
+				}
+				if cmd.Flags().Changed("limit") {
+					req.Limit = limit
+				}
+				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
 
 				rows := make([]channelRow, 0, len(result.Items))
 				for _, ch := range result.Items {
-					if name != "" && !strings.Contains(strings.ToLower(ch.ChannelName), strings.ToLower(name)) {
-						continue
-					}
 					rows = append(rows, channelRow{
 						ChannelID:   ch.ChannelID,
 						ChannelName: ch.ChannelName,
@@ -82,12 +96,22 @@ func newChannelListCmd() *cobra.Command {
 					{Header: "CREATOR", Field: func(v any) string { return v.(channelRow).CreatorName }},
 				}
 
-				return ctx.PrintTotal(rows, cols, len(rows))
+				return ctx.PrintTotal(rows, cols, int(result.Total))
 			})
 		},
 	}
 
-	cmd.Flags().StringVar(&name, "name", "", "Search by name")
+	cmd.Flags().StringVar(&name, "name", "", "Case-insensitive substring of the channel name or description, server-side")
+	cmd.Flags().StringVar(&channelName, "channel-name", "", "Exact channel name, server-side")
+	cmd.Flags().Int64SliceVar(&channelIDs, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
+	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only channels owned by your teams (exclusive with --is-my-starred)")
+	cmd.Flags().BoolVar(&isMyStarred, "is-my-starred", false, "Only channels you starred (exclusive with --is-my-team)")
+	cmd.Flags().BoolVar(&isMyManaged, "is-my-managed", false, "Only channels you manage")
+	cmd.Flags().BoolVar(&isBrief, "is-brief", false, "Return only id, name, description and status, all matches without pagination")
+	cmd.Flags().StringVar(&orderby, "orderby", "", "Sort field: ranking, created_at, updated_at, channel_name, or last_incident_at (server default: created_at)")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort in ascending order")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Page size (server default 100)")
 	cmd.Flags().Int64SliceVar(&teamIDs, "team-ids", nil, "Filter by owning team ID(s), server-side (repeatable or comma-separated)")
 
 	return cmd

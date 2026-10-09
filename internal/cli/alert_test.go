@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -212,5 +214,88 @@ func TestCommandAlertMergeDataAndCommentFileBothStdinErrors(t *testing.T) {
 	const want = `only one flag can read from stdin: --data and --comment-file were both set to "-"`
 	if !strings.Contains(err.Error(), want) {
 		t.Fatalf("[alert-merge-double-stdin] expected the double-stdin-read error naming both flags, got: %v", err)
+	}
+}
+
+func TestCommandAlertListFilterFlagsReachWire(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("alert", "list", "--alert-ids", "a1,a2", "--alert-keys", "k1, k2", "--asc", "--by-updated-at"); err != nil {
+		t.Fatalf("[alert-list-filters] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/alert/list" {
+		t.Fatalf("[alert-list-filters] expected /alert/list, got %q", stub.lastPath)
+	}
+	for _, f := range []string{"asc", "by_updated_at"} {
+		if got := stub.lastBody[f]; got != true {
+			t.Errorf("[alert-list-filters] %s: want true, got %#v", f, got)
+		}
+	}
+	for field, want := range map[string]string{"alert_ids": "a1,a2", "alert_keys": "k1,k2"} {
+		got, _ := stub.lastBody[field].([]any)
+		var parts []string
+		for _, v := range got {
+			parts = append(parts, fmt.Sprint(v))
+		}
+		if strings.Join(parts, ",") != want {
+			t.Errorf("[alert-list-filters] %s: want %q, got %#v", field, want, stub.lastBody[field])
+		}
+	}
+}
+
+func TestCommandAlertListFilterFlagsDefaultOmitted(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("alert", "list"); err != nil {
+		t.Fatalf("[alert-list-filters-default] unexpected error: %v", err)
+	}
+	for _, f := range []string{"alert_ids", "alert_keys", "asc", "by_updated_at"} {
+		if _, ok := stub.lastBody[f]; ok {
+			t.Errorf("[alert-list-filters-default] %s should be omitted by default, got %#v", f, stub.lastBody[f])
+		}
+	}
+}
+
+func TestCommandAlertEventListAsc(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		extra []string
+		want  any
+	}{
+		{name: "default omits asc", want: nil},
+		{name: "flag sends asc", extra: []string{"--asc"}, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+
+			if _, err := execCommand(append([]string{"alert-event", "list"}, tc.extra...)...); err != nil {
+				t.Fatalf("[alert-event-list-asc] unexpected error: %v", err)
+			}
+			if stub.lastPath != "/alert-event/list" {
+				t.Fatalf("[alert-event-list-asc] expected /alert-event/list, got %q", stub.lastPath)
+			}
+			if got := stub.lastBody["asc"]; got != tc.want {
+				t.Fatalf("[alert-event-list-asc] asc: want %#v, got %#v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestCommandAlertMergeCommentFileReachesWire(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	path := filepath.Join(t.TempDir(), "comment.txt")
+	if err := os.WriteFile(path, []byte("merge `reason` $(x)"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := execCommand("alert", "merge", "a1", "--incident-id", "i1", "--comment-file", path); err != nil {
+		t.Fatalf("[alert-merge-comment] unexpected error: %v", err)
+	}
+	if got := stub.lastBody["comment"]; got != "merge `reason` $(x)" {
+		t.Fatalf("[alert-merge-comment] comment: got %#v", got)
 	}
 }

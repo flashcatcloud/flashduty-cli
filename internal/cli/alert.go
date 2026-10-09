@@ -24,14 +24,14 @@ func newAlertCmd() *cobra.Command {
 }
 
 func newAlertListCmd() *cobra.Command {
-	var severity, channel, integration, since, until, fields string
-	var active, recovered, muted bool
+	var severity, channel, integration, since, until, fields, alertIDs, alertKeys string
+	var active, recovered, muted, asc, byUpdatedAt bool
 	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts",
-		Long:  curatedLong("List alerts within a time window, optionally filtered by severity, channel, active/recovered/muted state. No server-side title/text filter — to search by title, pipe --json to jq: 'select(.title|test(\"pat\";\"i\"))'. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields alert_id,title,alert_severity,created_at) so you get a compact record without piping to jq. --limit max 100; --since/--until window must be < 31 days.", "Alerts", "ReadList"),
+		Long:  curatedLong("List alerts within a time window, optionally filtered by severity, channel, integration, alert ID/key, active/recovered/muted state. --asc sorts oldest first; --by-updated-at applies the window to last-updated time. No server-side title/text filter — to search by title, pipe --json to jq: 'select(.title|test(\"pat\";\"i\"))'. In json/toon mode, --fields projects each row to just the named fields (e.g. --fields alert_id,title,alert_severity,created_at) so you get a compact record without piping to jq. --limit max 100; --since/--until window must be < 31 days.", "Alerts", "ReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if active && recovered {
@@ -54,6 +54,10 @@ func newAlertListCmd() *cobra.Command {
 				}
 				req.Limit = limit
 				req.Page = page
+				req.Asc = asc
+				req.ByUpdatedAt = byUpdatedAt
+				req.AlertIDs = parseStringSlice(alertIDs)
+				req.AlertKeys = parseStringSlice(alertKeys)
 
 				// Preserve legacy semantics: --active sends is_active=true,
 				// --recovered sends is_active=false, neither omits the filter.
@@ -118,6 +122,10 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
 	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")
+	cmd.Flags().StringVar(&alertIDs, "alert-ids", "", "Comma-separated alert IDs to return")
+	cmd.Flags().StringVar(&alertKeys, "alert-keys", "", "Comma-separated alert deduplication keys")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort oldest first by start time (default newest first)")
+	cmd.Flags().BoolVar(&byUpdatedAt, "by-updated-at", false, "Apply --since/--until to the last-updated time instead of the start time")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")

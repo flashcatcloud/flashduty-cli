@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -73,6 +74,8 @@ func pastIncidentColumns() []output.Column {
 
 func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields, channel string
+	var incidentIDs, ackerIDs, closerIDs, creatorIDs, responderIDs, teamIDs string
+	var asc, everMuted, isMyChannel, isMyTeam, isRare, isSnoozed bool
 	var channelID int64
 	var limit, page int
 	defaultStructuredFields := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"}
@@ -117,6 +120,30 @@ func newIncidentListCmd() *cobra.Command {
 				if nums != "" {
 					req.Nums = parseStringSlice(nums)
 				}
+				req.IncidentIDs = parseStringSlice(incidentIDs)
+				for _, f := range []struct {
+					flag string
+					raw  string
+					dst  *[]int64
+				}{
+					{"acker-ids", ackerIDs, &req.AckerIDs},
+					{"closer-ids", closerIDs, &req.CloserIDs},
+					{"creator-ids", creatorIDs, &req.CreatorIDs},
+					{"responder-ids", responderIDs, &req.ResponderIDs},
+					{"team-ids", teamIDs, &req.TeamIDs},
+				} {
+					ids, err := parseIntSlice(f.raw)
+					if err != nil {
+						return fmt.Errorf("invalid --%s: %w", f.flag, err)
+					}
+					*f.dst = ids
+				}
+				req.Asc = asc
+				req.EverMuted = everMuted
+				req.IsMyChannel = isMyChannel
+				req.IsMyTeam = isMyTeam
+				req.IsRare = isRare
+				req.IsSnoozed = isSnoozed
 
 				result, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), req)
 				if err != nil {
@@ -171,6 +198,18 @@ func newIncidentListCmd() *cobra.Command {
 	_ = cmd.Flags().MarkDeprecated("channel-id", "use --channel instead")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text search across title/labels/content (also resolves a 24-char incident ID or 6-char incident num to a direct lookup)")
 	cmd.Flags().StringVar(&nums, "nums", "", "Comma-separated short incident ids (num, the 6-char id shown in the UI) to filter by")
+	cmd.Flags().StringVar(&incidentIDs, "incident-ids", "", "Comma-separated full incident IDs to restrict to")
+	cmd.Flags().StringVar(&ackerIDs, "acker-ids", "", "Comma-separated acker member IDs to filter by")
+	cmd.Flags().StringVar(&closerIDs, "closer-ids", "", "Comma-separated closer member IDs to filter by (0 = closed automatically)")
+	cmd.Flags().StringVar(&creatorIDs, "creator-ids", "", "Comma-separated creator member IDs to filter by (0 = created automatically)")
+	cmd.Flags().StringVar(&responderIDs, "responder-ids", "", "Comma-separated responder member IDs to filter by")
+	cmd.Flags().StringVar(&teamIDs, "team-ids", "", "Comma-separated team IDs; resolved to the channels those teams own")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort ascending (oldest first)")
+	cmd.Flags().BoolVar(&everMuted, "ever-muted", false, "Only incidents that were ever silenced")
+	cmd.Flags().BoolVar(&isMyChannel, "is-my-channel", false, "Only incidents in channels you own")
+	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only incidents in channels owned by your teams")
+	cmd.Flags().BoolVar(&isRare, "is-rare", false, "Only outlier (rare) incidents")
+	cmd.Flags().BoolVar(&isSnoozed, "is-snoozed", false, "Only snoozed incidents")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days)")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
@@ -319,9 +358,10 @@ func orDash(s string) string {
 }
 
 func newIncidentCreateCmd() *cobra.Command {
-	var title, severity, description string
-	var channelID int64
+	var title, severity, description, escalateRuleID string
+	var channelID, escalateLayer int64
 	var assign []int
+	var assignEmails, fieldFlags []string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -350,15 +390,32 @@ func newIncidentCreateCmd() *cobra.Command {
 			if severity == "" {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
+			if cmd.Flags().Changed("escalate-layer") && escalateRuleID == "" {
+				return fmt.Errorf("--escalate-layer requires --escalate-rule-id")
+			}
+			customFields, err := parseCustomFieldFlags(fieldFlags)
+			if err != nil {
+				return err
+			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				customFields, err := typedCustomFields(ctx, customFields)
+				if err != nil {
+					return err
+				}
 				req := &flashduty.CreateIncidentRequest{
 					Title:            title,
 					IncidentSeverity: severity,
 					ChannelID:        channelID,
 					Description:      description,
 				}
-				if len(assign) > 0 {
+				if len(customFields) > 0 {
+					req.Fields = flashduty.CustomFieldValues{}
+					for _, f := range customFields {
+						req.Fields[f.name] = f.value
+					}
+				}
+				if len(assign) > 0 || len(assignEmails) > 0 || escalateRuleID != "" {
 					personIDs := make([]int64, len(assign))
 					for i, id := range assign {
 						personIDs[i] = int64(id)
@@ -367,7 +424,13 @@ func newIncidentCreateCmd() *cobra.Command {
 					// = "assign". On a brand-new incident the backend would default an
 					// empty type to "assign" anyway, but we set it explicitly so the
 					// migration is a pure no-drift refactor.
-					req.AssignedTo = flashduty.CreateIncidentRequestAssignedTo{PersonIDs: personIDs, Type: "assign"}
+					req.AssignedTo = flashduty.CreateIncidentRequestAssignedTo{
+						PersonIDs:      personIDs,
+						Emails:         assignEmails,
+						EscalateRuleID: escalateRuleID,
+						LayerIdx:       escalateLayer,
+						Type:           "assign",
+					}
 				}
 
 				result, _, err := ctx.Client.Incidents.Create(cmdContext(ctx.Cmd), req)
@@ -391,8 +454,88 @@ func newIncidentCreateCmd() *cobra.Command {
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
 	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Member IDs to assign directly (use 'flashduty member list' to look up member IDs)")
+	cmd.Flags().StringSliceVar(&assignEmails, "assign-emails", nil, "Member emails to assign (comma-separated); emails with no matching member are ignored")
+	cmd.Flags().StringVar(&escalateRuleID, "escalate-rule-id", "", "Escalation rule ID; assigns the people at --escalate-layer of that rule")
+	cmd.Flags().Int64Var(&escalateLayer, "escalate-layer", 0, "Zero-based escalation rule layer to start from (with --escalate-rule-id)")
+	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, customFieldFlagHelp)
 
 	return cmd
+}
+
+const customFieldFlagHelp = "Custom field: key=value (repeatable). Checkbox takes true/false; multi-select takes comma-separated options or a JSON array"
+
+type customFieldFlag struct {
+	name  string
+	value any
+}
+
+// parseCustomFieldFlags splits and validates --field key=value flags. Values
+// stay raw strings until typedCustomFields converts them by field type.
+func parseCustomFieldFlags(flags []string) ([]customFieldFlag, error) {
+	fields := make([]customFieldFlag, 0, len(flags))
+	for _, f := range flags {
+		name, raw, ok := strings.Cut(f, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid --field format %q, expected key=value", f)
+		}
+		if name == "" {
+			return nil, fmt.Errorf("custom field name must not be empty")
+		}
+		for _, ch := range name {
+			isValid := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+			if !isValid {
+				return nil, fmt.Errorf("custom field name '%s' contains invalid characters (only alphanumeric and underscore allowed)", name)
+			}
+		}
+		fields = append(fields, customFieldFlag{name: name, value: raw})
+	}
+	return fields, nil
+}
+
+// typedCustomFields converts each raw --field value to the type its field
+// definition requires: checkbox fields take a bool, multi-select fields a
+// string array, and single-select and text fields a string.
+func typedCustomFields(ctx *RunContext, fields []customFieldFlag) ([]customFieldFlag, error) {
+	if len(fields) == 0 {
+		return fields, nil
+	}
+	defs, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &flashduty.FieldListRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to look up custom field types: %w", err)
+	}
+	fieldTypes := make(map[string]string, len(defs.Items))
+	for _, d := range defs.Items {
+		fieldTypes[d.FieldName] = d.FieldType
+	}
+	typed := make([]customFieldFlag, 0, len(fields))
+	for _, f := range fields {
+		raw := f.value.(string)
+		fieldType, ok := fieldTypes[f.name]
+		if !ok {
+			return nil, fmt.Errorf("unknown custom field %q (see 'flashduty field list')", f.name)
+		}
+		var value any = raw
+		switch fieldType {
+		case "checkbox":
+			b, err := strconv.ParseBool(raw)
+			if err != nil {
+				return nil, fmt.Errorf("custom field %q is a checkbox: value must be true or false, got %q", f.name, raw)
+			}
+			value = b
+		case "multi_select":
+			var options []string
+			if strings.HasPrefix(strings.TrimSpace(raw), "[") {
+				if err := json.Unmarshal([]byte(raw), &options); err != nil {
+					return nil, fmt.Errorf("custom field %q is multi-select: invalid JSON array %q: %w", f.name, raw, err)
+				}
+			} else {
+				options = parseStringSlice(raw)
+			}
+			value = options
+		}
+		typed = append(typed, customFieldFlag{name: f.name, value: value})
+	}
+	return typed, nil
 }
 
 func newIncidentUpdateCmd() *cobra.Command {
@@ -404,21 +547,17 @@ func newIncidentUpdateCmd() *cobra.Command {
 		Short: "Update an incident",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			type customField struct {
-				name  string
-				value string
-			}
-			customFields := make([]customField, 0, len(fieldFlags))
-			for _, f := range fieldFlags {
-				parts := strings.SplitN(f, "=", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid --field format %q, expected key=value", f)
-				}
-				customFields = append(customFields, customField{name: parts[0], value: parts[1]})
+			customFields, err := parseCustomFieldFlags(fieldFlags)
+			if err != nil {
+				return err
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				incidentID := ctx.Args[0]
+				customFields, err := typedCustomFields(ctx, customFields)
+				if err != nil {
+					return err
+				}
 				updated := make([]string, 0)
 
 				// Standard fields go through /incident/reset. Mirror the legacy
@@ -447,19 +586,10 @@ func newIncidentUpdateCmd() *cobra.Command {
 				// Custom fields go through /incident/field/reset, one call per
 				// field, preserving the legacy per-field semantics.
 				for _, f := range customFields {
-					if f.name == "" {
-						return fmt.Errorf("custom field name must not be empty")
-					}
-					for _, ch := range f.name {
-						isValid := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
-						if !isValid {
-							return fmt.Errorf("custom field name '%s' contains invalid characters (only alphanumeric and underscore allowed)", f.name)
-						}
-					}
 					if _, err := ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), &flashduty.ResetIncidentFieldRequest{
 						IncidentID: incidentID,
 						FieldName:  f.name,
-						FieldValue: map[string]any{"value": f.value},
+						FieldValue: f.value,
 					}); err != nil {
 						return fmt.Errorf("unable to update custom field '%s': %w", f.name, err)
 					}
@@ -479,7 +609,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&description, "description", "", "New description")
 	cmd.Flags().StringVar(&severity, "severity", "", "New severity: Critical, Warning, Info")
-	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, "Custom field: key=value (repeatable)")
+	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, customFieldFlagHelp)
 	registerEnumFlag(cmd, "severity", severityEnum...)
 
 	return cmd
@@ -704,7 +834,8 @@ func validateIncidentIDBatch(incidentIDs []string) error {
 }
 
 func newIncidentMergeCmd() *cobra.Command {
-	var source string
+	var source, title, commentFile string
+	var removeSource bool
 
 	cmd := &cobra.Command{
 		Use:   "merge <target_id>",
@@ -720,10 +851,20 @@ func newIncidentMergeCmd() *cobra.Command {
 					return fmt.Errorf("--source accepts at most 100 incident IDs")
 				}
 
-				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), &flashduty.MergeIncidentsRequest{
-					SourceIncidentIDs: sourceIDs,
-					TargetIncidentID:  ctx.Args[0],
-				}); err != nil {
+				req := &flashduty.MergeIncidentsRequest{
+					SourceIncidentIDs:     sourceIDs,
+					TargetIncidentID:      ctx.Args[0],
+					RemoveSourceIncidents: removeSource,
+					Title:                 title,
+				}
+				if cmd.Flags().Changed("comment-file") {
+					comment, err := resolveCommentFile(commentFile)
+					if err != nil {
+						return err
+					}
+					req.Comment = comment
+				}
+				if _, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), req); err != nil {
 					return err
 				}
 
@@ -734,6 +875,9 @@ func newIncidentMergeCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&source, "source", "", "Comma-separated source incident IDs (max 100)")
+	cmd.Flags().BoolVar(&removeSource, "remove-source-incidents", false, "Delete the source incidents after merging; by default they are closed and kept")
+	cmd.Flags().StringVar(&title, "title", "", "New title for the target incident")
+	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing an optional comment for the merge timeline entry (- reads stdin)")
 	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
@@ -888,7 +1032,7 @@ personal channels, or a template.`,
 }
 
 func newIncidentCommentCmd() *cobra.Command {
-	var commentFile string
+	var commentFile, commentTypeID string
 	var muteReply bool
 
 	cmd := &cobra.Command{
@@ -941,11 +1085,15 @@ success.`,
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if _, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), &flashduty.CommentIncidentRequest{
+				req := &flashduty.CommentIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
 					MuteReply:   muteReply,
-				}); err != nil {
+				}
+				if cmd.Flags().Changed("comment-type-id") {
+					req.CommentTypeID = flashduty.String(commentTypeID)
+				}
+				if _, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), req); err != nil {
 					return err
 				}
 
@@ -960,6 +1108,7 @@ success.`,
 	}
 
 	cmd.Flags().StringVar(&commentFile, "comment-file", "", "Path to a file containing the comment text (- reads stdin)")
+	cmd.Flags().StringVar(&commentTypeID, "comment-type-id", "", "ID of an account-level comment type to attach to the comment")
 	cmd.Flags().BoolVar(&muteReply, "mute-reply", false, "Do not trigger webhook reply behavior for this comment")
 	_ = cmd.MarkFlagRequired("comment-file")
 
@@ -1489,6 +1638,8 @@ func printWarRoomDetail(w io.Writer, warRoom *flashduty.WarRoom) {
 
 func newIncidentFeedCmd() *cobra.Command {
 	var limit, page int
+	var asc bool
+	var types string
 
 	cmd := &cobra.Command{
 		Use:   "feed <id>",
@@ -1500,6 +1651,10 @@ func newIncidentFeedCmd() *cobra.Command {
 				feedReq := &flashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
 				feedReq.Page = page
 				feedReq.Limit = limit
+				feedReq.Asc = asc
+				for _, t := range parseStringSlice(types) {
+					feedReq.Types = append(feedReq.Types, flashduty.IncidentFeedType(t))
+				}
 				result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), feedReq)
 				if err != nil {
 					return err
@@ -1545,6 +1700,8 @@ func newIncidentFeedCmd() *cobra.Command {
 
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Oldest entries first")
+	cmd.Flags().StringVar(&types, "types", "", "Comma-separated entry types to keep (e.g. i_comm,i_assign)")
 
 	return cmd
 }

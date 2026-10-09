@@ -17,14 +17,15 @@ func newAuditCmd() *cobra.Command {
 }
 
 func newAuditSearchCmd() *cobra.Command {
-	var since, until, operation string
+	var since, until, operation, requestID string
+	var isWrite, isDangerous bool
 	var person int64
 	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search audit logs",
-		Long:  curatedLong("Search audit logs within a time window, optionally filtered by person and operation type. The --since/--until window must be < 90 days; --limit max is 99.", "AuditLogs", "Search"),
+		Long:  curatedLong("Search audit logs within a time window, optionally filtered by person, operation type, write/read, risk level and request ID. The --since/--until window must be < 90 days; --limit max is 99.", "AuditLogs", "Search"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, err := timeutil.Parse(since)
@@ -41,6 +42,13 @@ func newAuditSearchCmd() *cobra.Command {
 					EndTime:   endTime,
 					Limit:     int64(limit),
 					PersonID:  uint64(person),
+					RequestID: requestID,
+				}
+				if cmd.Flags().Changed("is-write") {
+					input.IsWrite = &isWrite
+				}
+				if cmd.Flags().Changed("is-dangerous") {
+					input.IsDangerous = &isDangerous
 				}
 				if operation != "" {
 					input.Operations = parseStringSlice(operation)
@@ -105,6 +113,9 @@ func newAuditSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().Int64Var(&person, "person", 0, "Filter by person ID")
 	cmd.Flags().StringVar(&operation, "operation", "", "Filter by exact operation name(s) from 'flashduty audit operation-list' (e.g. monitRule:write:update); comma-separate to match several in one call. Prefixes do NOT match (\"monitRule\" returns nothing).")
+	cmd.Flags().StringVar(&requestID, "request-id", "", "Filter to a single request by its request ID")
+	cmd.Flags().BoolVar(&isWrite, "is-write", false, "Only write operations; --is-write=false returns only read operations")
+	cmd.Flags().BoolVar(&isDangerous, "is-dangerous", false, "Only high-risk (dangerous) operations")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 99)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 

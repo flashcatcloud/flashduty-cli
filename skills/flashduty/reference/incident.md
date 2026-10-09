@@ -166,6 +166,7 @@ Close incidents
 ### comment <id> [<id2> ...]
 Add a comment to incident timelines
 - `--comment-file` string
+- `--comment-type-id` string
 - `--mute-reply` bool
 
 ### comment-type-create
@@ -195,8 +196,12 @@ Update a comment type
 ### create
 Create a new incident
 - `--assign` intSlice
+- `--assign-emails` stringSlice
 - `--channel` int64
 - `--description` string
+- `--escalate-layer` int64
+- `--escalate-rule-id` string
+- `--field` stringArray
 - `--severity` string
 - `--title` string
 
@@ -217,8 +222,10 @@ Disable incident merge
 
 ### feed <id>
 View incident feed (paginated timeline)
+- `--asc` bool
 - `--limit` int
 - `--page` int
+- `--types` string
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
 
 ### field-reset <incident-id>
@@ -239,15 +246,27 @@ Get incident detail
 
 ### list
 List incidents
+- `--acker-ids` string
+- `--asc` bool
 - `--channel` string
+- `--closer-ids` string
+- `--creator-ids` string
+- `--ever-muted` bool
 - `--fields` string
+- `--incident-ids` string
+- `--is-my-channel` bool
+- `--is-my-team` bool
+- `--is-rare` bool
+- `--is-snoozed` bool
 - `--limit` int
 - `--nums` string
 - `--page` int
 - `--progress` string
 - `--query` string
+- `--responder-ids` string
 - `--severity` string
 - `--since` string
+- `--team-ids` string
 - `--until` string
 - response: same shape as `get <id> [<id2> ...]` above
 
@@ -258,7 +277,10 @@ List incidents by IDs
 
 ### merge <target_id>
 Merge incidents into a target incident
+- `--comment-file` string
+- `--remove-source-incidents` bool
 - `--source` string
+- `--title` string
 
 ### past-list <incident-id>
 List past incidents
