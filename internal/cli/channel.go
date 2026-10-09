@@ -37,8 +37,10 @@ type channelRow struct {
 }
 
 func newChannelListCmd() *cobra.Command {
-	var name string
-	var teamIDs []int64
+	var name, channelName, query, orderby string
+	var teamIDs, channelIDs []int64
+	var page, limit int
+	var asc, isBrief, isMyManaged, isMyStarred, isMyTeam bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -52,7 +54,25 @@ func newChannelListCmd() *cobra.Command {
 				// is an exact-match server filter, so we keep the client-side filter
 				// to preserve behavior. --team-ids, by contrast, is a server-side
 				// filter on the channel's owning team (empty = all teams, unchanged).
-				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), &flashduty.ListChannelsRequest{TeamIDs: teamIDs})
+				req := &flashduty.ListChannelsRequest{
+					TeamIDs:     teamIDs,
+					ChannelIDs:  channelIDs,
+					ChannelName: channelName,
+					Query:       query,
+					Orderby:     orderby,
+					Asc:         asc,
+					IsBrief:     isBrief,
+					IsMyManaged: isMyManaged,
+					IsMyStarred: isMyStarred,
+					IsMyTeam:    isMyTeam,
+				}
+				if cmd.Flags().Changed("page") {
+					req.Page = page
+				}
+				if cmd.Flags().Changed("limit") {
+					req.Limit = limit
+				}
+				result, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -88,6 +108,17 @@ func newChannelListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Search by name")
+	cmd.Flags().StringVar(&channelName, "channel-name", "", "Exact channel name, server-side")
+	cmd.Flags().StringVar(&query, "query", "", "Case-insensitive regex over channel name and description, server-side")
+	cmd.Flags().Int64SliceVar(&channelIDs, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
+	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only channels owned by your teams (exclusive with --is-my-starred)")
+	cmd.Flags().BoolVar(&isMyStarred, "is-my-starred", false, "Only channels you starred (exclusive with --is-my-team)")
+	cmd.Flags().BoolVar(&isMyManaged, "is-my-managed", false, "Only channels you manage")
+	cmd.Flags().BoolVar(&isBrief, "is-brief", false, "Return only id, name, description and status, all matches without pagination")
+	cmd.Flags().StringVar(&orderby, "orderby", "", "Sort field (server default: created_at)")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort in ascending order")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Page size (server default 100)")
 	cmd.Flags().Int64SliceVar(&teamIDs, "team-ids", nil, "Filter by owning team ID(s), server-side (repeatable or comma-separated)")
 
 	return cmd

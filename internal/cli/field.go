@@ -16,7 +16,9 @@ func newFieldCmd() *cobra.Command {
 }
 
 func newFieldListCmd() *cobra.Command {
-	var name string
+	var name, query, orderby string
+	var creatorID int64
+	var asc bool
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -24,7 +26,11 @@ func newFieldListCmd() *cobra.Command {
 		Long:  curatedLong("List custom fields, optionally filtered by exact field name.", "AlertEnrichment", "FieldReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &flashduty.FieldListRequest{})
+				req := &flashduty.FieldListRequest{Query: query, Orderby: orderby, Asc: asc}
+				if cmd.Flags().Changed("creator-id") {
+					req.CreatorID = &creatorID
+				}
+				result, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -60,6 +66,10 @@ func newFieldListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Filter by field name")
+	cmd.Flags().StringVar(&query, "query", "", "Regex over field_name, server-side")
+	cmd.Flags().Int64Var(&creatorID, "creator-id", 0, "Filter by creator member ID")
+	cmd.Flags().StringVar(&orderby, "orderby", "", "Sort key (server default: created_at)")
+	cmd.Flags().BoolVar(&asc, "asc", false, "Sort in ascending order")
 
 	return cmd
 }
