@@ -462,6 +462,7 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 	var fTeamID int64
 	var fEnabled bool
 	var fCronExpr string
+	var fTimezone string
 	var fScheduleTriggerEnabled bool
 	var fPrompt string
 	var fEnvironmentKind string
@@ -486,6 +487,7 @@ Request fields:
   --team-id int — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
   --enabled bool — Whether the rule is enabled.
   --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.
+  --timezone string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled.
   --prompt string — New task prompt.
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
@@ -547,6 +549,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("cron-expr") {
 						body["cron_expr"] = fCronExpr
 					}
+					if cmd.Flags().Changed("timezone") {
+						body["timezone"] = fTimezone
+					}
 					if cmd.Flags().Changed("schedule-trigger-enabled") {
 						body["schedule_trigger_enabled"] = fScheduleTriggerEnabled
 					}
@@ -596,6 +601,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
 	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "New task prompt.")
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")

@@ -227,6 +227,7 @@ Update Automation rule
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
 - `--team-id` int64 — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
+- `--timezone` string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
 - response: same shape as `automation-rule-create` above
 
 ### automation-run-list <rule-id>
