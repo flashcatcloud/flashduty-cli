@@ -234,9 +234,9 @@ func defaultNewClient() (*flashduty.Client, error) {
 		if perr != nil || fd < 3 {
 			return nil, fmt.Errorf("invalid FLASHDUTY_CRED_FD=%q", fdStr)
 		}
-		hc := newBrokerHTTPClient(fd)
-		if hc == nil {
-			return nil, errBrokerUnsupported
+		hc, err := newBrokerHTTPClient(fd)
+		if err != nil {
+			return nil, err
 		}
 		opts = append(opts, flashduty.WithHTTPClient(hc))
 		appKey = "broker-sentinel" // non-empty: go-flashduty rejects ""; broker overwrites it

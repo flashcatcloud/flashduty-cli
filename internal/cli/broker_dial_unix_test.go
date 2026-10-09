@@ -106,9 +106,9 @@ func TestBrokerHTTPClient_DialAndRewrite(t *testing.T) {
 	defer func() { _ = syscall.Close(childFD) }()
 	defer stop()
 
-	client := newBrokerHTTPClient(childFD)
-	if client == nil {
-		t.Fatal("newBrokerHTTPClient returned nil")
+	client, err := newBrokerHTTPClient(childFD)
+	if err != nil {
+		t.Fatalf("newBrokerHTTPClient: %v", err)
 	}
 	defer client.CloseIdleConnections() // release dispatched keep-alive conns
 	// The CLI's base URL is an http placeholder; broker rewrites host.
@@ -208,6 +208,41 @@ func TestDefaultNewClient_RejectsStdioFD(t *testing.T) {
 	}
 }
 
+// TestDefaultNewClient_CredFDNotInherited covers a caller that drops the
+// inherited control fd before exec (Python's subprocess closes fds >= 3 by
+// default): the fd number is then closed, or reused by an unrelated file.
+// Either way defaultNewClient must fail up front with an error that names the
+// fd and the fix, instead of a handshake errno at the first request.
+func TestDefaultNewClient_CredFDNotInherited(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FLASHDUTY_APP_KEY", "")
+
+	f, err := os.CreateTemp(t.TempDir(), "not-a-socket")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	pair, err := syscall.Socketpair(syscall.AF_UNIX, controlSockType, 0)
+	if err != nil {
+		t.Fatalf("socketpair: %v", err)
+	}
+	closedFD := pair[0]
+	_ = syscall.Close(pair[0])
+	_ = syscall.Close(pair[1])
+
+	for name, fd := range map[string]int{"closed fd": closedFD, "regular file": int(f.Fd())} {
+		t.Setenv("FLASHDUTY_CRED_FD", strconv.Itoa(fd))
+		_, err := defaultNewClient()
+		if err == nil {
+			t.Fatalf("%s: defaultNewClient must fail", name)
+		}
+		want := "FLASHDUTY_CRED_FD=" + strconv.Itoa(fd) + " is not an open socket"
+		if msg := err.Error(); !strings.HasPrefix(msg, want) || !strings.Contains(msg, "pass_fds=("+strconv.Itoa(fd)+",)") {
+			t.Fatalf("%s: error must start with %q and name pass_fds, got: %v", name, want, msg)
+		}
+	}
+}
+
 // TestBrokerHTTPClient_RefusedReturnsError verifies the dialer surfaces the
 // broker's 0xFF refusal (e.g. the runner failed to mint a connection) as a real
 // error instead of hanging or wrapping a nil conn.
@@ -232,7 +267,10 @@ func TestBrokerHTTPClient_RefusedReturnsError(t *testing.T) {
 		}
 	}()
 
-	client := newBrokerHTTPClient(childFD)
+	client, err := newBrokerHTTPClient(childFD)
+	if err != nil {
+		t.Fatalf("newBrokerHTTPClient: %v", err)
+	}
 	req, _ := http.NewRequestWithContext(context.Background(), "GET",
 		"http://flashduty.broker.local/x?app_key=SENTINEL", nil)
 	if _, err := client.Do(req); err == nil {

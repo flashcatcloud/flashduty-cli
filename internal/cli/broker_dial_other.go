@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func newBrokerHTTPClient(int) *http.Client { return nil }
+func newBrokerHTTPClient(int) (*http.Client, error) { return nil, errBrokerUnsupported }
 
 var errBrokerUnsupported = errors.New("flashduty: broker mode is not supported on this platform")
 
