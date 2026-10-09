@@ -66,7 +66,7 @@ func newFieldListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Filter by field name")
-	cmd.Flags().StringVar(&query, "query", "", "Regex over field_name, server-side")
+	cmd.Flags().StringVar(&query, "query", "", "Case-insensitive regex over the field name, server-side")
 	cmd.Flags().Int64Var(&creatorID, "creator-id", 0, "Filter by creator member ID")
 	cmd.Flags().StringVar(&orderby, "orderby", "", "Sort key (server default: created_at)")
 	cmd.Flags().BoolVar(&asc, "asc", false, "Sort in ascending order")

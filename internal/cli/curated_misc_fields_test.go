@@ -59,10 +59,10 @@ func TestCuratedListFilterFlagsReachWireBody(t *testing.T) {
 		},
 		{
 			name: "channel filters and paging",
-			args: []string{"channel", "list", "--query", "^pay", "--channel-name", "payments", "--channel-ids", "1,2", "--is-my-team", "--is-my-managed", "--is-brief", "--orderby", "channel_name", "--asc", "--page", "2", "--limit", "10"},
+			args: []string{"channel", "list", "--name", "pay.ments", "--channel-name", "payments", "--channel-ids", "1,2", "--is-my-team", "--is-my-managed", "--is-brief", "--orderby", "channel_name", "--asc", "--page", "2", "--limit", "10"},
 			path: "/channel/list",
 			want: map[string]any{
-				"query": "^pay", "channel_name": "payments", "channel_ids": []any{float64(1), float64(2)},
+				"query": `pay\.ments`, "channel_name": "payments", "channel_ids": []any{float64(1), float64(2)},
 				"is_my_team": true, "is_my_managed": true, "is_brief": true,
 				"orderby": "channel_name", "asc": true, "p": float64(2), "limit": float64(10),
 			},

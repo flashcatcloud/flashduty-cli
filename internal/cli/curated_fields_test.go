@@ -48,7 +48,7 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"start_time":        "--since",
 		"end_time":          "--until",
 		"p":                 "--page",
-		"orderby":           "omit: event_time is the only supported value and the server default",
+		"orderby":           "omit: event_time is the server default and the only order the server's paging cursor supports",
 		"search_after_ctx":  "omit: cursor returned by the previous page; the curated list pages with --page and does not print the next-page cursor",
 	},
 	"incident merge": {
@@ -62,7 +62,7 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"end_time":         "--until",
 		"person_id":        "--person",
 		"operations":       "--operation",
-		"search_after_ctx": "omit: the cursor is managed by the command; --page walks it",
+		"search_after_ctx": "omit: --page walks the cursor by re-sending each response's search_after_ctx",
 	},
 	"change list": {
 		"start_time":      "--since",
@@ -75,7 +75,8 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"data_source_ids": "omit: deprecated alias of integration_ids, which --integration sets",
 	},
 	"channel list": {
-		"p": "--page",
+		"p":     "--page",
+		"query": "--name",
 	},
 	"team list": {
 		"p":     "--page",
