@@ -141,22 +141,22 @@ func TestIncidentDetailFullIDSkipsResolve(t *testing.T) {
 	}
 }
 
-// TestIncidentGetShortIDResolves: `get <6-hex>` resolves the short id, then
-// fetches by the resolved full id via incident_ids.
+// TestIncidentGetShortIDResolves: `get <6-hex>` resolves the short id via
+// /incident/list, then fetches by the resolved full id via /incident/list-by-ids.
 func TestIncidentGetShortIDResolves(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
+	var paths []string
 	stub.dataForPath = func(path string, body map[string]any) any {
-		// Both the resolve and the final fetch hit /incident/list; the canned
-		// row is fine for either.
+		paths = append(paths, path)
 		return incidentListData(incidentItem(testFullID, testShortID, "kafka backlog"))
 	}
 
 	if _, err := execCommand("incident", "get", testShortID); err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
-	if stub.requests != 2 {
-		t.Fatalf("requests = %d, want 2 (resolve + fetch)", stub.requests)
+	if want := []string{"/incident/list", "/incident/list-by-ids"}; !equalStrings(paths, want) {
+		t.Fatalf("paths = %v, want %v (resolve + fetch)", paths, want)
 	}
 
 	// Resolve sent nums; final fetch sent the resolved full id via incident_ids.
@@ -166,6 +166,30 @@ func TestIncidentGetShortIDResolves(t *testing.T) {
 	ids, _ := stub.bodies[1]["incident_ids"].([]any)
 	if len(ids) != 1 || ids[0] != testFullID {
 		t.Errorf("fetch incident_ids = %#v, want [%q]", stub.bodies[1]["incident_ids"], testFullID)
+	}
+}
+
+// TestIncidentGetFullIDUsesListByIDs: a full id skips the resolve and fetches
+// through /incident/list-by-ids. /incident/list rejects a request without a
+// start_time/end_time window, so the id lookup must not go through it.
+func TestIncidentGetFullIDUsesListByIDs(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	var paths []string
+	stub.dataForPath = func(path string, body map[string]any) any {
+		paths = append(paths, path)
+		return incidentListData(incidentItem(testFullID, testShortID, "kafka backlog"))
+	}
+
+	if _, err := execCommand("incident", "get", testFullID); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if want := []string{"/incident/list-by-ids"}; !equalStrings(paths, want) {
+		t.Fatalf("paths = %v, want %v", paths, want)
+	}
+	ids, _ := stub.bodies[0]["incident_ids"].([]any)
+	if len(ids) != 1 || ids[0] != testFullID {
+		t.Errorf("incident_ids = %#v, want [%q]", stub.bodies[0]["incident_ids"], testFullID)
 	}
 }
 
