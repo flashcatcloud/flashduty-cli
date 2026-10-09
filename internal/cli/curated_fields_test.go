@@ -102,7 +102,7 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"channel_id":        "--channel",
 		"incident_severity": "--severity",
 		"assigned_to":       "--assign",
-		"fields":            "omit: the SDK models custom field values as an empty struct, so the typed request cannot carry them; set them after creation with incident update --field",
+		"fields":            "--field",
 	},
 	"incident feed": {
 		"incident_id": "args",

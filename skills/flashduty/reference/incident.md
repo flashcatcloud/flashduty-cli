@@ -196,8 +196,12 @@ Update a comment type
 ### create
 Create a new incident
 - `--assign` intSlice
+- `--assign-emails` stringSlice
 - `--channel` int64
 - `--description` string
+- `--escalate-layer` int64
+- `--escalate-rule-id` string
+- `--field` stringArray
 - `--severity` string
 - `--title` string
 

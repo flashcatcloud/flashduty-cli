@@ -2,6 +2,7 @@ package cli
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -125,6 +126,105 @@ func TestCommandIncidentCommentTypeID(t *testing.T) {
 			}
 			if got := stub.bodies[0]["comment_type_id"]; got != tc.want {
 				t.Fatalf("[incident-comment-type] comment_type_id: want %#v, got %#v", tc.want, got)
+			}
+		})
+	}
+}
+
+func stubCustomFieldDefs(stub *gfStub) {
+	stub.dataForPath = func(path string, _ map[string]any) any {
+		if path == "/field/list" {
+			return map[string]any{"items": []any{
+				map[string]any{"field_name": "region", "field_type": "text"},
+				map[string]any{"field_name": "urgent", "field_type": "checkbox"},
+				map[string]any{"field_name": "tags", "field_type": "multi_select"},
+				map[string]any{"field_name": "tier", "field_type": "single_select"},
+			}}
+		}
+		return map[string]any{}
+	}
+}
+
+func TestCommandIncidentCreateCustomFieldsAndAssignment(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stubCustomFieldDefs(stub)
+
+	_, err := execCommand("incident", "create", "--title", "db down", "--severity", "Critical",
+		"--field", "region=123", "--field", "urgent=true", "--field", "tags=db,core", "--field", `tier=["x"]`,
+		"--assign-emails", "a@example.com,b@example.com", "--escalate-rule-id", "0123456789abcdef01234567", "--escalate-layer", "1")
+	if err != nil {
+		t.Fatalf("[incident-create-fields] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/incident/create" {
+		t.Fatalf("[incident-create-fields] expected /incident/create, got %q", stub.lastPath)
+	}
+	wantFields := map[string]any{"region": "123", "urgent": true, "tags": []any{"db", "core"}, "tier": `["x"]`}
+	if got := stub.lastBody["fields"]; !reflect.DeepEqual(got, wantFields) {
+		t.Fatalf("[incident-create-fields] fields: want %#v, got %#v", wantFields, got)
+	}
+	wantAssigned := map[string]any{
+		"emails":           []any{"a@example.com", "b@example.com"},
+		"escalate_rule_id": "0123456789abcdef01234567",
+		"layer_idx":        float64(1),
+		"type":             "assign",
+	}
+	if got := stub.lastBody["assigned_to"]; !reflect.DeepEqual(got, wantAssigned) {
+		t.Fatalf("[incident-create-fields] assigned_to: want %#v, got %#v", wantAssigned, got)
+	}
+}
+
+func TestCommandIncidentCreateWithoutNewFlagsKeepsBody(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	if _, err := execCommand("incident", "create", "--title", "db down", "--severity", "Critical"); err != nil {
+		t.Fatalf("[incident-create-default] unexpected error: %v", err)
+	}
+	if stub.requests != 1 {
+		t.Fatalf("[incident-create-default] expected 1 request (no field lookup), got %d", stub.requests)
+	}
+	for _, key := range []string{"fields", "assigned_to"} {
+		if _, ok := stub.lastBody[key]; ok {
+			t.Fatalf("[incident-create-default] %s must be omitted, got %#v", key, stub.lastBody[key])
+		}
+	}
+}
+
+func TestCommandIncidentUpdateCustomFieldIsTyped(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stubCustomFieldDefs(stub)
+
+	if _, err := execCommand("incident", "update", "inc-1", "--field", "urgent=false"); err != nil {
+		t.Fatalf("[incident-update-field-typed] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/incident/field/reset" {
+		t.Fatalf("[incident-update-field-typed] expected /incident/field/reset, got %q", stub.lastPath)
+	}
+	if got, ok := stub.lastBody["field_value"]; !ok || got != false {
+		t.Fatalf("[incident-update-field-typed] field_value: want false, got %#v (present=%t)", got, ok)
+	}
+}
+
+func TestCommandIncidentCustomFieldErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"unknown field", []string{"incident", "create", "--title", "db down", "--severity", "Info", "--field", "nope=1"}, "unknown custom field"},
+		{"bad checkbox", []string{"incident", "update", "inc-1", "--field", "urgent=maybe"}, "true or false"},
+		{"bad multi-select json", []string{"incident", "update", "inc-1", "--field", "tags=[oops"}, "invalid JSON array"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			stubCustomFieldDefs(stub)
+			_, err := execCommand(tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("[incident-custom-field-errors] want error containing %q, got %v", tc.want, err)
 			}
 		})
 	}

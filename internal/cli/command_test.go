@@ -125,21 +125,15 @@ func resetFlagSet(flags *pflag.FlagSet) {
 		return
 	}
 	flags.VisitAll(func(flag *pflag.Flag) {
-		switch flag.Value.Type() {
-		case "bool", "int", "int64", "string":
+		// Slice-valued flags (string, int, int64, ...) accumulate across
+		// Parse() calls, and Set("") would append an empty entry, so empty
+		// them with Replace. Every other flag goes back to its default.
+		if sv, ok := flag.Value.(pflag.SliceValue); ok {
+			_ = sv.Replace([]string{})
+		} else {
 			_ = flag.Value.Set(flag.DefValue)
-			flag.Changed = false
-		case "stringSlice", "stringArray":
-			// Slice-valued flags accumulate across Parse() calls; clear them
-			// explicitly so a later test isn't observing the previous test's
-			// repeated --flag entries. pflag's SliceValue / Append interfaces
-			// don't expose a "reset to default" — Set("") would append an
-			// empty entry, so we use Replace([]) to truly empty the slice.
-			if sv, ok := flag.Value.(pflag.SliceValue); ok {
-				_ = sv.Replace([]string{})
-				flag.Changed = false
-			}
 		}
+		flag.Changed = false
 	})
 }
 

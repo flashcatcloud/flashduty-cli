@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -357,9 +358,10 @@ func orDash(s string) string {
 }
 
 func newIncidentCreateCmd() *cobra.Command {
-	var title, severity, description string
-	var channelID int64
+	var title, severity, description, escalateRuleID string
+	var channelID, escalateLayer int64
 	var assign []int
+	var assignEmails, fieldFlags []string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -388,15 +390,29 @@ func newIncidentCreateCmd() *cobra.Command {
 			if severity == "" {
 				return fmt.Errorf("--severity is required (Critical, Warning, Info)")
 			}
+			customFields, err := parseCustomFieldFlags(fieldFlags)
+			if err != nil {
+				return err
+			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				customFields, err := typedCustomFields(ctx, customFields)
+				if err != nil {
+					return err
+				}
 				req := &flashduty.CreateIncidentRequest{
 					Title:            title,
 					IncidentSeverity: severity,
 					ChannelID:        channelID,
 					Description:      description,
 				}
-				if len(assign) > 0 {
+				if len(customFields) > 0 {
+					req.Fields = flashduty.CustomFieldValues{}
+					for _, f := range customFields {
+						req.Fields[f.name] = f.value
+					}
+				}
+				if len(assign) > 0 || len(assignEmails) > 0 || escalateRuleID != "" {
 					personIDs := make([]int64, len(assign))
 					for i, id := range assign {
 						personIDs[i] = int64(id)
@@ -405,7 +421,13 @@ func newIncidentCreateCmd() *cobra.Command {
 					// = "assign". On a brand-new incident the backend would default an
 					// empty type to "assign" anyway, but we set it explicitly so the
 					// migration is a pure no-drift refactor.
-					req.AssignedTo = flashduty.CreateIncidentRequestAssignedTo{PersonIDs: personIDs, Type: "assign"}
+					req.AssignedTo = flashduty.CreateIncidentRequestAssignedTo{
+						PersonIDs:      personIDs,
+						Emails:         assignEmails,
+						EscalateRuleID: escalateRuleID,
+						LayerIdx:       escalateLayer,
+						Type:           "assign",
+					}
 				}
 
 				result, _, err := ctx.Client.Incidents.Create(cmdContext(ctx.Cmd), req)
@@ -429,8 +451,88 @@ func newIncidentCreateCmd() *cobra.Command {
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
 	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Member IDs to assign directly (use 'flashduty member list' to look up member IDs)")
+	cmd.Flags().StringSliceVar(&assignEmails, "assign-emails", nil, "Member emails to assign (comma-separated); emails with no matching member are ignored")
+	cmd.Flags().StringVar(&escalateRuleID, "escalate-rule-id", "", "Escalation rule ID; assigns the people at --escalate-layer of that rule")
+	cmd.Flags().Int64Var(&escalateLayer, "escalate-layer", 0, "Zero-based escalation rule layer to start from (with --escalate-rule-id)")
+	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, customFieldFlagHelp)
 
 	return cmd
+}
+
+const customFieldFlagHelp = "Custom field: key=value (repeatable). Checkbox takes true/false; multi-select takes comma-separated options or a JSON array"
+
+type customFieldFlag struct {
+	name  string
+	value any
+}
+
+// parseCustomFieldFlags splits and validates --field key=value flags. Values
+// stay raw strings until typedCustomFields converts them by field type.
+func parseCustomFieldFlags(flags []string) ([]customFieldFlag, error) {
+	fields := make([]customFieldFlag, 0, len(flags))
+	for _, f := range flags {
+		name, raw, ok := strings.Cut(f, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid --field format %q, expected key=value", f)
+		}
+		if name == "" {
+			return nil, fmt.Errorf("custom field name must not be empty")
+		}
+		for _, ch := range name {
+			isValid := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
+			if !isValid {
+				return nil, fmt.Errorf("custom field name '%s' contains invalid characters (only alphanumeric and underscore allowed)", name)
+			}
+		}
+		fields = append(fields, customFieldFlag{name: name, value: raw})
+	}
+	return fields, nil
+}
+
+// typedCustomFields converts each raw --field value to the type its field
+// definition requires: checkbox fields take a bool, multi-select fields a
+// string array, and single-select and text fields a string.
+func typedCustomFields(ctx *RunContext, fields []customFieldFlag) ([]customFieldFlag, error) {
+	if len(fields) == 0 {
+		return fields, nil
+	}
+	defs, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), &flashduty.FieldListRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to look up custom field types: %w", err)
+	}
+	fieldTypes := make(map[string]string, len(defs.Items))
+	for _, d := range defs.Items {
+		fieldTypes[d.FieldName] = d.FieldType
+	}
+	typed := make([]customFieldFlag, 0, len(fields))
+	for _, f := range fields {
+		raw := f.value.(string)
+		fieldType, ok := fieldTypes[f.name]
+		if !ok {
+			return nil, fmt.Errorf("unknown custom field %q (see 'flashduty field list')", f.name)
+		}
+		var value any = raw
+		switch fieldType {
+		case "checkbox":
+			b, err := strconv.ParseBool(raw)
+			if err != nil {
+				return nil, fmt.Errorf("custom field %q is a checkbox: value must be true or false, got %q", f.name, raw)
+			}
+			value = b
+		case "multi_select":
+			var options []string
+			if strings.HasPrefix(strings.TrimSpace(raw), "[") {
+				if err := json.Unmarshal([]byte(raw), &options); err != nil {
+					return nil, fmt.Errorf("custom field %q is multi-select: invalid JSON array %q: %w", f.name, raw, err)
+				}
+			} else {
+				options = parseStringSlice(raw)
+			}
+			value = options
+		}
+		typed = append(typed, customFieldFlag{name: f.name, value: value})
+	}
+	return typed, nil
 }
 
 func newIncidentUpdateCmd() *cobra.Command {
@@ -442,21 +544,17 @@ func newIncidentUpdateCmd() *cobra.Command {
 		Short: "Update an incident",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			type customField struct {
-				name  string
-				value string
-			}
-			customFields := make([]customField, 0, len(fieldFlags))
-			for _, f := range fieldFlags {
-				parts := strings.SplitN(f, "=", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid --field format %q, expected key=value", f)
-				}
-				customFields = append(customFields, customField{name: parts[0], value: parts[1]})
+			customFields, err := parseCustomFieldFlags(fieldFlags)
+			if err != nil {
+				return err
 			}
 
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				incidentID := ctx.Args[0]
+				customFields, err := typedCustomFields(ctx, customFields)
+				if err != nil {
+					return err
+				}
 				updated := make([]string, 0)
 
 				// Standard fields go through /incident/reset. Mirror the legacy
@@ -485,19 +583,10 @@ func newIncidentUpdateCmd() *cobra.Command {
 				// Custom fields go through /incident/field/reset, one call per
 				// field, preserving the legacy per-field semantics.
 				for _, f := range customFields {
-					if f.name == "" {
-						return fmt.Errorf("custom field name must not be empty")
-					}
-					for _, ch := range f.name {
-						isValid := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
-						if !isValid {
-							return fmt.Errorf("custom field name '%s' contains invalid characters (only alphanumeric and underscore allowed)", f.name)
-						}
-					}
 					if _, err := ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), &flashduty.ResetIncidentFieldRequest{
 						IncidentID: incidentID,
 						FieldName:  f.name,
-						FieldValue: map[string]any{"value": f.value},
+						FieldValue: f.value,
 					}); err != nil {
 						return fmt.Errorf("unable to update custom field '%s': %w", f.name, err)
 					}
@@ -517,7 +606,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "New title")
 	cmd.Flags().StringVar(&description, "description", "", "New description")
 	cmd.Flags().StringVar(&severity, "severity", "", "New severity: Critical, Warning, Info")
-	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, "Custom field: key=value (repeatable)")
+	cmd.Flags().StringArrayVar(&fieldFlags, "field", nil, customFieldFlagHelp)
 	registerEnumFlag(cmd, "severity", severityEnum...)
 
 	return cmd
