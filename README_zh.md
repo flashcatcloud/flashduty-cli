@@ -7,7 +7,16 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/flashcatcloud/flashduty-cli/ci.yml?style=flat-square&branch=main&label=CI)](https://github.com/flashcatcloud/flashduty-cli/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flashcatcloud/flashduty-cli?style=flat-square)](https://goreportcard.com/report/github.com/flashcatcloud/flashduty-cli)
 
-[Flashduty](https://flashcat.cloud) 平台的命令行工具。在终端中管理故障、值班、状态页等。
+**Flashduty CLI**（`flashduty`）是 [Flashduty](https://www.flashduty.com) 故障管理与值班平台的官方开源命令行工具。在终端、Shell 脚本或 AI 编程助手里，都可以用它处理故障和告警、查询值班、发布状态页更新、管理监控和 RUM，以及调用 AI SRE。
+
+[官网](https://www.flashduty.com) · [CLI 文档](https://docs.flashduty.com/zh/developer/cli) · [API 参考](https://docs.flashduty.com/zh/openapi/introduction) · [控制台](https://console.flashcat.cloud) · [博客：写给人和 Agent 的 CLI](https://www.flashduty.com/zh/now/blog/flashduty-cli) · [版本发布](https://github.com/flashcatcloud/flashduty-cli/releases)
+
+## 特点
+
+- **覆盖全部公开 API。** 每个公开的 Flashduty API 都有对应命令，由 OpenAPI 规范经 [go-flashduty](https://github.com/flashcatcloud/go-flashduty) SDK 生成。故障、告警、值班、状态页等常用流程另有手写命令，flag 更短，表格更易读。
+- **命令名可预测。** API 路径直接对应命令：`POST /incident/merge` 是 `flashduty incident merge`，`POST /status-page/change/create` 是 `flashduty status-page change-create`。
+- **适合脚本和 Agent。** 输出支持 `table`、`json`、`toon`（紧凑格式，更省 token）。列表分页有大小上限，被裁剪时会明确标出。`--fields` 只返回需要的字段。
+- **单个二进制。** 支持 macOS、Linux、Windows 的 amd64 和 arm64。`flashduty update` 原地升级。
 
 ## 安装
 
@@ -25,348 +34,150 @@ irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 
 ### 手动下载
 
-从 [GitHub Releases](https://github.com/flashcatcloud/flashduty-cli/releases) 下载适合您平台的最新版本。
+从 [GitHub Releases](https://github.com/flashcatcloud/flashduty-cli/releases) 下载对应平台的压缩包，解压后把二进制放到 `PATH` 中。
 
-### 选项
+### 安装选项
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `FLASHDUTY_VERSION` | 安装指定版本（如 `v0.1.2`） | 最新版 |
-| `FLASHDUTY_INSTALL_DIR` | 自定义安装目录 | `/usr/local/bin`（Shell）、`~\.flashduty\bin`（PowerShell） |
-| `MIRROR_URL` | 覆盖安装脚本使用的 release 资源镜像 | `https://static.flashcat.cloud/flashduty-cli` |
-| `FLASHDUTY_UPDATE_BASE_URL` | 覆盖 `flashduty update` 和自动更新检查的 base URL | `https://static.flashcat.cloud/flashduty-cli` |
+| `FLASHDUTY_VERSION` | 安装指定版本（如 `v1.5.12`） | 最新版 |
+| `FLASHDUTY_INSTALL_DIR` | 安装目录 | `/usr/local/bin`（shell），`~\.flashduty\bin`（PowerShell） |
+| `MIRROR_URL` | 下载镜像地址（必须是 `https://`） | `https://static.flashcat.cloud/flashduty-cli` |
 
-## 快速开始
-
-### 1. 认证
+## 快速上手
 
 ```bash
+# 1. 用 APP Key 登录（控制台：我的 → APP Key）
 flashduty login
+flashduty whoami
+
+# 2. 处理故障
+flashduty incident list --since 24h --severity Critical
+flashduty incident info <incident_id>
+flashduty incident ack <incident_id>
+flashduty incident merge <target_id> --source <id1>,<id2>   # 源故障默认关闭并保留
+flashduty incident close <incident_id>
+
+# 3. 谁在值班，最近有什么变更
+flashduty oncall who
+flashduty change list --since 2h
+
+# 4. 浏览任意模块
+flashduty status-page --help
 ```
 
-系统会提示输入 Flashduty APP Key。获取方式：登录 [Flashduty 控制台](https://console.flashcat.cloud)，进入 **账户设置 > APP Key**。
+APP Key 的创建方法见 [API 参考](https://docs.flashduty.com/zh/openapi/introduction)。
 
-也可以通过环境变量设置：
+## 命令分组
+
+`flashduty <分组> --help` 列出分组内的命令，`flashduty <分组> <命令> --help` 查看 flag 和示例。常用流程见 [CLI 文档](https://docs.flashduty.com/zh/developer/cli)。
+
+| 模块 | 分组 |
+|------|------|
+| On-call | `incident`、`alert`、`alert-event`、`change`、`channel`、`route`、`oncall`、`schedule`、`calendar`、`integration`、`webhook`、`enrichment`、`field`、`template`、`insight`、`status-page` |
+| 监控 | `monit`、`monit-query`、`datasource` |
+| RUM | `rum`、`sourcemap` |
+| AI SRE | `safari`、`session`、`automation` |
+| 平台 | `account`、`member`、`person`、`team`、`role`、`audit` |
+| CLI 自身 | `login`、`whoami`、`config`、`update`、`version`、`completion` |
+
+### 请求体
+
+生成的命令把请求的每个顶层字段做成带类型的 flag，完整 JSON 请求体通过 `--data` 传入（`--data -` 从 stdin 读取）。位置参数和 flag 会覆盖 `--data` 中的同名字段，所以嵌套对象和数组放进 `--data`，标量字段用 flag：
 
 ```bash
-export FLASHDUTY_APP_KEY=your_app_key
+flashduty status-page change-create <page_id> --type incident \
+  --title "API latency elevated" --status investigating \
+  --data '{"updates":[{"status":"investigating","description":"Investigating.","component_changes":[{"component_id":"<component_id>","status":"degraded"}]}]}'
 ```
 
-### 2. 使用
+## 认证与配置
 
-```bash
-# 列出最近的故障
-flashduty incident list
+凭据按以下顺序读取：
 
-# 查看故障详情
-flashduty incident get <incident_id>
-
-# 列出团队成员
-flashduty member list
-
-# 查看协作空间
-flashduty channel list
-```
-
----
-
-## 认证方式
-
-CLI 按以下优先级解析凭证（优先级从高到低）：
-
-1. `--app-key` 参数（隐藏参数，用于脚本）
+1. `--app-key` flag（隐藏，供脚本使用）
 2. `FLASHDUTY_APP_KEY` 环境变量
-3. `~/.flashduty/config.yaml`（由 `flashduty login` 写入）
-
-### 配置文件
-
-存储在 `~/.flashduty/config.yaml`，权限为 `0600`：
+3. `~/.flashduty/config.yaml`，由 `flashduty login` 写入，权限 `0600`
 
 ```yaml
 app_key: your_app_key
 base_url: https://api.flashcat.cloud
 ```
 
-### 配置命令
-
 ```bash
-flashduty config show              # 查看当前配置（密钥已脱敏）
+flashduty config show              # 打印当前配置（key 已脱敏）
 flashduty config set app_key KEY   # 设置 APP Key
-flashduty config set base_url URL  # 覆盖 API 地址
+flashduty config set base_url URL  # 修改 API 地址
 ```
 
----
+| 环境变量 | 用途 |
+|----------|------|
+| `FLASHDUTY_APP_KEY` | APP Key |
+| `FLASHDUTY_BASE_URL` | API 地址（默认 `https://api.flashcat.cloud`） |
+| `FLASHDUTY_NO_UPDATE_CHECK=1` | 关闭每天一次的后台更新检查 |
+| `FLASHDUTY_UPDATE_BASE_URL` | `flashduty update` 和更新检查使用的镜像地址 |
 
-## 全局参数
+## 全局 flag
 
-| 参数 | 说明 |
+| Flag | 说明 |
 |------|------|
-| `--json` | 以 JSON 格式输出 |
-| `--no-trunc` | 表格输出时不截断长字段 |
+| `--output-format` | `table`（默认）、`json` 或 `toon` |
+| `--json` | 等同 `--output-format json` |
+| `--no-trunc` | 表格输出不截断长字段 |
 | `--base-url` | 覆盖 API 地址 |
-
----
-
-## 可用命令
-
-### `incident` - 故障生命周期管理（9 个命令）
-
-```bash
-flashduty incident list [flags]        # 列出故障（默认最近 24 小时）
-flashduty incident get <id> [<id2>]    # 查看故障详情（单个 ID 时显示详细视图）
-flashduty incident create [flags]      # 创建故障（缺少参数时进入交互模式）
-flashduty incident update <id> [flags] # 更新故障字段
-flashduty incident ack <id> [<id2>]    # 认领故障
-flashduty incident close <id> [<id2>]  # 关闭故障
-flashduty incident timeline <id>       # 查看故障时间线
-flashduty incident alerts <id>         # 查看故障告警
-flashduty incident similar <id>        # 查找相似故障
-```
-
-**列表参数：**
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--progress` | 筛选：Triggered、Processing、Closed | 全部 |
-| `--severity` | 筛选：Critical、Warning、Info | 全部 |
-| `--channel` | 按协作空间 ID 筛选 | - |
-| `--title` | 按标题关键字搜索 | - |
-| `--since` | 开始时间（时长、日期、日期时间或 Unix 时间戳） | `24h` |
-| `--until` | 结束时间 | `now` |
-| `--limit` | 最大结果数 | `20` |
-| `--page` | 页码 | `1` |
-
-**时间格式示例：** `5m`、`1h`、`24h`、`168h`、`2026-04-01`、`2026-04-01 10:00:00`、`1712000000`
-
-### `change` - 变更记录查询（1 个命令）
-
-```bash
-flashduty change list [flags]    # 列出变更记录（部署、配置等）
-```
-
-支持 `--channel`、`--since`、`--until`、`--type`、`--limit`、`--page`。
-
-### `member` - 成员查询（1 个命令）
-
-```bash
-flashduty member list [flags]    # 列出成员
-```
-
-支持 `--name`、`--email`、`--page`。
-
-### `team` - 团队查询（1 个命令）
-
-```bash
-flashduty team list [flags]      # 列出团队及成员
-```
-
-支持 `--name`、`--page`。
-
-### `channel` - 协作空间查询（1 个命令）
-
-```bash
-flashduty channel list [flags]   # 列出协作空间
-```
-
-支持 `--name`。
-
-### `escalation-rule` - 分派策略查询（1 个命令）
-
-```bash
-flashduty escalation-rule list --channel <id>          # 按协作空间 ID 查询
-flashduty escalation-rule list --channel-name <name>   # 按协作空间名称查询（自动解析）
-```
-
-### `field` - 自定义字段查询（1 个命令）
-
-```bash
-flashduty field list [flags]     # 列出自定义字段定义
-```
-
-支持 `--name`。
-
-### `status-page` - 状态页管理（28 个命令）
-
-命令组名是 `status-page`（带连字符），不是 `statuspage`。嵌套对象、数组类字段没有
-对应的 flag，必须通过 `--data` 传 JSON；`--data -` 表示整个请求体从 stdin 读取。
-位置参数和显式设置的 flag 会覆盖 `--data` 里的同名字段。
-
-**状态页、组件、分组**
-
-```bash
-flashduty status-page list                                     # 列出状态页（JSON 形如 {"items":[...]}）
-flashduty status-page info <page-id>                           # 状态页详情，含组件 ID 和分组 ID
-flashduty status-page create --name <name> --url-name <slug> --type <public|internal> \
-    --date-view <calendar|list> --display-uptime-mode <chart_and_percentage|chart|none>
-flashduty status-page update <page-id> [--name <name>] [--url-name <slug>] ...   # 更新状态页
-flashduty status-page delete <page-id>                         # 删除状态页
-flashduty status-page component-upsert <page-id> --data '{"components":[{"name":"API","section_id":"<section-id>"}]}'
-flashduty status-page component-delete <component-id> [<id2>...] --page-id <page-id>
-flashduty status-page section-upsert <page-id> --data '{"sections":[{"name":"核心服务"}]}'
-flashduty status-page section-delete <section-id> [<id2>...] --page-id <page-id>
-```
-
-**事件（故障 / 维护）与时间线**
-
-```bash
-flashduty status-page change-active-list <page-id> --type <incident|maintenance>   # 只列进行中的事件
-flashduty status-page change-list <page-id> --type <incident|maintenance> --status <status>
-flashduty status-page change-info --page-id <page-id> --change-id <change-id>
-flashduty status-page change-create <page-id> --type <incident|maintenance> --title <title> \
-    --status <status> --description <text> --data '{"updates":[...]}'
-flashduty status-page change-update --page-id <page-id> --change-id <change-id> [--title <title>]
-flashduty status-page change-delete --page-id <page-id> --change-id <change-id>
-flashduty status-page change-timeline-create --page-id <page-id> --change-id <change-id> \
-    --status <status> --description <text> [--data '{"component_changes":[...]}']
-flashduty status-page change-timeline-update --page-id <page-id> --change-id <change-id> --update-id <update-id> [--description <text>]
-flashduty status-page change-timeline-delete --page-id <page-id> --change-id <change-id> --update-id <update-id>
-```
-
-`change-create` 的 `<page-id>` 是**必填位置参数**；必填的 `updates` 数组（以及嵌套在里面的
-`component_changes`）没有对应的 flag，所以真实的 `change-create` 调用一定带 `--data`：
-
-```bash
-flashduty status-page change-create 5750613685214 --type incident \
-  --title "API 延迟升高" --status investigating \
-  --description "正在排查延迟升高问题。" \
-  --data '{"updates":[{"status":"investigating","description":"团队正在排查。","component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"degraded"}]}]}'
-```
-
-整个请求体也可以用 `--data -` 从 stdin 读：
-
-```bash
-cat change.json | flashduty status-page change-create 5750613685214 --data -
-```
-
-关闭事件走 `change-timeline-create`，并且事件涉及的每个组件都要改回 `operational`：
-
-```bash
-flashduty status-page change-timeline-create --page-id 5750613685214 --change-id 5821693893131 \
-  --status resolved --description "已恢复。" \
-  --data '{"component_changes":[{"component_id":"01KC3GAZ6ZJE40H55GM31RPWZE","status":"operational"}]}'
-```
-
-**订阅者与模板**
-
-```bash
-flashduty status-page subscriber-list <page-id> [--component-ids <ids>] [--page <n>] [--limit <n>]
-flashduty status-page subscriber-import <page-id> --method <email|im> --data '{"subscribers":[...]}'
-flashduty status-page subscriber-export <page-id> [--component-ids <ids>]
-flashduty status-page template-list <page-id> --type <pre_defined|message>
-flashduty status-page template-upsert <page-id> --type <pre_defined|message> --data '{"template":{...}}'
-flashduty status-page template-delete --page-id <page-id> --template-id <template-id> --type <pre_defined|message>
-```
-
-**从 Atlassian Statuspage 迁移**
-
-```bash
-flashduty status-page migrate-structure <source-page-id> --api-key <key> [--url-name <slug>]   # 迁移结构与历史
-flashduty status-page migrate-email-subscribers --source-page-id <id> --target-page-id <id> --api-key <key>
-flashduty status-page migration-status <job-id>                # 查询迁移任务状态
-flashduty status-page migration-cancel <job-id>                # 取消正在跑的迁移任务
-```
-
-迁移任务是异步的。启动 `migrate-structure` 或 `migrate-email-subscribers` 之后，
-用返回的 `job_id` 轮询：
-
-```bash
-flashduty status-page migration-status <job-id>
-```
-
-典型流程：
-
-```bash
-flashduty status-page migrate-structure page_123 --api-key $ATLASSIAN_STATUSPAGE_API_KEY
-flashduty status-page migration-status <structure_job_id>
-flashduty status-page migrate-email-subscribers --source-page-id page_123 \
-  --target-page-id <target_page_id> --api-key $ATLASSIAN_STATUSPAGE_API_KEY
-flashduty status-page migration-status <subscriber_job_id>
-```
-
-### `template` - 通知模板管理（4 个命令）
-
-```bash
-flashduty template get-preset --channel <channel>                    # 获取预设模板代码
-flashduty template validate --channel <channel> --file <path>        # 验证并预览模板
-flashduty template variables [--category <category>]                 # 列出模板变量
-flashduty template functions [--type custom|sprig|all]               # 列出模板函数
-```
-
-支持的通知渠道：`dingtalk`、`dingtalk_app`、`feishu`、`feishu_app`、`wecom`、`wecom_app`、`slack`、`slack_app`、`telegram`、`teams_app`、`email`、`sms`、`zoom`。
-
-### 工具命令
-
-```bash
-flashduty login          # 交互式认证
-flashduty config show    # 查看当前配置
-flashduty config set     # 设置配置项
-flashduty version        # 打印版本信息
-flashduty completion     # 生成 Shell 自动补全（bash/zsh/fish/powershell）
-```
-
----
 
 ## 输出格式
 
-**表格（默认）：** 人类可读，列对齐，长字段自动截断。
+- **Table**（默认）：对齐的列，给人看；长字段会截断，加 `--no-trunc` 不截断。
+- **JSON**（`--json`）：给 `jq` 和脚本用，例如 `flashduty incident list --json | jq '.[].title'`。
+- **TOON**（`--output-format toon`）：[Token-Oriented Object Notation](https://github.com/toon-format/toon-go)。JSON 每行都重复字段名，TOON 不重复，列表输出的 token 少得多。LLM 或 Agent 读取输出时用它。
 
-```
-ID           TITLE                    SEVERITY   PROGRESS     CHANNEL       CREATED
-inc_abc123   DB connection timeout    Critical   Triggered    Production    2026-04-10 10:23
-inc_def456   High memory usage        Warning    Processing   Staging       2026-04-10 09:15
-Showing 2 results (page 1, total 2).
-```
+每一页结构化列表最大 16 KiB。被裁剪的页会在 stderr 上提示，列表的返回体里也会带 `"truncated": true`。同时带 `"emitted_rows": N` 表示只返回了前 N 行：用更小的 `--limit` 重新请求，直到拿到的行数达到 `total`。不带 `emitted_rows` 表示行都在，但长字段被截断：用 `--fields` 缩小字段范围。
 
-**JSON（`--json`）：** 机器可解析，可直接管道给 `jq`。
+## 升级
 
 ```bash
-flashduty incident list --json | jq '.[].title'
+flashduty update           # 原地安装最新版
+flashduty update --check   # 只检查是否有新版本
 ```
-
-**列表页有 16 KiB 上限。** 结构化列表的一页超出上限时，只输出能装下的前若干行，并在 stderr 说明。如果该页是分页信封（形如 `{items, total, has_next_page, …}`），载荷内也会带上标记：`"truncated": true` 与 `"emitted_rows": N`（保留了前 N 行，其余被丢弃）。`total` / `has_next_page` / `search_after_ctx` 仍是服务端原值，因此一页被裁到"100 行里只发 7 行"时，看起来与完整页无异。脚本要完整翻页时，请从**实际收到的最后一行**之后继续（用不大于已收到行数的 `--limit` 重新请求，再跟随该响应的游标），不要只依赖 `has_next_page`；若只有 `"truncated": true` 而没有 `emitted_rows`，说明行内长值被裁剪——翻页无法恢复，应收窄 `--fields` 后重新请求。
-
-**不截断（`--no-trunc`）：** 表格显示完整字段内容。
-
----
 
 ## 开发
 
-### 前置条件
-
-- Go 1.24+
-- golangci-lint（Makefile 自动安装）
-
-### 构建
+需要 Go 1.26+（见 `go.mod`）。golangci-lint 由 Makefile 自动安装。
 
 ```bash
-make build       # 构建二进制文件到 bin/flashduty
-make test        # 运行测试（启用竞态检测）
-make lint        # 运行代码检查
-make check       # 运行所有检查（格式化、检查、测试、构建）
-make help        # 显示所有可用目标
+make build        # 构建 bin/flashduty
+make test         # 运行测试（带 race 检测）
+make check        # fmt、lint、test、build
+make gen-cards    # 重新生成 skills/flashduty/reference 中的命令片段
+make check-cards  # 用真实命令树校验这些片段
+make help         # 全部目标
 ```
 
-### 依赖
+生成的命令在 `internal/cli/zz_generated_*.go`，由 `go run ./internal/cmd/cligen` 根据 go-flashduty 自带的 OpenAPI 规范生成；手写命令放在同一目录。手写命令占用了生成命令的名字时，`TestCuratedCommandsCoverRequestFields` 要求它仍然能设置该 API 的每个请求字段。
 
-| 包 | 用途 |
-|----|------|
-| [flashduty-sdk](https://github.com/flashcatcloud/flashduty-sdk) | Flashduty API 客户端 |
-| [cobra](https://github.com/spf13/cobra) | CLI 框架 |
-| [yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | 配置文件解析 |
-| [x/term](https://pkg.go.dev/golang.org/x/term) | 密码输入脱敏 |
+| 依赖 | 用途 |
+|------|------|
+| [go-flashduty](https://github.com/flashcatcloud/go-flashduty) | Flashduty API 客户端，由 OpenAPI 规范生成 |
+| [cobra](https://github.com/spf13/cobra) | 命令框架 |
+| [toon-go](https://github.com/toon-format/toon-go) | TOON 输出 |
+| [yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) | 配置文件 |
+| [x/term](https://pkg.go.dev/golang.org/x/term) | APP Key 隐藏输入 |
 
----
+## 相关项目
+
+- [go-flashduty](https://github.com/flashcatcloud/go-flashduty)：Flashduty API 的 Go SDK
+- [flashduty-mcp-server](https://github.com/flashcatcloud/flashduty-mcp-server)：Flashduty 的 MCP Server
+- [terraform-provider-flashduty](https://github.com/flashcatcloud/terraform-provider-flashduty)：管理 Flashduty 资源的 Terraform Provider
 
 ## 参与贡献
 
-欢迎贡献代码！提交 Pull Request 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并遵守我们的[行为准则](CODE_OF_CONDUCT.md)。
+欢迎贡献。提交 PR 前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，并遵守[行为准则](CODE_OF_CONDUCT.md)。
 
-- [报告缺陷或提交需求](https://github.com/flashcatcloud/flashduty-cli/issues/new/choose)
-- [获取帮助与支持](SUPPORT.md)
+- [报告问题或提需求](https://github.com/flashcatcloud/flashduty-cli/issues/new/choose)
+- [获取帮助](SUPPORT.md)
 - [报告安全漏洞](SECURITY.md)
-
----
 
 ## 许可证
 
-本项目基于 MIT 许可证开源 - 详见 [LICENSE](LICENSE) 文件。
+MIT，详见 [LICENSE](LICENSE)。
