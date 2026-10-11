@@ -96,7 +96,7 @@ func newAlertListCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					return ctx.PrintList(proj, nil, len(result.Items), page, limit, int(result.Total))
+					return ctx.PrintCappedList(proj, nil, len(result.Items), page, limit, int(result.Total), result.HasNextPage)
 				}
 
 				cols := []output.Column{
@@ -109,7 +109,7 @@ func newAlertListCmd() *cobra.Command {
 					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertItem).StartTime) }},
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
+				return ctx.PrintCappedList(result.Items, cols, len(result.Items), page, limit, int(result.Total), result.HasNextPage)
 			})
 		},
 	}
@@ -236,7 +236,7 @@ func newAlertEventsCmd() *cobra.Command {
 				defaults := listDefaultsFor("Alerts", "ReadEventList")
 				win := requestWindow(ctx.Cmd, nil, defaults)
 				return ctx.PrintPage(result.Items, cols, listPage{
-					Count: len(result.Items), Page: win.page, Base: win.base, Limit: win.limit, Total: int(result.Total), More: moreOf(result.HasNextPage),
+					Count: len(result.Items), Page: win.page, Base: win.base, Limit: win.limit, Total: int(result.Total), More: moreOf(result.HasNextPage), TotalCapped: true,
 				})
 			})
 		},
