@@ -43,7 +43,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body)
+				return printGenericResult(ctx, out, body, 0)
 			})
 		},
 	}

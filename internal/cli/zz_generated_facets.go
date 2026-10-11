@@ -89,7 +89,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body)
+				return printGenericResult(ctx, out, body, 100)
 			})
 		},
 	}
@@ -164,7 +164,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body)
+				return printGenericResult(ctx, out, body, 0)
 			})
 		},
 	}

@@ -346,15 +346,17 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 //
 // body is the request body the command sent (nil when it has none); it supplies
 // the page and page size the list-completeness statement is judged against.
+// defaultLimit is the page size the API applies when the request sets none (the
+// schema's declared default; 0 when it declares none).
 // A list-shaped response also states how complete it is: a footer in table mode,
 // a stderr note in structured mode (see listPage).
-func printGenericResult(ctx *RunContext, data any, body map[string]any) error {
+func printGenericResult(ctx *RunContext, data any, body map[string]any, defaultLimit int) error {
 	var err error
 	data, err = datasourceToolOutput(data, currentOutputFormat())
 	if err != nil {
 		return err
 	}
-	win := requestWindow(ctx.Cmd, body)
+	win := requestWindow(ctx.Cmd, body, defaultLimit)
 	if ctx.Structured() {
 		var pg listPage
 		isList := false
@@ -391,8 +393,9 @@ func printGenericResult(ctx *RunContext, data any, body map[string]any) error {
 // requestWindow reads the page and page size a command's request carried: the
 // body's "p"/"page" and "limit" keys (which cover --data and typed flags alike),
 // else the command's own --page/--limit flags (curated commands with defaults).
-// A command with a --page flag and no explicit page is on page 1.
-func requestWindow(cmd *cobra.Command, body map[string]any) listWindow {
+// A command with a --page flag and no explicit page is on page 1. A request that
+// sets no limit is served defaultLimit rows.
+func requestWindow(cmd *cobra.Command, body map[string]any, defaultLimit int) listWindow {
 	var win listWindow
 	for _, key := range []string{"p", "page"} {
 		if n := bodyInt(body[key]); n > 0 {
@@ -401,6 +404,9 @@ func requestWindow(cmd *cobra.Command, body map[string]any) listWindow {
 	}
 	win.limit = bodyInt(body["limit"])
 	if cmd == nil {
+		if win.limit == 0 {
+			win.limit = defaultLimit
+		}
 		return win
 	}
 	flagInt := func(name string) int {
@@ -418,6 +424,9 @@ func requestWindow(cmd *cobra.Command, body map[string]any) listWindow {
 	}
 	if win.limit == 0 {
 		win.limit = flagInt("limit")
+	}
+	if win.limit == 0 {
+		win.limit = defaultLimit
 	}
 	return win
 }

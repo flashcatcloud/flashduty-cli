@@ -173,6 +173,7 @@ type specField struct {
 	Desc       string
 	Enum       []string
 	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
+	Default    int    // schema `default` of an integer property; 0 when the schema has none
 }
 
 func collectServices(paths, schemas map[string]any, sdk map[string]map[string]methodInfo) []service {
@@ -469,6 +470,7 @@ func (w *specWalker) fields(op map[string]any) []specField {
 				Desc:       propertyDescription(raw, pv),
 				Enum:       w.enumOf(pv),
 				Constraint: constraintOf(pv),
+				Default:    intDefault(pv),
 			})
 		}
 	}
@@ -580,6 +582,15 @@ func constraintOf(s map[string]any) string {
 		parts = append(parts, "≥"+lmn+" chars")
 	}
 	return strings.Join(parts, ", ")
+}
+
+// intDefault returns a property schema's structured integer `default`, or 0
+// when it declares none. Description text is never read for a default.
+func intDefault(s map[string]any) int {
+	if n, ok := s["default"].(float64); ok && n > 0 && n == float64(int64(n)) {
+		return int(n)
+	}
+	return 0
 }
 
 // numStr formats a JSON number (float64 / json.Number) without a trailing ".0",
@@ -1345,7 +1356,13 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	case mi.HasData:
 		fmt.Fprintf(&b, "\t\t\t\tout, _, err := %s\n", call)
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
-		b.WriteString("\t\t\t\treturn printGenericResult(ctx, out, body)\n")
+		defaultLimit := 0
+		for _, f := range o.Fields {
+			if f.Wire == "limit" {
+				defaultLimit = f.Default
+			}
+		}
+		fmt.Fprintf(&b, "\t\t\t\treturn printGenericResult(ctx, out, body, %d)\n", defaultLimit)
 	default:
 		// (*Response, error): a mutation, OR an export/attachment endpoint
 		// whose CSV/file body the SDK surfaces on Response.Raw. Capture the

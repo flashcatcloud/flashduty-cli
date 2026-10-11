@@ -187,7 +187,7 @@ func TestGenericEnvelopeMoreSignalInTableMode(t *testing.T) {
 			var buf bytes.Buffer
 			ctx := tableCtx(&buf)
 			ctx.Cmd = tc.cmd
-			if err := printGenericResult(ctx, tc.data, nil); err != nil {
+			if err := printGenericResult(ctx, tc.data, nil, 0); err != nil {
 				t.Fatalf("printGenericResult: %v", err)
 			}
 			got := buf.String()
@@ -273,5 +273,45 @@ func TestIncidentSimilarFullListNotes(t *testing.T) {
 	}
 	if !strings.Contains(stderrText, "note: showing 2 results (= limit 2); more may exist; raise --limit") {
 		t.Errorf("a full top-N list should say more may exist, got:\n%s", stderrText)
+	}
+}
+
+// With no --limit the request is served the schema's declared default page
+// size (rule-list-basic: 50), so a full default page still cannot prove the
+// list is complete.
+func TestGeneratedBareArrayDefaultLimit(t *testing.T) {
+	makeRows := func(n int) []any {
+		rows := make([]any, n)
+		for i := range rows {
+			rows[i] = map[string]any{"id": i + 1, "folder_id": 7, "name": "r"}
+		}
+		return rows
+	}
+	run := func(t *testing.T, n int) (stdout, stderr string) {
+		t.Helper()
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = makeRows(n)
+		out, errText, err := execCommandSplit("monit", "rule-list-basic", "--folder-id", "7", "--include-descendants", "--output-format", "json")
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		if _, sent := stub.lastBody["limit"]; sent {
+			t.Fatalf("no --limit was given; none may be sent, got %#v", stub.lastBody)
+		}
+		return out, errText
+	}
+
+	fullOut, fullErr := run(t, 50)
+	if want := "note: showing 50 results (= limit 50); more may exist; raise --limit"; !strings.Contains(fullErr, want) {
+		t.Errorf("a full default page should note %q, got:\n%s", want, fullErr)
+	}
+	if strings.Contains(fullOut, "note:") || !strings.HasPrefix(strings.TrimSpace(fullOut), "[") {
+		t.Errorf("stdout must stay the bare JSON array, got prefix %q", fullOut[:min(len(fullOut), 40)])
+	}
+
+	_, shortErr := run(t, 3)
+	if strings.Contains(shortErr, "note:") {
+		t.Errorf("a short default page proves the set is complete; no note wanted, got:\n%s", shortErr)
 	}
 }

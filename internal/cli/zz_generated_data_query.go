@@ -58,7 +58,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body)
+				return printGenericResult(ctx, out, body, 0)
 			})
 		},
 	}
