@@ -18,6 +18,19 @@ import (
 // monit rule-update-fields) shadows the global flag, so flagFields stays empty
 // for it and this projection never runs on top of the command's own.
 
+// globalFieldsFlag is the name the root command registers the global
+// projection flag under.
+const globalFieldsFlag = "fields"
+
+// usesGlobalFields reports whether cmd's --fields is the root's global flag
+// rather than a flag cmd defines itself under the same name. Flag identity, not
+// the name, tells them apart: a command's own --fields is a different flag
+// object that shadows the global one.
+func usesGlobalFields(cmd *cobra.Command) bool {
+	own := cmd.Flags().Lookup(globalFieldsFlag)
+	return own != nil && own == cmd.Root().PersistentFlags().Lookup(globalFieldsFlag)
+}
+
 // projection is the result of projectOutput: the projected value, the
 // requested fields that matched no key, and every key the unprojected rows
 // carried (for the note that names what does exist).

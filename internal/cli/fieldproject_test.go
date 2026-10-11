@@ -1402,9 +1402,10 @@ func TestReductionAdviceNamesOnlyDeclaredFlags(t *testing.T) {
 		}
 	})
 
-	// channel silence-rule-list is a generated verb that declares no narrowing
-	// flag: the note must not invent one.
-	t.Run("no narrowing flag", func(t *testing.T) {
+	// channel silence-rule-list is a generated verb: the global --fields narrows
+	// it, and it has no rows flag, so the note offers the first and invents no
+	// second.
+	t.Run("global fields only", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		flagOutputFormat = "json"
 		stub := newGFStub(t)
@@ -1425,13 +1426,14 @@ func TestReductionAdviceNamesOnlyDeclaredFlags(t *testing.T) {
 		if !strings.Contains(stderrText, "note: emitted") {
 			t.Fatalf("over-budget page should announce the reduction, got:\n%s", stderrText)
 		}
-		if !strings.Contains(stderrText, "declares no flag that narrows the output") {
-			t.Fatalf("advice should say no flag narrows this command, got:\n%s", stderrText)
+		if !strings.Contains(stderrText, "narrow --fields to fit more rows per page") {
+			t.Fatalf("advice should offer the global --fields, got:\n%s", stderrText)
 		}
-		for _, flag := range []string{"--fields", "--limit"} {
-			if strings.Contains(stderrText, flag) {
-				t.Fatalf("advice must not name %s on a verb that does not narrow with it, got:\n%s", flag, stderrText)
-			}
+		if strings.Contains(stderrText, "declares no flag") {
+			t.Fatalf("advice must not claim nothing narrows this command, got:\n%s", stderrText)
+		}
+		if strings.Contains(stderrText, "--limit") {
+			t.Fatalf("advice must not name --limit on a verb that has none, got:\n%s", stderrText)
 		}
 	})
 }
@@ -1484,8 +1486,9 @@ func TestShorteningAdviceOmitsRowsFlag(t *testing.T) {
 // declare as narrowing.
 func TestOverflowErrorNamesOnlyDeclaredFlags(t *testing.T) {
 	// A row whose bulk is a non-string field cannot be shortened, so the command
-	// fails. channel silence-rule-list declares no narrowing flag.
-	t.Run("no narrowing flag", func(t *testing.T) {
+	// fails. channel silence-rule-list is generated: only the global --fields
+	// narrows it.
+	t.Run("global fields only", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		flagOutputFormat = "json"
 		stub := newGFStub(t)
@@ -1502,13 +1505,11 @@ func TestOverflowErrorNamesOnlyDeclaredFlags(t *testing.T) {
 		if !strings.Contains(err.Error(), "largest fields:") {
 			t.Fatalf("error should name the largest fields, got: %v", err)
 		}
-		if !strings.Contains(err.Error(), "declares no flag that narrows the output") {
-			t.Fatalf("error should state no flag narrows this command, got: %v", err)
+		if !strings.Contains(err.Error(), "narrow --fields") {
+			t.Fatalf("error should offer the global --fields, got: %v", err)
 		}
-		for _, flag := range []string{"--fields", "--limit"} {
-			if strings.Contains(err.Error(), flag) {
-				t.Fatalf("error must not name %s on a verb that does not narrow with it, got: %v", flag, err)
-			}
+		if strings.Contains(err.Error(), "declares no flag") || strings.Contains(err.Error(), "--limit") {
+			t.Fatalf("error must neither claim nothing narrows this command nor name --limit, got: %v", err)
 		}
 	})
 
@@ -1642,4 +1643,59 @@ func TestBoundProjectedListIdentifierOnlyOverflowReducesPage(t *testing.T) {
 	if len(encoded)+1 >= 512 {
 		t.Fatalf("bounded output is %d bytes, want <512", len(encoded)+1)
 	}
+}
+
+// TestDeclaredNarrowingGlobalFieldsByFlagIdentity pins how the projection flag is
+// derived for a command that declares nothing: it is the global --fields only
+// while the command's --fields is that very flag. A command defining its own
+// --fields (a write selector, say) shadows it and gets no advice unless it
+// declares one; a command with no --fields at all gets none either.
+func TestDeclaredNarrowingGlobalFieldsByFlagIdentity(t *testing.T) {
+	newTree := func(child *cobra.Command) *cobra.Command {
+		root := &cobra.Command{Use: "root"}
+		root.PersistentFlags().String(globalFieldsFlag, "", "")
+		root.AddCommand(child)
+		// Merging the persistent flags into the child's set is what a real
+		// execution does before the command runs.
+		child.Flags().AddFlagSet(root.PersistentFlags())
+		return child
+	}
+
+	t.Run("inherits global", func(t *testing.T) {
+		cmd := newTree(&cobra.Command{Use: "list"})
+		if got := declaredNarrowing(cmd, narrowsByProjection); got != "fields" {
+			t.Errorf("projection flag = %q, want fields", got)
+		}
+		if got := declaredNarrowing(cmd, narrowsByRows); got != "" {
+			t.Errorf("rows flag = %q, want none: nothing declared one", got)
+		}
+	})
+
+	t.Run("own fields shadows global", func(t *testing.T) {
+		child := &cobra.Command{Use: "update"}
+		child.Flags().String(globalFieldsFlag, "", "fields to write")
+		cmd := newTree(child)
+		if got := declaredNarrowing(cmd, narrowsByProjection); got != "" {
+			t.Errorf("projection flag = %q, want none: --fields here is the command's own", got)
+		}
+	})
+
+	t.Run("own fields declared", func(t *testing.T) {
+		child := &cobra.Command{Use: "list"}
+		child.Flags().String(globalFieldsFlag, "", "fields to project")
+		declareOutputNarrowing(child, "fields", "")
+		cmd := newTree(child)
+		if got := declaredNarrowing(cmd, narrowsByProjection); got != "fields" {
+			t.Errorf("projection flag = %q, want the declared fields", got)
+		}
+	})
+
+	t.Run("no fields flag", func(t *testing.T) {
+		root := &cobra.Command{Use: "root"}
+		child := &cobra.Command{Use: "list"}
+		root.AddCommand(child)
+		if got := declaredNarrowing(child, narrowsByProjection); got != "" {
+			t.Errorf("projection flag = %q, want none: the command has no --fields", got)
+		}
+	})
 }

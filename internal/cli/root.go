@@ -108,7 +108,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagNoTrunc, "no-trunc", false, "Do not truncate table output")
 	rootCmd.PersistentFlags().StringVar(&flagAppKey, "app-key", "", "Override app key")
 	rootCmd.PersistentFlags().StringVar(&flagBaseURL, "base-url", "", "Override base URL")
-	rootCmd.PersistentFlags().StringVar(&flagFields, "fields", "", "Comma-separated top-level fields to keep in json/toon output (per row of a list, or of a single record); ignored in table mode")
+	rootCmd.PersistentFlags().StringVar(&flagFields, globalFieldsFlag, "", "Comma-separated top-level fields to keep in json/toon output (per row of a list, or of a single record); ignored in table mode")
 	_ = rootCmd.PersistentFlags().MarkHidden("app-key")
 	registerEnumFlag(rootCmd, "output-format", "table", "json", "toon")
 	rootCmd.SetFlagErrorFunc(flagErrorWithCandidates)

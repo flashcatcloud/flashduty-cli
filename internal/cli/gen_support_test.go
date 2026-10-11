@@ -76,14 +76,15 @@ func TestPrintGenericResultBoundsListEnvelope(t *testing.T) {
 			if !strings.Contains(stderrText, "note: emitted") {
 				t.Errorf("reduced %s page should announce itself on stderr, got:\n%s", format, stderrText)
 			}
-			// insight incident-list is a generated verb: it declares no narrowing
-			// flag, so even though it carries a --limit, the note names none.
-			if !strings.Contains(stderrText, "declares no flag that narrows the output") {
-				t.Errorf("a generated verb should get the flagless note, got:\n%s", stderrText)
+			// insight incident-list is a generated verb: the global --fields
+			// narrows it, but its --limit has no declared effect on the rows, so
+			// the note offers the first and never the second.
+			if !strings.Contains(stderrText, "narrow --fields to fit more rows per page") {
+				t.Errorf("a generated verb should be offered the global --fields, got:\n%s", stderrText)
 			}
-			for _, flag := range []string{"--limit", "--fields"} {
-				if strings.Contains(stderrText, flag) {
-					t.Errorf("advice must not name %s on a verb that declares no narrowing flag, got:\n%s", flag, stderrText)
+			for _, bad := range []string{"--limit", "declares no flag"} {
+				if strings.Contains(stderrText, bad) {
+					t.Errorf("advice must not contain %q for a generated verb, got:\n%s", bad, stderrText)
 				}
 			}
 			// The first row survives intact; the last was dropped by the
@@ -165,13 +166,13 @@ func TestPrintGenericResultBoundsTopLevelArray(t *testing.T) {
 		t.Errorf("reduced page should announce itself on stderr, got:\n%s", stderrText)
 	}
 	// monit rule-list-basic is a generated verb whose --limit sizes the response
-	// only alongside --include-descendants: it declares no narrowing flag, so the
-	// note must not offer --limit.
-	if !strings.Contains(stderrText, "declares no flag that narrows the output") {
-		t.Errorf("a generated verb should get the flagless note, got:\n%s", stderrText)
+	// only alongside --include-descendants: the note offers the global --fields
+	// and must not offer --limit.
+	if !strings.Contains(stderrText, "narrow --fields to fit more rows per page") {
+		t.Errorf("a generated verb should be offered the global --fields, got:\n%s", stderrText)
 	}
-	if strings.Contains(stderrText, "--limit") {
-		t.Errorf("advice must not name --limit; this verb declares no narrowing flag, got:\n%s", stderrText)
+	if strings.Contains(stderrText, "--limit") || strings.Contains(stderrText, "declares no flag") {
+		t.Errorf("advice must not name --limit or claim nothing narrows, got:\n%s", stderrText)
 	}
 	var decoded []map[string]any
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decoded); err != nil {
