@@ -58,7 +58,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataQuery", "Query"))
 			})
 		},
 	}

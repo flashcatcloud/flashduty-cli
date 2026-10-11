@@ -346,17 +346,17 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 //
 // body is the request body the command sent (nil when it has none); it supplies
 // the page and page size the list-completeness statement is judged against.
-// defaultLimit is the page size the API applies when the request sets none (the
-// schema's declared default; 0 when it declares none).
+// defaults are the schema-declared page size and page numbering of the list (zero
+// when the schema declares none).
 // A list-shaped response also states how complete it is: a footer in table mode,
 // a stderr note in structured mode (see listPage).
-func printGenericResult(ctx *RunContext, data any, body map[string]any, defaultLimit int) error {
+func printGenericResult(ctx *RunContext, data any, body map[string]any, defaults listDefaults) error {
 	var err error
 	data, err = datasourceToolOutput(data, currentOutputFormat())
 	if err != nil {
 		return err
 	}
-	win := requestWindow(ctx.Cmd, body, defaultLimit)
+	win := requestWindow(ctx.Cmd, body, defaults)
 	if ctx.Structured() {
 		var pg listPage
 		isList := false
@@ -392,41 +392,37 @@ func printGenericResult(ctx *RunContext, data any, body map[string]any, defaultL
 
 // requestWindow reads the page and page size a command's request carried: the
 // body's "p"/"page" and "limit" keys (which cover --data and typed flags alike),
-// else the command's own --page/--limit flags (curated commands with defaults).
-// A command with a --page flag and no explicit page is on page 1. A request that
-// sets no limit is served defaultLimit rows.
-func requestWindow(cmd *cobra.Command, body map[string]any, defaultLimit int) listWindow {
-	var win listWindow
+// else the command's own --page/--limit flag values (curated commands with
+// defaults). A request that sets no limit is served the schema default; a
+// one-based command that sets no page is on page 1.
+func requestWindow(cmd *cobra.Command, body map[string]any, defaults listDefaults) listWindow {
+	win := listWindow{base: defaults.PageBase}
 	for _, key := range []string{"p", "page"} {
 		if n := bodyInt(body[key]); n > 0 {
 			win.page = n
 		}
 	}
 	win.limit = bodyInt(body["limit"])
-	if cmd == nil {
+	if cmd != nil {
+		flagInt := func(name string) int {
+			if f := cmd.Flags().Lookup(name); f != nil {
+				n, _ := strconv.Atoi(f.Value.String())
+				return n
+			}
+			return 0
+		}
+		if win.page == 0 {
+			win.page = flagInt("page")
+		}
 		if win.limit == 0 {
-			win.limit = defaultLimit
-		}
-		return win
-	}
-	flagInt := func(name string) int {
-		if f := cmd.Flags().Lookup(name); f != nil {
-			n, _ := strconv.Atoi(f.Value.String())
-			return n
-		}
-		return 0
-	}
-	if win.page == 0 {
-		win.page = flagInt("page")
-		if win.page == 0 && cmd.Flags().Lookup("page") != nil {
-			win.page = 1
+			win.limit = flagInt("limit")
 		}
 	}
 	if win.limit == 0 {
-		win.limit = flagInt("limit")
+		win.limit = defaults.Limit
 	}
-	if win.limit == 0 {
-		win.limit = defaultLimit
+	if win.page == 0 && win.base == pageOne {
+		win.page = 1
 	}
 	return win
 }

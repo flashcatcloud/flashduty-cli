@@ -188,7 +188,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "ByAccount"))
 			})
 		},
 	}
@@ -399,7 +399,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "ByChannel"))
 			})
 		},
 	}
@@ -601,7 +601,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "ByResponder"))
 			})
 		},
 	}
@@ -812,7 +812,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "ByTeam"))
 			})
 		},
 	}
@@ -1395,7 +1395,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "IncidentList"))
 			})
 		},
 	}
@@ -1958,7 +1958,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Analytics", "TopkAlertsByLabel"))
 			})
 		},
 	}

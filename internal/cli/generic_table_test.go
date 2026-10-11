@@ -297,7 +297,7 @@ func TestPrintGenericResult_StructuredUnchanged(t *testing.T) {
 	// output to the direct printer (the agent path is untouched by the renderer).
 	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
 		var got, want bytes.Buffer
-		if err := printGenericResult(structuredCtx(&got, f), resp, nil, 0); err != nil {
+		if err := printGenericResult(structuredCtx(&got, f), resp, nil, listDefaults{}); err != nil {
 			t.Fatalf("%v render: %v", f, err)
 		}
 		if err := output.NewPrinter(f, false, &want).Print(resp, nil); err != nil {

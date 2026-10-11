@@ -231,15 +231,19 @@ func newAlertEventsCmd() *cobra.Command {
 					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
+				// Flags left unset are not sent; the statement is judged against
+				// the schema defaults the server then applies.
+				defaults := listDefaultsFor("Alerts", "ReadEventList")
+				win := requestWindow(ctx.Cmd, nil, defaults)
 				return ctx.PrintPage(result.Items, cols, listPage{
-					Count: len(result.Items), Page: page, Limit: limit, Total: int(result.Total), More: moreOf(result.HasNextPage),
+					Count: len(result.Items), Page: win.page, Base: win.base, Limit: win.limit, Total: int(result.Total), More: moreOf(result.HasNextPage),
 				})
 			})
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
-	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Max events (max 100; server default 20)")
+	cmd.Flags().IntVar(&page, "page", 0, "Page number (starts at 1)")
 
 	return cmd
 }
@@ -298,7 +302,7 @@ func newAlertTimelineCmd() *cobra.Command {
 				}
 
 				return ctx.PrintPage(result.Items, cols, listPage{
-					Count: len(result.Items), Page: page, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
+					Count: len(result.Items), Page: page, Base: pageOne, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
 				})
 			})
 		},

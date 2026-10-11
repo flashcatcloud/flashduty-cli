@@ -71,7 +71,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostMortemWriteResetContent"))
 			})
 		},
 	}
@@ -135,7 +135,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "ReadGetWarRoomDefaultObservers"))
 			})
 		},
 	}
@@ -256,7 +256,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "ServiceDeskPlusRequestReadList"))
 			})
 		},
 	}
@@ -326,7 +326,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WriteAddWarRoomMember"))
 			})
 		},
 	}
@@ -530,7 +530,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 1000)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "AlertList"))
 			})
 		},
 	}
@@ -734,7 +734,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "CommentTypeCreate"))
 			})
 		},
 	}
@@ -833,7 +833,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "CommentTypeList"))
 			})
 		},
 	}
@@ -1022,7 +1022,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "Create"))
 			})
 		},
 	}
@@ -1077,7 +1077,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "CustomActionDo"))
 			})
 		},
 	}
@@ -1305,7 +1305,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "Feed"))
 			})
 		},
 	}
@@ -1584,7 +1584,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "Info"))
 			})
 		},
 	}
@@ -1908,7 +1908,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "List"))
 			})
 		},
 	}
@@ -2142,7 +2142,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "ListByIDs"))
 			})
 		},
 	}
@@ -2438,7 +2438,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 5)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PastList"))
 			})
 		},
 	}
@@ -2572,7 +2572,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostMortemInfo"))
 			})
 		},
 	}
@@ -2691,7 +2691,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostMortemList"))
 			})
 		},
 	}
@@ -3267,7 +3267,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WarRoomCreate"))
 			})
 		},
 	}
@@ -3382,7 +3382,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WarRoomDetail"))
 			})
 		},
 	}
@@ -3449,7 +3449,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WarRoomList"))
 			})
 		},
 	}
@@ -3533,7 +3533,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemBindPostMortem"))
 			})
 		},
 	}
@@ -3627,7 +3627,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemComplete"))
 			})
 		},
 	}
@@ -3722,7 +3722,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemConvert"))
 			})
 		},
 	}
@@ -3844,7 +3844,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemCreate"))
 			})
 		},
 	}
@@ -3934,7 +3934,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemDelete"))
 			})
 		},
 	}
@@ -4038,7 +4038,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 50)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemList"))
 			})
 		},
 	}
@@ -4134,7 +4134,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemResetAssignees"))
 			})
 		},
 	}
@@ -4238,7 +4238,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "WorkItemUpdate"))
 			})
 		},
 	}
@@ -4322,7 +4322,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostmortemReadListTemplates"))
 			})
 		},
 	}
@@ -4384,7 +4384,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostmortemReadTemplateInfo"))
 			})
 		},
 	}
@@ -4523,7 +4523,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostmortemWriteInit"))
 			})
 		},
 	}
@@ -4868,7 +4868,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Incidents", "PostmortemWriteUpsertTemplate"))
 			})
 		},
 	}

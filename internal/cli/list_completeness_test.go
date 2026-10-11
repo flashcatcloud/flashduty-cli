@@ -23,6 +23,10 @@ func TestListPageStatement(t *testing.T) {
 	limitOnly := &cobra.Command{Use: "x"}
 	limitOnly.Flags().Int("limit", 5, "")
 
+	zeroPaged := &cobra.Command{Use: "x"}
+	zeroPaged.Flags().Int("page", 0, "")
+	zeroPaged.Flags().Int("limit", 20, "")
+
 	tests := []struct {
 		name       string
 		cmd        *cobra.Command
@@ -33,60 +37,99 @@ func TestListPageStatement(t *testing.T) {
 		{
 			name:       "a: total known, rows remain",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 20, Page: 1, Limit: 20, Total: 55},
+			pg:         listPage{Count: 20, Page: 1, Base: pageOne, Limit: 20, Total: 55},
 			wantFooter: "Showing 20 results (page 1, total 55).",
-			wantNote:   "note: showing 20 of 55 total results (page 1); raise --limit or use --page 2",
+			wantNote:   "note: showing 20 of 55 total results (page 1): raise --limit or use --page 2",
 		},
 		{
 			name:       "a: total known, last page",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 15, Page: 3, Limit: 20, Total: 55},
+			pg:         listPage{Count: 15, Page: 3, Base: pageOne, Limit: 20, Total: 55},
 			wantFooter: "Showing 15 results (page 3, total 55).",
 		},
 		{
 			name:       "a: total beats has-more=false",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 2, Page: 1, Limit: 20, Total: 9, More: moreNo},
+			pg:         listPage{Count: 2, Page: 1, Base: pageOne, Limit: 20, Total: 9, More: moreNo},
 			wantFooter: "Showing 2 results (page 1, total 9).",
-			wantNote:   "note: showing 2 of 9 total results (page 1); raise --limit or use --page 2",
+			wantNote:   "note: showing 2 of 9 total results (page 1): raise --limit or use --page 2",
 		},
 		{
 			name:       "a: a total below the shown count is an absent field, not a total",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 3, Page: 1, Limit: 20, Total: 0},
+			pg:         listPage{Count: 3, Page: 1, Base: pageOne, Limit: 20, Total: 0},
 			wantFooter: "Showing 3 results (page 1).",
 		},
 		{
-			name:       "b: has-more true",
+			name:       "a: zero-based pages: first page, next is 1",
+			cmd:        zeroPaged,
+			pg:         listPage{Count: 20, Page: 0, Base: pageZero, Limit: 20, Total: 25},
+			wantFooter: "Showing 20 results (page 0, total 25).",
+			wantNote:   "note: showing 20 of 25 total results (page 0): raise --limit or use --page 1",
+		},
+		{
+			name:       "a: zero-based pages: last page is complete",
+			cmd:        zeroPaged,
+			pg:         listPage{Count: 5, Page: 1, Base: pageZero, Limit: 20, Total: 25},
+			wantFooter: "Showing 5 results (page 1, total 25).",
+		},
+		{
+			name:       "a: unknown page base, first page: remainder known, no page number offered",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 20, Page: 2, Limit: 20, Total: -1, More: moreYes},
-			wantFooter: "Showing 20 results (page 2); more results exist; raise --limit or use --page 3.",
-			wantNote:   "note: showing 20 results (page 2); more results exist; raise --limit or use --page 3",
+			pg:         listPage{Count: 20, Base: pageUnknown, Limit: 20, Total: 25},
+			wantFooter: "Showing 20 results (total 25).",
+			wantNote:   "note: showing 20 of 25 total results: raise --limit or use --page",
+		},
+		{
+			name:       "a: unknown page base, later page: no claim of more",
+			cmd:        pagedCmd(),
+			pg:         listPage{Count: 5, Page: 2, Base: pageUnknown, Limit: 20, Total: 25},
+			wantFooter: "Showing 5 results (page 2, total 25).",
+		},
+		{
+			name:       "a: unknown limit, later page: no claim of more",
+			cmd:        pagedCmd(),
+			pg:         listPage{Count: 5, Page: 3, Base: pageOne, Total: 45},
+			wantFooter: "Showing 5 results (page 3, total 45).",
+		},
+		{
+			name:       "a: unknown limit, first page: remainder still known",
+			cmd:        pagedCmd(),
+			pg:         listPage{Count: 5, Page: 1, Base: pageOne, Total: 45},
+			wantFooter: "Showing 5 results (page 1, total 45).",
+			wantNote:   "note: showing 5 of 45 total results (page 1): raise --limit or use --page 2",
+		},
+		{
+			name:       "b: has-more true, singular noun",
+			cmd:        pagedCmd(),
+			pg:         listPage{Count: 1, Page: 1, Base: pageOne, Limit: 1, Total: -1, More: moreYes},
+			wantFooter: "Showing 1 result (page 1), more exist: raise --limit or use --page 2.",
+			wantNote:   "note: showing 1 result (page 1), more exist: raise --limit or use --page 2",
 		},
 		{
 			name:       "b: has-more false, even on a full page",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 20, Page: 1, Limit: 20, Total: -1, More: moreNo},
+			pg:         listPage{Count: 20, Page: 1, Base: pageOne, Limit: 20, Total: -1, More: moreNo},
 			wantFooter: "Showing 20 results (page 1).",
 		},
 		{
 			name:       "c: full page with no signal",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 20, Page: 1, Limit: 20, Total: -1},
-			wantFooter: "Showing 20 results (page 1) (= limit 20); more may exist; raise --limit or use --page 2.",
-			wantNote:   "note: showing 20 results (page 1) (= limit 20); more may exist; raise --limit or use --page 2",
+			pg:         listPage{Count: 20, Page: 1, Base: pageOne, Limit: 20, Total: -1},
+			wantFooter: "Showing 20 results (page 1, = limit 20), more may exist: raise --limit or use --page 2.",
+			wantNote:   "note: showing 20 results (page 1, = limit 20), more may exist: raise --limit or use --page 2",
 		},
 		{
 			name:       "c: names only the flag the command has",
 			cmd:        limitOnly,
 			pg:         listPage{Count: 5, Limit: 5, Total: -1},
-			wantFooter: "Showing 5 results (= limit 5); more may exist; raise --limit.",
-			wantNote:   "note: showing 5 results (= limit 5); more may exist; raise --limit",
+			wantFooter: "Showing 5 results (= limit 5), more may exist: raise --limit.",
+			wantNote:   "note: showing 5 results (= limit 5), more may exist: raise --limit",
 		},
 		{
 			name:       "d: short page with no signal",
 			cmd:        pagedCmd(),
-			pg:         listPage{Count: 7, Page: 1, Limit: 20, Total: -1},
+			pg:         listPage{Count: 7, Page: 1, Base: pageOne, Limit: 20, Total: -1},
 			wantFooter: "Showing 7 results (page 1).",
 		},
 		{
@@ -129,7 +172,7 @@ func TestGeneratedBareArrayFullPageNotesOnStderr(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execCommandSplit: %v", err)
 	}
-	want := "note: showing 2 results (= limit 2); more may exist; raise --limit"
+	want := "note: showing 2 results (= limit 2), more may exist: raise --limit"
 	if !strings.Contains(fullErr, want) {
 		t.Errorf("full page should note on stderr %q, got:\n%s", want, fullErr)
 	}
@@ -172,22 +215,23 @@ func TestGenericEnvelopeMoreSignalInTableMode(t *testing.T) {
 	cursorCmd := &cobra.Command{Use: "x"}
 	cursorCmd.Flags().Int("limit", 20, "")
 	tests := []struct {
-		name string
-		cmd  *cobra.Command
-		data any
-		want string
+		name     string
+		cmd      *cobra.Command
+		defaults listDefaults
+		data     any
+		want     string
 	}{
-		{"has_next_page true", pagedCmd(), &pagedResp{Items: rows, HasNextPage: true}, "Showing 2 results (page 1); more results exist; raise --limit or use --page 2."},
-		{"has_next_page false", pagedCmd(), &pagedResp{Items: rows}, "Showing 2 results (page 1)."},
-		{"next cursor set", cursorCmd, &cursorResp{Items: rows, NextCursor: "abc"}, "Showing 2 results; more results exist; raise --limit."},
-		{"next cursor empty", cursorCmd, &cursorResp{Items: rows}, "Showing 2 results."},
+		{"has_next_page true", pagedCmd(), listDefaults{PageBase: pageOne}, &pagedResp{Items: rows, HasNextPage: true}, "Showing 2 results (page 1), more exist: raise --limit or use --page 2."},
+		{"has_next_page false", pagedCmd(), listDefaults{PageBase: pageOne}, &pagedResp{Items: rows}, "Showing 2 results (page 1)."},
+		{"next cursor set", cursorCmd, listDefaults{}, &cursorResp{Items: rows, NextCursor: "abc"}, "Showing 2 results, more exist: raise --limit."},
+		{"next cursor empty", cursorCmd, listDefaults{}, &cursorResp{Items: rows}, "Showing 2 results."},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			ctx := tableCtx(&buf)
 			ctx.Cmd = tc.cmd
-			if err := printGenericResult(ctx, tc.data, nil, 0); err != nil {
+			if err := printGenericResult(ctx, tc.data, nil, tc.defaults); err != nil {
 				t.Fatalf("printGenericResult: %v", err)
 			}
 			got := buf.String()
@@ -229,7 +273,7 @@ func TestAlertEventsStatesCompleteness(t *testing.T) {
 	if !strings.HasPrefix(strings.TrimSpace(jsonOut), "[") || strings.Contains(jsonOut, "note:") {
 		t.Errorf("stdout must stay the bare JSON array, got:\n%s", jsonOut)
 	}
-	if !strings.Contains(stderrText, "note: showing 2 of 45 total results (page 1); raise --limit or use --page 2") {
+	if !strings.Contains(stderrText, "note: showing 2 of 45 total results (page 1): raise --limit or use --page 2") {
 		t.Errorf("structured mode should note the remaining rows on stderr, got:\n%s", stderrText)
 	}
 }
@@ -245,7 +289,7 @@ func TestFeedCommandsSurfaceHasNextPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execCommandSplit: %v", err)
 	}
-	if !strings.Contains(stderrText, "note: showing 1 results (page 1); more results exist; raise --limit or use --page 2") {
+	if !strings.Contains(stderrText, "note: showing 1 result (page 1), more exist: raise --limit or use --page 2") {
 		t.Errorf("has_next_page=true must be announced, got:\n%s", stderrText)
 	}
 
@@ -271,7 +315,7 @@ func TestIncidentSimilarFullListNotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execCommandSplit: %v", err)
 	}
-	if !strings.Contains(stderrText, "note: showing 2 results (= limit 2); more may exist; raise --limit") {
+	if !strings.Contains(stderrText, "note: showing 2 results (= limit 2), more may exist: raise --limit") {
 		t.Errorf("a full top-N list should say more may exist, got:\n%s", stderrText)
 	}
 }
@@ -303,7 +347,7 @@ func TestGeneratedBareArrayDefaultLimit(t *testing.T) {
 	}
 
 	fullOut, fullErr := run(t, 50)
-	if want := "note: showing 50 results (= limit 50); more may exist; raise --limit"; !strings.Contains(fullErr, want) {
+	if want := "note: showing 50 results (= limit 50), more may exist: raise --limit"; !strings.Contains(fullErr, want) {
 		t.Errorf("a full default page should note %q, got:\n%s", want, fullErr)
 	}
 	if strings.Contains(fullOut, "note:") || !strings.HasPrefix(strings.TrimSpace(fullOut), "[") {
@@ -313,5 +357,73 @@ func TestGeneratedBareArrayDefaultLimit(t *testing.T) {
 	_, shortErr := run(t, 3)
 	if strings.Contains(shortErr, "note:") {
 		t.Errorf("a short default page proves the set is complete; no note wanted, got:\n%s", shortErr)
+	}
+}
+
+// A command whose schema declares a zero-based page (default 0) is on page 0
+// when it sets none: the next page is 1, and page 1 of 25 rows at limit 20 is
+// the last page.
+func TestZeroBasedPageHintAndOffset(t *testing.T) {
+	rows := func(n int) []any {
+		out := make([]any, n)
+		for i := range out {
+			out[i] = map[string]any{"version": i + 1}
+		}
+		return out
+	}
+	run := func(t *testing.T, n int, extra ...string) string {
+		t.Helper()
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		stub.data = map[string]any{"items": rows(n), "total": 25}
+		args := append([]string{"rum", "application-remote-config-history-list", "app1", "--output-format", "json"}, extra...)
+		_, stderrText, err := execCommandSplit(args...)
+		if err != nil {
+			t.Fatalf("execCommandSplit: %v", err)
+		}
+		return stderrText
+	}
+
+	if got, want := run(t, 20), "note: showing 20 of 25 total results (page 0): raise --limit or use --page 1"; !strings.Contains(got, want) {
+		t.Errorf("first zero-based page should note %q, got:\n%s", want, got)
+	}
+	if got := run(t, 5, "--page", "1"); strings.Contains(got, "note:") {
+		t.Errorf("page 1 of 25 rows at limit 20 is the last page; no note wanted, got:\n%s", got)
+	}
+}
+
+// alert events sends --limit/--page only when the user set them, and judges the
+// page against the schema's default page size.
+func TestAlertEventsSendsFlagsOnlyWhenSet(t *testing.T) {
+	event := map[string]any{"event_id": "e1", "event_severity": "Critical", "event_status": "Triggered", "title": "t"}
+
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.data = map[string]any{"items": []any{event}, "total": 1}
+	if _, _, err := execCommandSplit("alert", "events", "a1"); err != nil {
+		t.Fatalf("execCommandSplit: %v", err)
+	}
+	if _, ok := stub.lastBody["limit"]; ok {
+		t.Errorf("unset --limit must not be sent, got %#v", stub.lastBody)
+	}
+	if _, ok := stub.lastBody["p"]; ok {
+		t.Errorf("unset --page must not be sent, got %#v", stub.lastBody)
+	}
+
+	// 20 rows of 45 with nothing set: the default page size (20) and first
+	// page are known, so the remainder is announced.
+	saveAndResetGlobals(t)
+	stub = newGFStub(t)
+	rows := make([]any, 20)
+	for i := range rows {
+		rows[i] = event
+	}
+	stub.data = map[string]any{"items": rows, "total": 45}
+	_, stderrText, err := execCommandSplit("alert", "events", "a1", "--output-format", "json")
+	if err != nil {
+		t.Fatalf("execCommandSplit: %v", err)
+	}
+	if !strings.Contains(stderrText, "note: showing 20 of 45 total results (page 1): raise --limit or use --page 2") {
+		t.Errorf("default page of a longer list should be announced, got:\n%s", stderrText)
 	}
 }

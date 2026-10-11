@@ -101,6 +101,9 @@ func run(only string) error {
 		}
 		// Response-help table covers ALL services so curated commands can look up
 		// any method; only complete on a full run.
+		if err := writeGo(filepath.Join(genDir, "zz_generated_list_defaults.go"), emitListDefaults(services)); err != nil {
+			return err
+		}
 		if err := writeGo(filepath.Join(genDir, "zz_generated_response_help.go"), emitResponseHelp(services)); err != nil {
 			return err
 		}
@@ -174,6 +177,7 @@ type specField struct {
 	Enum       []string
 	Constraint string // compact bound, e.g. "max 100", "1-39 chars"
 	Default    int    // schema `default` of an integer property; 0 when the schema has none
+	PageBase   string // for the page property: pageOne / pageZero from its schema default, else pageUnknown
 }
 
 func collectServices(paths, schemas map[string]any, sdk map[string]map[string]methodInfo) []service {
@@ -471,6 +475,7 @@ func (w *specWalker) fields(op map[string]any) []specField {
 				Enum:       w.enumOf(pv),
 				Constraint: constraintOf(pv),
 				Default:    intDefault(pv),
+				PageBase:   pageBaseOf(wire, pv),
 			})
 		}
 	}
@@ -591,6 +596,36 @@ func intDefault(s map[string]any) int {
 		return int(n)
 	}
 	return 0
+}
+
+// pageBaseOf names how a command's page property is numbered, from the schema's
+// structured `default` only: 1 is one-based, 0 is zero-based, and no default
+// leaves the base unknown. It is "" for any property other than the page.
+func pageBaseOf(wire string, s map[string]any) string {
+	if wire != "p" && wire != "page" {
+		return ""
+	}
+	switch s["default"] {
+	case float64(1):
+		return "pageOne"
+	case float64(0):
+		return "pageZero"
+	}
+	return "pageUnknown"
+}
+
+// listDefaultsOf returns an operation's schema-declared list defaults: the page
+// size served when the request sets none, and how its page is numbered.
+func listDefaultsOf(o specOp) (limit int, base string) {
+	for _, f := range o.Fields {
+		switch f.Wire {
+		case "limit":
+			limit = f.Default
+		case "p", "page":
+			base = f.PageBase
+		}
+	}
+	return limit, base
 }
 
 // numStr formats a JSON number (float64 / json.Number) without a trailing ".0",
@@ -1356,13 +1391,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	case mi.HasData:
 		fmt.Fprintf(&b, "\t\t\t\tout, _, err := %s\n", call)
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
-		defaultLimit := 0
-		for _, f := range o.Fields {
-			if f.Wire == "limit" {
-				defaultLimit = f.Default
-			}
-		}
-		fmt.Fprintf(&b, "\t\t\t\treturn printGenericResult(ctx, out, body, %d)\n", defaultLimit)
+		fmt.Fprintf(&b, "\t\t\t\treturn printGenericResult(ctx, out, body, listDefaultsFor(%q, %q))\n", s.Name, o.Method)
 	default:
 		// (*Response, error): a mutation, OR an export/attachment endpoint
 		// whose CSV/file body the SDK surfaces on Response.Raw. Capture the
@@ -1462,6 +1491,43 @@ func emitResponseHelp(services []service) string {
 	b.WriteString("var responseHelpBySDKMethod = map[string]string{\n")
 	for _, r := range rows {
 		fmt.Fprintf(&b, "\t%q: %q,\n", r.k, r.v)
+	}
+	b.WriteString("}\n")
+	return b.String()
+}
+
+// emitListDefaults writes the table of schema-declared list defaults, keyed by
+// SDK "Service.Method". Generated and curated commands share it through
+// listDefaultsFor, so there is one source for the effective page size and page
+// numbering of every list.
+func emitListDefaults(services []service) string {
+	type kv struct{ k, v string }
+	var rows []kv
+	for _, s := range services {
+		for _, o := range s.Ops {
+			limit, base := listDefaultsOf(o)
+			if limit == 0 && base == "" {
+				continue
+			}
+			var parts []string
+			if limit > 0 {
+				parts = append(parts, fmt.Sprintf("Limit: %d", limit))
+			}
+			if base != "" {
+				parts = append(parts, "PageBase: "+base)
+			}
+			rows = append(rows, kv{s.Name + "." + o.Method, "{" + strings.Join(parts, ", ") + "}"})
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].k < rows[j].k })
+
+	var b strings.Builder
+	b.WriteString(genHeader)
+	b.WriteString("package cli\n\n")
+	b.WriteString("// listDefaultsBySDKMethod maps an SDK \"Service.Method\" to the page size its API\n// serves when a request sets none and how its page is numbered, as declared by\n// the request schema's structured defaults.\n")
+	b.WriteString("var listDefaultsBySDKMethod = map[string]listDefaults{\n")
+	for _, r := range rows {
+		fmt.Fprintf(&b, "\t%q: %s,\n", r.k, r.v)
 	}
 	b.WriteString("}\n")
 	return b.String()

@@ -35,7 +35,7 @@ API: GET /monit/prometheus/api/v1/label/{label_name}/values (monit-prometheus-re
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, nil, 0)
+				return printGenericResult(ctx, out, nil, listDefaults{})
 			})
 		},
 	}

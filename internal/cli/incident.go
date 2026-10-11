@@ -1700,7 +1700,7 @@ func newIncidentFeedCmd() *cobra.Command {
 				}
 
 				return ctx.PrintPage(result.Items, cols, listPage{
-					Count: len(result.Items), Page: page, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
+					Count: len(result.Items), Page: page, Base: pageOne, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
 				})
 			})
 		},

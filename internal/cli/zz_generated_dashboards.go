@@ -187,7 +187,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "PanelReadPreview"))
 			})
 		},
 	}
@@ -301,7 +301,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "PanelReadRun"))
 			})
 		},
 	}
@@ -385,7 +385,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "QueryReadResolve"))
 			})
 		},
 	}
@@ -506,7 +506,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "ReadGet"))
 			})
 		},
 	}
@@ -591,7 +591,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "ReadList"))
 			})
 		},
 	}
@@ -691,7 +691,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "ReadOutline"))
 			})
 		},
 	}
@@ -768,7 +768,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "ReadSearch"))
 			})
 		},
 	}
@@ -892,7 +892,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "RevisionReadGet"))
 			})
 		},
 	}
@@ -952,7 +952,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "RevisionReadList"))
 			})
 		},
 	}
@@ -1023,7 +1023,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "TrashReadList"))
 			})
 		},
 	}
@@ -1126,7 +1126,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "VariableReadPreview"))
 			})
 		},
 	}
@@ -1198,7 +1198,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "VariableReadResolve"))
 			})
 		},
 	}
@@ -1381,7 +1381,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "WriteCreate"))
 			})
 		},
 	}
@@ -1440,7 +1440,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "WriteDelete"))
 			})
 		},
 	}
@@ -1538,7 +1538,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "WriteMove"))
 			})
 		},
 	}
@@ -1670,7 +1670,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "WriteRestore"))
 			})
 		},
 	}
@@ -1835,7 +1835,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Dashboards", "WriteUpdate"))
 			})
 		},
 	}

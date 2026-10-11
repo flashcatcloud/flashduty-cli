@@ -53,7 +53,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadAuditDetail"))
 			})
 		},
 	}
@@ -107,7 +107,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadAudits"))
 			})
 		},
 	}
@@ -141,7 +141,7 @@ API: POST /monit/rule/counter/channel (monit-rule-read-counter-channel)
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadCounterChannel"))
 			})
 		},
 	}
@@ -180,7 +180,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadCounterTotal"))
 			})
 		},
 	}
@@ -315,7 +315,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadInfoV2"))
 			})
 		},
 	}
@@ -396,7 +396,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 50)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "ReadList"))
 			})
 		},
 	}
@@ -724,7 +724,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "WriteCreateV2"))
 			})
 		},
 	}
@@ -967,7 +967,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "WriteFieldsUpdate"))
 			})
 		},
 	}
@@ -1033,7 +1033,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "WriteMove"))
 			})
 		},
 	}
@@ -1359,7 +1359,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertRules", "WriteUpdateV2"))
 			})
 		},
 	}

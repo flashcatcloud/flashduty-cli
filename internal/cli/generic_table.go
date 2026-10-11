@@ -73,14 +73,18 @@ func renderGenericTable(ctx *RunContext, data any, win listWindow) error {
 	return jsonFallback(ctx, data)
 }
 
-// listWindow is the page and page size the request carried (0 = not stated).
-type listWindow struct{ page, limit int }
+// listWindow is the page and page size a request was served: what it carried,
+// else the schema defaults (0 = unknown).
+type listWindow struct {
+	page, limit int
+	base        pageBase
+}
 
 // genericListPage reports whether v (a dereferenced typed response) is
 // list-shaped — a row array, or a paginated envelope — and, when it is,
 // returns the rows with what the response says about its own completeness.
 func genericListPage(v reflect.Value, win listWindow) (rows reflect.Value, pg listPage, ok bool) {
-	pg = listPage{Page: win.page, Limit: win.limit, Total: -1}
+	pg = listPage{Page: win.page, Base: win.base, Limit: win.limit, Total: -1}
 	switch v.Kind() {
 	case reflect.Slice:
 		if !isRowSlice(v.Type()) {

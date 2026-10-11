@@ -75,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleReadGet"))
 			})
 		},
 	}
@@ -184,7 +184,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleReadList"))
 			})
 		},
 	}
@@ -323,7 +323,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleWriteCreate"))
 			})
 		},
 	}
@@ -383,7 +383,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleWriteDelete"))
 			})
 		},
 	}
@@ -446,7 +446,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleWriteRun"))
 			})
 		},
 	}
@@ -592,7 +592,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RuleWriteUpdate"))
 			})
 		},
 	}
@@ -712,7 +712,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "RunReadList"))
 			})
 		},
 	}
@@ -771,7 +771,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Automations", "TemplateReadList"))
 			})
 		},
 	}

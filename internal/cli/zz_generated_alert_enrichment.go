@@ -74,7 +74,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "EnrichmentReadInfo"))
 			})
 		},
 	}
@@ -150,7 +150,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "EnrichmentReadList"))
 			})
 		},
 	}
@@ -285,7 +285,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "FieldReadInfo"))
 			})
 		},
 	}
@@ -362,7 +362,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "FieldReadList"))
 			})
 		},
 	}
@@ -439,7 +439,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "FieldWriteCreate"))
 			})
 		},
 	}
@@ -632,7 +632,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingAPIReadInfo"))
 			})
 		},
 	}
@@ -685,7 +685,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingAPIReadList"))
 			})
 		},
 	}
@@ -763,7 +763,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingAPIWriteCreate"))
 			})
 		},
 	}
@@ -1052,7 +1052,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingDataReadList"))
 			})
 		},
 	}
@@ -1219,7 +1219,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingDataWriteUpsert"))
 			})
 		},
 	}
@@ -1281,7 +1281,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingSchemaReadInfo"))
 			})
 		},
 	}
@@ -1331,7 +1331,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingSchemaReadList"))
 			})
 		},
 	}
@@ -1398,7 +1398,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("AlertEnrichment", "MappingSchemaWriteCreate"))
 			})
 		},
 	}

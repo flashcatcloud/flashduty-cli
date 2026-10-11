@@ -47,7 +47,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "ReadEnable"))
 			})
 		},
 	}
@@ -122,7 +122,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "ReadGet"))
 			})
 		},
 	}
@@ -225,7 +225,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 20)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "ReadList"))
 			})
 		},
 	}
@@ -279,7 +279,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "WriteDelete"))
 			})
 		},
 	}
@@ -327,7 +327,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "WriteDisable"))
 			})
 		},
 	}
@@ -417,7 +417,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Skills", "WriteUpdate"))
 			})
 		},
 	}

@@ -138,7 +138,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelCreate"))
 			})
 		},
 	}
@@ -405,7 +405,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelEscalateRuleCreate"))
 			})
 		},
 	}
@@ -662,7 +662,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelEscalateRuleInfo"))
 			})
 		},
 	}
@@ -747,7 +747,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelEscalateRuleList"))
 			})
 		},
 	}
@@ -957,7 +957,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelInfo"))
 			})
 		},
 	}
@@ -1011,7 +1011,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelInfos"))
 			})
 		},
 	}
@@ -1091,7 +1091,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelInhibitRuleCreate"))
 			})
 		},
 	}
@@ -1322,7 +1322,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelInhibitRuleList"))
 			})
 		},
 	}
@@ -1558,7 +1558,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 100)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelList"))
 			})
 		},
 	}
@@ -1660,7 +1660,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelSilenceRuleCreate"))
 			})
 		},
 	}
@@ -1902,7 +1902,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelSilenceRuleList"))
 			})
 		},
 	}
@@ -2056,7 +2056,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelUnsubscribeRuleCreate"))
 			})
 		},
 	}
@@ -2282,7 +2282,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelUnsubscribeRuleList"))
 			})
 		},
 	}
@@ -2474,7 +2474,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "ChannelUpdate"))
 			})
 		},
 	}
@@ -2556,7 +2556,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "RouteInfo"))
 			})
 		},
 	}
@@ -2629,7 +2629,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, 0)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Channels", "RouteList"))
 			})
 		},
 	}
