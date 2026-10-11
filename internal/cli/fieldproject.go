@@ -139,8 +139,18 @@ func declareOutputNarrowing(cmd *cobra.Command, projectionFlag, rowsFlag string)
 // declaredNarrowing returns the flag cmd declared under annotation, or "" when
 // it declared none. A declaration whose flag the command no longer carries (a
 // renamed flag) is dropped, so the note can never name a flag that is not there.
+//
+// The projection side needs no declaration on a command that has no --fields of
+// its own: the global --fields (outputfields.go) projects every structured
+// record that command prints, so the command is narrowed by it without saying
+// so. A command whose own --fields shadows the global one is not: that flag
+// means whatever the command defines, and only an explicit declaration says it
+// narrows output.
 func declaredNarrowing(cmd *cobra.Command, annotation string) string {
 	name := cmd.Annotations[annotation]
+	if name == "" && annotation == narrowsByProjection && usesGlobalFields(cmd) {
+		return globalFieldsFlag
+	}
 	if name == "" || cmd.Flags().Lookup(name) == nil {
 		return ""
 	}
