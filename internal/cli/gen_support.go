@@ -343,13 +343,24 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 // untouched. In human (table) mode it derives an aligned table by reflection
 // (renderGenericTable), since generated commands carry no hand-written column
 // set; anything that isn't a list or object falls back to indented JSON.
-func printGenericResult(ctx *RunContext, data any) error {
+//
+// body is the request body the command sent (nil when it has none); it supplies
+// the page and page size the list-completeness statement is judged against.
+// A list-shaped response also states how complete it is: a footer in table mode,
+// a stderr note in structured mode (see listPage).
+func printGenericResult(ctx *RunContext, data any, body map[string]any) error {
 	var err error
 	data, err = datasourceToolOutput(data, currentOutputFormat())
 	if err != nil {
 		return err
 	}
+	win := requestWindow(ctx.Cmd, body)
 	if ctx.Structured() {
+		var pg listPage
+		isList := false
+		if v, ok := derefValue(data); ok {
+			_, pg, isList = genericListPage(v, win)
+		}
 		// Size the payload as it will print: project first, then bound and
 		// print through the unprojecting printer so --fields runs once.
 		if fields := requestedFields(); len(fields) > 0 {
@@ -366,9 +377,78 @@ func printGenericResult(ctx *RunContext, data any) error {
 				ctx = &projected
 			}
 		}
-		return printBoundedGenericResult(ctx, data)
+		if err := printBoundedGenericResult(ctx, data); err != nil {
+			return err
+		}
+		if isList {
+			ctx.announce(pg)
+		}
+		return nil
 	}
-	return renderGenericTable(ctx, data)
+	return renderGenericTable(ctx, data, win)
+}
+
+// requestWindow reads the page and page size a command's request carried: the
+// body's "p"/"page" and "limit" keys (which cover --data and typed flags alike),
+// else the command's own --page/--limit flags (curated commands with defaults).
+// A command with a --page flag and no explicit page is on page 1.
+func requestWindow(cmd *cobra.Command, body map[string]any) listWindow {
+	var win listWindow
+	for _, key := range []string{"p", "page"} {
+		if n := bodyInt(body[key]); n > 0 {
+			win.page = n
+		}
+	}
+	win.limit = bodyInt(body["limit"])
+	if cmd == nil {
+		return win
+	}
+	flagInt := func(name string) int {
+		if f := cmd.Flags().Lookup(name); f != nil {
+			n, _ := strconv.Atoi(f.Value.String())
+			return n
+		}
+		return 0
+	}
+	if win.page == 0 {
+		win.page = flagInt("page")
+		if win.page == 0 && cmd.Flags().Lookup("page") != nil {
+			win.page = 1
+		}
+	}
+	if win.limit == 0 {
+		win.limit = flagInt("limit")
+	}
+	return win
+}
+
+// bodyInt converts a request-body value (a flag-typed int64, or the json.Number
+// a --data payload decodes to) to an int; 0 for anything else.
+func bodyInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	case json.Number:
+		i, _ := n.Int64()
+		return int(i)
+	}
+	return 0
+}
+
+// derefValue unwraps pointers around data; ok is false for a nil pointer.
+func derefValue(data any) (reflect.Value, bool) {
+	v := reflect.ValueOf(data)
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return reflect.Value{}, false
+		}
+		v = v.Elem()
+	}
+	return v, v.IsValid()
 }
 
 // printBoundedGenericResult is printGenericResult's structured-mode half. The

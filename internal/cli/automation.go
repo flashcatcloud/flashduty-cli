@@ -111,7 +111,7 @@ the rule under that team. The scope is immutable after creation.
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -167,7 +167,7 @@ func newAutomationListCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -194,7 +194,7 @@ func newAutomationGetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -327,7 +327,7 @@ func newAutomationUpdateCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -423,7 +423,7 @@ func newAutomationRunsCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -452,7 +452,7 @@ func newAutomationTemplatesCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}
@@ -490,7 +490,7 @@ The trigger authenticates with its one-time token, not the account app key. Pass
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil)
 			})
 		},
 	}

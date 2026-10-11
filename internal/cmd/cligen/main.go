@@ -1345,7 +1345,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	case mi.HasData:
 		fmt.Fprintf(&b, "\t\t\t\tout, _, err := %s\n", call)
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
-		b.WriteString("\t\t\t\treturn printGenericResult(ctx, out)\n")
+		b.WriteString("\t\t\t\treturn printGenericResult(ctx, out, body)\n")
 	default:
 		// (*Response, error): a mutation, OR an export/attachment endpoint
 		// whose CSV/file body the SDK surfaces on Response.Raw. Capture the

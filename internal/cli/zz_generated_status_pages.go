@@ -70,7 +70,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -156,7 +156,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -280,7 +280,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -427,7 +427,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -538,7 +538,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -616,7 +616,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -946,7 +946,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1044,7 +1044,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1154,7 +1154,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1239,7 +1239,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1296,7 +1296,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1359,7 +1359,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1482,7 +1482,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1598,7 +1598,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1800,7 +1800,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1924,7 +1924,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}
@@ -1988,7 +1988,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body)
 			})
 		},
 	}

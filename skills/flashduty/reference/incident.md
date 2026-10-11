@@ -152,6 +152,7 @@ List alerts of incident
 ### alerts <id>
 View incident alerts
 - `--limit` int
+- `--page` int
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); detail_url (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### assign

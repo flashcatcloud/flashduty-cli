@@ -222,7 +222,7 @@ func TestPrintGenericResultDetailNeverBounded(t *testing.T) {
 
 	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
 		var got, want bytes.Buffer
-		if err := printGenericResult(structuredCtx(&got, f), detail); err != nil {
+		if err := printGenericResult(structuredCtx(&got, f), detail, nil); err != nil {
 			t.Fatalf("%v oversized detail errored: %v", f, err)
 		}
 		if err := output.NewPrinter(f, false, &want).Print(detail, nil); err != nil {
@@ -303,7 +303,7 @@ func TestPrintGenericResultNestedDetailNotReduced(t *testing.T) {
 
 	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
 		var got bytes.Buffer
-		if err := printGenericResult(structuredCtx(&got, f), detail); err != nil {
+		if err := printGenericResult(structuredCtx(&got, f), detail, nil); err != nil {
 			t.Fatalf("%v nested detail errored: %v", f, err)
 		}
 		if len(got.Bytes()) < compactListOutputLimit || !strings.Contains(got.String(), strings.Repeat("report line ", 5000)) {

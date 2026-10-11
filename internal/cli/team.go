@@ -66,7 +66,7 @@ Examples:
 				nameByID := resolveTeamMemberNames(ctx, result.Items)
 
 				cols := teamListColumns(nameByID)
-				return ctx.PrintTotal(result.Items, cols, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}

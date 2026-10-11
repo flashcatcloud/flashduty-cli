@@ -81,7 +81,7 @@ func newOncallWhoCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintTotal(result.Items, cols, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}
@@ -151,7 +151,7 @@ func newOncallScheduleListCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintTotal(result.Items, cols, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}

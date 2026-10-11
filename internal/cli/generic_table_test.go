@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/flashcatcloud/go-flashduty"
+	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
@@ -16,6 +17,7 @@ import (
 // tableCtx builds a RunContext that renders a human table into buf.
 func tableCtx(buf *bytes.Buffer) *RunContext {
 	return &RunContext{
+		Cmd:     &cobra.Command{},
 		Writer:  buf,
 		Printer: output.NewPrinter(output.FormatTable, false, buf),
 		Format:  output.FormatTable,
@@ -24,6 +26,7 @@ func tableCtx(buf *bytes.Buffer) *RunContext {
 
 func structuredCtx(buf *bytes.Buffer, f output.Format) *RunContext {
 	return &RunContext{
+		Cmd:     &cobra.Command{},
 		Writer:  buf,
 		Printer: output.NewPrinter(f, false, buf),
 		Format:  f,
@@ -53,11 +56,11 @@ func TestRenderGenericTable_DisplayColumns(t *testing.T) {
 		},
 		Total: 1,
 	}
-	if err := renderGenericTable(tableCtx(&buf), resp); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), resp, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
-	for _, want := range []string{"ID", "TITLE", "SEVERITY", "PROGRESS", "CHANNEL", "CREATED", "abc123", "db down", "Critical", "Triage", "prod-db", "Total: 1"} {
+	for _, want := range []string{"ID", "TITLE", "SEVERITY", "PROGRESS", "CHANNEL", "CREATED", "abc123", "db down", "Critical", "Triage", "prod-db", "(total 1)."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q\n---\n%s", want, got)
 		}
@@ -76,7 +79,7 @@ func TestRenderGenericTable_FormattedColumns(t *testing.T) {
 	rows := []flashduty.DimensionInsightItem{
 		{TeamName: "sre", TotalIncidentCnt: 4, AcknowledgementPct: 0.85, MeanSecondsToAck: 150},
 	}
-	if err := renderGenericTable(tableCtx(&buf), rows); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), rows, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
@@ -94,11 +97,11 @@ func TestRenderGenericTable_FormattedColumns(t *testing.T) {
 func TestRenderGenericTable_Heuristic(t *testing.T) {
 	var buf bytes.Buffer
 	resp := &fakeListResp{Items: []heuristicRow{{Name: "alpha", Count: 7}}, Total: 1}
-	if err := renderGenericTable(tableCtx(&buf), resp); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), resp, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
-	for _, want := range []string{"NAME", "COUNT", "alpha", "7", "Total: 1"} {
+	for _, want := range []string{"NAME", "COUNT", "alpha", "7", "(total 1)."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q\n---\n%s", want, got)
 		}
@@ -111,11 +114,11 @@ func TestRenderGenericTable_Heuristic(t *testing.T) {
 func TestRenderGenericTable_TopLevelArray(t *testing.T) {
 	var buf bytes.Buffer
 	rows := []heuristicRow{{Name: "x", Count: 1}, {Name: "y", Count: 2}}
-	if err := renderGenericTable(tableCtx(&buf), rows); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), rows, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
-	for _, want := range []string{"NAME", "COUNT", "x", "y", "Total: 2"} {
+	for _, want := range []string{"NAME", "COUNT", "x", "y", "Showing 2 results."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q\n---\n%s", want, got)
 		}
@@ -124,7 +127,7 @@ func TestRenderGenericTable_TopLevelArray(t *testing.T) {
 
 func TestRenderGenericTable_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	if err := renderGenericTable(tableCtx(&buf), &fakeListResp{}); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), &fakeListResp{}, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	if got := strings.TrimSpace(buf.String()); got != "No results." {
@@ -135,7 +138,7 @@ func TestRenderGenericTable_Empty(t *testing.T) {
 func TestRenderGenericTable_DetailVertical(t *testing.T) {
 	var buf bytes.Buffer
 	row := heuristicRow{Name: "solo", Count: 42}
-	if err := renderGenericTable(tableCtx(&buf), &row); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), &row, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
@@ -191,7 +194,7 @@ func TestRenderGenericTable_DetailShowsNestedFields(t *testing.T) {
 		Result:  json.RawMessage(`{ "rows": [1, 2] }`),
 		Digest:  []byte("hi"),
 	}
-	if err := renderGenericTable(tableCtx(&buf), resp); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), resp, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 
@@ -227,7 +230,7 @@ func TestRenderGenericTable_DetailShowsNestedFields(t *testing.T) {
 // (e.g. a list of names) is printed, not treated as a row table it cannot be.
 func TestRenderGenericTable_TopLevelScalarArray(t *testing.T) {
 	var buf bytes.Buffer
-	if err := renderGenericTable(tableCtx(&buf), flashduty.SLSLogstoresResponse{"app-log", "audit-log"}); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), flashduty.SLSLogstoresResponse{"app-log", "audit-log"}, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	for _, want := range []string{"app-log", "audit-log"} {
@@ -248,7 +251,7 @@ func TestRenderGenericTable_McpServerItemRendersDetail(t *testing.T) {
 		Transport:   "streamable-http",
 		URL:         "https://mcp.example.com/github",
 	}
-	if err := renderGenericTable(tableCtx(&buf), item); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), item, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
@@ -273,7 +276,7 @@ func TestRenderGenericTable_McpServerPerUserOAuthNotice(t *testing.T) {
 		Transport:   "streamable-http",
 		URL:         "https://mcp.example.com/github",
 	}
-	if err := renderGenericTable(tableCtx(&buf), item); err != nil {
+	if err := renderGenericTable(tableCtx(&buf), item, listWindow{}); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	got := buf.String()
@@ -294,7 +297,7 @@ func TestPrintGenericResult_StructuredUnchanged(t *testing.T) {
 	// output to the direct printer (the agent path is untouched by the renderer).
 	for _, f := range []output.Format{output.FormatJSON, output.FormatTOON} {
 		var got, want bytes.Buffer
-		if err := printGenericResult(structuredCtx(&got, f), resp); err != nil {
+		if err := printGenericResult(structuredCtx(&got, f), resp, nil); err != nil {
 			t.Fatalf("%v render: %v", f, err)
 		}
 		if err := output.NewPrinter(f, false, &want).Print(resp, nil); err != nil {

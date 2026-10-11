@@ -64,7 +64,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintTotal(result.Items, cols, len(result.Items))
+				return ctx.PrintPage(result.Items, cols, listPage{Count: len(result.Items), Limit: limit, Total: -1})
 			})
 		},
 	}

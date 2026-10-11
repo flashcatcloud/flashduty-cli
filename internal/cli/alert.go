@@ -201,16 +201,19 @@ func printAlertDetail(w io.Writer, a *flashduty.AlertItem) {
 }
 
 func newAlertEventsCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit, page int
+
+	cmd := &cobra.Command{
 		Use:   "events <alert_id>",
 		Short: "List alert events",
 		Long:  curatedLong("List the individual events that compose a given alert.", "Alerts", "ReadEventList"),
 		Args:  requireArgs("alert_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				result, _, err := ctx.Client.Alerts.ReadEventList(cmdContext(ctx.Cmd), &flashduty.AlertEventListRequest{
-					AlertID: ctx.Args[0],
-				})
+				req := &flashduty.AlertEventListRequest{AlertID: ctx.Args[0]}
+				req.Limit = limit
+				req.Page = page
+				result, _, err := ctx.Client.Alerts.ReadEventList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
@@ -228,10 +231,17 @@ func newAlertEventsCmd() *cobra.Command {
 					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
-				return ctx.PrintTotal(result.Items, cols, len(result.Items))
+				return ctx.PrintPage(result.Items, cols, listPage{
+					Count: len(result.Items), Page: page, Limit: limit, Total: int(result.Total), More: moreOf(result.HasNextPage),
+				})
 			})
 		},
 	}
+
+	cmd.Flags().IntVar(&limit, "limit", 20, "Max events (max 100)")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+
+	return cmd
 }
 
 func newAlertTimelineCmd() *cobra.Command {
@@ -287,7 +297,9 @@ func newAlertTimelineCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.Printer.Print(result.Items, cols)
+				return ctx.PrintPage(result.Items, cols, listPage{
+					Count: len(result.Items), Page: page, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
+				})
 			})
 		},
 	}
