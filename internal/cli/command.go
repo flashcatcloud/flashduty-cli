@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -98,11 +99,23 @@ type listPage struct {
 	Limit int       // effective page size: requested, else the schema default; 0 when unknown
 	Total int       // total matching rows; negative when the API returned none
 	More  moreState // has_next_page / next cursor, when the API returned one
+	// TotalCapped marks an endpoint that stops counting at serverCountCap; its
+	// callers must also set More, the only "rows remain" signal past the cap.
+	TotalCapped bool
 }
 
 // totalKnown reports whether Total is a usable server total. A total below the
 // shown count is an absent field, not a real total.
 func (p listPage) totalKnown() bool { return p.Total >= 0 && p.Total >= p.Count }
+
+// serverCountCap is where the incident, alert and alert-event list endpoints
+// stop counting: past it they report this value as the total while rows keep
+// coming (the alert and alert-event API reference says "capped at 1000").
+const serverCountCap = 1000
+
+// totalIsFloor reports whether Total is a capped count, which says only that at
+// least that many rows match.
+func (p listPage) totalIsFloor() bool { return p.TotalCapped && p.Total >= serverCountCap }
 
 // offset returns how many rows precede this page, when that is knowable: always
 // for the first page, and for later pages only with a known page size and base.
@@ -143,6 +156,8 @@ func results(n int) string {
 // footer and the structured-mode stderr note ("" when no warning applies):
 //
 //	a. total known: "showing N of T", plus a next-page hint when rows remain;
+//	   a capped total reads "at least T", and has_next_page alone decides
+//	   whether rows remain;
 //	b. else has_next_page/cursor known: true warns, false is complete;
 //	c. else a full page (N == limit) cannot tell: warn that more may exist;
 //	d. else only the plain count.
@@ -179,13 +194,18 @@ func (p listPage) statement(cmd *cobra.Command) (footer, note string) {
 	}
 	switch {
 	case p.totalKnown():
-		footer = fmt.Sprintf("Showing %s%s.", results(p.Count), paren(fmt.Sprintf("total %d", p.Total)))
-		if off, ok := p.offset(); ok && off+p.Count < p.Total {
-			body := fmt.Sprintf("showing %d of %d total results%s", p.Count, p.Total, paren(""))
-			if hint != "" {
-				body += ": " + hint
-			}
-			note = "note: " + body
+		total := strconv.Itoa(p.Total)
+		if p.totalIsFloor() {
+			total = "at least " + total
+		}
+		footer = fmt.Sprintf("Showing %s%s.", results(p.Count), paren("total "+total))
+		off, offKnown := p.offset()
+		remain := offKnown && off+p.Count < p.Total
+		if p.totalIsFloor() {
+			remain = p.More == moreYes
+		}
+		if remain {
+			_, note = warn(fmt.Sprintf("%d of %s total results%s", p.Count, total, paren("")), "")
 		}
 		return footer, note
 	case p.More == moreYes:
@@ -255,6 +275,14 @@ func (ctx *RunContext) PrintPage(items any, cols []output.Column, pg listPage) e
 // PrintList is PrintPage for a response that carried a total.
 func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, limit, total int) error {
 	return ctx.PrintPage(items, cols, listPage{Count: count, Page: page, Base: pageOne, Limit: limit, Total: total})
+}
+
+// PrintCappedList is PrintList for an endpoint whose total stops at
+// serverCountCap; hasNext is the response's has_next_page.
+func (ctx *RunContext) PrintCappedList(items any, cols []output.Column, count, page, limit, total int, hasNext bool) error {
+	return ctx.PrintPage(items, cols, listPage{
+		Count: count, Page: page, Base: pageOne, Limit: limit, Total: total, More: moreOf(hasNext), TotalCapped: true,
+	})
 }
 
 // WriteResult prints a success message as plain text or JSON.

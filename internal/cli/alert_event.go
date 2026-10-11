@@ -104,10 +104,10 @@ func newAlertEventListCmd() *cobra.Command {
 					if len(proj) < len(result.Items) {
 						effectiveLimit = len(proj)
 					}
-					return ctx.PrintList(proj, nil, len(proj), page, effectiveLimit, int(result.Total))
+					return ctx.PrintCappedList(proj, nil, len(proj), page, effectiveLimit, int(result.Total), result.HasNextPage)
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
+				return ctx.PrintCappedList(result.Items, cols, len(result.Items), page, limit, int(result.Total), result.HasNextPage)
 			})
 		},
 	}
