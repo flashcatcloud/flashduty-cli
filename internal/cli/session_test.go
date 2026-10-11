@@ -292,9 +292,12 @@ func TestCommandSessionListPaginatesBeyond100(t *testing.T) {
 		return map[string]any{"sessions": sessions, "total": totalAvailable}
 	}
 
-	out, err := execCommand("session", "list", "--app", "ai-sre", "--limit", "200", "--output-format", "jsonl")
+	out, stderrText, err := execCommandSplit("session", "list", "--app", "ai-sre", "--limit", "200", "--output-format", "jsonl")
 	if err != nil {
 		t.Fatalf("[session-paginate] unexpected error: %v", err)
+	}
+	if !strings.Contains(stderrText, "note: showing 200 of ") || !strings.Contains(stderrText, "raise --limit") || strings.Contains(stderrText, "--page") {
+		t.Errorf("[session-paginate] a capped fetch should note the remainder on stderr without a misleading --page hint, got:\n%s", stderrText)
 	}
 
 	// (a) Multiple page requests were issued, and (b) p advanced across them.

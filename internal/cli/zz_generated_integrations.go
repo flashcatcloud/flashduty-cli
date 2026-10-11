@@ -50,7 +50,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "DatasourceImPersonTryLink"))
 			})
 		},
 	}
@@ -113,7 +113,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIReadInfo"))
 			})
 		},
 	}
@@ -235,7 +235,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIReadList"))
 			})
 		},
 	}
@@ -328,7 +328,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIReadTypeList"))
 			})
 		},
 	}
@@ -397,7 +397,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIWriteCreate"))
 			})
 		},
 	}
@@ -607,7 +607,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIWriteRotateKey"))
 			})
 		},
 	}
@@ -686,7 +686,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "IntegrationAPIWriteUpdate"))
 			})
 		},
 	}
@@ -759,7 +759,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "Detail"))
 			})
 		},
 	}
@@ -871,7 +871,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "List"))
 			})
 		},
 	}

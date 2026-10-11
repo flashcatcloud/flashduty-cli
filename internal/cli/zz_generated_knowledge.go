@@ -60,7 +60,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "FileReadGet"))
 			})
 		},
 	}
@@ -132,7 +132,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "FileReadList"))
 			})
 		},
 	}
@@ -195,7 +195,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "FileWriteDelete"))
 			})
 		},
 	}
@@ -271,7 +271,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "FileWritePut"))
 			})
 		},
 	}
@@ -333,7 +333,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "PackReadGet"))
 			})
 		},
 	}
@@ -423,7 +423,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "PackReadList"))
 			})
 		},
 	}
@@ -480,7 +480,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "PackWriteDelete"))
 			})
 		},
 	}
@@ -544,7 +544,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "PackWriteEnsure"))
 			})
 		},
 	}
@@ -618,7 +618,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Knowledge", "PackWriteUpdate"))
 			})
 		},
 	}

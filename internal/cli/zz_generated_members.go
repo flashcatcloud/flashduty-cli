@@ -199,7 +199,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Members", "MemberInfo"))
 			})
 		},
 	}
@@ -256,7 +256,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Members", "MemberInvite"))
 			})
 		},
 	}
@@ -358,7 +358,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Members", "MemberList"))
 			})
 		},
 	}
@@ -426,7 +426,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Members", "MemberNotify"))
 			})
 		},
 	}
@@ -701,7 +701,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Members", "PersonInfos"))
 			})
 		},
 	}

@@ -46,36 +46,215 @@ func runCommand(cmd *cobra.Command, args []string, fn func(ctx *RunContext) erro
 	return fn(ctx)
 }
 
-// PrintList prints items as a table and appends a "Showing N results (page P, total T)." footer.
-// In structured mode the footer is suppressed to keep stdout byte-pure for
-// jq/toon pipelines, so a page with more rows beyond it is announced on
-// stderr instead — without it a consumer sees a partial page
-// (e.g. the default --limit 20 of a far larger total) as the whole set. The
-// judgment accounts for the page offset: on the last page
-// ((page-1)*limit+count reaches total) there is no rest, so no note.
-func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, limit, total int) error {
+// moreState is what a list response says about whether rows exist beyond the
+// ones returned.
+type moreState int8
+
+const (
+	moreUnknown moreState = iota // the API gave no signal
+	moreNo                       // has_next_page=false / empty next cursor
+	moreYes                      // has_next_page=true / non-empty next cursor
+)
+
+// moreOf maps a response's has_next_page flag to a moreState.
+func moreOf(hasNext bool) moreState {
+	if hasNext {
+		return moreYes
+	}
+	return moreNo
+}
+
+// pageBase says how a command numbers its pages. The zero value means the
+// command has no page notion at all.
+type pageBase int8
+
+const (
+	pageNone    pageBase = iota // no page number (top-N lists, one-shot lists)
+	pageOne                     // pages start at 1
+	pageZero                    // pages start at 0
+	pageUnknown                 // pages by number, base not declared by the API schema
+)
+
+// listDefaults is what an API's request schema declares for a list: the page
+// size served when the request sets none (0 when undeclared) and how pages are
+// numbered.
+type listDefaults struct {
+	Limit    int
+	PageBase pageBase
+}
+
+// listDefaultsFor returns the schema-declared defaults of an SDK Service.Method.
+func listDefaultsFor(service, method string) listDefaults {
+	return listDefaultsBySDKMethod[service+"."+method]
+}
+
+// listPage is everything a list response tells us about its own completeness.
+// It is the single input to the completeness statement every list output makes,
+// so a partial page is never mistaken for the whole set.
+type listPage struct {
+	Count int       // rows shown
+	Page  int       // page number as sent to the API (0 when the request set none)
+	Base  pageBase  // how Page is numbered
+	Limit int       // effective page size: requested, else the schema default; 0 when unknown
+	Total int       // total matching rows; negative when the API returned none
+	More  moreState // has_next_page / next cursor, when the API returned one
+}
+
+// totalKnown reports whether Total is a usable server total. A total below the
+// shown count is an absent field, not a real total.
+func (p listPage) totalKnown() bool { return p.Total >= 0 && p.Total >= p.Count }
+
+// offset returns how many rows precede this page, when that is knowable: always
+// for the first page, and for later pages only with a known page size and base.
+func (p listPage) offset() (int, bool) {
+	switch {
+	case p.Base == pageNone, p.Page == 0 && p.Base != pageOne, p.Base == pageOne && p.Page <= 1:
+		return 0, true
+	case p.Limit <= 0:
+		return 0, false
+	case p.Base == pageOne:
+		return max(p.Page-1, 0) * p.Limit, true
+	case p.Base == pageZero:
+		return p.Page * p.Limit, true
+	}
+	return 0, false
+}
+
+// nextPage returns the page number after this one, when the base is known.
+func (p listPage) nextPage() (int, bool) {
+	if p.Base != pageOne && p.Base != pageZero {
+		return 0, false
+	}
+	if p.Base == pageOne {
+		return max(p.Page, 1) + 1, true
+	}
+	return p.Page + 1, true
+}
+
+// results renders a row count with its noun.
+func results(n int) string {
+	if n == 1 {
+		return "1 result"
+	}
+	return fmt.Sprintf("%d results", n)
+}
+
+// statement applies the completeness rules in order and returns the table
+// footer and the structured-mode stderr note ("" when no warning applies):
+//
+//	a. total known: "showing N of T", plus a next-page hint when rows remain;
+//	b. else has_next_page/cursor known: true warns, false is complete;
+//	c. else a full page (N == limit) cannot tell: warn that more may exist;
+//	d. else only the plain count.
+//
+// A count is never labelled a total, and "rows remain" is claimed from a page
+// offset only when that offset is known.
+func (p listPage) statement(cmd *cobra.Command) (footer, note string) {
+	pageText := ""
+	if p.Base != pageNone && (p.Page > 0 || p.Base == pageOne || p.Base == pageZero) {
+		pageText = fmt.Sprintf("page %d", p.Page)
+	}
+	paren := func(extra string) string {
+		switch {
+		case pageText != "" && extra != "":
+			return " (" + pageText + ", " + extra + ")"
+		case pageText != "":
+			return " (" + pageText + ")"
+		case extra != "":
+			return " (" + extra + ")"
+		}
+		return ""
+	}
+	hint := moreHint(cmd, p)
+	// warn builds the footer and note for a partial list: "<shown>, <why>: <how>".
+	warn := func(shown, why string) (string, string) {
+		body := "showing " + shown
+		if why != "" {
+			body += ", " + why
+		}
+		if hint != "" {
+			body += ": " + hint
+		}
+		return "S" + body[1:] + ".", "note: " + body
+	}
+	switch {
+	case p.totalKnown():
+		footer = fmt.Sprintf("Showing %s%s.", results(p.Count), paren(fmt.Sprintf("total %d", p.Total)))
+		if off, ok := p.offset(); ok && off+p.Count < p.Total {
+			body := fmt.Sprintf("showing %d of %d total results%s", p.Count, p.Total, paren(""))
+			if hint != "" {
+				body += ": " + hint
+			}
+			note = "note: " + body
+		}
+		return footer, note
+	case p.More == moreYes:
+		return warn(results(p.Count)+paren(""), "more exist")
+	case p.More == moreNo:
+		return fmt.Sprintf("Showing %s%s.", results(p.Count), paren("")), ""
+	case p.Limit > 0 && p.Count == p.Limit:
+		return warn(results(p.Count)+paren(fmt.Sprintf("= limit %d", p.Limit)), "more may exist")
+	}
+	return fmt.Sprintf("Showing %s%s.", results(p.Count), paren("")), ""
+}
+
+// moreHint names the flags this command actually has for reaching further rows.
+// A page number is offered only when the page base is known.
+func moreHint(cmd *cobra.Command, p listPage) string {
+	has := func(name string) bool { return cmd.Flags().Lookup(name) != nil }
+	paged := p.Base != pageNone && has("page")
+	next, nextKnown := p.nextPage()
+	pageFlag := "--page"
+	if nextKnown {
+		pageFlag = fmt.Sprintf("--page %d", next)
+	}
+	switch {
+	case paged && has("limit"):
+		return "raise --limit or use " + pageFlag
+	case paged:
+		return "use " + pageFlag
+	case has("search-after-ctx"):
+		return "pass the response's search_after_ctx as --search-after-ctx"
+	case has("cursor"):
+		return "pass the response's next_cursor as --cursor"
+	case has("limit"):
+		return "raise --limit"
+	}
+	return ""
+}
+
+// announce states how complete the list just printed is: a footer on stdout in
+// table mode, a stderr note (only when rows may be missing) in structured mode
+// so stdout stays byte-pure for jq/toon pipelines.
+func (ctx *RunContext) announce(pg listPage) {
+	if ctx.Structured() {
+		ctx.noteIncomplete(pg)
+		return
+	}
+	footer, _ := pg.statement(ctx.Cmd)
+	_, _ = fmt.Fprintln(ctx.Writer, footer)
+}
+
+// noteIncomplete writes the stderr note when rows may be missing. Commands that
+// own their output format (session list) call it directly.
+func (ctx *RunContext) noteIncomplete(pg listPage) {
+	if _, note := pg.statement(ctx.Cmd); note != "" {
+		_, _ = fmt.Fprintln(ctx.Cmd.ErrOrStderr(), note)
+	}
+}
+
+// PrintPage prints items and then states how complete they are (see listPage).
+func (ctx *RunContext) PrintPage(items any, cols []output.Column, pg listPage) error {
 	if err := ctx.Printer.Print(items, cols); err != nil {
 		return err
 	}
-	if ctx.Structured() {
-		if (page-1)*limit+count < total {
-			_, _ = fmt.Fprintf(ctx.Cmd.ErrOrStderr(), "note: showing %d of %d total results (page %d); raise --limit or use --page for the rest\n", count, total, page)
-		}
-		return nil
-	}
-	_, _ = fmt.Fprintf(ctx.Writer, "Showing %d results (page %d, total %d).\n", count, page, total)
+	ctx.announce(pg)
 	return nil
 }
 
-// PrintTotal prints items as a table and appends a "Total: N" footer.
-func (ctx *RunContext) PrintTotal(items any, cols []output.Column, total int) error {
-	if err := ctx.Printer.Print(items, cols); err != nil {
-		return err
-	}
-	if !ctx.Structured() {
-		_, _ = fmt.Fprintf(ctx.Writer, "Total: %d\n", total)
-	}
-	return nil
+// PrintList is PrintPage for a response that carried a total.
+func (ctx *RunContext) PrintList(items any, cols []output.Column, count, page, limit, total int) error {
+	return ctx.PrintPage(items, cols, listPage{Count: count, Page: page, Base: pageOne, Limit: limit, Total: total})
 }
 
 // WriteResult prints a success message as plain text or JSON.

@@ -56,7 +56,7 @@ Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, nil, listDefaults{})
 			})
 		},
 	}

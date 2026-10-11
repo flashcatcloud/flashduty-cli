@@ -86,7 +86,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "ReadInfo"))
 			})
 		},
 	}
@@ -174,7 +174,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "ReadInfos"))
 			})
 		},
 	}
@@ -295,7 +295,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "ReadList"))
 			})
 		},
 	}
@@ -375,7 +375,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "RemoteConfigReadGet"))
 			})
 		},
 	}
@@ -475,7 +475,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "RemoteConfigReadHistoryList"))
 			})
 		},
 	}
@@ -574,7 +574,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "RemoteConfigReadPreview"))
 			})
 		},
 	}
@@ -638,7 +638,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "RemoteConfigWriteHistoryRevert"))
 			})
 		},
 	}
@@ -717,7 +717,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "RemoteConfigWriteUpdate"))
 			})
 		},
 	}
@@ -776,7 +776,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "WebhookTest"))
 			})
 		},
 	}
@@ -878,7 +878,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Applications", "WriteCreate"))
 			})
 		},
 	}

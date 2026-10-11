@@ -80,7 +80,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Diagnostics", "QueryData"))
 			})
 		},
 	}
@@ -167,7 +167,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("Diagnostics", "QueryExplore"))
 			})
 		},
 	}

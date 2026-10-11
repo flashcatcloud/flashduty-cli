@@ -125,11 +125,30 @@ func newSessionListCmd() *cobra.Command {
 					return err
 				}
 
+				// Rows come newest first, so a row dropped by --since proves the
+				// window was reached and nothing newer than it is missing.
+				fetched := len(sessions)
 				if sinceUnix > 0 {
 					sessions = filterSessionsSince(sessions, sinceUnix)
 				}
+				// Page 0: --page here is the page fetching starts from, not a page of
+				// --limit rows, so no next-page hint applies. The server total is
+				// comparable only when fetching starts at page 1.
+				pg := listPage{Count: len(sessions), Limit: limit, Total: -1}
+				if page <= 1 {
+					pg.Total = int(total)
+				}
+				if len(sessions) < fetched {
+					pg = listPage{Count: len(sessions), Total: -1, More: moreNo}
+				}
 
-				return writeSessionList(ctx.Writer, format, sessions, total)
+				if err := writeSessionList(ctx.Writer, format, sessions, total); err != nil {
+					return err
+				}
+				// The session formats are machine-readable whatever the global format
+				// resolved to, so only the stderr note applies.
+				ctx.noteIncomplete(pg)
+				return nil
 			})
 		},
 	}

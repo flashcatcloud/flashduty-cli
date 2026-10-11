@@ -321,8 +321,8 @@ func TestCommandMemberListPersonInfos(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(out, "Total: 2") {
-		t.Errorf("[#321] expected 'Total: 2' in output, got:\n%s", out)
+	if !strings.Contains(out, "total 2)") {
+		t.Errorf("[#321] expected a total-2 footer in output, got:\n%s", out)
 	}
 }
 
@@ -1403,7 +1403,7 @@ func TestCommandIncidentWarRoomDefaultObservers(t *testing.T) {
 	if stub.lastBody["incident_id"] != "inc-1" {
 		t.Fatalf("[incident-war-room-default-observers] expected incident inc-1, got %#v", stub.lastBody)
 	}
-	if !strings.Contains(out, "Alice") || !strings.Contains(out, "alice@example.com") || !strings.Contains(out, "Total: 1") {
+	if !strings.Contains(out, "Alice") || !strings.Contains(out, "alice@example.com") || !strings.Contains(out, "Showing 1 result.") {
 		t.Fatalf("[incident-war-room-default-observers] unexpected output:\n%s", out)
 	}
 }
@@ -1427,7 +1427,7 @@ func TestCommandIncidentWarRoomList(t *testing.T) {
 	if stub.lastBody["incident_id"] != "inc-1" || stub.lastBody["integration_id"] != float64(42) {
 		t.Fatalf("[incident-war-room-list] unexpected input: %#v", stub.lastBody)
 	}
-	if !strings.Contains(out, "chat-1") || !strings.Contains(out, "Total: 1") {
+	if !strings.Contains(out, "chat-1") || !strings.Contains(out, "Showing 1 result.") {
 		t.Fatalf("[incident-war-room-list] unexpected output:\n%s", out)
 	}
 }
@@ -1533,7 +1533,7 @@ func TestCommandAuditSearchPageUsesCursorPagination(t *testing.T) {
 	if strings.Contains(out, "Alice") || strings.Contains(out, "page-1") {
 		t.Fatalf("[audit-search-page] output should not contain first page rows, got:\n%s", out)
 	}
-	if !strings.Contains(out, "Showing 1 results (page 2, total 2).") {
+	if !strings.Contains(out, "Showing 1 result (page 2, total 2).") {
 		t.Fatalf("[audit-search-page] expected paginated footer, got:\n%s", out)
 	}
 	if len(stub.bodies) != 2 {

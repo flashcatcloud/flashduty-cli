@@ -43,7 +43,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "List"))
 			})
 		},
 	}

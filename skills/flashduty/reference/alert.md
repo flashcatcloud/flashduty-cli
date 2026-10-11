@@ -64,6 +64,8 @@ List events for an alert
 
 ### events <alert_id>
 List alert events
+- `--limit` int
+- `--page` int
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); alert_id (string); alert_key (string); channel_id (integer); created_at (string); data_source_id (integer); deleted_at (string); description (string); event_id (string); event_severity (string); event_status (string); event_time (string); images (array<object>); integration_id (integer); integration_type (string); labels (object); title (string); title_rule (string); updated_at (string)
 
 ### feed <alert-id>

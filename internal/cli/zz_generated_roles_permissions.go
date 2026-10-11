@@ -57,7 +57,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RolesPermissions", "ReadInfo"))
 			})
 		},
 	}
@@ -123,7 +123,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RolesPermissions", "ReadList"))
 			})
 		},
 	}
@@ -188,7 +188,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RolesPermissions", "ReadListPermission"))
 			})
 		},
 	}
@@ -239,7 +239,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RolesPermissions", "ReadListPermissionFactor"))
 			})
 		},
 	}
@@ -580,7 +580,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("RolesPermissions", "WriteUpsert"))
 			})
 		},
 	}

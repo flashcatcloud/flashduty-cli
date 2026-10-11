@@ -693,7 +693,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 }
 
 func newIncidentAlertsCmd() *cobra.Command {
-	var limit int
+	var limit, page int
 
 	cmd := &cobra.Command{
 		Use:   "alerts <id>",
@@ -704,6 +704,7 @@ func newIncidentAlertsCmd() *cobra.Command {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				req := &flashduty.ListIncidentAlertsRequest{IncidentID: ctx.Args[0]}
 				req.Limit = limit
+				req.Page = page
 				result, _, err := ctx.Client.Incidents.AlertList(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
@@ -722,12 +723,13 @@ func newIncidentAlertsCmd() *cobra.Command {
 					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertInfo).StartTime) }},
 				}
 
-				return ctx.PrintTotal(result.Items, cols, int(result.Total))
+				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 10, "Max alerts to show")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	return cmd
 }
 
@@ -758,6 +760,9 @@ func newIncidentSimilarCmd() *cobra.Command {
 					_, _ = fmt.Fprintln(ctx.Writer, "No similar incidents found.")
 					return nil
 				}
+				// A top-N answer carries no total and no has-more signal: a full
+				// list can only say more may exist.
+				similarPage := listPage{Count: len(result.Items), Limit: limit, Total: -1}
 
 				if ctx.Structured() {
 					fieldNames := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score", "detail_url"}
@@ -776,10 +781,10 @@ func newIncidentSimilarCmd() *cobra.Command {
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
-					return ctx.Printer.Print(proj, nil)
+					return ctx.PrintPage(proj, nil, similarPage)
 				}
 
-				return ctx.Printer.Print(result.Items, pastIncidentColumns())
+				return ctx.PrintPage(result.Items, pastIncidentColumns(), similarPage)
 			})
 		},
 	}
@@ -1451,7 +1456,7 @@ as get, delete, and add-member.`, "Incidents", "WarRoomList"),
 				if err != nil {
 					return err
 				}
-				return ctx.PrintTotal(result.Items, incidentWarRoomColumns(), len(result.Items))
+				return ctx.PrintPage(result.Items, incidentWarRoomColumns(), listPage{Count: len(result.Items), Total: -1})
 			})
 		},
 	}
@@ -1602,7 +1607,7 @@ This is a read-only preview of the users FlashDuty would add when
 				if err != nil {
 					return err
 				}
-				return ctx.PrintTotal(result.Observers, incidentWarRoomObserverColumns(), len(result.Observers))
+				return ctx.PrintPage(result.Observers, incidentWarRoomObserverColumns(), listPage{Count: len(result.Observers), Total: -1})
 			})
 		},
 	}
@@ -1694,7 +1699,9 @@ func newIncidentFeedCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.Printer.Print(result.Items, cols)
+				return ctx.PrintPage(result.Items, cols, listPage{
+					Count: len(result.Items), Page: page, Base: pageOne, Limit: limit, Total: -1, More: moreOf(result.HasNextPage),
+				})
 			})
 		},
 	}

@@ -73,7 +73,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "ReadGet"))
 			})
 		},
 	}
@@ -170,7 +170,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "ReadList"))
 			})
 		},
 	}
@@ -278,7 +278,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "WriteCreate"))
 			})
 		},
 	}
@@ -337,7 +337,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "WriteDelete"))
 			})
 		},
 	}
@@ -385,7 +385,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "WriteDisable"))
 			})
 		},
 	}
@@ -433,7 +433,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "WriteEnable"))
 			})
 		},
 	}
@@ -542,7 +542,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("A2aAgents", "WriteUpdate"))
 			})
 		},
 	}

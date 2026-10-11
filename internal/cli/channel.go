@@ -96,7 +96,7 @@ func newChannelListCmd() *cobra.Command {
 					{Header: "CREATOR", Field: func(v any) string { return v.(channelRow).CreatorName }},
 				}
 
-				return ctx.PrintTotal(rows, cols, int(result.Total))
+				return ctx.PrintList(rows, cols, len(rows), page, limit, int(result.Total))
 			})
 		},
 	}
@@ -225,7 +225,7 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					}
 					proj = bounded.([]map[string]any)
 					noteProjectionBound(cmd, bound)
-					return ctx.PrintTotal(proj, nil, len(proj))
+					return ctx.PrintPage(proj, nil, listPage{Count: len(proj), Total: -1})
 				}
 
 				cols := []output.Column{
@@ -235,7 +235,7 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					{Header: "PRIORITY", Field: func(v any) string { return strconv.FormatInt(v.(flashduty.EscalateRuleItem).Priority, 10) }},
 					{Header: "UPDATED", Field: func(v any) string { return output.FormatTime(v.(flashduty.EscalateRuleItem).UpdatedAt) }},
 				}
-				return ctx.PrintTotal(out.Items, cols, len(out.Items))
+				return ctx.PrintPage(out.Items, cols, listPage{Count: len(out.Items), Total: -1})
 			})
 		},
 	}

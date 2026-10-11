@@ -56,7 +56,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "ReadInfo"))
 			})
 		},
 	}
@@ -113,7 +113,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "ReadList"))
 			})
 		},
 	}
@@ -172,7 +172,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "ReadSLSLogstores"))
 			})
 		},
 	}
@@ -248,7 +248,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "ReadSLSProjects"))
 			})
 		},
 	}
@@ -317,7 +317,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "ToolsInvoke"))
 			})
 		},
 	}
@@ -571,7 +571,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "WriteCreate"))
 			})
 		},
 	}
@@ -878,7 +878,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out)
+				return printGenericResult(ctx, out, body, listDefaultsFor("DataSources", "WriteUpdate"))
 			})
 		},
 	}

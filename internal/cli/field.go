@@ -60,7 +60,7 @@ func newFieldListCmd() *cobra.Command {
 					}},
 				}
 
-				return ctx.PrintTotal(items, cols, len(items))
+				return ctx.PrintPage(items, cols, listPage{Count: len(items), Total: -1})
 			})
 		},
 	}

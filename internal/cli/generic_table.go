@@ -52,7 +52,7 @@ type genKV struct {
 //     carries, nested ones included;
 //   - anything we can't model falls back to indented JSON, so output is never
 //     empty.
-func renderGenericTable(ctx *RunContext, data any) error {
+func renderGenericTable(ctx *RunContext, data any, win listWindow) error {
 	v := reflect.ValueOf(data)
 	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
@@ -61,15 +61,10 @@ func renderGenericTable(ctx *RunContext, data any) error {
 		v = v.Elem()
 	}
 
-	switch v.Kind() {
-	case reflect.Slice:
-		if isRowSlice(v.Type()) {
-			return renderRowTable(ctx, v, v.Len())
-		}
-	case reflect.Struct:
-		if rows, total, ok := listEnvelope(v); ok {
-			return renderRowTable(ctx, rows, total)
-		}
+	if rows, pg, ok := genericListPage(v, win); ok {
+		return renderRowTable(ctx, rows, pg)
+	}
+	if v.Kind() == reflect.Struct {
 		if err := renderVertical(ctx, v); err != nil {
 			return err
 		}
@@ -78,13 +73,50 @@ func renderGenericTable(ctx *RunContext, data any) error {
 	return jsonFallback(ctx, data)
 }
 
+// listWindow is the page and page size a request was served: what it carried,
+// else the schema defaults (0 = unknown).
+type listWindow struct {
+	page, limit int
+	base        pageBase
+}
+
+// genericListPage reports whether v (a dereferenced typed response) is
+// list-shaped — a row array, or a paginated envelope — and, when it is,
+// returns the rows with what the response says about its own completeness.
+func genericListPage(v reflect.Value, win listWindow) (rows reflect.Value, pg listPage, ok bool) {
+	pg = listPage{Page: win.page, Base: win.base, Limit: win.limit, Total: -1}
+	switch v.Kind() {
+	case reflect.Slice:
+		if !isRowSlice(v.Type()) {
+			return reflect.Value{}, pg, false
+		}
+		rows = v
+	case reflect.Struct:
+		var meta listMeta
+		if rows, meta, ok = listEnvelope(v); !ok {
+			return reflect.Value{}, pg, false
+		}
+		pg.Total, pg.More = meta.total, meta.more
+	default:
+		return reflect.Value{}, pg, false
+	}
+	pg.Count = rows.Len()
+	return rows, pg, true
+}
+
+// listMeta is the pagination metadata a list envelope carries.
+type listMeta struct {
+	total int       // negative when the envelope has no Total field
+	more  moreState // from HasNextPage or NextCursor
+}
+
 // listEnvelope reports whether struct v is a paginated list envelope: exactly
 // one exported field that is a slice of structs (the rows), with any remaining
-// fields limited to pagination metadata. It returns the rows value and the total
-// (the int field named "Total" when present, else the row count).
-func listEnvelope(v reflect.Value) (rows reflect.Value, total int, ok bool) {
+// fields limited to pagination metadata. It returns the rows value and that
+// metadata (Total; HasNextPage or NextCursor as the has-more signal).
+func listEnvelope(v reflect.Value) (rows reflect.Value, meta listMeta, ok bool) {
 	t := v.Type()
-	total = -1
+	meta.total = -1
 	found := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -94,25 +126,35 @@ func listEnvelope(v reflect.Value) (rows reflect.Value, total int, ok bool) {
 		fv := v.Field(i)
 		if isRowSlice(fv.Type()) {
 			if found {
-				return reflect.Value{}, 0, false // ambiguous: more than one row slice
+				return reflect.Value{}, meta, false // ambiguous: more than one row slice
 			}
 			rows, found = fv, true
 			continue
 		}
-		if total < 0 && f.Name == "Total" && fv.CanInt() {
-			total = int(fv.Int())
-		}
 		if !isListMetadataField(f, fv) {
-			return reflect.Value{}, 0, false
+			return reflect.Value{}, meta, false
+		}
+		switch f.Name {
+		case "Total":
+			if meta.total < 0 {
+				meta.total = int(fv.Int())
+			}
+		case "HasNextPage":
+			meta.more = moreNo
+			if fv.Bool() {
+				meta.more = moreYes
+			}
+		case "NextCursor":
+			meta.more = moreNo
+			if fv.String() != "" {
+				meta.more = moreYes
+			}
 		}
 	}
 	if !found {
-		return reflect.Value{}, 0, false
+		return reflect.Value{}, meta, false
 	}
-	if total < 0 {
-		total = rows.Len()
-	}
-	return rows, total, true
+	return rows, meta, true
 }
 
 func isListMetadataField(f reflect.StructField, fv reflect.Value) bool {
@@ -144,7 +186,7 @@ func isRowSlice(t reflect.Type) bool {
 	return elem.Kind() == reflect.Struct
 }
 
-func renderRowTable(ctx *RunContext, rows reflect.Value, total int) error {
+func renderRowTable(ctx *RunContext, rows reflect.Value, pg listPage) error {
 	if rows.Len() == 0 {
 		_, _ = fmt.Fprintln(ctx.Writer, "No results.")
 		return nil
@@ -161,8 +203,8 @@ func renderRowTable(ctx *RunContext, rows reflect.Value, total int) error {
 		return err
 	}
 	// Reached only from the table (human) path — printGenericResult handles
-	// structured output before calling the renderer — so the footer always prints.
-	_, _ = fmt.Fprintf(ctx.Writer, "Total: %d\n", total)
+	// structured output before calling the renderer — so the footer prints.
+	ctx.announce(pg)
 	return nil
 }
 
