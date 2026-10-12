@@ -67,7 +67,7 @@ func genIntegrationsIntegrationAPIReadInfoCmd() *cobra.Command {
 		Short: "Get integration detail",
 		Long: `Get integration detail.
 
-Return one integration, including its settings with sensitive values masked.
+Get a public integration with its stored settings and decrypted integration key.
 
 API: POST /integration/info (integration-api-read-info)
 
@@ -75,19 +75,28 @@ Request fields:
   --integration-id int (required) — Integration ID. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - category (any) (required)
-  - created_at (any) (required)
-  - description (any) (required)
-  - integration_id (any) (required)
-  - last_time (any) (required)
-  - name (any) (required)
-  - plugin_type (any) (required)
-  - plugin_type_name (any) (required)
-  - ref_id (any) (required)
-  - settings (object) (required) — Type-specific configuration. Sensitive values (endpoint, headers, secrets, passwords) are returned masked as '******'.
-  - status (any) (required)
-  - team_id (any) (required)
-  - updated_at (any) (required)
+  - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
+  - created_at (string) (required) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — ID of the member who created the integration.
+  - description (string) (required) — Free-form description.
+  - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
+  - integration_id (integer) (required) — Integration ID.
+  - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
+  - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - name (string) (required) — Integration name.
+  - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
+  - plugin_id (integer) (required) — Internal integration type ID; use 'plugin_type', not this ID, when creating an integration.
+  - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
+  - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
+  - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
+  - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
+  - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
+  - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
+  - test (object) — Plugin test result, returned only when a test is performed.
+    - message (string) (required) — Test failure message; empty on success.
+    - success (boolean) (required) — Whether the plugin test succeeded.
+  - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_by (integer) (required) — ID of the member who last updated the integration.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration info --data '{"integration_id":6113996590131}'`,
@@ -142,7 +151,7 @@ func genIntegrationsIntegrationAPIReadListCmd() *cobra.Command {
 		Short: "List integrations",
 		Long: `List integrations.
 
-List the account's alert-source and change-source integrations.
+List public integrations with their stored settings, decrypted keys, and edit permissions.
 
 API: POST /integration/list (integration-api-read-list)
 
@@ -163,18 +172,28 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Integrations on the current page.
+    - account_id (integer) (required) — ID of the account that owns the integration.
     - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
     - created_at (string) (required) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - creator_id (integer) (required) — ID of the member who created the integration.
+    - data_source_id (integer) (required) — Legacy datasource ID, equal to 'integration_id'.
     - description (string) (required) — Free-form description.
+    - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
+    - exclusive_data_source_id (integer) (required) — Legacy compatibility field; '0' for items returned by this public-integration list.
     - integration_id (integer) (required) — Integration ID.
+    - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
     - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - name (string) (required) — Integration name.
+    - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
+    - plugin_id (integer) (required) — Internal integration type ID; use 'plugin_type', not this ID, when creating an integration.
     - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
     - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
-    - ref_id (string) (required) — Source reference ID: 'a_'-prefixed for an account-scoped integration, 'c_'-prefixed when it is shared into a channel, 'w_'-prefixed on legacy workspace-scoped integrations.
+    - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
+    - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
     - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
     - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
     - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) (required) — ID of the member who last updated the integration.
   - limit (integer) (required) — Page size echoed back.
   - p (integer) (required) — Page number echoed back.
   - total (integer) (required) — Total number of matching integrations.
@@ -345,6 +364,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genIntegrationsIntegrationAPIWriteCreateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
+	var fIntegrationKey string
+	var fIsTest bool
 	var fName string
 	var fPluginType string
 	var fTeamID int64
@@ -353,27 +374,38 @@ func genIntegrationsIntegrationAPIWriteCreateCmd() *cobra.Command {
 		Short: "Create integration",
 		Long: `Create integration.
 
-Create an integration for an alert source or change source.
+Create a public integration for a supported alert, change, IM, or webhook type.
 
 API: POST /integration/create (integration-api-write-create)
 
 Request fields:
   --description string — Free-form description, at most 499 characters. (≤499 chars)
-  --name string — Integration name. 2–49 characters. (2-49 chars)
+  --integration-key string — Optional pre-generated key: 35 characters, ending with the account ID modulo 1000 padded to three digits; it must not already be in use. Omit to generate a key. (35-35 chars)
+  --is-test bool — Run the plugin test during creation; false when omitted. Inspect the returned 'test.success' for the test outcome.
+  --name string — Integration name, 2–49 characters when nonempty; defaults to the integration type name when omitted or empty. (2-49 chars)
   --plugin-type string (required) — Integration type. Must be one listed by 'POST /integration/type/list' with 'supports_api_create: true'.
-  --team-id int — Owning team ID. (min 1)
+  --team-id int — Owning team ID; omit or use '0' for no team. A nonzero ID must belong to the current account. (min 0)
   settings (object, via --data) — Type-specific configuration; the accepted keys depend on 'plugin_type'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - integration_id (integer) (required) — ID of the new integration.
-  - integration_key (string) (required) — Key used to authenticate inbound pushes to this integration. Returned here only; fetch a new one with 'POST /integration/key/rotate'.
+  - integration_key (string) (required) — Integration key for inbound pushes; also readable from '/integration/list' and '/integration/info'.
+  - test (object) — Plugin test result, returned only when a test is performed.
+    - message (string) (required) — Test failure message; empty on success.
+    - success (boolean) (required) — Whether the plugin test succeeded.
 `,
-		Example: `  flashduty integration create --data '{"description":"Alerts pushed by the production Prometheus stack","name":"Prod metrics alerts","plugin_type":"standard.alert","settings":{"severity_mapping":[{"P1":"Critical"}]},"team_id":1467226103121}'`,
+		Example: `  flashduty integration create --data '{"description":"Alerts pushed by the production Prometheus stack","is_test":true,"name":"Prod metrics alerts","plugin_type":"standard.alert","settings":{"field_mapping":{},"value_mapping":{}},"team_id":1467226103121}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("description") {
 						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("integration-key") {
+						body["integration_key"] = fIntegrationKey
+					}
+					if cmd.Flags().Changed("is-test") {
+						body["is_test"] = fIsTest
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
@@ -402,9 +434,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description, at most 499 characters. (≤499 chars)")
-	cmd.Flags().StringVar(&fName, "name", "", "Integration name. 2–49 characters. (2-49 chars)")
+	cmd.Flags().StringVar(&fIntegrationKey, "integration-key", "", "Optional pre-generated key: 35 characters, ending with the account ID modulo 1000 padded to three digits; it must not already be in use. Omit to generate a key. (35-35 chars)")
+	cmd.Flags().BoolVar(&fIsTest, "is-test", false, "Run the plugin test during creation; false when omitted. Inspect the returned 'test.success' for the test outcome.")
+	cmd.Flags().StringVar(&fName, "name", "", "Integration name, 2–49 characters when nonempty; defaults to the integration type name when omitted or empty. (2-49 chars)")
 	cmd.Flags().StringVar(&fPluginType, "plugin-type", "", "Integration type. Must be one listed by 'POST /integration/type/list' with 'supports_api_create: true'. (required)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. (min 1)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; omit or use '0' for no team. A nonzero ID must belong to the current account. (min 0)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -581,7 +615,7 @@ Request fields:
   --integration-id int (required) — Integration ID. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - integration_key (string) (required) — The new key. The previous key stops working immediately; this value cannot be read again later.
+  - integration_key (string) (required) — New integration key; the previous key stops working immediately. Also readable from '/integration/list' and '/integration/info'.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration key-rotate --data '{"integration_id":6113996590131}'`,
@@ -620,6 +654,7 @@ func genIntegrationsIntegrationAPIWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fDescription string
 	var fIntegrationID int64
+	var fIsTest bool
 	var fName string
 	var fTeamID int64
 	cmd := &cobra.Command{
@@ -634,27 +669,37 @@ API: POST /integration/update (integration-api-write-update)
 Request fields:
   --description string — New description, at most 499 characters. (≤499 chars)
   --integration-id int (required) — Integration ID. (min 1)
+  --is-test bool — Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.
   --name string — New name, 2–49 characters. (2-49 chars)
   --team-id int — New owning team ID; '0' clears the team assignment. (min 0)
-  settings (object, via --data) — Replacement configuration for the integration type. Sensitive entries left out, or sent back as the masked '******', keep their stored value.
+  settings (object, via --data) — Replacement type-specific configuration. Known sensitive fields omitted or sent as '******' keep their stored value; an explicit empty headers object clears headers.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - category (any) (required)
-  - created_at (any) (required)
-  - description (any) (required)
-  - integration_id (any) (required)
-  - last_time (any) (required)
-  - name (any) (required)
-  - plugin_type (any) (required)
-  - plugin_type_name (any) (required)
-  - ref_id (any) (required)
-  - settings (object) (required) — Type-specific configuration. Sensitive values (endpoint, headers, secrets, passwords) are returned masked as '******'.
-  - status (any) (required)
-  - team_id (any) (required)
-  - updated_at (any) (required)
+  - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
+  - created_at (string) (required) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — ID of the member who created the integration.
+  - description (string) (required) — Free-form description.
+  - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
+  - integration_id (integer) (required) — Integration ID.
+  - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
+  - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - name (string) (required) — Integration name.
+  - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
+  - plugin_id (integer) (required) — Internal integration type ID; use 'plugin_type', not this ID, when creating an integration.
+  - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
+  - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
+  - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
+  - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
+  - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
+  - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
+  - test (object) — Plugin test result, returned only when a test is performed.
+    - message (string) (required) — Test failure message; empty on success.
+    - success (boolean) (required) — Whether the plugin test succeeded.
+  - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_by (integer) (required) — ID of the member who last updated the integration.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
-		Example: `  flashduty integration update --data '{"integration_id":6113996590131,"name":"Prod metrics alerts (primary)","team_id":1467226103121}'`,
+		Example: `  flashduty integration update --data '{"integration_id":6113996590131,"is_test":true,"name":"Prod metrics alerts (primary)","settings":{"field_mapping":{},"value_mapping":{}},"team_id":1467226103121}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -666,6 +711,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
+					}
+					if cmd.Flags().Changed("is-test") {
+						body["is_test"] = fIsTest
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
@@ -692,6 +740,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description, at most 499 characters. (≤499 chars)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().BoolVar(&fIsTest, "is-test", false, "Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.")
 	cmd.Flags().StringVar(&fName, "name", "", "New name, 2–49 characters. (2-49 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; '0' clears the team assignment. (min 0)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
