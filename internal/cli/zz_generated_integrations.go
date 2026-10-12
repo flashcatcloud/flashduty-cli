@@ -43,7 +43,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.TryLinkPersonRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.DatasourceImPersonTryLink(cmdContext(ctx.Cmd), req)
@@ -115,7 +115,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.GetIntegrationRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIReadInfo(cmdContext(ctx.Cmd), req)
@@ -247,7 +247,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListIntegrationsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIReadList(cmdContext(ctx.Cmd), req)
@@ -340,7 +340,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.IntegrationTypeListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIReadTypeList(cmdContext(ctx.Cmd), req)
@@ -422,7 +422,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateIntegrationRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteCreate(cmdContext(ctx.Cmd), req)
@@ -475,7 +475,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.IntegrationLifecycleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Integrations.IntegrationAPIWriteDelete(cmdContext(ctx.Cmd), req)
@@ -527,7 +527,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.IntegrationLifecycleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Integrations.IntegrationAPIWriteDisable(cmdContext(ctx.Cmd), req)
@@ -579,7 +579,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.IntegrationLifecycleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Integrations.IntegrationAPIWriteEnable(cmdContext(ctx.Cmd), req)
@@ -634,7 +634,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.IntegrationLifecycleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteRotateKey(cmdContext(ctx.Cmd), req)
@@ -727,7 +727,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpdateIntegrationRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.IntegrationAPIWriteUpdate(cmdContext(ctx.Cmd), req)
@@ -801,7 +801,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.GetWebhookHistoryDetailRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.Detail(cmdContext(ctx.Cmd), req)
@@ -913,7 +913,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListWebhookHistoryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Integrations.List(cmdContext(ctx.Cmd), req)

@@ -49,7 +49,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.IDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.ReadInfo(cmdContext(ctx.Cmd), req)
@@ -106,7 +106,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.DataSourceListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.ReadList(cmdContext(ctx.Cmd), req)
@@ -165,7 +165,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.SLSLogstoresRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.ReadSLSLogstores(cmdContext(ctx.Cmd), req)
@@ -241,7 +241,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.SLSProjectsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.ReadSLSProjects(cmdContext(ctx.Cmd), req)
@@ -310,7 +310,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DatasourceToolInvokeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.ToolsInvoke(cmdContext(ctx.Cmd), req)
@@ -564,7 +564,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DataSourceUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.WriteCreate(cmdContext(ctx.Cmd), req)
@@ -615,7 +615,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.IDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.DataSources.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -871,7 +871,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DataSourceUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.DataSources.WriteUpdate(cmdContext(ctx.Cmd), req)

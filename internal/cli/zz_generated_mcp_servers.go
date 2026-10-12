@@ -69,7 +69,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.McpServerGetRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.ReadServerGet(cmdContext(ctx.Cmd), req)
@@ -174,7 +174,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.McpServerListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.ReadServerList(cmdContext(ctx.Cmd), req)
@@ -335,7 +335,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.McpServerCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.WriteServerCreate(cmdContext(ctx.Cmd), req)
@@ -399,7 +399,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.McpServerDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.WriteServerDelete(cmdContext(ctx.Cmd), req)
@@ -447,7 +447,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.McpServerStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.WriteServerDisable(cmdContext(ctx.Cmd), req)
@@ -495,7 +495,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.McpServerStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.WriteServerEnable(cmdContext(ctx.Cmd), req)
@@ -649,7 +649,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.McpServerUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.McpServers.WriteServerUpdate(cmdContext(ctx.Cmd), req)

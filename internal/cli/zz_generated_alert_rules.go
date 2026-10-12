@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AuditRecordIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadAuditDetail(cmdContext(ctx.Cmd), req)
@@ -100,7 +100,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadAudits(cmdContext(ctx.Cmd), req)
@@ -309,7 +309,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadInfoV2(cmdContext(ctx.Cmd), req)
@@ -390,7 +390,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadList(cmdContext(ctx.Cmd), req)
@@ -720,7 +720,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AlertRuleV2)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteCreateV2(cmdContext(ctx.Cmd), req)
@@ -786,7 +786,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertRules.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -834,7 +834,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RuleIDsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertRules.WriteDeleteBatch(cmdContext(ctx.Cmd), req)
@@ -963,7 +963,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleFieldsUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteFieldsUpdate(cmdContext(ctx.Cmd), req)
@@ -1029,7 +1029,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleMoveRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteMove(cmdContext(ctx.Cmd), req)
@@ -1357,7 +1357,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AlertRuleV2)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteUpdateV2(cmdContext(ctx.Cmd), req)

@@ -41,7 +41,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.CalEventIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Calendars.CalEventDelete(cmdContext(ctx.Cmd), req)
@@ -124,7 +124,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.CalEventListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Calendars.CalEventList(cmdContext(ctx.Cmd), req)
@@ -210,7 +210,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CalEventUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Calendars.CalEventUpsert(cmdContext(ctx.Cmd), req)
@@ -289,7 +289,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CalendarCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Calendars.CalendarCreate(cmdContext(ctx.Cmd), req)
@@ -342,7 +342,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.CalendarIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Calendars.CalendarDelete(cmdContext(ctx.Cmd), req)
@@ -410,7 +410,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CalendarIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Calendars.CalendarInfo(cmdContext(ctx.Cmd), req)
@@ -477,7 +477,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.CalendarListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Calendars.CalendarList(cmdContext(ctx.Cmd), req)
@@ -556,7 +556,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.CalendarUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Calendars.CalendarUpdate(cmdContext(ctx.Cmd), req)

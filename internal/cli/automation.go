@@ -512,7 +512,7 @@ func runAutomationFire(ctx *RunContext, triggerID, token, text, dataJSON string)
 		return nil, err
 	}
 	req := new(flashduty.AutomationFireAPITriggerRequest)
-	if err := genBindBody(body, req); err != nil {
+	if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 		return nil, err
 	}
 	token = strings.TrimSpace(token)
