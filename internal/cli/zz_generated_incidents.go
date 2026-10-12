@@ -1170,11 +1170,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - created_at (string) (required) — Creation timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
-    - deleted_at (string) — Soft-delete timestamp (ms). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Soft-delete timestamp in milliseconds. Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'; 'null' when the entry has no structured detail.
       - added_assignee_ids (array<integer>) — Member IDs added as assignees.
+      - added_assignees (array<object>) — Assignees added by this change, in submitted order. 'added_assignee_ids' is the person-only subset. Omitted when nothing was added.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - assignee_ids (array<integer>) — Assignee member IDs.
+      - assignees (array<object>) — Assignees of the work item. Each entry is '{type, id?}'; an 'ai_sre' entry omits 'id'. Omitted when there is no assignee.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - by (string) — Delivery channel or method label.
       - chat_id (string) — Chat group identifier.
       - chat_name (string) — Chat group display name.
@@ -1231,6 +1237,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - reason (string) — Reason why the incident was reopened.
       - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
       - removed_assignee_ids (array<integer>) — Member IDs removed from assignees.
+      - removed_assignees (array<object>) — Assignees removed by this change. 'removed_assignee_ids' is the person-only subset. Omitted when nothing was removed.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - reporter_email (string) — Email of the reporter when the incident was created externally.
       - rid (string) — Notification record ID.
       - robots (array<object>) — Per-robot delivery records.
