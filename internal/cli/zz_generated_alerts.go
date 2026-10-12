@@ -38,12 +38,12 @@ Request fields:
   --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — Sort ascending when 'true'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
-  --end-time string — End of the search window, Unix epoch seconds. Must be greater than 'start_time' when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --integration-ids []int — Filter by integration IDs.
   --integration-types []string — Filter by integration types (plugin keys).
   --orderby string — Sort field; only 'event_time' is supported. [event_time]
   --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.
-  --start-time string — Start of the search window, Unix epoch seconds. Must be greater than 0 when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --start-time string (required) — Start of the search window, Unix epoch seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists (probed by fetching limit+1 rows).
@@ -141,13 +141,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time' when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; only 'event_time' is supported. [event_time]")
 	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0 when provided. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

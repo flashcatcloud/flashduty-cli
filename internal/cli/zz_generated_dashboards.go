@@ -95,7 +95,7 @@ Request fields:
     - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
     - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
     - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
     - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
     - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -107,7 +107,7 @@ Request fields:
     - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
       - args (object) — Named query arguments; defaults to an empty object.
       - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-      - field (string) — Log field whose values become candidates. (≥1 chars)
+      - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
       - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
       - label (string) — Label whose values become candidates.
       - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -316,7 +316,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genDashboardsQueryReadResolveCmd() *cobra.Command {
 	var dataJSON string
 	var fDashboardID string
+	var fMaxDataPoints int64
 	var fPanelIDs []string
+	var fPreserveBuiltinVariables bool
 	cmd := &cobra.Command{
 		Use:   "dashboard-runtime-queries-resolve <panel-id> [<id2>...]",
 		Short: "Resolve panel queries",
@@ -328,7 +330,9 @@ API: POST /monit/dashboard/runtime/queries/resolve (monit-dashboard-query-read-r
 
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
+  --max-data-points int — Downsampling target used to compute the step and render the built-in time variables, 2–5000 points; omit or send null for the server default of 100. (2-5000)
   --panel-ids []string (required) — Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call.
+  --preserve-builtin-variables bool — Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
     - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
     - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
@@ -369,8 +373,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("dashboard-id") {
 						body["dashboard_id"] = fDashboardID
 					}
+					if cmd.Flags().Changed("max-data-points") {
+						body["max_data_points"] = fMaxDataPoints
+					}
 					if cmd.Flags().Changed("panel-ids") {
 						body["panel_ids"] = fPanelIDs
+					}
+					if cmd.Flags().Changed("preserve-builtin-variables") {
+						body["preserve_builtin_variables"] = fPreserveBuiltinVariables
 					}
 					return nil
 				})
@@ -390,7 +400,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
+	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Downsampling target used to compute the step and render the built-in time variables, 2–5000 points; omit or send null for the server default of 100. (2-5000)")
 	cmd.Flags().StringSliceVar(&fPanelIDs, "panel-ids", nil, "Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call. (required)")
+	cmd.Flags().BoolVar(&fPreserveBuiltinVariables, "preserve-builtin-variables", false, "Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -454,7 +466,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -466,7 +478,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -841,7 +853,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -853,7 +865,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1067,7 +1079,7 @@ Request fields:
     - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
     - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
     - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
     - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
     - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1079,7 +1091,7 @@ Request fields:
     - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
       - args (object) — Named query arguments; defaults to an empty object.
       - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-      - field (string) — Log field whose values become candidates. (≥1 chars)
+      - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
       - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
       - label (string) — Label whose values become candidates.
       - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1263,7 +1275,7 @@ Request fields:
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1275,7 +1287,7 @@ Request fields:
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1327,7 +1339,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1339,7 +1351,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1497,7 +1509,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
         - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
         - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
         - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
         - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - refresh (string) — When the candidates are recomputed: 'on_dashboard_load' = once when the dashboard loads; 'on_time_range_change' = every time the time range changes. [on_dashboard_load, on_time_range_change]
@@ -1612,7 +1624,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1624,7 +1636,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1739,7 +1751,7 @@ Request fields:
       - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1751,7 +1763,7 @@ Request fields:
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
         - expr (string) — SQL statement; may reference other variables through '{{ }}'.
-        - field (string) — Log field whose values become candidates. (≥1 chars)
+        - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
@@ -1787,7 +1799,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
         - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
         - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters.
+        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
         - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
         - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - refresh (string) — When the candidates are recomputed: 'on_dashboard_load' = once when the dashboard loads; 'on_time_range_change' = every time the time range changes. [on_dashboard_load, on_time_range_change]
