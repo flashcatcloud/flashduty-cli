@@ -64,7 +64,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.IssuePresetSeverityRules.Create(cmdContext(ctx.Cmd), req)
@@ -116,7 +116,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.Delete(cmdContext(ctx.Cmd), req)
@@ -170,7 +170,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.Disable(cmdContext(ctx.Cmd), req)
@@ -224,7 +224,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.Enable(cmdContext(ctx.Cmd), req)
@@ -330,7 +330,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleHistoryListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.IssuePresetSeverityRules.HistoryList(cmdContext(ctx.Cmd), req)
@@ -388,7 +388,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleHistoryRevertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.HistoryRevert(cmdContext(ctx.Cmd), req)
@@ -456,7 +456,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.IssuePresetSeverityRules.List(cmdContext(ctx.Cmd), req)
@@ -510,7 +510,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleReorderRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.Reorder(cmdContext(ctx.Cmd), req)
@@ -584,7 +584,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMPresetSeverityRuleUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.IssuePresetSeverityRules.Update(cmdContext(ctx.Cmd), req)

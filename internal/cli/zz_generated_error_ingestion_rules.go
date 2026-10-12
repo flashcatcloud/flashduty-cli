@@ -58,7 +58,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.ErrorIngestionRules.Create(cmdContext(ctx.Cmd), req)
@@ -109,7 +109,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.ErrorIngestionRules.Delete(cmdContext(ctx.Cmd), req)
@@ -163,7 +163,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.ErrorIngestionRules.Disable(cmdContext(ctx.Cmd), req)
@@ -217,7 +217,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.ErrorIngestionRules.Enable(cmdContext(ctx.Cmd), req)
@@ -321,7 +321,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionHistoryListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.ErrorIngestionRules.HistoryList(cmdContext(ctx.Cmd), req)
@@ -379,7 +379,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionRevertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.ErrorIngestionRules.HistoryRevert(cmdContext(ctx.Cmd), req)
@@ -445,7 +445,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.ErrorIngestionRules.List(cmdContext(ctx.Cmd), req)
@@ -508,7 +508,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMErrorIngestionUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.ErrorIngestionRules.Update(cmdContext(ctx.Cmd), req)

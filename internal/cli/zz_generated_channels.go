@@ -131,7 +131,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateChannelRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelCreate(cmdContext(ctx.Cmd), req)
@@ -189,7 +189,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelDelete(cmdContext(ctx.Cmd), req)
@@ -241,7 +241,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelDisable(cmdContext(ctx.Cmd), req)
@@ -293,7 +293,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelEnable(cmdContext(ctx.Cmd), req)
@@ -398,7 +398,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateEscalationRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelEscalateRuleCreate(cmdContext(ctx.Cmd), req)
@@ -452,7 +452,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelEscalateRuleDelete(cmdContext(ctx.Cmd), req)
@@ -506,7 +506,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelEscalateRuleDisable(cmdContext(ctx.Cmd), req)
@@ -560,7 +560,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelEscalateRuleEnable(cmdContext(ctx.Cmd), req)
@@ -655,7 +655,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelEscalateRuleInfo(cmdContext(ctx.Cmd), req)
@@ -740,7 +740,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ChannelScopedListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelEscalateRuleList(cmdContext(ctx.Cmd), req)
@@ -839,7 +839,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateEscalationRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelEscalateRuleUpdate(cmdContext(ctx.Cmd), req)
@@ -950,7 +950,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ChannelInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelInfo(cmdContext(ctx.Cmd), req)
@@ -1004,7 +1004,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ChannelInfosRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelInfos(cmdContext(ctx.Cmd), req)
@@ -1084,7 +1084,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateInhibitRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelInhibitRuleCreate(cmdContext(ctx.Cmd), req)
@@ -1137,7 +1137,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelInhibitRuleDelete(cmdContext(ctx.Cmd), req)
@@ -1191,7 +1191,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelInhibitRuleDisable(cmdContext(ctx.Cmd), req)
@@ -1245,7 +1245,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelInhibitRuleEnable(cmdContext(ctx.Cmd), req)
@@ -1315,7 +1315,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ChannelScopedListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelInhibitRuleList(cmdContext(ctx.Cmd), req)
@@ -1386,7 +1386,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateInhibitRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelInhibitRuleUpdate(cmdContext(ctx.Cmd), req)
@@ -1551,7 +1551,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListChannelsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelList(cmdContext(ctx.Cmd), req)
@@ -1653,7 +1653,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateSilenceRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelSilenceRuleCreate(cmdContext(ctx.Cmd), req)
@@ -1707,7 +1707,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelSilenceRuleDelete(cmdContext(ctx.Cmd), req)
@@ -1761,7 +1761,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelSilenceRuleDisable(cmdContext(ctx.Cmd), req)
@@ -1815,7 +1815,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelSilenceRuleEnable(cmdContext(ctx.Cmd), req)
@@ -1895,7 +1895,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ChannelScopedListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelSilenceRuleList(cmdContext(ctx.Cmd), req)
@@ -1974,7 +1974,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateSilenceRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelSilenceRuleUpdate(cmdContext(ctx.Cmd), req)
@@ -2049,7 +2049,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateDropRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelUnsubscribeRuleCreate(cmdContext(ctx.Cmd), req)
@@ -2100,7 +2100,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleDelete(cmdContext(ctx.Cmd), req)
@@ -2154,7 +2154,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleDisable(cmdContext(ctx.Cmd), req)
@@ -2208,7 +2208,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ChannelRuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleEnable(cmdContext(ctx.Cmd), req)
@@ -2275,7 +2275,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ChannelScopedListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelUnsubscribeRuleList(cmdContext(ctx.Cmd), req)
@@ -2335,7 +2335,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateDropRuleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.ChannelUnsubscribeRuleUpdate(cmdContext(ctx.Cmd), req)
@@ -2467,7 +2467,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpdateChannelRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelUpdate(cmdContext(ctx.Cmd), req)
@@ -2549,7 +2549,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RouteInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.RouteInfo(cmdContext(ctx.Cmd), req)
@@ -2622,7 +2622,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListRoutesRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.RouteList(cmdContext(ctx.Cmd), req)
@@ -2689,7 +2689,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpsertRouteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Channels.RouteUpsert(cmdContext(ctx.Cmd), req)

@@ -40,7 +40,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.SkillStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.ReadEnable(cmdContext(ctx.Cmd), req)
@@ -115,7 +115,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.SkillGetRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.ReadGet(cmdContext(ctx.Cmd), req)
@@ -218,7 +218,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.SkillListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.ReadList(cmdContext(ctx.Cmd), req)
@@ -272,7 +272,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.SkillDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -320,7 +320,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.SkillStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.WriteDisable(cmdContext(ctx.Cmd), req)
@@ -410,7 +410,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.SkillUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Skills.WriteUpdate(cmdContext(ctx.Cmd), req)

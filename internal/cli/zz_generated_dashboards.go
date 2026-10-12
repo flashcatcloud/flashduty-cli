@@ -180,7 +180,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardPanelPreviewRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.PanelReadPreview(cmdContext(ctx.Cmd), req)
@@ -294,7 +294,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardPanelRunRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.PanelReadRun(cmdContext(ctx.Cmd), req)
@@ -388,7 +388,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardQueriesResolveRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.QueryReadResolve(cmdContext(ctx.Cmd), req)
@@ -511,7 +511,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.ReadGet(cmdContext(ctx.Cmd), req)
@@ -596,7 +596,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.DashboardListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.ReadList(cmdContext(ctx.Cmd), req)
@@ -696,7 +696,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardOutlineRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.ReadOutline(cmdContext(ctx.Cmd), req)
@@ -773,7 +773,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.DashboardSearchRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.ReadSearch(cmdContext(ctx.Cmd), req)
@@ -897,7 +897,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardRevisionGetRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.RevisionReadGet(cmdContext(ctx.Cmd), req)
@@ -957,7 +957,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.DashboardIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.RevisionReadList(cmdContext(ctx.Cmd), req)
@@ -1028,7 +1028,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.DashboardTrashListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.TrashReadList(cmdContext(ctx.Cmd), req)
@@ -1131,7 +1131,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardVariablesPreviewRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.VariableReadPreview(cmdContext(ctx.Cmd), req)
@@ -1203,7 +1203,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardVariablesResolveRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.VariableReadResolve(cmdContext(ctx.Cmd), req)
@@ -1386,7 +1386,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.WriteCreate(cmdContext(ctx.Cmd), req)
@@ -1445,7 +1445,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -1543,7 +1543,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardMoveRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.WriteMove(cmdContext(ctx.Cmd), req)
@@ -1675,7 +1675,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardRestoreRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.WriteRestore(cmdContext(ctx.Cmd), req)
@@ -1840,7 +1840,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DashboardUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Dashboards.WriteUpdate(cmdContext(ctx.Cmd), req)

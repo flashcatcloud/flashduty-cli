@@ -66,7 +66,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MemberDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Members.MemberDelete(cmdContext(ctx.Cmd), req)
@@ -129,7 +129,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MemberRoleGrantRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Members.MemberGrantRole(cmdContext(ctx.Cmd), req)
@@ -249,7 +249,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.MemberInviteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Members.MemberInvite(cmdContext(ctx.Cmd), req)
@@ -351,7 +351,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.MemberListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Members.MemberList(cmdContext(ctx.Cmd), req)
@@ -419,7 +419,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MemberNotifyRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Members.MemberNotify(cmdContext(ctx.Cmd), req)
@@ -505,7 +505,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MemberResetInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Members.MemberResetInfo(cmdContext(ctx.Cmd), req)
@@ -568,7 +568,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MemberRoleRevokeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Members.MemberRevokeRole(cmdContext(ctx.Cmd), req)
@@ -626,7 +626,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MemberRoleUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Members.MemberUpdateRole(cmdContext(ctx.Cmd), req)
@@ -694,7 +694,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.PersonInfosRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Members.PersonInfos(cmdContext(ctx.Cmd), req)

@@ -181,7 +181,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.ByAccount(cmdContext(ctx.Cmd), req)
@@ -392,7 +392,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.ByChannel(cmdContext(ctx.Cmd), req)
@@ -594,7 +594,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.ByResponder(cmdContext(ctx.Cmd), req)
@@ -805,7 +805,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.ByTeam(cmdContext(ctx.Cmd), req)
@@ -984,7 +984,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Analytics.ChannelExport(cmdContext(ctx.Cmd), req)
@@ -1146,7 +1146,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.InsightFilter)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Analytics.IncidentExport(cmdContext(ctx.Cmd), req)
@@ -1388,7 +1388,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightIncidentListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.IncidentList(cmdContext(ctx.Cmd), req)
@@ -1568,7 +1568,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Analytics.ResponderExport(cmdContext(ctx.Cmd), req)
@@ -1751,7 +1751,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.InsightQueryRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Analytics.TeamExport(cmdContext(ctx.Cmd), req)
@@ -1951,7 +1951,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.InsightTopkAlertByLabelRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), req)

@@ -63,7 +63,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.ReadGet(cmdContext(ctx.Cmd), req)
@@ -118,7 +118,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ArtifactFileStateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.ReadGetFileState(cmdContext(ctx.Cmd), req)
@@ -217,7 +217,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ArtifactListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.ReadList(cmdContext(ctx.Cmd), req)
@@ -284,7 +284,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactSignRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.ReadSign(cmdContext(ctx.Cmd), req)
@@ -333,7 +333,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ArtifactsReadStreamRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Artifacts.ReadStream(cmdContext(ctx.Cmd), req)
@@ -386,7 +386,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ArtifactIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -444,7 +444,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactPublishFromFileRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WritePublish(cmdContext(ctx.Cmd), req)
@@ -500,7 +500,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WriteShareEnable(cmdContext(ctx.Cmd), req)
@@ -548,7 +548,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ArtifactIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WriteShareRevoke(cmdContext(ctx.Cmd), req)
@@ -603,7 +603,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WriteShareSync(cmdContext(ctx.Cmd), req)
@@ -684,7 +684,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ArtifactUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Artifacts.WriteUpdate(cmdContext(ctx.Cmd), req)
