@@ -1,7 +1,7 @@
 ---
 name: flashduty
 version: "3.0"
-description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, on-call, monitors, automations, RUM, sourcemaps, members. `flashduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running flashduty. Don't guess or --help-dance."
+description: "USE FIRST for Flashduty tasks — status pages, incidents, alerts, integrations, on-call, monitors, automations, RUM, sourcemaps, members. `flashduty` CLI = the whole API. ALWAYS load this skill + read reference/<domain>.md for exact verbs & flags BEFORE running flashduty. Don't guess or --help-dance."
 allowed-tools: bash, read
 hidden: true  # internal-only: withheld from skills.sh public discovery (Safari embeds this skill directly).
 ---
@@ -76,7 +76,8 @@ Some asks span several commands. For those the skill ships a script that fetches
 | datasource 数据源 = a system Flashmonit queries (Prometheus / Loki / SQL / SLS) / connect a datasource 连接数据源 / SLS project / logstore / Redis / MongoDB / Kafka / database overview 数据库概览 / locks 锁 / slowlog 慢日志 | **`reference/monit-datasource.md`** |
 | automation / 自动化 / 定时 AI SRE / scheduled AI task / daily brief / weekly report / webhook trigger / POST trigger / chat-created automation | **`reference/automation.md`** |
 | metric/log query / 指标查询 / 日志查询 / PromQL / LogsQL / SQL / trend 趋势 / log clustering 日志聚类 / datasource RCA 数据源排查 | **`reference/monit-query.md`** |
-| channel / 协作空间 / collaboration space / 频道 / integration 集成 / 告警来源 alert source / alert grouping 告警分组 | **`reference/channel.md`** |
+| public integration / 公共集成 / 集成中心 / integration 集成 / alert source 告警来源 / integration key 集成 Key / IM bot / webhook configuration | **`reference/integration.md`** |
+| channel / 协作空间 / collaboration space / 频道 / channel-owned dedicated integration 协作空间专属集成 / alert grouping 告警分组 | **`reference/channel.md`** |
 | dispatch rule 分派策略 / 分派规则 / escalation rule 升级规则 / notify layers 通知层级 / who gets paged | **`reference/escalation.md`** |
 | silence 静默 / 屏蔽 / inhibit 抑制 / drop rule 丢弃 / noise reduction 降噪 / maintenance silence 维护窗口静默 | **`reference/noise.md`** |
 | enrichment / 数据加工 / 富化 / label mapping 字段映射 / extraction 提取 / mapping schema 集成 schema | **`reference/enrichment.md`** |
