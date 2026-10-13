@@ -1371,7 +1371,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			}
 		}
 		fmt.Fprintf(&b, "\t\t\t\treq := new(flashduty.%s)\n", mi.ReqType)
-		b.WriteString("\t\t\t\tif err := genBindBody(body, req); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
+		b.WriteString("\t\t\t\tif err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
 		call += ", req)"
 	} else {
 		b.WriteString("\t\t\t\t_ = body\n")

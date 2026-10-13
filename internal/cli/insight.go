@@ -303,7 +303,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.InsightFilter)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Analytics.IncidentExport(cmdContext(ctx.Cmd), req)
@@ -382,8 +382,9 @@ func countCSVDataRows(raw []byte) (int, error) {
 // is verified against. Only the total is needed, so a single 1-item page is
 // fetched.
 func insightIncidentTotal(ctx *RunContext, body map[string]any) (int64, error) {
+	// The export call already warned about this body's unsendable fields.
 	req := new(flashduty.InsightIncidentListRequest)
-	if err := genBindBody(body, req); err != nil {
+	if err := genBindBody(io.Discard, body, req); err != nil {
 		return 0, err
 	}
 	req.Page = 1

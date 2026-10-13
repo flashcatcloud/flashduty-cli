@@ -66,7 +66,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.A2aAgentIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.ReadGet(cmdContext(ctx.Cmd), req)
@@ -163,7 +163,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.A2aAgentListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.ReadList(cmdContext(ctx.Cmd), req)
@@ -271,7 +271,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.A2aAgentCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.WriteCreate(cmdContext(ctx.Cmd), req)
@@ -330,7 +330,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.A2aAgentIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -378,7 +378,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.A2aAgentIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.WriteDisable(cmdContext(ctx.Cmd), req)
@@ -426,7 +426,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.A2aAgentIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.WriteEnable(cmdContext(ctx.Cmd), req)
@@ -535,7 +535,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.A2aAgentUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.A2aAgents.WriteUpdate(cmdContext(ctx.Cmd), req)

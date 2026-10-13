@@ -98,7 +98,9 @@ List dashboard revisions
 ### dashboard-runtime-queries-resolve <panel-id> [<id2>...]
 Resolve panel queries
 - `--dashboard-id` string (required) — Canonical UUIDv7 of the dashboard.
+- `--max-data-points` int64 — Downsampling target used to compute the step and render the built-in time variables, 2–5000 points; omit or send null for the server default of 100. (2-5000)
 - `<panel-ids>` (positional, required) stringSlice — Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call.
+- `--preserve-builtin-variables` bool — Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.
 - body-only (`--data`): time (object) (required); variables (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: dashboard_id (string); panels (array<object>); revision (integer); time (object); variables (object)
 

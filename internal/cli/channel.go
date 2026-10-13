@@ -197,7 +197,7 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					return err
 				}
 				req := new(flashduty.ChannelScopedListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Channels.ChannelEscalateRuleList(cmdContext(ctx.Cmd), req)

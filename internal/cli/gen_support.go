@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -215,7 +217,11 @@ func genFoldPositional(args []string, body map[string]any, wire, kind string) er
 // command un-driveable. After the json pass, additively bind any url-tagged
 // field from the body by its url wire-name. For POST structs the url pass is a
 // no-op, so existing behavior is unchanged.
-func genBindBody(body map[string]any, req any) error {
+//
+// json.Unmarshal discards body fields the request struct has no field for, so a
+// --data field newer than this build's SDK would vanish before the request is
+// sent while the call still succeeds. Each such field is named on warn instead.
+func genBindBody(warn io.Writer, body map[string]any, req any) error {
 	var missing []string
 	var inspect func(reflect.Type)
 	inspect = func(rt reflect.Type) {
@@ -271,7 +277,101 @@ func genBindBody(body map[string]any, req any) error {
 		return fmt.Errorf("failed to bind request: %w", err)
 	}
 	bindURLTagged(body, reflect.ValueOf(req))
+	if dropped := unboundFields(body, reflect.TypeOf(req), ""); len(dropped) > 0 {
+		_, _ = fmt.Fprintf(warn, "warning: --data fields not sent, unknown to this CLI version: %s\n",
+			strings.Join(dropped, ", "))
+	}
 	return nil
+}
+
+var jsonUnmarshalerType = reflect.TypeFor[json.Unmarshaler]()
+
+// unboundFields lists the paths in v (dotted, "[]" for array elements) that
+// json.Unmarshal into t discards because t has no field for them. Types that
+// decode themselves (json.RawMessage, time.Time) and interface/scalar targets
+// take whatever they are given, so nothing below them is reported.
+func unboundFields(v any, t reflect.Type, path string) []string {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if reflect.PointerTo(t).Implements(jsonUnmarshalerType) {
+		return nil
+	}
+	var out []string
+	switch t.Kind() {
+	case reflect.Struct:
+		m, _ := v.(map[string]any)
+		for _, k := range slices.Sorted(maps.Keys(m)) {
+			p := joinFieldPath(path, k)
+			ft, ok := wireField(t, k)
+			if !ok {
+				out = append(out, p)
+				continue
+			}
+			out = append(out, unboundFields(m[k], ft, p)...)
+		}
+	case reflect.Map:
+		m, _ := v.(map[string]any)
+		for _, k := range slices.Sorted(maps.Keys(m)) {
+			out = append(out, unboundFields(m[k], t.Elem(), joinFieldPath(path, k))...)
+		}
+	case reflect.Slice, reflect.Array:
+		items, _ := v.([]any)
+		for _, item := range items {
+			out = append(out, unboundFields(item, t.Elem(), path+"[]")...)
+		}
+		slices.Sort(out)
+		out = slices.Compact(out)
+	}
+	return out
+}
+
+// wireField resolves a body key to the struct field json.Unmarshal (or, for GET
+// query structs, bindURLTagged) would fill: exact wire-name match first, then
+// encoding/json's case-insensitive fallback, descending into untagged embedded
+// structs.
+func wireField(t reflect.Type, key string) (reflect.Type, bool) {
+	var fold reflect.Type
+	var walk func(reflect.Type) (reflect.Type, bool)
+	walk = func(t reflect.Type) (reflect.Type, bool) {
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			tag := f.Tag.Get("json")
+			if tag == "" {
+				tag = f.Tag.Get("url")
+			}
+			name := strings.Split(tag, ",")[0]
+			if f.Anonymous && name == "" {
+				et := f.Type
+				for et.Kind() == reflect.Pointer {
+					et = et.Elem()
+				}
+				if et.Kind() == reflect.Struct {
+					if ft, ok := walk(et); ok {
+						return ft, true
+					}
+					continue
+				}
+			}
+			if !f.IsExported() || name == "-" {
+				continue
+			}
+			if name == "" {
+				name = f.Name
+			}
+			if name == key {
+				return f.Type, true
+			}
+			if fold == nil && strings.EqualFold(name, key) {
+				fold = f.Type
+			}
+		}
+		return nil, false
+	}
+	if ft, ok := walk(t); ok {
+		return ft, true
+	}
+	return fold, fold != nil
 }
 
 // bindURLTagged fills fields carrying a `url` struct tag (GET query params) from

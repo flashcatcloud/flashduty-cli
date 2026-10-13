@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -16,11 +17,57 @@ func TestGenBindBodyAllowsNullForRequiredNullableField(t *testing.T) {
 		Value *bool `json:"value"`
 	})
 
-	if err := genBindBody(map[string]any{"value": nil}, req); err != nil {
+	if err := genBindBody(io.Discard, map[string]any{"value": nil}, req); err != nil {
 		t.Fatalf("genBindBody required nullable field: %v", err)
 	}
 	if req.Value != nil {
 		t.Fatalf("Value = %v, want nil", req.Value)
+	}
+}
+
+func TestGenBindBodyWarnsOnFieldsTheRequestCannotCarry(t *testing.T) {
+	type target struct {
+		Kind  string          `json:"kind"`
+		Query json.RawMessage `json:"query,omitempty"`
+	}
+	type embedded struct {
+		Team int64 `json:"team_id,omitempty"`
+	}
+	req := new(struct {
+		embedded
+		Name    string            `json:"name"`
+		Targets []target          `json:"targets,omitempty"`
+		Labels  map[string]target `json:"labels,omitempty"`
+		Page    int64             `url:"p,omitempty"`
+	})
+	body := map[string]any{
+		"name":    "r",
+		"NAME":    "folded",
+		"team_id": 1,
+		"p":       2,
+		"extra":   true,
+		"targets": []any{
+			map[string]any{"kind": "x", "purpose": "a", "query": map[string]any{"anything": 1}},
+			map[string]any{"kind": "y", "purpose": "b"},
+		},
+		"labels": map[string]any{"k": map[string]any{"kind": "z", "note": "c"}},
+	}
+
+	var warn bytes.Buffer
+	if err := genBindBody(&warn, body, req); err != nil {
+		t.Fatalf("genBindBody: %v", err)
+	}
+	want := "warning: --data fields not sent, unknown to this CLI version: extra, labels.k.note, targets[].purpose\n"
+	if warn.String() != want {
+		t.Fatalf("warning = %q, want %q", warn.String(), want)
+	}
+
+	warn.Reset()
+	if err := genBindBody(&warn, map[string]any{"name": "r", "targets": []any{map[string]any{"kind": "x"}}}, req); err != nil {
+		t.Fatalf("genBindBody: %v", err)
+	}
+	if warn.Len() != 0 {
+		t.Fatalf("warning on a fully bound body: %q", warn.String())
 	}
 }
 

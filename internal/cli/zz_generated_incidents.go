@@ -64,7 +64,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ResetPostMortemContentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostMortemWriteResetContent(cmdContext(ctx.Cmd), req)
@@ -128,7 +128,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.GetWarRoomDefaultObserversRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.ReadGetWarRoomDefaultObservers(cmdContext(ctx.Cmd), req)
@@ -249,7 +249,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ServiceDeskPlusRequestListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.ServiceDeskPlusRequestReadList(cmdContext(ctx.Cmd), req)
@@ -319,7 +319,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.AddWarRoomMemberRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WriteAddWarRoomMember(cmdContext(ctx.Cmd), req)
@@ -379,7 +379,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.AckIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Ack(cmdContext(ctx.Cmd), req)
@@ -523,7 +523,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListIncidentAlertsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.AlertList(cmdContext(ctx.Cmd), req)
@@ -590,7 +590,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.AssignIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Assign(cmdContext(ctx.Cmd), req)
@@ -658,7 +658,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.CommentIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Comment(cmdContext(ctx.Cmd), req)
@@ -727,7 +727,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateIncidentCommentTypeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.CommentTypeCreate(cmdContext(ctx.Cmd), req)
@@ -776,7 +776,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteIncidentCommentTypeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.CommentTypeDelete(cmdContext(ctx.Cmd), req)
@@ -873,7 +873,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ReorderIncidentCommentTypesRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.CommentTypeReorder(cmdContext(ctx.Cmd), req)
@@ -935,7 +935,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateIncidentCommentTypeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.CommentTypeUpdate(cmdContext(ctx.Cmd), req)
@@ -1015,7 +1015,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.Create(cmdContext(ctx.Cmd), req)
@@ -1070,7 +1070,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DoIncidentCustomActionRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.CustomActionDo(cmdContext(ctx.Cmd), req)
@@ -1119,7 +1119,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DisableIncidentMergeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.DisableMerge(cmdContext(ctx.Cmd), req)
@@ -1170,11 +1170,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - account_id (integer) (required) — Account ID.
     - created_at (string) (required) — Creation timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
-    - deleted_at (string) — Soft-delete timestamp (ms). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Soft-delete timestamp in milliseconds. Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - detail (object) (required) — Type-specific payload. The concrete shape is determined by 'type'; 'null' when the entry has no structured detail.
       - added_assignee_ids (array<integer>) — Member IDs added as assignees.
+      - added_assignees (array<object>) — Assignees added by this change, in submitted order. 'added_assignee_ids' is the person-only subset. Omitted when nothing was added.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
       - assignee_ids (array<integer>) — Assignee member IDs.
+      - assignees (array<object>) — Assignees of the work item. Each entry is '{type, id?}'; an 'ai_sre' entry omits 'id'. Omitted when there is no assignee.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - by (string) — Delivery channel or method label.
       - chat_id (string) — Chat group identifier.
       - chat_name (string) — Chat group display name.
@@ -1231,6 +1237,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - reason (string) — Reason why the incident was reopened.
       - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
       - removed_assignee_ids (array<integer>) — Member IDs removed from assignees.
+      - removed_assignees (array<object>) — Assignees removed by this change. 'removed_assignee_ids' is the person-only subset. Omitted when nothing was removed.
+        - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
+        - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
       - reporter_email (string) — Email of the reporter when the incident was created externally.
       - rid (string) — Notification record ID.
       - robots (array<object>) — Per-robot delivery records.
@@ -1298,7 +1307,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListIncidentFeedRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), req)
@@ -1357,7 +1366,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResetIncidentFieldRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.FieldReset(cmdContext(ctx.Cmd), req)
@@ -1577,7 +1586,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.IncidentInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), req)
@@ -1901,7 +1910,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListIncidentsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.List(cmdContext(ctx.Cmd), req)
@@ -2135,7 +2144,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListIncidentsByIDsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.ListByIDs(cmdContext(ctx.Cmd), req)
@@ -2208,7 +2217,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MergeIncidentsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Merge(cmdContext(ctx.Cmd), req)
@@ -2431,7 +2440,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListPastIncidentsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), req)
@@ -2480,7 +2489,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeletePostMortemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostMortemDelete(cmdContext(ctx.Cmd), req)
@@ -2565,7 +2574,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.IncidentsPostMortemInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostMortemInfo(cmdContext(ctx.Cmd), req)
@@ -2684,7 +2693,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListPostMortemsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostMortemList(cmdContext(ctx.Cmd), req)
@@ -2741,7 +2750,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RemoveIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Remove(cmdContext(ctx.Cmd), req)
@@ -2798,7 +2807,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ReopenIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Reopen(cmdContext(ctx.Cmd), req)
@@ -2881,7 +2890,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateIncidentFieldsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Reset(cmdContext(ctx.Cmd), req)
@@ -2964,7 +2973,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResolveIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Resolve(cmdContext(ctx.Cmd), req)
@@ -3029,7 +3038,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.AddIncidentResponderRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.ResponderAdd(cmdContext(ctx.Cmd), req)
@@ -3087,7 +3096,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.SnoozeIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), req)
@@ -3140,7 +3149,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UnackIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Unack(cmdContext(ctx.Cmd), req)
@@ -3192,7 +3201,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.WakeIncidentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.Wake(cmdContext(ctx.Cmd), req)
@@ -3260,7 +3269,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateWarRoomRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WarRoomCreate(cmdContext(ctx.Cmd), req)
@@ -3312,7 +3321,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteWarRoomRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.WarRoomDelete(cmdContext(ctx.Cmd), req)
@@ -3375,7 +3384,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.GetWarRoomDetailRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WarRoomDetail(cmdContext(ctx.Cmd), req)
@@ -3442,7 +3451,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListWarRoomsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WarRoomList(cmdContext(ctx.Cmd), req)
@@ -3526,7 +3535,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.BindWorkItemPostMortemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemBindPostMortem(cmdContext(ctx.Cmd), req)
@@ -3620,7 +3629,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CompleteWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemComplete(cmdContext(ctx.Cmd), req)
@@ -3715,7 +3724,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ConvertWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemConvert(cmdContext(ctx.Cmd), req)
@@ -3837,7 +3846,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemCreate(cmdContext(ctx.Cmd), req)
@@ -3927,7 +3936,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.DeleteWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemDelete(cmdContext(ctx.Cmd), req)
@@ -4031,7 +4040,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemList(cmdContext(ctx.Cmd), req)
@@ -4127,7 +4136,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.ResetWorkItemAssigneesRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemResetAssignees(cmdContext(ctx.Cmd), req)
@@ -4231,7 +4240,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpdateWorkItemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.WorkItemUpdate(cmdContext(ctx.Cmd), req)
@@ -4315,7 +4324,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.ListPostMortemTemplatesRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostmortemReadListTemplates(cmdContext(ctx.Cmd), req)
@@ -4377,7 +4386,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.IncidentsPostmortemReadTemplateInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostmortemReadTemplateInfo(cmdContext(ctx.Cmd), req)
@@ -4425,7 +4434,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeletePostMortemTemplateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostmortemWriteDeleteTemplate(cmdContext(ctx.Cmd), req)
@@ -4516,7 +4525,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.InitPostMortemRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostmortemWriteInit(cmdContext(ctx.Cmd), req)
@@ -4598,7 +4607,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResetPostMortemBasicsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostmortemWriteResetBasics(cmdContext(ctx.Cmd), req)
@@ -4660,7 +4669,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResetPostMortemFollowUpsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostmortemWriteResetFollowUps(cmdContext(ctx.Cmd), req)
@@ -4718,7 +4727,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResetPostMortemStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostmortemWriteResetStatus(cmdContext(ctx.Cmd), req)
@@ -4776,7 +4785,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ResetPostMortemTitleRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Incidents.PostmortemWriteResetTitle(cmdContext(ctx.Cmd), req)
@@ -4861,7 +4870,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpsertPostMortemTemplateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Incidents.PostmortemWriteUpsertTemplate(cmdContext(ctx.Cmd), req)

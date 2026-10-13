@@ -67,7 +67,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.EnrichmentInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.EnrichmentReadInfo(cmdContext(ctx.Cmd), req)
@@ -143,7 +143,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.EnrichmentListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.EnrichmentReadList(cmdContext(ctx.Cmd), req)
@@ -209,7 +209,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.EnrichmentUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.EnrichmentWriteUpsert(cmdContext(ctx.Cmd), req)
@@ -278,7 +278,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.FieldInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.FieldReadInfo(cmdContext(ctx.Cmd), req)
@@ -355,7 +355,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.FieldListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.FieldReadList(cmdContext(ctx.Cmd), req)
@@ -432,7 +432,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateFieldRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.FieldWriteCreate(cmdContext(ctx.Cmd), req)
@@ -485,7 +485,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteFieldRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.FieldWriteDelete(cmdContext(ctx.Cmd), req)
@@ -553,7 +553,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateFieldRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.FieldWriteUpdate(cmdContext(ctx.Cmd), req)
@@ -625,7 +625,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MappingApiidRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingAPIReadInfo(cmdContext(ctx.Cmd), req)
@@ -756,7 +756,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MappingAPICreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingAPIWriteCreate(cmdContext(ctx.Cmd), req)
@@ -810,7 +810,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingApiidRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingAPIWriteDelete(cmdContext(ctx.Cmd), req)
@@ -898,7 +898,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingAPIUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingAPIWriteUpdate(cmdContext(ctx.Cmd), req)
@@ -957,7 +957,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingSchemaIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingDataReadDownload(cmdContext(ctx.Cmd), req)
@@ -1045,7 +1045,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.MappingDataListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingDataReadList(cmdContext(ctx.Cmd), req)
@@ -1103,7 +1103,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingDataDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteDelete(cmdContext(ctx.Cmd), req)
@@ -1156,7 +1156,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingSchemaIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteTruncate(cmdContext(ctx.Cmd), req)
@@ -1212,7 +1212,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MappingDataUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingDataWriteUpsert(cmdContext(ctx.Cmd), req)
@@ -1274,7 +1274,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MappingSchemaIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingSchemaReadInfo(cmdContext(ctx.Cmd), req)
@@ -1391,7 +1391,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MappingSchemaCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertEnrichment.MappingSchemaWriteCreate(cmdContext(ctx.Cmd), req)
@@ -1443,7 +1443,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingSchemaIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingSchemaWriteDelete(cmdContext(ctx.Cmd), req)
@@ -1510,7 +1510,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.MappingSchemaUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertEnrichment.MappingSchemaWriteUpdate(cmdContext(ctx.Cmd), req)

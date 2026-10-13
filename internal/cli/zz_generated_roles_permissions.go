@@ -50,7 +50,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RoleInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.RolesPermissions.ReadInfo(cmdContext(ctx.Cmd), req)
@@ -116,7 +116,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RoleListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.RolesPermissions.ReadList(cmdContext(ctx.Cmd), req)
@@ -181,7 +181,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RolePermissionListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.RolesPermissions.ReadListPermission(cmdContext(ctx.Cmd), req)
@@ -232,7 +232,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.PermissionFactorListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.RolesPermissions.ReadListPermissionFactor(cmdContext(ctx.Cmd), req)
@@ -285,7 +285,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RoleDeleteRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.RolesPermissions.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -338,7 +338,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RoleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.RolesPermissions.WriteDisable(cmdContext(ctx.Cmd), req)
@@ -390,7 +390,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RoleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.RolesPermissions.WriteEnable(cmdContext(ctx.Cmd), req)
@@ -447,7 +447,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RoleGrantRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.RolesPermissions.WriteGrantRole(cmdContext(ctx.Cmd), req)
@@ -505,7 +505,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RoleGrantRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.RolesPermissions.WriteRevokeRole(cmdContext(ctx.Cmd), req)
@@ -573,7 +573,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RoleUpsertRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.RolesPermissions.WriteUpsert(cmdContext(ctx.Cmd), req)

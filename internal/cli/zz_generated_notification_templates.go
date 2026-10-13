@@ -75,7 +75,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.TemplateIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.NotificationTemplates.ReadInfo(cmdContext(ctx.Cmd), req)
@@ -197,7 +197,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.TemplateListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.NotificationTemplates.ReadList(cmdContext(ctx.Cmd), req)
@@ -278,7 +278,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.PreviewTemplateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.NotificationTemplates.ReadPreview(cmdContext(ctx.Cmd), req)
@@ -446,7 +446,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.TemplateCreateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.NotificationTemplates.WriteCreate(cmdContext(ctx.Cmd), req)
@@ -517,7 +517,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.TemplateIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.NotificationTemplates.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -690,7 +690,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.TemplateUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.NotificationTemplates.WriteUpdate(cmdContext(ctx.Cmd), req)

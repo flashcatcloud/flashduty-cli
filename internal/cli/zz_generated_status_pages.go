@@ -149,7 +149,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.StatusPagesChangeActiveListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ChangeActiveList(cmdContext(ctx.Cmd), req)
@@ -273,7 +273,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateStatusPageChangeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ChangeCreate(cmdContext(ctx.Cmd), req)
@@ -333,7 +333,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageChangeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.ChangeDelete(cmdContext(ctx.Cmd), req)
@@ -420,7 +420,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.StatusPagesChangeInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ChangeInfo(cmdContext(ctx.Cmd), req)
@@ -531,7 +531,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.StatusPagesChangeListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ChangeList(cmdContext(ctx.Cmd), req)
@@ -609,7 +609,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateStatusPageChangeTimelineRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ChangeTimelineCreate(cmdContext(ctx.Cmd), req)
@@ -667,7 +667,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageChangeTimelineRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.ChangeTimelineDelete(cmdContext(ctx.Cmd), req)
@@ -741,7 +741,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateStatusPageChangeTimelineRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.ChangeTimelineUpdate(cmdContext(ctx.Cmd), req)
@@ -813,7 +813,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateStatusPageChangeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.ChangeUpdate(cmdContext(ctx.Cmd), req)
@@ -874,7 +874,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageComponentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.ComponentDelete(cmdContext(ctx.Cmd), req)
@@ -939,7 +939,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpsertStatusPageComponentRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.ComponentUpsert(cmdContext(ctx.Cmd), req)
@@ -1037,7 +1037,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateStatusPageRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.Create(cmdContext(ctx.Cmd), req)
@@ -1094,7 +1094,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.Delete(cmdContext(ctx.Cmd), req)
@@ -1147,7 +1147,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.CreateStatusPageDraftRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.DraftCreate(cmdContext(ctx.Cmd), req)
@@ -1232,7 +1232,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.StatusPagesInfoRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.Info(cmdContext(ctx.Cmd), req)
@@ -1289,7 +1289,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MigrateStatusPageEmailSubscribersRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.MigrateEmailSubscribers(cmdContext(ctx.Cmd), req)
@@ -1352,7 +1352,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.MigrateStatusPageStructureRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.MigrateStructure(cmdContext(ctx.Cmd), req)
@@ -1402,7 +1402,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.CancelStatusPageMigrationRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.MigrationCancel(cmdContext(ctx.Cmd), req)
@@ -1475,7 +1475,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.StatusPagesMigrationStatusRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.MigrationStatus(cmdContext(ctx.Cmd), req)
@@ -1528,7 +1528,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageSectionRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.SectionDelete(cmdContext(ctx.Cmd), req)
@@ -1591,7 +1591,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpsertStatusPageSectionRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.SectionUpsert(cmdContext(ctx.Cmd), req)
@@ -1644,7 +1644,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ExportStatusPageSubscribersRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.SubscriberExport(cmdContext(ctx.Cmd), req)
@@ -1708,7 +1708,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.ImportStatusPageSubscribersRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.SubscriberImport(cmdContext(ctx.Cmd), req)
@@ -1793,7 +1793,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.StatusPagesSubscriberListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.SubscriberList(cmdContext(ctx.Cmd), req)
@@ -1850,7 +1850,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.DeleteStatusPageTemplateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.TemplateDelete(cmdContext(ctx.Cmd), req)
@@ -1917,7 +1917,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.StatusPagesTemplateListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.TemplateList(cmdContext(ctx.Cmd), req)
@@ -1981,7 +1981,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.UpsertStatusPageTemplateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.StatusPages.TemplateUpsert(cmdContext(ctx.Cmd), req)
@@ -2104,7 +2104,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.UpdateStatusPageRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.StatusPages.Update(cmdContext(ctx.Cmd), req)

@@ -121,7 +121,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMIssueExportRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Issues.ReadExport(cmdContext(ctx.Cmd), req)
@@ -226,7 +226,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RUMIssueIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Issues.ReadInfo(cmdContext(ctx.Cmd), req)
@@ -379,7 +379,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					return err
 				}
 				req := new(flashduty.RUMIssueListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.Issues.ReadList(cmdContext(ctx.Cmd), req)
@@ -451,7 +451,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RUMIssueUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Issues.WriteUpdate(cmdContext(ctx.Cmd), req)

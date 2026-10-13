@@ -46,7 +46,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AuditRecordIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadAuditDetail(cmdContext(ctx.Cmd), req)
@@ -100,7 +100,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadAudits(cmdContext(ctx.Cmd), req)
@@ -231,8 +231,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
       - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
     - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - purpose (string) — One-sentence plain text explaining what this entry helps confirm during investigation. Literal text, not a template, and not part of the alert identity. At most 512 bytes; control characters are rejected. (≤512 chars)
     - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
-      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - datasource_id (integer) — Data source the query runs against. Omit (or set 0) to run on the alert event's own datasource. (0-9007199254740991)
       - query (object) (required) — Query payload.
         - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
         - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
@@ -308,7 +309,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadInfoV2(cmdContext(ctx.Cmd), req)
@@ -389,7 +390,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleListRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.ReadList(cmdContext(ctx.Cmd), req)
@@ -477,8 +478,9 @@ Request fields:
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
       - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
     - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - purpose (string) — One-sentence plain text explaining what this entry helps confirm during investigation. Literal text, not a template, and not part of the alert identity. At most 512 bytes; control characters are rejected. (≤512 chars)
     - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
-      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - datasource_id (integer) — Data source the query runs against. Omit (or set 0) to run on the alert event's own datasource. (0-9007199254740991)
       - query (object) (required) — Query payload.
         - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
         - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
@@ -562,8 +564,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
       - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
     - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - purpose (string) — One-sentence plain text explaining what this entry helps confirm during investigation. Literal text, not a template, and not part of the alert identity. At most 512 bytes; control characters are rejected. (≤512 chars)
     - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
-      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - datasource_id (integer) — Data source the query runs against. Omit (or set 0) to run on the alert event's own datasource. (0-9007199254740991)
       - query (object) (required) — Query payload.
         - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
         - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
@@ -717,7 +720,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AlertRuleV2)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteCreateV2(cmdContext(ctx.Cmd), req)
@@ -783,7 +786,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RuleIDRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertRules.WriteDelete(cmdContext(ctx.Cmd), req)
@@ -831,7 +834,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.RuleIDsRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.AlertRules.WriteDeleteBatch(cmdContext(ctx.Cmd), req)
@@ -960,7 +963,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleFieldsUpdateRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteFieldsUpdate(cmdContext(ctx.Cmd), req)
@@ -1026,7 +1029,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				req := new(flashduty.RuleMoveRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteMove(cmdContext(ctx.Cmd), req)
@@ -1112,8 +1115,9 @@ Request fields:
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
       - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
     - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - purpose (string) — One-sentence plain text explaining what this entry helps confirm during investigation. Literal text, not a template, and not part of the alert identity. At most 512 bytes; control characters are rejected. (≤512 chars)
     - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
-      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - datasource_id (integer) — Data source the query runs against. Omit (or set 0) to run on the alert event's own datasource. (0-9007199254740991)
       - query (object) (required) — Query payload.
         - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
         - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
@@ -1197,8 +1201,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - target_id (string) — Panel ID inside the dashboard; must be a canonical UUIDv7. Optional.
       - variables (object) (required) — Dashboard variable values, keyed by variable name. Values may reference event labels through '{{ }}' templates; defaults to an empty object.
     - kind (string) (required) — Entry kind: 'dashboard' opens a dashboard panel, 'query' opens an Explore query. It decides whether 'dashboard' or 'query' must be supplied; supplying the other one is rejected. [dashboard, query]
+    - purpose (string) — One-sentence plain text explaining what this entry helps confirm during investigation. Literal text, not a template, and not part of the alert identity. At most 512 bytes; control characters are rejected. (≤512 chars)
     - query (object) — Configuration for the 'query' kind; required when 'kind' is 'query', and rejected when 'kind' is 'dashboard'.
-      - datasource_id (integer) (required) — Data source the query runs against. (1-9007199254740991)
+      - datasource_id (integer) — Data source the query runs against. Omit (or set 0) to run on the alert event's own datasource. (0-9007199254740991)
       - query (object) (required) — Query payload.
         - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
         - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
@@ -1352,7 +1357,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					return err
 				}
 				req := new(flashduty.AlertRuleV2)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				out, _, err := ctx.Client.AlertRules.WriteUpdateV2(cmdContext(ctx.Cmd), req)

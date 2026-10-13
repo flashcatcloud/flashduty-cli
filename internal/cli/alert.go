@@ -386,7 +386,7 @@ Request fields:
 					return err
 				}
 				req := new(flashduty.AlertMergeRequest)
-				if err := genBindBody(body, req); err != nil {
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
 				}
 				resp, err := ctx.Client.Alerts.WriteMerge(cmdContext(ctx.Cmd), req)
