@@ -23,6 +23,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - type (string) (required) — License assignment type. 'fixed' is explicitly assigned; 'temporary' is held from the active license window. [fixed, temporary]
     - updated_at (string) (required) — Unix timestamp when a fixed license was last changed. '0' for temporary licenses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID that last changed a fixed license. '0' for temporary licenses.
+  - release_limited (boolean) (required) — Whether the account has used up its license release quota for the current 30-day window. While 'true', releasing a seat fails with error code 'NoLicense'.
   - total (integer) (required) — Number of people holding an active license.
 `,
 		Example: `  flashduty oncall license-list --data '{}'`,

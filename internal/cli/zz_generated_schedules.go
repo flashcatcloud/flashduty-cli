@@ -143,7 +143,8 @@ Request fields:
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
     - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-      - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+      - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+      - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
       - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
     - im (object) — Legacy IM-type to token map.
     - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -406,7 +407,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
     - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-      - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+      - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+      - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
       - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
     - im (object) — Legacy IM-type to token map.
     - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -600,7 +602,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
       - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-        - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+        - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+        - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
         - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
       - im (object) — Legacy IM-type to token map.
       - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -783,7 +786,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
       - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-        - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+        - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+        - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
         - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
       - im (object) — Legacy IM-type to token map.
       - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -948,7 +952,8 @@ Request fields:
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
     - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-      - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+      - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+      - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
       - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
     - im (object) — Legacy IM-type to token map.
     - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -1072,7 +1077,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
     - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-      - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+      - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+      - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
       - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
     - im (object) — Legacy IM-type to token map.
     - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -1284,7 +1290,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
         - personal_channels (array<string>) (required) — Personal notification channel keys.
       - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-        - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+        - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+        - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
         - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
       - im (object) — Legacy IM-type to token map.
       - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
@@ -1420,7 +1427,8 @@ Request fields:
       - follow_preference (boolean) (required) — Whether to follow each responder's personal notification preference.
       - personal_channels (array<string>) (required) — Personal notification channel keys.
     - fixed_time (object) (required) — Fixed-time notification config; null when not configured.
-      - cycle (string) (required) — Notification cycle; only 'day' is supported. [day]
+      - cycle (string) (required) — Notification cycle: 'day' sends every day; 'week' sends on the weekdays listed in 'days'; 'month' sends on the day-of-month values listed in 'days'. [day, week, month]
+      - days (array<integer>) — Days the notification fires on, read in the schedule's timezone. For 'week', weekday numbers 0-6 (0 = Sunday); for 'month', day-of-month numbers 1-31, and a month without that date is skipped. Required when 'cycle' is 'week' or 'month'; ignored when 'cycle' is 'day'.
       - start (string) (required) — Time of day to send, format 'HH:MM' (24-hour).
     - im (object) — Legacy IM-type to token map.
     - webhooks (array<object>) (required) — IM webhook notification channels; null when not configured.
