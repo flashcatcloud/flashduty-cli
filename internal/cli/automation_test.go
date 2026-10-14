@@ -34,6 +34,65 @@ func TestAutomationCreateDailyDefaultsEnabled(t *testing.T) {
 	assertBody(t, stub.lastBody, "prompt", "Summarize yesterday's incidents")
 }
 
+func TestAutomationCreateExecutionDestinationWireContract(t *testing.T) {
+	t.Run("omits server selected destination", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+
+		_, err := execCommand(
+			"automation", "create",
+			"--name", "Daily SRE brief",
+			"--prompt", "Summarize yesterday's incidents",
+			"--json",
+		)
+		if err != nil {
+			t.Fatalf("[automation-create-omitted-destination] unexpected error: %v", err)
+		}
+		for _, field := range []string{"run_in", "team_id"} {
+			if _, ok := stub.lastBody[field]; ok {
+				t.Fatalf("[automation-create-omitted-destination] %s must be omitted, body=%#v", field, stub.lastBody)
+			}
+		}
+	})
+
+	t.Run("sends explicit chat and personal scope", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+
+		_, err := execCommand(
+			"automation", "create",
+			"--name", "Daily SRE brief",
+			"--prompt", "Summarize yesterday's incidents",
+			"--run-in", "current-chat",
+			"--team-id", "0",
+			"--json",
+		)
+		if err != nil {
+			t.Fatalf("[automation-create-current-chat] unexpected error: %v", err)
+		}
+		assertBody(t, stub.lastBody, "run_in", "current-chat")
+		assertBody(t, stub.lastBody, "team_id", float64(0))
+	})
+
+	t.Run("rejects invalid destination before request", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+
+		_, err := execCommand(
+			"automation", "create",
+			"--name", "Daily SRE brief",
+			"--prompt", "Summarize yesterday's incidents",
+			"--run-in", "other-chat",
+		)
+		if err == nil || !strings.Contains(err.Error(), "--run-in must be current-chat or web") {
+			t.Fatalf("[automation-create-invalid-destination] err = %v", err)
+		}
+		if stub.requests != 0 {
+			t.Fatalf("[automation-create-invalid-destination] request must not reach API, requests=%d", stub.requests)
+		}
+	})
+}
+
 func TestAutomationScheduleHelpDocumentsTimezone(t *testing.T) {
 	saveAndResetGlobals(t)
 
@@ -276,6 +335,18 @@ func TestAutomationUpdateDoesNotExposeScopeFlag(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown flag: --team-id") {
 		t.Fatalf("[automation-update-scope] err = %v", err)
+	}
+}
+
+func TestSafariAutomationRuleUpdateDoesNotExposeExecutionTargetFlags(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	for _, flag := range []string{"--team-id", "--run-in"} {
+		_, err := execCommand("safari", "automation-rule-update", "auto_123", flag, "0")
+		if err == nil || !strings.Contains(err.Error(), "unknown flag") {
+			t.Fatalf("[safari-automation-update-target] %s err = %v", flag, err)
+		}
 	}
 }
 

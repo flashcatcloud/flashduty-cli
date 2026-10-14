@@ -49,6 +49,7 @@ func newAutomationCreateCmd() *cobra.Command {
 		promptFile      string
 		environmentKind string
 		environmentID   string
+		runIn           string
 		timezone        string
 	)
 
@@ -58,8 +59,14 @@ func newAutomationCreateCmd() *cobra.Command {
 		Long: curatedLong(`Create an AI SRE Automation.
 
 By default the rule is enabled. Use --disabled only when the user explicitly
-asks to create it disabled. team_id=0 means personal scope; --team-id >0 creates
-the rule under that team. The scope is immutable after creation.
+asks to create it disabled. Omit --team-id to let the server inherit the live
+IM conversation scope when available; --team-id 0 explicitly selects personal
+scope and --team-id >0 selects that team. The scope is immutable after creation.
+
+	When this command is invoked from a live IM conversation, omitting --run-in
+lets the server bind the Automation to that current chat. Use --run-in web to
+run it in the web console instead. Do not supply chat, platform, integration,
+or session identifiers: the server resolves and authorizes the current chat.
 
 	Schedule helpers build a 5-field cron expression evaluated in the rule's
 	timezone. Pass --timezone when the user names one. When --timezone is
@@ -86,6 +93,12 @@ the rule under that team. The scope is immutable after creation.
 				if strings.TrimSpace(taskPrompt) == "" {
 					return fmt.Errorf("one of --prompt or --prompt-file is required")
 				}
+				if cmd.Flags().Changed("run-in") {
+					runIn = strings.TrimSpace(runIn)
+					if runIn != "current-chat" && runIn != "web" {
+						return fmt.Errorf("--run-in must be current-chat or web")
+					}
+				}
 
 				effectiveScheduleEnabled := scheduleEnabled
 				cron, err := resolveAutomationCreateCron(cmd, schedule, at, weekday, cronExpr, httpPostTrigger, &effectiveScheduleEnabled)
@@ -95,7 +108,6 @@ the rule under that team. The scope is immutable after creation.
 
 				req := &flashduty.AutomationRuleCreateRequest{
 					Name:                   name,
-					TeamID:                 teamID,
 					CronExpr:               cron,
 					Enabled:                !disabled,
 					ScheduleTriggerEnabled: flashduty.Bool(effectiveScheduleEnabled),
@@ -103,6 +115,12 @@ the rule under that team. The scope is immutable after creation.
 					Prompt:                 taskPrompt,
 					EnvironmentKind:        strings.TrimSpace(environmentKind),
 					EnvironmentID:          strings.TrimSpace(environmentID),
+				}
+				if cmd.Flags().Changed("team-id") {
+					req.TeamID = flashduty.Int64(teamID)
+				}
+				if cmd.Flags().Changed("run-in") {
+					req.RunIn = flashduty.String(runIn)
 				}
 				if cmd.Flags().Changed("timezone") {
 					req.Timezone = strings.TrimSpace(timezone)
@@ -117,7 +135,8 @@ the rule under that team. The scope is immutable after creation.
 	}
 
 	cmd.Flags().StringVar(&name, "name", "", "Automation name")
-	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Scope team ID; 0 means personal scope")
+	cmd.Flags().Int64Var(&teamID, "team-id", 0, "Scope team ID; omit to inherit IM scope when available, or pass 0 for personal scope")
+	cmd.Flags().StringVar(&runIn, "run-in", "", "Execution destination: current-chat or web; omit for the server default")
 	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
 	cmd.Flags().StringVar(&at, "at", "", "Local time in HH:MM (rule's timezone); for hourly schedules, only the minute is used. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
@@ -132,6 +151,7 @@ the rule under that team. The scope is immutable after creation.
 	cmd.Flags().StringVar(&environmentID, "environment-id", "", "BYOC Runner ID when --environment-kind=byoc")
 	registerEnumFlag(cmd, "schedule", "hourly", "daily", "weekly", "cron")
 	registerEnumFlag(cmd, "environment-kind", "cloud", "byoc")
+	registerEnumFlag(cmd, "run-in", "current-chat", "web")
 	return cmd
 }
 
