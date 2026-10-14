@@ -450,7 +450,7 @@ Reset work item assignees
 ### work-item-complete <work-item-id>
 Complete a work item
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-- `--target-status` string (required) — Client-defined status to set (max 64 characters). There is no fixed state machine. (≤64 chars)
+- `--target-status` string (required) — Target status. Must be 'done'; any other value is rejected. (≤64 chars) · enum: done
 - `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - response: same shape as `work-item-assignees-reset <work-item-id>` above
@@ -458,7 +458,7 @@ Complete a work item
 ### work-item-convert <work-item-id>
 Convert a work item to a follow-up
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-- `--target-status` string — Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)
+- `--target-status` string — Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. (≤64 chars) · enum: open | in_progress | done | cancelled
 - `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - response: same shape as `work-item-assignees-reset <work-item-id>` above
@@ -472,7 +472,7 @@ Create a work item
 - `--item-type` string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. · enum: action | follow_up
 - `--post-mortem-id` string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
 - `--priority` string — Optional client-defined priority (max 64 characters). (≤64 chars)
-- `--status` string — Optional client-defined initial status (max 64 characters). (≤64 chars)
+- `--status` string — Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. (≤64 chars) · enum: open | in_progress | done | cancelled
 - `--title` string (required) — Item title (max 512 characters). (≤512 chars)
 - body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object)
@@ -505,7 +505,7 @@ Bind work items to a post-mortem
 Update a work item
 - `--description` string — New description (max 65,535 characters). (≤65535 chars)
 - `--priority` string — New client-defined priority (max 64 characters). (≤64 chars)
-- `--status` string — New client-defined status (max 64 characters). (≤64 chars)
+- `--status` string — New status. One of 'open', 'in_progress', 'done', 'cancelled'. (≤64 chars) · enum: open | in_progress | done | cancelled
 - `--title` string — New title (max 512 characters). (≤512 chars)
 - `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)

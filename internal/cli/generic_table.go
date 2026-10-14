@@ -62,7 +62,13 @@ func renderGenericTable(ctx *RunContext, data any, win listWindow) error {
 	}
 
 	if rows, pg, ok := genericListPage(v, win); ok {
-		return renderRowTable(ctx, rows, pg)
+		if err := renderRowTable(ctx, rows, pg); err != nil {
+			return err
+		}
+		if len(pg.Siblings) > 0 {
+			_, _ = fmt.Fprintf(ctx.Writer, "Also in the response: %s (use --json to see it).\n", strings.Join(pg.Siblings, ", "))
+		}
+		return nil
 	}
 	if v.Kind() == reflect.Struct {
 		if err := renderVertical(ctx, v); err != nil {
@@ -96,7 +102,7 @@ func genericListPage(v reflect.Value, win listWindow) (rows reflect.Value, pg li
 		if rows, meta, ok = listEnvelope(v); !ok {
 			return reflect.Value{}, pg, false
 		}
-		pg.Total, pg.More = meta.total, meta.more
+		pg.Total, pg.More, pg.Siblings = meta.total, meta.more, meta.siblings
 	default:
 		return reflect.Value{}, pg, false
 	}
@@ -106,18 +112,27 @@ func genericListPage(v reflect.Value, win listWindow) (rows reflect.Value, pg li
 
 // listMeta is the pagination metadata a list envelope carries.
 type listMeta struct {
-	total int       // negative when the envelope has no Total field
-	more  moreState // from HasNextPage or NextCursor
+	total    int       // negative when the envelope has no Total field
+	more     moreState // from HasNextPage, HasMore or NextCursor
+	siblings []string  // wire names of the non-pagination fields beside the rows
 }
+
+// listRowFields are the Go names of the row fields — wire items, docs, list, the
+// names cligen's listEnvelope matches — that mark a list envelope even when it
+// carries more than pagination metadata.
+var listRowFields = map[string]bool{"Items": true, "Docs": true, "List": true}
 
 // listEnvelope reports whether struct v is a paginated list envelope: exactly
 // one exported field that is a slice of structs (the rows), with any remaining
-// fields limited to pagination metadata. It returns the rows value and that
-// metadata (Total; HasNextPage or NextCursor as the has-more signal).
+// fields limited to pagination metadata — or, when the rows field is Items, Docs
+// or List, any other fields too, reported as siblings. It returns the rows value
+// and that metadata (Total; HasNextPage, HasMore or NextCursor as the has-more
+// signal).
 func listEnvelope(v reflect.Value) (rows reflect.Value, meta listMeta, ok bool) {
 	t := v.Type()
 	meta.total = -1
 	found := false
+	rowsName := ""
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		if f.PkgPath != "" { // unexported
@@ -128,18 +143,19 @@ func listEnvelope(v reflect.Value) (rows reflect.Value, meta listMeta, ok bool) 
 			if found {
 				return reflect.Value{}, meta, false // ambiguous: more than one row slice
 			}
-			rows, found = fv, true
+			rows, found, rowsName = fv, true, f.Name
 			continue
 		}
 		if !isListMetadataField(f, fv) {
-			return reflect.Value{}, meta, false
+			meta.siblings = append(meta.siblings, wireName(f))
+			continue
 		}
 		switch f.Name {
 		case "Total":
 			if meta.total < 0 {
 				meta.total = int(fv.Int())
 			}
-		case "HasNextPage":
+		case "HasNextPage", "HasMore":
 			meta.more = moreNo
 			if fv.Bool() {
 				meta.more = moreYes
@@ -151,10 +167,18 @@ func listEnvelope(v reflect.Value) (rows reflect.Value, meta listMeta, ok bool) 
 			}
 		}
 	}
-	if !found {
+	if !found || (len(meta.siblings) > 0 && !listRowFields[rowsName]) {
 		return reflect.Value{}, meta, false
 	}
 	return rows, meta, true
+}
+
+// wireName is f's JSON name, falling back to the Go field name.
+func wireName(f reflect.StructField) string {
+	if name, _, _ := strings.Cut(f.Tag.Get("json"), ","); name != "" && name != "-" {
+		return name
+	}
+	return f.Name
 }
 
 func isListMetadataField(f reflect.StructField, fv reflect.Value) bool {
@@ -164,7 +188,7 @@ func isListMetadataField(f reflect.StructField, fv reflect.Value) bool {
 	switch f.Name {
 	case "Total":
 		return fv.CanInt()
-	case "HasNextPage":
+	case "HasNextPage", "HasMore":
 		return fv.Kind() == reflect.Bool
 	case "SearchAfterCtx", "NextCursor":
 		return fv.Kind() == reflect.String
@@ -454,15 +478,7 @@ func isScalarType(t reflect.Type) bool {
 // headerFromField derives a column header from a field's json tag (upper-cased),
 // falling back to the Go field name.
 func headerFromField(f reflect.StructField) string {
-	if tag := f.Tag.Get("json"); tag != "" {
-		if c := strings.IndexByte(tag, ','); c >= 0 {
-			tag = tag[:c]
-		}
-		if tag != "" && tag != "-" {
-			return strings.ToUpper(tag)
-		}
-	}
-	return strings.ToUpper(f.Name)
+	return strings.ToUpper(wireName(f))
 }
 
 // jsonFallback prints indented JSON — the last resort when a response is neither

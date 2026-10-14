@@ -1614,11 +1614,11 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 // or "" when the response has no documented schema. Shared by longHelp (embedded
 // in generated commands) and emitResponseHelp (looked up by curated commands).
 // listEnvelope returns the row (array-element) fields and true when resp is a
-// paginated list envelope: exactly one object-array field named items/docs/list
-// with only SCALAR siblings (total, p, limit, has_next_page, search_after_ctx …
-// — all pagination metadata). This is the shape the backend returns under
-// `data`; the CLI's curated list commands flatten it to a top-level array. The
-// scalar-sibling test avoids enumerating every pagination field name.
+// list envelope: exactly one object-array field named items/docs/list. Its
+// siblings are usually pagination metadata (total, p, limit, has_next_page …)
+// but may be any field (calendar event list carries a days map); they stay at
+// the top level next to the rows. This is the shape the backend returns under
+// `data`; the CLI's curated list commands flatten it to a top-level array.
 func listEnvelope(resp []schemaField) ([]schemaField, bool) {
 	var rows []schemaField
 	found := false
@@ -1628,12 +1628,6 @@ func listEnvelope(resp []schemaField) ([]schemaField, bool) {
 				return nil, false
 			}
 			rows, found = f.Children, true
-			continue
-		}
-		// Any non-row sibling must be a scalar (pagination metadata). An array
-		// or object sibling means this is a richer response, not a flat list.
-		if strings.HasPrefix(f.Type, "array") || f.Type == "object" || len(f.Children) > 0 {
-			return nil, false
 		}
 	}
 	return rows, found
