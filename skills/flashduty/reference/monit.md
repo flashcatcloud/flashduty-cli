@@ -141,9 +141,38 @@ Update dashboard
 - body-only (`--data`): definition (object) (required)
 - response: same shape as `dashboard-move` above
 
+### folder-create
+Create monitor folder
+- `--name` string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
+- `--note` string — Free-form note; omitted or empty clears the note on update.
+- `--parent-id` int64 — Parent folder ID; 0 or omitted creates a root folder. (min 0)
+- `--team-id` int64 — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); creator_name (string); id (integer); name (string); note (string); parent_id (integer); parent_path (string); team_id (integer); updated_at (string); updater_id (integer); updater_name (string)
+
+### folder-delete
+Delete monitor folder
+- `--id` int64 (required) — Folder ID. (min 1)
+
+### folder-health
+Get monitor folder health
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: folder_id (integer); has_issue (boolean)
+
 ### folder-list
 List monitor folders
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); creator_name (string); id (integer); name (string); note (string); parent_id (integer); parent_path (string); team_id (integer); updated_at (string); updater_id (integer); updater_name (string)
+
+### folder-move <dest-parent-id>
+Move monitor folder
+- `<dest-parent-id>` (positional, required) int64 — Destination parent folder ID; required even when 0 to move to the root. (min 0)
+- `--id` int64 (required) — Folder ID. (min 1)
+
+### folder-update
+Update monitor folder
+- `--id` int64 (required) — Folder ID. (min 1)
+- `--name` string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
+- `--note` string — Free-form note; omitted or empty clears the note on update.
+- `--team-id` int64 — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+- response: same shape as `folder-create` above
 
 ### prometheus-api-v1-label-{label_name}-values <label_name>
 List Prometheus label values

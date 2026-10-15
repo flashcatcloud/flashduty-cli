@@ -2,9 +2,50 @@
 
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
 
-func genRuleFoldersListCmd() *cobra.Command {
+	flashduty "github.com/flashcatcloud/go-flashduty"
+)
+
+func genRuleFoldersReadHealthCmd() *cobra.Command {
+	var dataJSON string
+	cmd := &cobra.Command{
+		Use:   "folder-health",
+		Short: "Get monitor folder health",
+		Long: `Get monitor folder health.
+
+Get health summaries for visible folders, including issues in their descendants.
+
+API: POST /monit/folder/health (monit-folder-read-health)
+
+Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - items (array<object>) (required) — Folder health summaries.
+    - folder_id (integer) (required) — Folder ID. (min 0)
+    - has_issue (boolean) (required) — Whether this folder or a visible descendant has active alerts or rule runtime issues.
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				_ = body
+				out, _, err := ctx.Client.RuleFolders.ReadHealth(cmdContext(ctx.Cmd))
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "ReadHealth"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genRuleFoldersReadListCmd() *cobra.Command {
 	var dataJSON string
 	cmd := &cobra.Command{
 		Use:   "folder-list",
@@ -39,11 +80,11 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 					return err
 				}
 				_ = body
-				out, _, err := ctx.Client.RuleFolders.List(cmdContext(ctx.Cmd))
+				out, _, err := ctx.Client.RuleFolders.ReadList(cmdContext(ctx.Cmd))
 				if err != nil {
 					return err
 				}
-				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "List"))
+				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "ReadList"))
 			})
 		},
 	}
@@ -51,7 +92,272 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	return cmd
 }
 
+func genRuleFoldersWriteCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fName string
+	var fNote string
+	var fParentID int64
+	var fTeamID int64
+	cmd := &cobra.Command{
+		Use:   "folder-create",
+		Short: "Create monitor folder",
+		Long: `Create monitor folder.
+
+Create a monitor folder at the root or under an accessible parent folder.
+
+API: POST /monit/folder/create (monit-folder-write-create)
+
+Request fields:
+  --name string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
+  --note string — Free-form note; omitted or empty clears the note on update.
+  --parent-id int — Parent folder ID; 0 or omitted creates a root folder. (min 0)
+  --team-id int — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Owning account ID.
+  - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Name of the creator.
+  - id (integer) (required) — Folder ID.
+  - name (string) (required) — Folder name.
+  - note (string) (required) — Free-form note.
+  - parent_id (integer) (required) — Parent folder ID; 0 at the root.
+  - parent_path (string) (required) — Comma-separated ancestor IDs from the root, excluding this folder; empty at the root.
+  - team_id (integer) (required) — Team the folder is scoped to; 0 when account-wide.
+  - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updater_id (integer) (required) — Member ID of the last updater.
+  - updater_name (string) (required) — Name of the last updater.
+`,
+		Example: `  flashduty monit folder-create --data '{"name":"Checkout","note":"Checkout service folders","parent_id":10,"team_id":0}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("note") {
+						body["note"] = fNote
+					}
+					if cmd.Flags().Changed("parent-id") {
+						body["parent_id"] = fParentID
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.FolderCreateRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.RuleFolders.WriteCreate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "WriteCreate"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fName, "name", "", "Folder name; cannot contain a period, slash, or comma. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fNote, "note", "", "Free-form note; omitted or empty clears the note on update.")
+	cmd.Flags().Int64Var(&fParentID, "parent-id", 0, "Parent folder ID; 0 or omitted creates a root folder. (min 0)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genRuleFoldersWriteDeleteCmd() *cobra.Command {
+	var dataJSON string
+	var fID int64
+	cmd := &cobra.Command{
+		Use:   "folder-delete",
+		Short: "Delete monitor folder",
+		Long: `Delete monitor folder.
+
+Delete an accessible monitor folder after removing its children, rules, and dashboards.
+
+API: POST /monit/folder/delete (monit-folder-write-delete)
+
+Request fields:
+  --id int (required) — Folder ID. (min 1)
+`,
+		Example: `  flashduty monit folder-delete --data '{"id":12}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("id") {
+						body["id"] = fID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.FolderDeleteRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.RuleFolders.WriteDelete(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /monit/folder/delete")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genRuleFoldersWriteMoveCmd() *cobra.Command {
+	var dataJSON string
+	var fDestParentID int64
+	var fID int64
+	cmd := &cobra.Command{
+		Use:   "folder-move <dest-parent-id>",
+		Short: "Move monitor folder",
+		Long: `Move monitor folder.
+
+Move a monitor folder and its descendants under another folder or to the root.
+
+API: POST /monit/folder/move (monit-folder-write-move)
+
+Request fields:
+  --dest-parent-id int (required) — Destination parent folder ID; required even when 0 to move to the root. (min 0)
+  --id int (required) — Folder ID. (min 1)
+`,
+		Args:    requireBodyFieldOrExactArg("dest_parent_id", "dest-parent-id"),
+		Example: `  flashduty monit folder-move --data '{"dest_parent_id":0,"id":12}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "dest_parent_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("dest-parent-id") {
+						body["dest_parent_id"] = fDestParentID
+					}
+					if cmd.Flags().Changed("id") {
+						body["id"] = fID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.FolderMoveRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.RuleFolders.WriteMove(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /monit/folder/move")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fDestParentID, "dest-parent-id", 0, "Destination parent folder ID; required even when 0 to move to the root. (required) (min 0)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genRuleFoldersWriteUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fID int64
+	var fName string
+	var fNote string
+	var fTeamID int64
+	cmd := &cobra.Command{
+		Use:   "folder-update",
+		Short: "Update monitor folder",
+		Long: `Update monitor folder.
+
+Replace the name, note, and team assignment of an accessible monitor folder.
+
+API: POST /monit/folder/update (monit-folder-write-update)
+
+Request fields:
+  --id int (required) — Folder ID. (min 1)
+  --name string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
+  --note string — Free-form note; omitted or empty clears the note on update.
+  --team-id int — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Owning account ID.
+  - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — Member ID of the creator.
+  - creator_name (string) (required) — Name of the creator.
+  - id (integer) (required) — Folder ID.
+  - name (string) (required) — Folder name.
+  - note (string) (required) — Free-form note.
+  - parent_id (integer) (required) — Parent folder ID; 0 at the root.
+  - parent_path (string) (required) — Comma-separated ancestor IDs from the root, excluding this folder; empty at the root.
+  - team_id (integer) (required) — Team the folder is scoped to; 0 when account-wide.
+  - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updater_id (integer) (required) — Member ID of the last updater.
+  - updater_name (string) (required) — Name of the last updater.
+`,
+		Example: `  flashduty monit folder-update --data '{"id":12,"name":"Checkout production","note":"Production services","team_id":0}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("id") {
+						body["id"] = fID
+					}
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
+					if cmd.Flags().Changed("note") {
+						body["note"] = fNote
+					}
+					if cmd.Flags().Changed("team-id") {
+						body["team_id"] = fTeamID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.FolderUpdateRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.RuleFolders.WriteUpdate(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("RuleFolders", "WriteUpdate"))
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
+	cmd.Flags().StringVar(&fName, "name", "", "Folder name; cannot contain a period, slash, or comma. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fNote, "note", "", "Free-form note; omitted or empty clears the note on update.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedRuleFolders(root *cobra.Command) {
 	gMonit := genGroup(root, "monit", "Monitors API")
-	genAddLeaf(gMonit, genRuleFoldersListCmd())
+	genAddLeaf(gMonit, genRuleFoldersReadHealthCmd())
+	genAddLeaf(gMonit, genRuleFoldersReadListCmd())
+	genAddLeaf(gMonit, genRuleFoldersWriteCreateCmd())
+	genAddLeaf(gMonit, genRuleFoldersWriteDeleteCmd())
+	genAddLeaf(gMonit, genRuleFoldersWriteMoveCmd())
+	genAddLeaf(gMonit, genRuleFoldersWriteUpdateCmd())
 }
