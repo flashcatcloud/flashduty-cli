@@ -1,6 +1,6 @@
 # flashduty automation - command card
 
-Prereq: `SKILL.md` read. Automations run AI SRE work on a schedule or through an HTTP POST trigger. A web Automation starts its own web-console session. An Automation bound to the current IM chat continues that chat's current session on each run, so a later `/new` makes the next run use the new current session. `create`, `update`, `delete`, and `fire` mutate or start work. If the user directly asks for that action and provides enough detail, treat it as confirmation and do not ask again.
+Prereq: `SKILL.md` read. Automations run AI SRE work on a schedule or through an HTTP POST trigger. A web Automation starts a fresh web-console execution session. An ordinary Automation bound to the current IM chat starts a fresh execution session on each run and, when the IM integration creates threads, starts a new IM thread. It remains bound to the chat and scope captured at creation, not to an old session or thread. Same-run retries reuse that run's execution identity. War-room Automations keep their existing behavior. `create`, `update`, `delete`, and `fire` mutate or start work. If the user directly asks for that action and provides enough detail, treat it as confirmation and do not ask again.
 
 When this command runs from a live IM conversation, `create` without `--run-in`
 lets the server bind the Automation to that current conversation and inherit its
@@ -11,6 +11,8 @@ inherit the IM scope; pass `--team-id 0` only for an explicit personal scope.
 With `--run-in current-chat`, an explicitly supplied `--team-id` must equal
 the current conversation's scope; it cannot switch that conversation to a
 different personal or team scope.
+If that bound chat's scope no longer matches the rule when it runs, the run is
+skipped; it never moves the rule or runs in another chat.
 The execution destination and pinned scope cannot be changed with `update`.
 
 ## Route here when
@@ -51,7 +53,7 @@ The execution destination and pinned scope cannot be changed with `update`.
   - `--schedule hourly --at 00:15` -> minute 15 of every hour.
   - `--schedule daily --at 01:30` -> every day at 01:30.
   - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00.
-- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time.
+- Custom cron uses `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time. The minute must be one fixed integer from `0` through `59`; minute wildcards, ranges, lists, and steps are unsupported. The fastest supported schedule is once per hour.
 - HTTP POST-only rule: pass `--http-post-trigger` without schedule flags. The CLI sends a placeholder cron and disables the schedule trigger.
 
 ## Hot flow - create from chat
@@ -68,6 +70,11 @@ flashduty automation create \
 To keep an IM-originated Automation in the web console, add `--run-in web`.
 
 If the user did not specify a team, omit `--team-id` so the server can inherit the IM scope. If the user gives a long task prompt, put it in a temp file and pass `--prompt-file <path>` to avoid shell quoting issues.
+
+Every ordinary current-chat run starts fresh, so the task prompt must state the
+goal, relevant chat context (such as the service, team, and delivery target),
+and required inputs directly. Do not say "continue the discussion above" or
+rely on an old session or thread.
 
 ## Hot flow - create an HTTP POST trigger
 

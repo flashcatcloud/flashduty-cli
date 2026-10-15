@@ -67,6 +67,13 @@ scope and --team-id >0 selects that team. The scope is immutable after creation.
 lets the server bind the Automation to that current chat. Use --run-in web to
 run it in the web console instead. Do not supply chat, platform, integration,
 or session identifiers: the server resolves and authorizes the current chat.
+	Each ordinary current-chat run starts a fresh execution session and, where the
+	IM integration creates threads, a fresh IM thread. It remains bound to the
+	original chat and its immutable scope, rather than an old session or thread.
+	Write the task prompt with the needed chat context; do not refer to an earlier
+	session or say "above". A retry of the same run reuses that run's execution
+	identity. If the bound chat's scope no longer matches the rule, the run is
+	skipped. War-room Automations keep their existing behavior.
 
 	Schedule helpers build a 5-field cron expression evaluated in the rule's
 	timezone. Pass --timezone when the user names one. When --timezone is
@@ -74,6 +81,9 @@ or session identifiers: the server resolves and authorizes the current chat.
 	then the account timezone, then Asia/Shanghai. Do not send a timezone
 	default from the CLI. Pass the user's local wall-clock time to --at or
 	--cron-expr; do not convert it to UTC first.
+	Custom cron uses five fields, but its minute must be one fixed integer from
+	0 through 59. The fastest supported schedule is once per hour; minute
+	wildcards, ranges, lists, and steps are unsupported.
 
 	For HTTP POST-only rules, pass --http-post-trigger without a schedule; the CLI
 	sends a valid placeholder cron and disables the schedule trigger.`, "Automations", "RuleWriteCreate"),
@@ -140,12 +150,12 @@ or session identifiers: the server resolves and authorizes the current chat.
 	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
 	cmd.Flags().StringVar(&at, "at", "", "Local time in HH:MM (rule's timezone); for hourly schedules, only the minute is used. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression in the rule's timezone; overrides --schedule helpers. "+automationTimezoneNote)
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Supported 5-field cron expression in the rule's timezone. The minute must be a fixed 0-59 integer, so the fastest schedule is hourly; overrides --schedule helpers. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&timezone, "timezone", "", "IANA timezone name cron_expr is evaluated in, for example Asia/Shanghai. The server must be able to load it; an invalid value is rejected. Omit to use the caller's member timezone, then the account timezone, then Asia/Shanghai.")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "Create the Automation disabled")
 	cmd.Flags().BoolVar(&scheduleEnabled, "schedule-enabled", true, "Whether the schedule trigger is enabled")
 	cmd.Flags().BoolVar(&httpPostTrigger, "http-post-trigger", false, "Create and enable an HTTP POST trigger")
-	cmd.Flags().StringVar(&prompt, "prompt", "", "Task prompt sent to the AI SRE agent")
+	cmd.Flags().StringVar(&prompt, "prompt", "", "Self-contained task prompt for the fresh AI SRE execution; include needed chat context and do not refer to earlier messages or 'above'")
 	cmd.Flags().StringVar(&promptFile, "prompt-file", "", "Read task prompt from a file, or - for stdin")
 	cmd.Flags().StringVar(&environmentKind, "environment-kind", "", "Runtime environment kind: cloud or byoc; empty means automatic")
 	cmd.Flags().StringVar(&environmentID, "environment-id", "", "BYOC Runner ID when --environment-kind=byoc")
@@ -356,7 +366,7 @@ func newAutomationUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&schedule, "schedule", "", "Schedule helper: hourly, daily, weekly, or cron")
 	cmd.Flags().StringVar(&at, "at", "", "Local time in HH:MM (rule's timezone); for hourly schedules, only the minute is used. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&weekday, "weekday", "", "Weekday for weekly schedules: sun, mon, tue, wed, thu, fri, sat, or 0-7")
-	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Exact 5-field cron expression in the rule's timezone; overrides --schedule helpers. "+automationTimezoneNote)
+	cmd.Flags().StringVar(&cronExpr, "cron-expr", "", "Supported 5-field cron expression in the rule's timezone. The minute must be a fixed 0-59 integer, so the fastest schedule is hourly; overrides --schedule helpers. "+automationTimezoneNote)
 	cmd.Flags().StringVar(&timezone, "timezone", "", "IANA timezone name cron_expr is evaluated in. The server must be able to load it; an invalid value is rejected. Omit to leave the stored timezone unchanged, including a legacy empty string. An explicit empty string is stored as UTC, not the account default.")
 	cmd.Flags().BoolVar(&enableRule, "enable", false, "Enable the Automation")
 	cmd.Flags().BoolVar(&disableRule, "disable", false, "Disable the Automation")

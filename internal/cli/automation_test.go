@@ -119,6 +119,30 @@ func TestAutomationScheduleHelpDocumentsTimezone(t *testing.T) {
 	}
 }
 
+func TestAutomationCreateHelpDocumentsFreshIMExecutionAndScheduleLimit(t *testing.T) {
+	saveAndResetGlobals(t)
+
+	out, err := execCommand("automation", "create", "--help")
+	if err != nil {
+		t.Fatalf("[automation-create-help] unexpected error: %v", err)
+	}
+	for _, want := range []string{
+		"fresh execution session",
+		"fresh IM thread",
+		"Write the task prompt with the needed chat context",
+		"say \"above\"",
+		"scope no longer matches the rule",
+		"skipped. War-room Automations keep their existing behavior",
+		"The fastest supported schedule is once per hour",
+		"wildcards, ranges, lists, and steps are unsupported",
+		"Self-contained task prompt for the fresh AI SRE execution",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("[automation-create-help] missing %q\n%s", want, out)
+		}
+	}
+}
+
 func TestAutomationCreateTimezone(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
