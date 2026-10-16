@@ -135,6 +135,74 @@ func TestRenderGenericTable_Empty(t *testing.T) {
 	}
 }
 
+// An items envelope may carry fields beyond pagination metadata (calendar
+// event list's days map): the rows still print as a table and the extra fields
+// are named instead of being flattened into the output.
+func TestRenderGenericTable_EnvelopeWithSiblings(t *testing.T) {
+	type resp struct {
+		Days  map[string]heuristicRow `json:"days"`
+		Items []heuristicRow          `json:"items"`
+		Total int                     `json:"total"`
+	}
+	var buf bytes.Buffer
+	in := &resp{Days: map[string]heuristicRow{"2026-01-01": {}}, Items: []heuristicRow{{Name: "alpha", Count: 7}}, Total: 1}
+	if err := renderGenericTable(tableCtx(&buf), in, listWindow{}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{"NAME", "alpha", "(total 1).", "Also in the response: days (use --json to see it)."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q\n---\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "2026-01-01") {
+		t.Errorf("sibling values must stay out of the table\n%s", got)
+	}
+}
+
+func TestRenderGenericTable_EmptyEnvelopeWithSiblings(t *testing.T) {
+	type resp struct {
+		Items          []heuristicRow `json:"items"`
+		ReleaseLimited bool           `json:"release_limited"`
+	}
+	var buf bytes.Buffer
+	if err := renderGenericTable(tableCtx(&buf), &resp{}, listWindow{}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	want := "No results.\nAlso in the response: release_limited (use --json to see it).\n"
+	if got := buf.String(); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// HasMore is pagination metadata (the work item list's has-more flag), not a
+// sibling worth naming.
+func TestGenericListPage_HasMoreIsMetadata(t *testing.T) {
+	type resp struct {
+		HasMore bool           `json:"has_more"`
+		Items   []heuristicRow `json:"items"`
+	}
+	_, pg, ok := genericListPage(reflect.ValueOf(resp{HasMore: true, Items: []heuristicRow{{Name: "a"}}}), listWindow{})
+	if !ok {
+		t.Fatal("expected a list envelope")
+	}
+	if pg.More != moreYes || len(pg.Siblings) != 0 {
+		t.Errorf("More = %v, Siblings = %v; want moreYes and none", pg.More, pg.Siblings)
+	}
+}
+
+// A struct whose only row slice is not items/docs/list and that carries other
+// fields is a detail object with a nested list, not a list envelope.
+func TestGenericListPage_NestedRowsInDetailObject(t *testing.T) {
+	type detail struct {
+		Name       string         `json:"name"`
+		Responders []heuristicRow `json:"responders"`
+	}
+	if _, _, ok := genericListPage(reflect.ValueOf(detail{Name: "x"}), listWindow{}); ok {
+		t.Fatal("detail object with a nested row slice must not be treated as a list")
+	}
+}
+
 func TestRenderGenericTable_DetailVertical(t *testing.T) {
 	var buf bytes.Buffer
 	row := heuristicRow{Name: "solo", Count: 42}

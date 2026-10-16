@@ -1,6 +1,6 @@
 # flashduty calendar — command card
 
-Prereq: `SKILL.md` read. **`delete` is irreversible** (calendar + all its events gone). `event-delete` is irreversible per event. Reads are free; confirm IDs before any delete.
+Prereq: `SKILL.md` read. **`delete` is irreversible** (calendar + all its events gone). `event-delete` is irreversible (one event, or every own event on a date range). Reads are free; confirm IDs before any delete.
 
 ## Route here when
 
@@ -8,7 +8,11 @@ Prereq: `SKILL.md` read. **`delete` is irreversible** (calendar + all its events
 
 You need a **`cal_id`** (string, format `cal.<uuid>`). Get it from `calendar list`. For events you also need **`event_id`** (returned by `event-upsert`; list with `event-list`).
 
-Public holiday calendars (e.g. `zh-cn.china.official`) are read-only — list them with `--kind region.official.holiday`, then inherit them into a personal calendar via `--extra-cal-ids`.
+Public holiday calendars (e.g. `zh-cn.china.official`) are read-only — list them with `--kind region.official.holiday`, then inherit them into a personal calendar via `--extra-cal-ids`. The China calendar already carries make-up workdays (补班).
+
+**Is a day off or a workday?** Read `days` from `event-list`, never infer it from `items`: one day can hold several events (the calendar's own, a holiday calendar's, the weekly rule). `days["YYYY-MM-DD"]` gives `is_off` plus the `layer` that decided it — `custom` (the calendar's own events) beats `holiday` (linked holiday calendars) beats `weekly` (workdays rule); inside a layer a workday beats a day off; an entry without `layer` has no event covering it and is a workday.
+
+`event-upsert` trims the calendar's other own events off the same days, so the latest write decides them; `--summary` is optional.
 
 ## Intent → verb
 
@@ -21,8 +25,10 @@ Public holiday calendars (e.g. `zh-cn.china.official`) are read-only — list th
 | rename / change workdays / inherit holidays | `update <cal-id>` |
 | delete a calendar (irreversible) | `delete <cal-id>` |
 | list events in a calendar | `event-list <cal-id>` |
+| is a given day off or a workday? | `event-list <cal-id> --year Y --month M --day D` → `days` |
 | add or edit a working/non-working day override | `event-upsert <cal-id>` |
-| remove a calendar event (irreversible) | `event-delete` |
+| remove a calendar event (irreversible) | `event-delete <cal-id> --event-id <event-id>` |
+| reset a date range to the holiday/weekly defaults | `event-delete <cal-id> --start-at <date> --end-at <date>` |
 
 ## Hot flow — create a calendar with holiday inheritance
 
@@ -37,9 +43,9 @@ flashduty calendar create --cal-name "Ops Workdays" \
   --extra-cal-ids zh-cn.china.official
 # → returns cal_id; save it
 
-# 3. Mark a make-up workday (補班) on a Saturday
-flashduty calendar event-upsert <cal-id> --summary "補班 (New Year)" \
-  --start-at 2026-01-17 --end-at 2026-01-18 --is-off false
+# 3. Force a workday the holiday calendar marks off (make-up days 补班 already come from it)
+flashduty calendar event-upsert <cal-id> --summary "Release day" \
+  --start-at 2026-10-08 --end-at 2026-10-09 --is-off false
 
 # 4. Mark a custom holiday (non-working)
 flashduty calendar event-upsert <cal-id> --summary "Team offsite" \
@@ -52,8 +58,14 @@ flashduty calendar event-upsert <cal-id> --summary "Team offsite" \
 # List all events in January 2026
 flashduty calendar event-list <cal-id> --year 2026 --month 1 --output-format toon
 
+# Resolved state of one day
+flashduty calendar event-list <cal-id> --year 2026 --month 1 --json | jq '.days["2026-01-04"]'
+
 # Delete a specific event (get event_id from the list above)
-flashduty calendar event-delete --cal-id <cal-id> --event-id <event-id>
+flashduty calendar event-delete <cal-id> --event-id <event-id>
+
+# Drop every own override on Jan 10–11 (end exclusive); those days fall back to holiday/weekly
+flashduty calendar event-delete <cal-id> --start-at 2026-01-10 --end-at 2026-01-12
 ```
 
 <!-- GENERATED:calendar START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -72,10 +84,12 @@ Create calendar
 Delete calendar
 - `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 
-### event-delete
+### event-delete <cal-id>
 Delete calendar event
-- `--cal-id` string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
-- `--event-id` string (required) — Event ID.
+- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
+- `--end-at` string — End date of the range to clear, in YYYY-MM-DD (exclusive). Must be later than start_at.
+- `--event-id` string — ID of the event to delete. Omit when clearing a date range.
+- `--start-at` string — Start date of the range to clear, in YYYY-MM-DD. Pass together with end_at instead of event_id.
 
 ### event-list <cal-id>
 List calendar events
@@ -83,7 +97,7 @@ List calendar events
 - `--day` int64 — Day (1-31). 0 means no day filter. (0-31)
 - `--month` int64 — Month (1-12). 0 means no month filter. (0-12)
 - `--year` int64 — Year. Defaults to the current year when omitted. (min 2023)
-- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); created_at (string); creator_id (integer); description (string); end_at (string); event_id (string); is_off (boolean); start_at (string); summary (string); updated_at (string)
+- response: `{items: [...], days, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); created_at (string); creator_id (integer); description (string); end_at (string); event_id (string); is_off (boolean); start_at (string); summary (string); updated_at (string)
 
 ### event-upsert <cal-id>
 Upsert calendar event
@@ -93,7 +107,7 @@ Upsert calendar event
 - `--event-id` string — Event ID. Omit when creating. (≤63 chars)
 - `--is-off` bool (required) — Whether the event marks a non-working day. true = day off, false = working day override.
 - `--start-at` string (required) — Event start date in YYYY-MM-DD.
-- `--summary` string (required) — Event summary. (1-39 chars)
+- `--summary` string — Event summary. Optional. (≤39 chars)
 - response: single object (`data` unwrapped to the top level) — fields: cal_id (string); event_id (string); summary (string)
 
 ### info <cal-id>
@@ -129,7 +143,7 @@ Update calendar
 
 ## Gotchas
 
-- **`cal-id` is POSITIONAL on `info`, `update`, `delete`, `event-list`, `event-upsert`** — pass it as the first bare argument: `flashduty calendar info <cal-id>`. On `event-delete` both `--cal-id` and `--event-id` are flags (no positional — `use` is bare `event-delete`).
+- **`cal-id` is POSITIONAL on `info`, `update`, `delete`, `event-list`, `event-upsert`, `event-delete`** — pass it as the first bare argument: `flashduty calendar info <cal-id>`. `event-delete` then takes either `--event-id` or both `--start-at` and `--end-at`.
 - **`event-upsert` creates OR updates** — omit `--event-id` to create; supply it to edit an existing event. The returned `event_id` is what to save for future edits or deletes.
 - **`list` defaults to `--kind personal`** — you will NOT see public-holiday calendars unless you pass `--kind region.official.holiday`. Add `--no-locale` to see all locales, not just yours.
 - **`delete` removes the calendar and ALL its events** — confirm `cal_id` with `list` first; irreversible.

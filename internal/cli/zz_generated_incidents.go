@@ -3570,7 +3570,7 @@ API: POST /incident/work-item/complete (incidentWorkItemComplete)
 
 Request fields:
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-  --target-status string (required) — Client-defined status to set (max 64 characters). There is no fixed state machine. (≤64 chars)
+  --target-status string (required) — Target status. Must be 'done'; any other value is rejected. [done] (≤64 chars)
   --version int (required) — Current item version for optimistic locking. Must match the stored version.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
@@ -3641,7 +3641,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
-	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Client-defined status to set (max 64 characters). There is no fixed state machine. (required) (≤64 chars)")
+	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Target status. Must be 'done'; any other value is rejected. (required) [done] (≤64 chars)")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -3665,7 +3665,7 @@ API: POST /incident/work-item/convert (incidentWorkItemConvert)
 
 Request fields:
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-  --target-status string — Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)
+  --target-status string — Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)
   --version int (required) — Current item version for optimistic locking. Must match the stored version.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
@@ -3736,7 +3736,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
-	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Optional client-defined status to set on the converted follow-up (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -3771,7 +3771,7 @@ Request fields:
   --item-type string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. [action, follow_up]
   --post-mortem-id string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
   --priority string — Optional client-defined priority (max 64 characters). (≤64 chars)
-  --status string — Optional client-defined initial status (max 64 characters). (≤64 chars)
+  --status string — Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. [open, in_progress, done, cancelled] (≤64 chars)
   --title string (required) — Item title (max 512 characters). (≤512 chars)
   assignees (array<object>, via --data) — Initial assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Mutually exclusive with 'assignee_ids': sending both returns an error. 'assignee_ids' is the legacy alias and is equivalent to an all-'person' list. At most 20 entries. Person assignees must be active members who can already read the anchor; assignment never grants access.
     - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
@@ -3864,7 +3864,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fItemType, "item-type", "", "'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. (required) [action, follow_up]")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.")
 	cmd.Flags().StringVar(&fPriority, "priority", "", "Optional client-defined priority (max 64 characters). (≤64 chars)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Optional client-defined initial status (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. [open, in_progress, done, cancelled] (≤64 chars)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Item title (max 512 characters). (required) (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4174,7 +4174,7 @@ API: POST /incident/work-item/update (incidentWorkItemUpdate)
 Request fields:
   --description string — New description (max 65,535 characters). (≤65535 chars)
   --priority string — New client-defined priority (max 64 characters). (≤64 chars)
-  --status string — New client-defined status (max 64 characters). (≤64 chars)
+  --status string — New status. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)
   --title string — New title (max 512 characters). (≤512 chars)
   --version int (required) — Current item version for optimistic locking. Must match the stored version.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
@@ -4253,7 +4253,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description (max 65,535 characters). (≤65535 chars)")
 	cmd.Flags().StringVar(&fPriority, "priority", "", "New client-defined priority (max 64 characters). (≤64 chars)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New client-defined status (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New status. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "New title (max 512 characters). (≤512 chars)")
 	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")

@@ -102,6 +102,9 @@ type listPage struct {
 	// TotalCapped marks an endpoint that stops counting at serverCountCap; its
 	// callers must also set More, the only "rows remain" signal past the cap.
 	TotalCapped bool
+	// Siblings names the response fields beside the rows that are not
+	// pagination metadata; a table shows only the rows.
+	Siblings []string
 }
 
 // totalKnown reports whether Total is a usable server total. A total below the

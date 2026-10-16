@@ -11,29 +11,43 @@ import (
 func genCalendarsCalEventDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fCalID string
+	var fEndAt string
 	var fEventID string
+	var fStartAt string
 	cmd := &cobra.Command{
-		Use:   "event-delete",
+		Use:   "event-delete <cal-id>",
 		Short: "Delete calendar event",
 		Long: `Delete calendar event.
 
-Delete a calendar event by calendar ID and event ID.
+Delete one event of a personal calendar by event_id, or clear the calendar's own events off the days [start_at, end_at). Pass either event_id or both start_at and end_at. Cleared days fall back to the linked holiday calendars and the weekly workdays.
 
 API: POST /calendar/event/delete (calEventDelete)
 
 Request fields:
   --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
-  --event-id string (required) — Event ID.
+  --end-at string — End date of the range to clear, in YYYY-MM-DD (exclusive). Must be later than start_at.
+  --event-id string — ID of the event to delete. Omit when clearing a date range.
+  --start-at string — Start date of the range to clear, in YYYY-MM-DD. Pass together with end_at instead of event_id.
 `,
+		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar event-delete --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","event_id":"cale.KyG9XWTCU5CucbwukEVBQ4"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "cal_id", "string"); err != nil {
+						return err
+					}
 					if cmd.Flags().Changed("cal-id") {
 						body["cal_id"] = fCalID
 					}
+					if cmd.Flags().Changed("end-at") {
+						body["end_at"] = fEndAt
+					}
 					if cmd.Flags().Changed("event-id") {
 						body["event_id"] = fEventID
+					}
+					if cmd.Flags().Changed("start-at") {
+						body["start_at"] = fStartAt
 					}
 					return nil
 				})
@@ -57,7 +71,9 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
-	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. (required)")
+	cmd.Flags().StringVar(&fEndAt, "end-at", "", "End date of the range to clear, in YYYY-MM-DD (exclusive). Must be later than start_at.")
+	cmd.Flags().StringVar(&fEventID, "event-id", "", "ID of the event to delete. Omit when clearing a date range.")
+	cmd.Flags().StringVar(&fStartAt, "start-at", "", "Start date of the range to clear, in YYYY-MM-DD. Pass together with end_at instead of event_id.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -73,7 +89,7 @@ func genCalendarsCalEventListCmd() *cobra.Command {
 		Short: "List calendar events",
 		Long: `List calendar events.
 
-Return events for a personal calendar within a year/month/day scope. When month and day are both omitted the whole year is returned.
+Return events for a personal calendar within a year/month/day scope. When month and day are both omitted the whole year is returned. The response also carries days, the resolved state of every day in the scope.
 
 API: POST /calendar/event/list (calEventList)
 
@@ -84,6 +100,7 @@ Request fields:
   --year int — Year. Defaults to the current year when omitted. (min 2023)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+  - days (object) (required) — Resolved state of every day in the requested scope, keyed by date (YYYY-MM-DD). The highest layer holding any event decides a day: the calendar's own events (custom), then the linked holiday calendars (holiday), then the weekly workdays (weekly). Inside one layer a working-day event beats a day off, so a make-up workday from a holiday calendar wins over holiday rest days. A day no event covers is a working day.
   - items (array<object>) (required) — Calendar events sorted by start_at.
     - account_id (integer) — Account ID. Only present for private events.
     - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
@@ -157,7 +174,7 @@ func genCalendarsCalEventUpsertCmd() *cobra.Command {
 		Short: "Upsert calendar event",
 		Long: `Upsert calendar event.
 
-Create or update a calendar event (holiday or workday override). Omit event_id to create a new event.
+Create or update an event the calendar owns (a day off or a working-day override) over the days [start_at, end_at). Omit event_id to create a new event; a given event_id must be an existing event of this calendar. The write clears the calendar's other own events off the same days: an event fully inside the range is deleted, one partly inside is shortened, and one spanning the range is split in two, so the latest write decides those days. end_at must be later than start_at.
 
 API: POST /calendar/event/upsert (calEventUpsert)
 
@@ -168,7 +185,7 @@ Request fields:
   --event-id string — Event ID. Omit when creating. (≤63 chars)
   --is-off bool (required) — Whether the event marks a non-working day. true = day off, false = working day override.
   --start-at string (required) — Event start date in YYYY-MM-DD.
-  --summary string (required) — Event summary. (1-39 chars)
+  --summary string — Event summary. Optional. (≤39 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cal_id (string) (required) — Calendar ID.
@@ -227,7 +244,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID. Omit when creating. (≤63 chars)")
 	cmd.Flags().BoolVar(&fIsOff, "is-off", false, "Whether the event marks a non-working day. true = day off, false = working day override. (required)")
 	cmd.Flags().StringVar(&fStartAt, "start-at", "", "Event start date in YYYY-MM-DD. (required)")
-	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. (required) (1-39 chars)")
+	cmd.Flags().StringVar(&fSummary, "summary", "", "Event summary. Optional. (≤39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

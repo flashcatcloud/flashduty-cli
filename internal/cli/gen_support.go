@@ -698,9 +698,11 @@ func narrowNumbers(value any) any {
 
 // listEnvelopeKey reports whether value is a paginated list envelope — exactly
 // one array field named items/docs/list with only scalar siblings (total,
-// has_next_page, search_after_ctx, …) — and returns the row array's key. It
-// mirrors cligen's listEnvelope (internal/cmd/cligen), which classifies the
-// same shape when generating these commands.
+// has_next_page, search_after_ctx, …) — and returns the row array's key. It is
+// stricter than cligen's listEnvelope, which also accepts object or array
+// siblings: those cannot be shortened to fit the output limit (a calendar
+// year's days map alone exceeds it), so such a response prints whole, like a
+// detail object.
 func listEnvelopeKey(value map[string]any) (string, bool) {
 	key := ""
 	for name, field := range value {
