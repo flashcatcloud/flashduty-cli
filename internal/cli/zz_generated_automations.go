@@ -31,6 +31,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
+  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
+    - chat_name (string) — Display name of the bound IM conversation when available.
+    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
+    - description (string) (required) — Human-readable destination description.
+    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
+    - platform (string) — IM platform when execution place is 'im'.
+    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
+    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
+  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
@@ -122,6 +131,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - enabled (boolean) (required) — Whether the rule is enabled.
     - environment_id (string) (required) — BYOC Runner ID.
     - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
+    - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
+      - chat_name (string) — Display name of the bound IM conversation when available.
+      - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
+      - description (string) (required) — Human-readable destination description.
+      - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
+      - platform (string) — IM platform when execution place is 'im'.
+      - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
+      - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
+    - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
     - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
     - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
     - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
@@ -212,6 +230,7 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 	var fOncallIncidentSeverities []string
 	var fOncallIncidentTriggerEnabled bool
 	var fPrompt string
+	var fRunIn string
 	var fScheduleTriggerEnabled bool
 	var fTeamID int64
 	var fTimezone string
@@ -235,8 +254,9 @@ Request fields:
   --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
   --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
   --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
+  --run-in string — Execution destination. 'current-chat' binds the rule to the authenticated live IM conversation; 'web' runs in the web console. Omit it so the server selects 'current-chat' for an authenticated IM invocation and 'web' otherwise. The server rejects 'current-chat' outside a live IM conversation. [current-chat, web]
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
-  --team-id int — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)
+  --team-id int — Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)
   --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -247,6 +267,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
+  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
+    - chat_name (string) — Display name of the bound IM conversation when available.
+    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
+    - description (string) (required) — Human-readable destination description.
+    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
+    - platform (string) — IM platform when execution place is 'im'.
+    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
+    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
+  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
@@ -301,6 +330,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("prompt") {
 						body["prompt"] = fPrompt
 					}
+					if cmd.Flags().Changed("run-in") {
+						body["run_in"] = fRunIn
+					}
 					if cmd.Flags().Changed("schedule-trigger-enabled") {
 						body["schedule_trigger_enabled"] = fScheduleTriggerEnabled
 					}
@@ -337,8 +369,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
 	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
 	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fRunIn, "run-in", "", "Execution destination. 'current-chat' binds the rule to the authenticated live IM conversation; 'web' runs in the web console. Omit it so the server selects 'current-chat' for an authenticated IM invocation and 'web' otherwise. The server rejects 'current-chat' outside a live IM conversation. [current-chat, web]")
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -459,7 +492,6 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fRuleID string
 	var fName string
-	var fTeamID int64
 	var fEnabled bool
 	var fCronExpr string
 	var fTimezone string
@@ -484,7 +516,6 @@ API: POST /safari/automation/rule/update (automation-rule-write-update)
 Request fields:
   --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
   --name string — New rule name. (≤255 chars)
-  --team-id int — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
   --enabled bool — Whether the rule is enabled.
   --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.
   --timezone string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
@@ -506,6 +537,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - enabled (boolean) (required) — Whether the rule is enabled.
   - environment_id (string) (required) — BYOC Runner ID.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
+  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
+    - chat_name (string) — Display name of the bound IM conversation when available.
+    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
+    - description (string) (required) — Human-readable destination description.
+    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
+    - platform (string) — IM platform when execution place is 'im'.
+    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
+    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
+  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
   - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
@@ -539,9 +579,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
-					}
-					if cmd.Flags().Changed("team-id") {
-						body["team_id"] = fTeamID
 					}
 					if cmd.Flags().Changed("enabled") {
 						body["enabled"] = fEnabled
@@ -598,7 +635,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().StringVar(&fName, "name", "", "New rule name. (≤255 chars)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
 	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.")
@@ -653,6 +689,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - duration_ms (integer) (required) — Duration in milliseconds.
     - error_code (string) (required) — Error code; empty when the run did not fail.
     - error_message (string) (required) — Error message; empty when the run did not fail.
+    - execution_place (string) (required) — Actual execution destination: 'im' or 'web_console'. IM runs omit session details and deep links. [im, web_console]
     - kind (string) (required) — Run kind; runs listed for a rule are always 'automation_rule'. [automation_rule]
     - occurrence_key (string) (required) — Idempotency key for this occurrence.
     - result_json (object) (required) — Raw run result JSON (carries the run's 'session_id' once started); null when empty.

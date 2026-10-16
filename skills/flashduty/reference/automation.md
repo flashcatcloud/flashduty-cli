@@ -1,6 +1,19 @@
 # flashduty automation - command card
 
-Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or through an HTTP POST trigger. `create`, `update`, `delete`, and `fire` mutate or start work. If the user directly asks for that action and provides enough detail, treat it as confirmation and do not ask again.
+Prereq: `SKILL.md` read. Automations run AI SRE work on a schedule or through an HTTP POST trigger. A web Automation starts a fresh web-console execution session. An ordinary Automation bound to the current IM chat starts a fresh execution session on each run and, when the IM integration creates threads, starts a new IM thread. It remains bound to the chat and scope captured at creation, not to an old session or thread. Same-run retries reuse that run's execution identity. War-room Automations keep their existing behavior. `create`, `update`, `delete`, and `fire` mutate or start work. If the user directly asks for that action and provides enough detail, treat it as confirmation and do not ask again.
+
+When this command runs from a live IM conversation, `create` without `--run-in`
+lets the server bind the Automation to that current conversation and inherit its
+scope. Use `--run-in web` only when the user asks to run in the web console.
+Do not invent or pass a chat, platform, integration, or session ID: the server
+is the only authority that resolves the current chat. Omit `--team-id` to
+inherit the IM scope; pass `--team-id 0` only for an explicit personal scope.
+With `--run-in current-chat`, an explicitly supplied `--team-id` must equal
+the current conversation's scope; it cannot switch that conversation to a
+different personal or team scope.
+If that bound chat's scope no longer matches the rule when it runs, the run is
+skipped; it never moves the rule or runs in another chat.
+The execution destination and pinned scope cannot be changed with `update`.
 
 ## Route here when
 
@@ -22,7 +35,7 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 
 ## Scope and visibility
 
-- `--team-id 0` or omitted means personal scope. `--team-id <id>` means the Automation runs as that team and creates sessions scoped to that team.
+- `--team-id 0` explicitly selects personal scope. Omit it to inherit the authenticated IM conversation scope when available; otherwise the server applies its normal default. For `--run-in current-chat`, an explicit team ID must equal that conversation's scope; it cannot switch the chat's scope. For web execution, `--team-id <id>` selects that team.
 - Creation can target personal scope or any team in the account. Do not block on local team membership guesses; let the API enforce account boundaries.
 - Scope is immutable after creation. The friendly `update` command intentionally has no `--team-id`; create a new Automation if the target scope must change.
 - List visibility follows the backend: the caller sees Automations they created and Automations belonging to teams they can see.
@@ -40,7 +53,7 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
   - `--schedule hourly --at 00:15` -> minute 15 of every hour.
   - `--schedule daily --at 01:30` -> every day at 01:30.
   - `--schedule weekly --weekday mon --at 02:00` -> every Monday at 02:00.
-- For exact minute-level control, use `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time.
+- Custom cron uses `--cron-expr '<minute> <hour> <day> <month> <weekday>'` in that same local time. The minute must be one fixed integer from `0` through `59`; minute wildcards, ranges, lists, and steps are unsupported. The fastest supported schedule is once per hour.
 - HTTP POST-only rule: pass `--http-post-trigger` without schedule flags. The CLI sends a placeholder cron and disables the schedule trigger.
 
 ## Hot flow - create from chat
@@ -48,14 +61,20 @@ Prereq: `SKILL.md` read. Automations create AI SRE sessions on a schedule or thr
 ```bash
 flashduty automation create \
   --name "Daily SRE brief" \
-  --team-id <team-id> \
   --schedule daily \
   --at 01:30 \
   --prompt "Summarize yesterday's incidents, noisy alerts, and follow-up risks." \
   --output-format toon
 ```
 
-If the user did not specify a team, omit `--team-id` for personal scope. If the user gives a long task prompt, put it in a temp file and pass `--prompt-file <path>` to avoid shell quoting issues.
+To keep an IM-originated Automation in the web console, add `--run-in web`.
+
+If the user did not specify a team, omit `--team-id` so the server can inherit the IM scope. If the user gives a long task prompt, put it in a temp file and pass `--prompt-file <path>` to avoid shell quoting issues.
+
+Every ordinary current-chat run starts fresh, so the task prompt must state the
+goal, relevant chat context (such as the service, team, and delivery target),
+and required inputs directly. Do not say "continue the discussion above" or
+rely on an old session or thread.
 
 ## Hot flow - create an HTTP POST trigger
 
@@ -119,12 +138,13 @@ Create an Automation
 - `--name` string
 - `--prompt` string
 - `--prompt-file` string
+- `--run-in` string
 - `--schedule` string
 - `--schedule-enabled` bool
 - `--team-id` int64
 - `--timezone` string
 - `--weekday` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
 
 ### delete <rule_id>
 Delete an Automation

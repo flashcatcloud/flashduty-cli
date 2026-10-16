@@ -180,10 +180,11 @@ Create Automation rule
 - `--oncall-incident-severities` stringSlice — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. · enum: Critical | Warning | Info
 - `--oncall-incident-trigger-enabled` bool — Whether the On-call incident trigger is enabled.
 - `--prompt` string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
+- `--run-in` string — Execution destination. 'current-chat' binds the rule to the authenticated live IM conversation; 'web' runs in the web console. Omit it so the server selects 'current-chat' for an authenticated IM invocation and 'web' otherwise. The server rejects 'current-chat' outside a live IM conversation. · enum: current-chat | web
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
-- `--team-id` int64 — Scope team ID. 0 or omitted means a personal rule; >0 means a team in the account. Can be reassigned later via update (converting a team rule to personal is owner-only; moving into a team requires the caller to belong to it). (min 0)
+- `--team-id` int64 — Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)
 - `--timezone` string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
 
 ### automation-rule-delete <rule-id>
 Delete Automation rule
@@ -226,7 +227,6 @@ Update Automation rule
 - `--rotate-http-post-trigger-token` bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
-- `--team-id` int64 — Reassign the rule's scope: 0 converts to a personal rule (only the rule owner may convert a team rule); >0 moves it into a team the caller belongs to. Omit to leave unchanged. (min 0)
 - `--timezone` string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
 - response: same shape as `automation-rule-create` above
 
