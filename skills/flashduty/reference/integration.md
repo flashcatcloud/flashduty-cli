@@ -5,10 +5,10 @@ Prereq: read `SKILL.md`. These commands manage **public/account-level integratio
 ## Read before changing configuration
 
 - Start with `type-list` and `list`. Create only a `plugin_type` whose type entry has `supports_api_create: true`.
-- List/info return stored `settings` and decrypted `integration_key` without masking. Prefer `--fields` projections for discovery; do not paste secrets into a report or unrelated tool. An integration key authenticates inbound pushes; it is not the account App Key used by this CLI.
+- List/info return stored `settings` with each saved secret as `******`, and `integration_key` as is. Prefer `--fields` projections for discovery; do not paste the integration key into a report or unrelated tool. An integration key authenticates inbound pushes; it is not the account App Key used by this CLI.
 - `editable` describes object permission; writes also require Integrations Manage. `no_editable: true` marks a read-only integration. Do not infer write authorization from read access.
 - Before update/delete or key rotation, get per-target confirmation and save `info` to the protected workspace backup described in `SKILL.md`. Confirm references before deletion. Rotating the key invalidates the old key immediately; update the sender configuration as part of the approved change.
-- Metadata-only updates preserve omitted fields. `--team-id 0` deliberately clears team ownership. Submitted `settings` replace type-specific configuration; known sensitive fields omitted or set to `******` preserve their stored value. An explicit `headers: {}` clears headers.
+- Metadata-only updates preserve omitted fields. `--team-id 0` deliberately clears team ownership. Submitted `settings` replace type-specific configuration; known sensitive fields omitted or set to `******` preserve their stored value. A stored secret cannot be kept while its destination (such as `endpoint`, `url`, or a database host or port) changes; send the real secret with the new destination. An explicit `headers: {}` clears headers.
 - `--is-test` on create, or on update with `settings`, returns plugin test results. Inspect `test.success` and `test.message`: HTTP success is not plugin-test success. An absent `test` means no test result was returned, not a successful test.
 
 ## Discovery
