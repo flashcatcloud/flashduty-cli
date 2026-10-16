@@ -41,7 +41,7 @@ Download the archive for your platform from [GitHub Releases](https://github.com
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `FLASHDUTY_VERSION` | Install a specific version (e.g. `v1.5.12`) | latest |
-| `FLASHDUTY_INSTALL_DIR` | Install directory | `/usr/local/bin` (shell), `~\.flashduty\bin` (PowerShell) |
+| `FLASHDUTY_INSTALL_DIR` | Install directory | shell: the directory of the `flashduty` already on `PATH`, else `/usr/local/bin`; PowerShell: `~\.flashduty\bin` |
 | `MIRROR_URL` | Release asset mirror (must be `https://`) | `https://static.flashcat.cloud/flashduty-cli` |
 
 ## Quick start

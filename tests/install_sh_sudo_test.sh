@@ -93,7 +93,7 @@ run_install() {
     home_dir="$1"
     install_dir="$2"
     out_file="$3"
-    env PATH="${FAKE_BIN}:$PATH" \
+    env PATH="${FAKE_BIN}:${EXTRA_PATH:+${EXTRA_PATH}:}$PATH" \
         HOME="${home_dir}" \
         SHELL=/bin/false \
         FLASHDUTY_VERSION=v9.9.9 \
@@ -186,7 +186,76 @@ test_tty_prompts_for_interactive_sudo() {
     assert_file_missing "${home_dir}/.local/bin/flashduty"
 }
 
+# A stale copy earlier on PATH: with no FLASHDUTY_INSTALL_DIR the upgrade must
+# replace it in place rather than install a shadowed copy elsewhere.
+make_existing_copy() {
+    mkdir -p "$1"
+    printf '#!/bin/sh\necho "old flashduty"\n' > "$1/flashduty"
+    chmod +x "$1/flashduty"
+}
+
+test_replaces_copy_already_on_path() {
+    SUDO_LOG="${TMP_DIR}/sudo-existing.log"
+    export SUDO_LOG
+    : > "${SUDO_LOG}"
+    home_dir="${TMP_DIR}/home-existing"
+    existing_dir="${TMP_DIR}/existing-bin"
+    out_file="${TMP_DIR}/existing.out"
+    mkdir -p "${home_dir}"
+    make_existing_copy "${existing_dir}"
+
+    # Trailing slash: dash's `command -v` then reports "<dir>//flashduty".
+    EXTRA_PATH="${existing_dir}/" run_install "${home_dir}" "" "${out_file}"
+
+    assert_contains "${out_file}" "Installed to ${existing_dir}/flashduty"
+    assert_contains "${existing_dir}/flashduty" "fake flashduty"
+    assert_file_missing "${home_dir}/.local/bin/flashduty"
+    if grep -Fq "WARNING" "${out_file}"; then
+        echo "unexpected warning:" >&2
+        cat "${out_file}" >&2
+        exit 1
+    fi
+}
+
+test_warns_when_copy_on_path_shadows_install() {
+    SUDO_LOG="${TMP_DIR}/sudo-shadow.log"
+    export SUDO_LOG
+    : > "${SUDO_LOG}"
+    home_dir="${TMP_DIR}/home-shadow"
+    existing_dir="${TMP_DIR}/shadow-bin"
+    out_file="${TMP_DIR}/shadow.out"
+    mkdir -p "${home_dir}"
+    make_existing_copy "${existing_dir}"
+    chmod 555 "${existing_dir}"
+
+    EXTRA_PATH="${existing_dir}" run_install "${home_dir}" "" "${out_file}"
+
+    assert_file_exists "${home_dir}/.local/bin/flashduty"
+    assert_contains "${existing_dir}/flashduty" "old flashduty"
+    assert_contains "${out_file}" "WARNING: your shell runs ${existing_dir}/flashduty, not this install."
+}
+
+test_refuses_runner_managed_copy() {
+    SUDO_LOG="${TMP_DIR}/sudo-runner.log"
+    export SUDO_LOG
+    : > "${SUDO_LOG}"
+    home_dir="${TMP_DIR}/home-runner"
+    install_dir="${TMP_DIR}/runner-bin"
+    out_file="${TMP_DIR}/runner.out"
+    mkdir -p "${home_dir}" "${install_dir}"
+
+    if FLASHDUTY_MANAGED_BY_RUNNER=1 run_install "${home_dir}" "${install_dir}" "${out_file}"; then
+        echo "expected install to fail when managed by flashduty-runner" >&2
+        exit 1
+    fi
+    assert_contains "${out_file}" "flashduty is managed by flashduty-runner; upgrade the runner instead"
+    assert_file_missing "${install_dir}/flashduty"
+}
+
 make_fixtures
 make_fake_commands
 test_non_tty_falls_back_to_user_bin
 test_tty_prompts_for_interactive_sudo
+test_replaces_copy_already_on_path
+test_warns_when_copy_on_path_shadows_install
+test_refuses_runner_managed_copy
