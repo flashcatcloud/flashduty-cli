@@ -89,7 +89,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
   - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
   - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
-  - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
+  - settings (object) (required) — Stored type-specific configuration. Each saved secret (passwords, app secrets, tokens, encryption keys, webhook endpoints, HTTP pull URL and body, headers, custom bodies) is returned as '******'; unset values stay empty.
   - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
   - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
   - test (object) — Plugin test result, returned only when a test is performed.
@@ -189,7 +189,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
     - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
     - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
-    - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
+    - settings (object) (required) — Stored type-specific configuration. Each saved secret (passwords, app secrets, tokens, encryption keys, webhook endpoints, HTTP pull URL and body, headers, custom bodies) is returned as '******'; unset values stay empty.
     - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
     - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
     - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -672,7 +672,7 @@ Request fields:
   --is-test bool — Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.
   --name string — New name, 2–49 characters. (2-49 chars)
   --team-id int — New owning team ID; '0' clears the team assignment. (min 0)
-  settings (object, via --data) — Replacement type-specific configuration. Known sensitive fields omitted or sent as '******' keep their stored value; an explicit empty headers object clears headers.
+  settings (object, via --data) — Replacement type-specific configuration. Known sensitive fields omitted or sent as '******' keep their stored value; an explicit empty headers object clears headers. A stored secret cannot be kept while its destination (such as 'endpoint', 'url', or a database host or port) changes.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
@@ -689,7 +689,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - plugin_type (string) (required) — Integration type, for example 'standard.alert' or 'zabbix.alert'.
   - plugin_type_name (string) (required) — Display name of the integration type, in the language of the request.
   - ref_id (string) (required) — Source reference ID, normally 'a_<account_id>' for an account-level integration; legacy 'w_' references may also exist. Channel-owned 'c_' integrations are excluded.
-  - settings (object) (required) — Stored type-specific configuration, including credential values without masking; matches the legacy '/datasource/*' response behavior.
+  - settings (object) (required) — Stored type-specific configuration. Each saved secret (passwords, app secrets, tokens, encryption keys, webhook endpoints, HTTP pull URL and body, headers, custom bodies) is returned as '******'; unset values stay empty.
   - status (string) (required) — Lifecycle status: 'enabled' while the integration accepts events, 'disabled' when it is paused. [enabled, disabled]
   - team_id (integer) (required) — ID of the team that owns the integration. '0' when it is not assigned to a team.
   - test (object) — Plugin test result, returned only when a test is performed.
