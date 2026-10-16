@@ -41,7 +41,7 @@ irm https://static.flashcat.cloud/flashduty-cli/install.ps1 | iex
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `FLASHDUTY_VERSION` | 安装指定版本（如 `v1.5.12`） | 最新版 |
-| `FLASHDUTY_INSTALL_DIR` | 安装目录 | `/usr/local/bin`（shell），`~\.flashduty\bin`（PowerShell） |
+| `FLASHDUTY_INSTALL_DIR` | 安装目录 | shell：`PATH` 上已有 `flashduty` 所在目录，没有则 `/usr/local/bin`；PowerShell：`~\.flashduty\bin` |
 | `MIRROR_URL` | 下载镜像地址（必须是 `https://`） | `https://static.flashcat.cloud/flashduty-cli` |
 
 ## 快速上手

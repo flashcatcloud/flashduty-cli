@@ -4,7 +4,8 @@
 #
 # Environment:
 #   FLASHDUTY_VERSION      Install a specific version (e.g. v0.1.2). Default: latest.
-#   FLASHDUTY_INSTALL_DIR  Install directory. Default: /usr/local/bin.
+#   FLASHDUTY_INSTALL_DIR  Install directory. Default: the directory of the
+#                          flashduty already on PATH, else /usr/local/bin.
 #   INSTALLED_NAME         Installed command name. Default: flashduty.
 #   MIRROR_URL             Fetch release assets from this https mirror prefix.
 #                          Default: https://static.flashcat.cloud/flashduty-cli.
@@ -18,7 +19,15 @@ set -e
 REPO="flashcatcloud/flashduty-cli"
 BINARY="flashduty-cli"
 INSTALLED_NAME="${INSTALLED_NAME:-flashduty}"
-INSTALL_DIR="${FLASHDUTY_INSTALL_DIR:-/usr/local/bin}"
+# Default to the directory of the copy the shell already runs, so an upgrade
+# replaces it instead of landing behind it on PATH. Fresh installs use
+# /usr/local/bin.
+existing=$(command -v "${INSTALLED_NAME}" 2>/dev/null || true)
+case "${existing}" in
+    /*) default_dir=$(dirname -- "${existing}") ;;
+    *) default_dir="/usr/local/bin" ;;
+esac
+INSTALL_DIR="${FLASHDUTY_INSTALL_DIR:-${default_dir}}"
 
 # By default release downloads are fetched from the Flashcat CDN. Set MIRROR_URL
 # to another prefix to override, or to an empty string to force GitHub fallback.
@@ -230,6 +239,12 @@ EOF
 # --- main ---
 
 main() {
+    # flashduty-runner stages its own bundled copy; replacing it would desync the
+    # runner from the CLI it was built and verified against.
+    if [ "${FLASHDUTY_MANAGED_BY_RUNNER:-}" = "1" ]; then
+        fail "flashduty is managed by flashduty-runner; upgrade the runner instead"
+    fi
+
     need_cmd uname
     need_cmd tar
     need_cmd curl
@@ -316,12 +331,15 @@ main() {
 
     info "Installed to ${INSTALL_DIR}/${INSTALLED_NAME}"
 
-    # Warn if install dir is not in PATH
-    case ":${PATH}:" in
-        *":${INSTALL_DIR}:"*) ;;
-        *) info "WARNING: ${INSTALL_DIR} is not in your PATH. Add it with:"
-           info "  export PATH=\"${INSTALL_DIR}:\$PATH\"" ;;
-    esac
+    # Warn unless the shell now runs the binary just installed.
+    active=$(command -v "${INSTALLED_NAME}" 2>/dev/null || true)
+    if [ -z "${active}" ]; then
+        info "WARNING: ${INSTALL_DIR} is not in your PATH. Add it with:"
+        info "  export PATH=\"${INSTALL_DIR}:\$PATH\""
+    elif [ "$(dirname -- "${active}")" != "${INSTALL_DIR%/}" ]; then
+        info "WARNING: your shell runs ${active}, not this install."
+        info "  Remove that copy, or put ${INSTALL_DIR} ahead of it on PATH."
+    fi
 
     # Best-effort shell completion; never fail the install over it.
     BIN="${INSTALL_DIR}/${INSTALLED_NAME}"
