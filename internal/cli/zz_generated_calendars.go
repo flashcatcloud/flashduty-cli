@@ -262,7 +262,7 @@ func genCalendarsCalendarCreateCmd() *cobra.Command {
 		Short: "Create calendar",
 		Long: `Create calendar.
 
-Create a personal service calendar. Each account is limited to 5 calendars unless the Flashcat-Break-Cal-Limit header is set.
+Create a personal service calendar. Each account is limited to 5 calendars.
 
 API: POST /calendar/create (calendarCreate)
 
