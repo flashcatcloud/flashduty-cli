@@ -78,6 +78,12 @@ List escalation rules
 - `--fields` string
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
+### escalate-rule-reorder
+Reorder escalation rules
+- `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
+- `--drag-rule-id` string (required) — ID of the rule being dragged (24-character hex), as returned in 'rule_id' by the create or list endpoint.
+- `--target-rule-id` string (required) — ID of the rule whose slot the dragged rule moves into (24-character hex).
+
 ### escalate-rule-update
 Update escalation rule
 - `--aggr-window` int64 — Delay window in seconds. 0 disables delay.

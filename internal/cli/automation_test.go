@@ -298,6 +298,130 @@ func TestSafariAutomationRuleUpdateTimezone(t *testing.T) {
 	assertBody(t, stub.lastBody, "timezone", "Europe/London")
 }
 
+func TestAutomationCreateWarRoomOnly(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "War room responder",
+		"--war-room-trigger",
+		"--war-room-channel-ids", "3521074710131,3521074710132",
+		"--war-room-severities", "Critical,Warning",
+		"--prompt", "Triage the incident inside the war room",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-war-room-only] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/safari/automation/rule/create" {
+		t.Fatalf("[automation-create-war-room-only] path = %q", stub.lastPath)
+	}
+	assertBody(t, stub.lastBody, "cron_expr", automationHTTPPostOnlyCron)
+	assertBody(t, stub.lastBody, "schedule_trigger_enabled", false)
+	assertBody(t, stub.lastBody, "war_room_trigger_enabled", true)
+	assertBody(t, stub.lastBody, "war_room_channel_ids", []any{float64(3521074710131), float64(3521074710132)})
+	assertBody(t, stub.lastBody, "war_room_severities", []any{"Critical", "Warning"})
+}
+
+func TestAutomationCreateWarRoomKeepsSchedule(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Daily war room check",
+		"--schedule", "daily",
+		"--at", "09:00",
+		"--war-room-trigger",
+		"--war-room-channel-ids", "3521074710131",
+		"--war-room-severities", "Critical",
+		"--prompt", "Check open war rooms",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-war-room-scheduled] unexpected error: %v", err)
+	}
+	assertBody(t, stub.lastBody, "cron_expr", "0 9 * * *")
+	assertBody(t, stub.lastBody, "schedule_trigger_enabled", true)
+	assertBody(t, stub.lastBody, "war_room_trigger_enabled", true)
+}
+
+func TestAutomationCreateWarRoomRequiresFilters(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Broken",
+		"--war-room-trigger",
+		"--prompt", "missing filters",
+		"--json",
+	)
+	if err == nil || !strings.Contains(err.Error(), "--war-room-trigger requires --war-room-channel-ids and --war-room-severities") {
+		t.Fatalf("[automation-create-war-room-missing-filters] err = %v", err)
+	}
+}
+
+func TestAutomationCreateWarRoomOmitsUnsetFilters(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "create",
+		"--name", "Plain daily",
+		"--schedule", "daily",
+		"--at", "09:00",
+		"--prompt", "plain",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-create-war-room-omitted] unexpected error: %v", err)
+	}
+	for _, field := range []string{"war_room_trigger_enabled", "war_room_channel_ids", "war_room_severities"} {
+		if _, ok := stub.lastBody[field]; ok {
+			t.Fatalf("[automation-create-war-room-omitted] %s must be omitted, body=%#v", field, stub.lastBody)
+		}
+	}
+}
+
+func TestAutomationUpdateWarRoomTrigger(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "update", "auto_123",
+		"--enable-war-room-trigger",
+		"--war-room-channel-ids", "3521074710131",
+		"--war-room-severities", "Critical",
+		"--json",
+	)
+	if err != nil {
+		t.Fatalf("[automation-update-war-room] unexpected error: %v", err)
+	}
+	if stub.lastPath != "/safari/automation/rule/update" {
+		t.Fatalf("[automation-update-war-room] path = %q", stub.lastPath)
+	}
+	assertBody(t, stub.lastBody, "war_room_trigger_enabled", true)
+	assertBody(t, stub.lastBody, "war_room_channel_ids", []any{float64(3521074710131)})
+	assertBody(t, stub.lastBody, "war_room_severities", []any{"Critical"})
+}
+
+func TestAutomationUpdateWarRoomTriggerConflict(t *testing.T) {
+	saveAndResetGlobals(t)
+	newGFStub(t)
+
+	_, err := execCommand(
+		"automation", "update", "auto_123",
+		"--enable-war-room-trigger",
+		"--disable-war-room-trigger",
+		"--json",
+	)
+	if err == nil || !strings.Contains(err.Error(), "only one of --enable-war-room-trigger or --disable-war-room-trigger") {
+		t.Fatalf("[automation-update-war-room-conflict] err = %v", err)
+	}
+}
+
 func TestAutomationCreateHTTPPostOnly(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
