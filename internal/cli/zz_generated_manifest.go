@@ -56,6 +56,7 @@ var generatedOpIDs = []string{
 	"channelEscalateRuleEnable",
 	"channelEscalateRuleInfo",
 	"channelEscalateRuleList",
+	"channelEscalateRuleReorder",
 	"channelEscalateRuleUpdate",
 	"channelInfo",
 	"channelInfos",

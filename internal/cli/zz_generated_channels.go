@@ -756,6 +756,65 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genChannelsChannelEscalateRuleReorderCmd() *cobra.Command {
+	var dataJSON string
+	var fChannelID int64
+	var fDragRuleID string
+	var fTargetRuleID string
+	cmd := &cobra.Command{
+		Use:   "escalate-rule-reorder",
+		Short: "Reorder escalation rules",
+		Long: `Reorder escalation rules.
+
+Change the evaluation order of a channel's escalation rules by moving one rule into another rule's slot.
+
+API: POST /channel/escalate/rule/reorder (channelEscalateRuleReorder)
+
+Request fields:
+  --channel-id int (required) — Owning channel ID; obtain it from 'POST /channel/list'.
+  --drag-rule-id string (required) — ID of the rule being dragged (24-character hex), as returned in 'rule_id' by the create or list endpoint.
+  --target-rule-id string (required) — ID of the rule whose slot the dragged rule moves into (24-character hex).
+`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("channel-id") {
+						body["channel_id"] = fChannelID
+					}
+					if cmd.Flags().Changed("drag-rule-id") {
+						body["drag_rule_id"] = fDragRuleID
+					}
+					if cmd.Flags().Changed("target-rule-id") {
+						body["target_rule_id"] = fTargetRuleID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ReorderEscalationRulesRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Channels.ChannelEscalateRuleReorder(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				if resp != nil && len(resp.Raw) > 0 {
+					return ctx.WriteRaw(resp.Raw)
+				}
+				ctx.WriteResult("OK: POST /channel/escalate/rule/reorder")
+				return nil
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Owning channel ID; obtain it from 'POST /channel/list'. (required)")
+	cmd.Flags().StringVar(&fDragRuleID, "drag-rule-id", "", "ID of the rule being dragged (24-character hex), as returned in 'rule_id' by the create or list endpoint. (required)")
+	cmd.Flags().StringVar(&fTargetRuleID, "target-rule-id", "", "ID of the rule whose slot the dragged rule moves into (24-character hex). (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genChannelsChannelEscalateRuleUpdateCmd() *cobra.Command {
 	var dataJSON string
 	var fAggrWindow int64
@@ -2722,6 +2781,7 @@ func registerGeneratedChannels(root *cobra.Command) {
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleEnableCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleListCmd())
+	genAddLeaf(gChannel, genChannelsChannelEscalateRuleReorderCmd())
 	genAddLeaf(gChannel, genChannelsChannelEscalateRuleUpdateCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfoCmd())
 	genAddLeaf(gChannel, genChannelsChannelInfosCmd())
