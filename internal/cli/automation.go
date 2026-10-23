@@ -12,8 +12,10 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
-const automationHTTPPostOnlyCron = "0 0 * * *"
-const automationTimezoneNote = "The rule's timezone defaults to the caller's member timezone, then the account timezone; pass the user's local wall-clock time here, do not convert it to UTC."
+const (
+	automationHTTPPostOnlyCron = "0 0 * * *"
+	automationTimezoneNote     = "The rule's timezone defaults to the caller's member timezone, then the account timezone; pass the user's local wall-clock time here, do not convert it to UTC."
+)
 
 func newAutomationCmd() *cobra.Command {
 	cmd := newGroupCmd("automation", "Manage AI SRE Automations")
@@ -36,21 +38,24 @@ func newAutomationCmd() *cobra.Command {
 
 func newAutomationCreateCmd() *cobra.Command {
 	var (
-		name            string
-		teamID          int64
-		schedule        string
-		at              string
-		weekday         string
-		cronExpr        string
-		disabled        bool
-		scheduleEnabled = true
-		httpPostTrigger bool
-		prompt          string
-		promptFile      string
-		environmentKind string
-		environmentID   string
-		runIn           string
-		timezone        string
+		name              string
+		teamID            int64
+		schedule          string
+		at                string
+		weekday           string
+		cronExpr          string
+		disabled          bool
+		scheduleEnabled   = true
+		httpPostTrigger   bool
+		prompt            string
+		promptFile        string
+		environmentKind   string
+		environmentID     string
+		runIn             string
+		timezone          string
+		warRoomTrigger    bool
+		warRoomChannels   []int64
+		warRoomSeverities []string
 	)
 
 	cmd := &cobra.Command{
@@ -86,7 +91,14 @@ or session identifiers: the server resolves and authorizes the current chat.
 	wildcards, ranges, lists, and steps are unsupported.
 
 	For HTTP POST-only rules, pass --http-post-trigger without a schedule; the CLI
-	sends a valid placeholder cron and disables the schedule trigger.`, "Automations", "RuleWriteCreate"),
+	sends a valid placeholder cron and disables the schedule trigger.
+
+	For a war room trigger, pass --war-room-trigger together with
+	--war-room-channel-ids and --war-room-severities. When an AI SRE war room
+	(IM group chat) is created for a matching incident, the agent runs inside
+	that group chat. A war-room-only rule needs no schedule flags: the CLI
+	sends a placeholder cron and disables the schedule trigger, same as an
+	HTTP POST-only rule.`, "Automations", "RuleWriteCreate"),
 		Example: `  flashduty automation create --name "Daily SRE brief" --schedule daily --at 01:30 --prompt "Summarize yesterday's incidents"
   flashduty automation create --name "Weekly noise review" --team-id 123 --schedule weekly --weekday mon --at 02:00 --prompt-file ./prompt.md
   flashduty automation create --name "Webhook triage" --http-post-trigger --prompt "Handle the posted payload"`,
@@ -103,6 +115,9 @@ or session identifiers: the server resolves and authorizes the current chat.
 				if strings.TrimSpace(taskPrompt) == "" {
 					return fmt.Errorf("one of --prompt or --prompt-file is required")
 				}
+				if warRoomTrigger && (len(warRoomChannels) == 0 || len(warRoomSeverities) == 0) {
+					return fmt.Errorf("--war-room-trigger requires --war-room-channel-ids and --war-room-severities")
+				}
 				if cmd.Flags().Changed("run-in") {
 					runIn = strings.TrimSpace(runIn)
 					if runIn != "current-chat" && runIn != "web" {
@@ -111,7 +126,7 @@ or session identifiers: the server resolves and authorizes the current chat.
 				}
 
 				effectiveScheduleEnabled := scheduleEnabled
-				cron, err := resolveAutomationCreateCron(cmd, schedule, at, weekday, cronExpr, httpPostTrigger, &effectiveScheduleEnabled)
+				cron, err := resolveAutomationCreateCron(cmd, schedule, at, weekday, cronExpr, httpPostTrigger || warRoomTrigger, &effectiveScheduleEnabled)
 				if err != nil {
 					return err
 				}
@@ -125,6 +140,13 @@ or session identifiers: the server resolves and authorizes the current chat.
 					Prompt:                 taskPrompt,
 					EnvironmentKind:        strings.TrimSpace(environmentKind),
 					EnvironmentID:          strings.TrimSpace(environmentID),
+					WarRoomTriggerEnabled:  warRoomTrigger,
+				}
+				if cmd.Flags().Changed("war-room-channel-ids") {
+					req.WarRoomChannelIDs = warRoomChannels
+				}
+				if cmd.Flags().Changed("war-room-severities") {
+					req.WarRoomSeverities = warRoomSeverities
 				}
 				if cmd.Flags().Changed("team-id") {
 					req.TeamID = flashduty.Int64(teamID)
@@ -155,6 +177,9 @@ or session identifiers: the server resolves and authorizes the current chat.
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "Create the Automation disabled")
 	cmd.Flags().BoolVar(&scheduleEnabled, "schedule-enabled", true, "Whether the schedule trigger is enabled")
 	cmd.Flags().BoolVar(&httpPostTrigger, "http-post-trigger", false, "Create and enable an HTTP POST trigger")
+	cmd.Flags().BoolVar(&warRoomTrigger, "war-room-trigger", false, "Create and enable the AI SRE war room trigger; requires --war-room-channel-ids and --war-room-severities")
+	cmd.Flags().Int64SliceVar(&warRoomChannels, "war-room-channel-ids", nil, "Channel (collaboration space) IDs whose new AI SRE war rooms trigger this Automation; at least one")
+	cmd.Flags().StringSliceVar(&warRoomSeverities, "war-room-severities", nil, "War room severities that trigger this Automation: Critical, Warning, or Info; at least one")
 	cmd.Flags().StringVar(&prompt, "prompt", "", "Self-contained task prompt for the fresh AI SRE execution; include needed chat context and do not refer to earlier messages or 'above'")
 	cmd.Flags().StringVar(&promptFile, "prompt-file", "", "Read task prompt from a file, or - for stdin")
 	cmd.Flags().StringVar(&environmentKind, "environment-kind", "", "Runtime environment kind: cloud or byoc; empty means automatic")
@@ -250,6 +275,10 @@ func newAutomationUpdateCmd() *cobra.Command {
 		disableHTTPPostTrigger bool
 		rotateHTTPPostToken    bool
 		timezone               string
+		enableWarRoomTrigger   bool
+		disableWarRoomTrigger  bool
+		warRoomChannels        []int64
+		warRoomSeverities      []string
 	)
 
 	cmd := &cobra.Command{
@@ -267,10 +296,16 @@ func newAutomationUpdateCmd() *cobra.Command {
 	to UTC first. An explicit empty --timezone "" is sent and stored as UTC,
 	not the account default. Update recalculates the next fire immediately;
 	read schedule_next_fire_at_ms from the response and do not assume the
-	previously scheduled occurrence will still run.`, "Automations", "RuleWriteUpdate"),
+	previously scheduled occurrence will still run.
+
+	Use --enable-war-room-trigger or --disable-war-room-trigger to toggle the
+	AI SRE war room trigger; --war-room-channel-ids and --war-room-severities
+	replace its filters. Creating the trigger through update requires both
+	filter lists.`, "Automations", "RuleWriteUpdate"),
 		Example: `  flashduty automation update auto_123 --name "Daily brief v2" --cron-expr "15 1 * * *"
   flashduty automation update auto_123 --disable
-  flashduty automation update auto_123 --enable-http-post-trigger --rotate-http-post-token`,
+  flashduty automation update auto_123 --enable-http-post-trigger --rotate-http-post-token
+  flashduty automation update auto_123 --enable-war-room-trigger --war-room-channel-ids 3521074710131 --war-room-severities Critical,Warning`,
 		Args: requireExactArg("rule_id"),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if enableRule && disableRule {
@@ -281,6 +316,9 @@ func newAutomationUpdateCmd() *cobra.Command {
 			}
 			if enableHTTPPostTrigger && disableHTTPPostTrigger {
 				return fmt.Errorf("only one of --enable-http-post-trigger or --disable-http-post-trigger may be set")
+			}
+			if enableWarRoomTrigger && disableWarRoomTrigger {
+				return fmt.Errorf("only one of --enable-war-room-trigger or --disable-war-room-trigger may be set")
 			}
 			return nil
 		},
@@ -349,6 +387,22 @@ func newAutomationUpdateCmd() *cobra.Command {
 					req.RotateHTTPPostTriggerToken = true
 					changed = true
 				}
+				if enableWarRoomTrigger {
+					req.WarRoomTriggerEnabled = flashduty.Bool(true)
+					changed = true
+				}
+				if disableWarRoomTrigger {
+					req.WarRoomTriggerEnabled = flashduty.Bool(false)
+					changed = true
+				}
+				if cmd.Flags().Changed("war-room-channel-ids") {
+					req.WarRoomChannelIDs = &warRoomChannels
+					changed = true
+				}
+				if cmd.Flags().Changed("war-room-severities") {
+					req.WarRoomSeverities = &warRoomSeverities
+					changed = true
+				}
 				if !changed {
 					return fmt.Errorf("at least one update field is required")
 				}
@@ -379,6 +433,10 @@ func newAutomationUpdateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&enableHTTPPostTrigger, "enable-http-post-trigger", false, "Enable or create the HTTP POST trigger")
 	cmd.Flags().BoolVar(&disableHTTPPostTrigger, "disable-http-post-trigger", false, "Disable the HTTP POST trigger")
 	cmd.Flags().BoolVar(&rotateHTTPPostToken, "rotate-http-post-token", false, "Rotate the HTTP POST trigger token")
+	cmd.Flags().BoolVar(&enableWarRoomTrigger, "enable-war-room-trigger", false, "Enable or create the AI SRE war room trigger; creating it requires both filter lists")
+	cmd.Flags().BoolVar(&disableWarRoomTrigger, "disable-war-room-trigger", false, "Disable the AI SRE war room trigger")
+	cmd.Flags().Int64SliceVar(&warRoomChannels, "war-room-channel-ids", nil, "Replace the war room trigger's channel (collaboration space) IDs; at least one")
+	cmd.Flags().StringSliceVar(&warRoomSeverities, "war-room-severities", nil, "Replace the war room trigger's severities: Critical, Warning, or Info; at least one")
 	registerEnumFlag(cmd, "schedule", "hourly", "daily", "weekly", "cron")
 	registerEnumFlag(cmd, "environment-kind", "cloud", "byoc")
 	return cmd
@@ -465,7 +523,7 @@ func newAutomationRunsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&status, "status", "", "Run status filter")
 	cmd.Flags().StringVar(&triggerKind, "trigger-kind", "", "Trigger kind filter: schedule, debug, or http_post")
 	registerEnumFlag(cmd, "status", "queued", "running", "retrying", "succeeded", "partial", "failed", "skipped", "abandoned")
-	registerEnumFlag(cmd, "trigger-kind", "schedule", "debug", "http_post")
+	registerEnumFlag(cmd, "trigger-kind", "schedule", "debug", "http_post", "war_room_created")
 	return cmd
 }
 

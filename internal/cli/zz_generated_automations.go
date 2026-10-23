@@ -59,6 +59,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
+  - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
+  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-get --data '{"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
@@ -159,6 +163,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - team_id (integer) (required) — Scope team ID; 0 means personal rule.
     - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
+    - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
+    - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+    - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
   - total (integer) (required) — Total count.
 `,
 		Example: `  flashduty safari automation-rule-list --data '{"limit":20,"scope":"all"}'`,
@@ -234,6 +242,9 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 	var fScheduleTriggerEnabled bool
 	var fTeamID int64
 	var fTimezone string
+	var fWarRoomChannelIDs []int
+	var fWarRoomSeverities []string
+	var fWarRoomTriggerEnabled bool
 	cmd := &cobra.Command{
 		Use:   "automation-rule-create",
 		Short: "Create Automation rule",
@@ -258,6 +269,9 @@ Request fields:
   --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
   --team-id int — Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)
   --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
+  --war-room-channel-ids []int — Channel IDs whose war rooms start a run. Each ID must be positive.
+  --war-room-severities []string — Incident severities that start a run when their war room is created: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]
+  --war-room-trigger-enabled bool — Whether the war room trigger is enabled. It fires when a war room (IM group chat) is created for an incident in one of 'war_room_channel_ids' with a severity in 'war_room_severities'; the agent then runs inside that group chat. When the trigger is created (this is 'true', or 'war_room_channel_ids' is sent), both lists must be non-empty.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -295,6 +309,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
+  - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
+  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123,"timezone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -342,6 +360,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("timezone") {
 						body["timezone"] = fTimezone
 					}
+					if cmd.Flags().Changed("war-room-channel-ids") {
+						body["war_room_channel_ids"] = fWarRoomChannelIDs
+					}
+					if cmd.Flags().Changed("war-room-severities") {
+						body["war_room_severities"] = fWarRoomSeverities
+					}
+					if cmd.Flags().Changed("war-room-trigger-enabled") {
+						body["war_room_trigger_enabled"] = fWarRoomTriggerEnabled
+					}
 					return nil
 				})
 				if err != nil {
@@ -373,6 +400,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.")
+	cmd.Flags().IntSliceVar(&fWarRoomChannelIDs, "war-room-channel-ids", nil, "Channel IDs whose war rooms start a run. Each ID must be positive.")
+	cmd.Flags().StringSliceVar(&fWarRoomSeverities, "war-room-severities", nil, "Incident severities that start a run when their war room is created: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fWarRoomTriggerEnabled, "war-room-trigger-enabled", false, "Whether the war room trigger is enabled. It fires when a war room (IM group chat) is created for an incident in one of 'war_room_channel_ids' with a severity in 'war_room_severities'; the agent then runs inside that group chat. When the trigger is created (this is 'true', or 'war_room_channel_ids' is sent), both lists must be non-empty.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -504,6 +534,9 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 	var fOncallIncidentTriggerEnabled bool
 	var fOncallIncidentChannelIDs []int
 	var fOncallIncidentSeverities []string
+	var fWarRoomTriggerEnabled bool
+	var fWarRoomChannelIDs []int
+	var fWarRoomSeverities []string
 	cmd := &cobra.Command{
 		Use:   "automation-rule-update <rule-id>",
 		Short: "Update Automation rule",
@@ -528,6 +561,9 @@ Request fields:
   --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
   --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
   --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
+  --war-room-trigger-enabled bool
+  --war-room-channel-ids []int
+  --war-room-severities []string
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID.
@@ -565,6 +601,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - team_id (integer) (required) — Scope team ID; 0 means personal rule.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
+  - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
+  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-rule-update --data '{"cron_expr":"15 9 * * 1","enabled":true,"oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"rotate_http_post_trigger_token":true,"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b"}'`,
@@ -616,6 +656,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("oncall-incident-severities") {
 						body["oncall_incident_severities"] = fOncallIncidentSeverities
 					}
+					if cmd.Flags().Changed("war-room-trigger-enabled") {
+						body["war_room_trigger_enabled"] = fWarRoomTriggerEnabled
+					}
+					if cmd.Flags().Changed("war-room-channel-ids") {
+						body["war_room_channel_ids"] = fWarRoomChannelIDs
+					}
+					if cmd.Flags().Changed("war-room-severities") {
+						body["war_room_severities"] = fWarRoomSeverities
+					}
 					return nil
 				})
 				if err != nil {
@@ -647,6 +696,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
 	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
 	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fWarRoomTriggerEnabled, "war-room-trigger-enabled", false, "Request field ")
+	cmd.Flags().IntSliceVar(&fWarRoomChannelIDs, "war-room-channel-ids", nil, "Request field ")
+	cmd.Flags().StringSliceVar(&fWarRoomSeverities, "war-room-severities", nil, "Request field ")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

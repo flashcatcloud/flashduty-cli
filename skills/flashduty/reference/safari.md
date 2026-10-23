@@ -184,7 +184,10 @@ Create Automation rule
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
 - `--team-id` int64 — Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)
 - `--timezone` string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
+- `--war-room-channel-ids` intSlice — Channel IDs whose war rooms start a run. Each ID must be positive.
+- `--war-room-severities` stringSlice — Incident severities that start a run when their war room is created: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. · enum: Critical | Warning | Info
+- `--war-room-trigger-enabled` bool — Whether the war room trigger is enabled. It fires when a war room (IM group chat) is created for an incident in one of 'war_room_channel_ids' with a severity in 'war_room_severities'; the agent then runs inside that group chat. When the trigger is created (this is 'true', or 'war_room_channel_ids' is sent), both lists must be non-empty.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string); war_room_channel_ids (array<integer>); war_room_severities (array<string>); war_room_trigger_enabled (boolean); war_room_trigger_id (string)
 
 ### automation-rule-delete <rule-id>
 Delete Automation rule
@@ -228,6 +231,9 @@ Update Automation rule
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--schedule-trigger-enabled` bool — Whether the schedule trigger is enabled.
 - `--timezone` string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
+- `--war-room-channel-ids` intSlice
+- `--war-room-severities` stringSlice
+- `--war-room-trigger-enabled` bool
 - response: same shape as `automation-rule-create` above
 
 ### automation-run-list <rule-id>

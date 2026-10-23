@@ -24,6 +24,7 @@ The execution destination and pinned scope cannot be changed with `update`.
 | want | verb |
 |---|---|
 | create a scheduled or HTTP POST Automation | `create` |
+| create an Automation that runs inside new AI SRE war rooms | `create` with `--war-room-trigger` |
 | list visible Automations | `list` |
 | inspect one Automation | `get <rule-id>` |
 | update mutable fields | `update <rule-id>` |
@@ -92,6 +93,29 @@ The response can include `http_post_trigger_id`, `http_post_trigger_url`, and on
 flashduty automation update <rule-id> --rotate-http-post-token --output-format toon
 ```
 
+## Hot flow - create a war room Automation
+
+```bash
+flashduty automation create \
+  --name "War room responder" \
+  --war-room-trigger \
+  --war-room-channel-ids 3521074710131,3521074710132 \
+  --war-room-severities Critical,Warning \
+  --prompt "Triage the incident inside the war room" \
+  --output-format toon
+```
+
+When an AI SRE war room (IM group chat) is created for a matching incident in
+one of the watched channels and with a watched severity, the agent runs inside
+that group chat; runs have `trigger_kind=war_room_created`. `--war-room-trigger`
+requires both `--war-room-channel-ids` and `--war-room-severities` (at least one
+value each). A war-room-only rule needs no schedule flags: the CLI sends a
+placeholder cron and disables the schedule trigger, same as an HTTP POST-only
+rule. Afterwards, toggle the trigger with `update <rule-id>
+--enable-war-room-trigger` / `--disable-war-room-trigger` and replace its
+filters with `--war-room-channel-ids` / `--war-room-severities`; creating the
+trigger through update requires both filter lists.
+
 ## Hot flow - exact cron
 
 ```bash
@@ -143,8 +167,11 @@ Create an Automation
 - `--schedule-enabled` bool
 - `--team-id` int64
 - `--timezone` string
+- `--war-room-channel-ids` int64Slice
+- `--war-room-severities` stringSlice
+- `--war-room-trigger` bool
 - `--weekday` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); can_edit (boolean); created_at (string); cron_expr (string); enabled (boolean); environment_id (string); environment_kind (string); execution_location (object); execution_place (string); http_post_token (string); http_post_trigger_enabled (boolean); http_post_trigger_id (string); http_post_trigger_url (string); name (string); oncall_incident_channel_ids (array<integer>); oncall_incident_severities (array<string>); oncall_incident_trigger_enabled (boolean); oncall_incident_trigger_id (string); owner_id (integer); prompt (string); rule_id (string); run_scope (string); schedule_next_fire_at_ms (string); schedule_trigger_enabled (boolean); schedule_trigger_id (string); team_id (integer); timezone (string); updated_at (string); war_room_channel_ids (array<integer>); war_room_severities (array<string>); war_room_trigger_enabled (boolean); war_room_trigger_id (string)
 
 ### delete <rule_id>
 Delete an Automation
@@ -191,9 +218,11 @@ Update an Automation
 - `--disable` bool
 - `--disable-http-post-trigger` bool
 - `--disable-schedule` bool
+- `--disable-war-room-trigger` bool
 - `--enable` bool
 - `--enable-http-post-trigger` bool
 - `--enable-schedule` bool
+- `--enable-war-room-trigger` bool
 - `--environment-id` string
 - `--environment-kind` string
 - `--name` string
@@ -202,6 +231,8 @@ Update an Automation
 - `--rotate-http-post-token` bool
 - `--schedule` string
 - `--timezone` string
+- `--war-room-channel-ids` int64Slice
+- `--war-room-severities` stringSlice
 - `--weekday` string
 - response: same shape as `create` above
 
