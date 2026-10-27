@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/flashcatcloud/go-flashduty v0.15.22
-	github.com/mattn/go-runewidth v0.0.30
+	github.com/mattn/go-runewidth v0.0.31
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/toon-format/toon-go v0.1.0
