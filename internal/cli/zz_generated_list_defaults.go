@@ -24,6 +24,7 @@ var listDefaultsBySDKMethod = map[string]listDefaults{
 	"Dashboards.ReadList":                      {PageBase: pageUnknown},
 	"Dashboards.ReadSearch":                    {PageBase: pageUnknown},
 	"Dashboards.TrashReadList":                 {PageBase: pageUnknown},
+	"DedicatedIntegrations.ReadList":           {Limit: 100, PageBase: pageOne},
 	"ErrorIngestionRules.HistoryList":          {Limit: 20, PageBase: pageZero},
 	"Facets.FacetCount":                        {Limit: 100},
 	"Incidents.AlertList":                      {Limit: 1000, PageBase: pageOne},

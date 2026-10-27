@@ -64,8 +64,8 @@ func genIntegrationsIntegrationAPIReadInfoCmd() *cobra.Command {
 	var fIntegrationID int64
 	cmd := &cobra.Command{
 		Use:   "info <integration-id>",
-		Short: "Get integration detail",
-		Long: `Get integration detail.
+		Short: "Get public integration detail",
+		Long: `Get public integration detail.
 
 Get a public integration with its stored settings and decrypted integration key.
 
@@ -148,8 +148,8 @@ func genIntegrationsIntegrationAPIReadListCmd() *cobra.Command {
 	var fType string
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List integrations",
-		Long: `List integrations.
+		Short: "List public integrations",
+		Long: `List public integrations.
 
 List public integrations with their stored settings, decrypted keys, and edit permissions.
 
@@ -371,8 +371,8 @@ func genIntegrationsIntegrationAPIWriteCreateCmd() *cobra.Command {
 	var fTeamID int64
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create integration",
-		Long: `Create integration.
+		Short: "Create public integration",
+		Long: `Create public integration.
 
 Create a public integration for a supported alert, change, IM, or webhook type.
 
@@ -448,8 +448,8 @@ func genIntegrationsIntegrationAPIWriteDeleteCmd() *cobra.Command {
 	var fIntegrationID int64
 	cmd := &cobra.Command{
 		Use:   "delete <integration-id>",
-		Short: "Delete integration",
-		Long: `Delete integration.
+		Short: "Delete public integration",
+		Long: `Delete public integration.
 
 Delete an integration that nothing else references.
 
@@ -500,8 +500,8 @@ func genIntegrationsIntegrationAPIWriteDisableCmd() *cobra.Command {
 	var fIntegrationID int64
 	cmd := &cobra.Command{
 		Use:   "disable <integration-id>",
-		Short: "Disable integration",
-		Long: `Disable integration.
+		Short: "Disable public integration",
+		Long: `Disable public integration.
 
 Disable an integration without deleting its configuration.
 
@@ -552,8 +552,8 @@ func genIntegrationsIntegrationAPIWriteEnableCmd() *cobra.Command {
 	var fIntegrationID int64
 	cmd := &cobra.Command{
 		Use:   "enable <integration-id>",
-		Short: "Enable integration",
-		Long: `Enable integration.
+		Short: "Enable public integration",
+		Long: `Enable public integration.
 
 Re-enable a disabled integration so it accepts events again.
 
@@ -604,8 +604,8 @@ func genIntegrationsIntegrationAPIWriteRotateKeyCmd() *cobra.Command {
 	var fIntegrationID int64
 	cmd := &cobra.Command{
 		Use:   "key-rotate <integration-id>",
-		Short: "Rotate integration key",
-		Long: `Rotate integration key.
+		Short: "Rotate public integration key",
+		Long: `Rotate public integration key.
 
 Issue a new integration key and invalidate the previous one.
 
@@ -615,7 +615,7 @@ Request fields:
   --integration-id int (required) — Integration ID. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - integration_key (string) (required) — New integration key; the previous key stops working immediately. Also readable from '/integration/list' and '/integration/info'.
+  - integration_key (string) (required) — New integration key; the previous key stops working immediately.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration key-rotate --data '{"integration_id":6113996590131}'`,
@@ -659,8 +659,8 @@ func genIntegrationsIntegrationAPIWriteUpdateCmd() *cobra.Command {
 	var fTeamID int64
 	cmd := &cobra.Command{
 		Use:   "update <integration-id>",
-		Short: "Update integration",
-		Long: `Update integration.
+		Short: "Update public integration",
+		Long: `Update public integration.
 
 Update an integration's name, description, team, or settings.
 

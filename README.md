@@ -81,6 +81,17 @@ Run `flashduty <group> --help` for the commands in a group, and `flashduty <grou
 | Platform | `account`, `member`, `person`, `team`, `role`, `audit` |
 | CLI | `login`, `whoami`, `config`, `update`, `version`, `completion` |
 
+### Integration scope
+
+Use `flashduty integration …` for public integrations managed in the integration center. Use `flashduty channel integration-…` for dedicated alert integrations owned by one channel:
+
+```bash
+flashduty integration list --fields integration_id,name,plugin_type
+flashduty channel integration-list --channel-id 20001 --fields integration_id,channel_id,name,plugin_type
+```
+
+Public integrations require integration permissions; dedicated integrations require channel permissions and access to the owning channel. Choose by ownership, not by the numeric ID. Both use the management App Key, and a permission failure never switches command families. The bundled Agent Skill explains selection, discovery, and confirmed changes.
+
 ### Request bodies
 
 Generated commands expose each top-level request field as a typed flag, and take the full JSON body through `--data` (`--data -` reads stdin). Positional arguments and typed flags override the matching keys in `--data`, so nested objects and arrays go in `--data` while scalars stay readable:

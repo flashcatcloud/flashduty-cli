@@ -25,6 +25,7 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedCalendars(root)
 	registerGeneratedChanges(root)
 	registerGeneratedChannels(root)
+	registerGeneratedDedicatedIntegrations(root)
 	registerGeneratedImIntegrations(root)
 	registerGeneratedIncidents(root)
 	registerGeneratedIntegrations(root)
