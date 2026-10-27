@@ -90,7 +90,7 @@ flashduty integration list --fields integration_id,name,plugin_type
 flashduty channel integration-list --channel-id 20001 --fields integration_id,channel_id,name,plugin_type
 ```
 
-公共集成需要集成中心权限；专属集成需要协作空间权限以及对目标空间的访问或管理权限。按实际归属选择，不能只凭数字 ID 判断类型。两类命令均使用管理用的 App Key，权限失败时不会自动切换接口。随 CLI 分发的 Agent Skill 提供类型选择、查询和经确认后修改配置的指引。
+公共集成实例需要集成中心权限。专属集成读取允许协作空间查看、协作空间管理或集成中心查看权限，同时要求目标空间可见；写入须有协作空间管理权限以及目标空间的管理资格。共用的 `integration type-list` 类型目录允许这三项读取权限；限制了接口范围的 App Key 须允许 `integration.api:read:typeList`。按实际归属选择，不能只凭数字 ID 判断类型。两类命令均使用管理用的 App Key，权限失败时不会自动切换接口。随 CLI 分发的 Agent Skill 提供类型选择、查询和经确认后修改配置的指引。
 
 ### 请求体
 
