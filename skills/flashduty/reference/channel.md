@@ -6,6 +6,8 @@ Prereq: `SKILL.md` read. Read verbs are free; `create`, `update`, `delete`, `dis
 
 "协作空间 / 频道 / 渠道 / 告警分组 / channel / collaboration space / alert grouping / flapping" → **channel**, NOT `incident` (incidents live _inside_ a channel) or `alert` (alerts are routed _into_ a channel). **`协作空间` (collaboration space) IS the `channel` API noun** — a naive translation would be "频道", but Flashduty's product surfaces it as 协作空间. Key ID: **`channel-id` (int)** from `channel list`.
 
+Dedicated integrations owned by a channel use `channel integration-*`; read `reference/integration.md` to choose between dedicated and public integrations and check their different permissions.
+
 Rules INSIDE a channel have their own cards: escalation / 分派策略 → `reference/escalation.md`; silence / inhibit / drop (静默 / 抑制 / 丢弃 / 降噪) → `reference/noise.md`.
 
 **Flashcat workspace exception.** When the user asks whether a "空间" is healthy, red/green, or specifically mentions **灭火图 / firemap**, do not assume they mean a Flashduty channel. In that context, "空间" may be a **Flashcat workspace**, and the answer must come from the Flashcat/firemap surface rather than channel incident stats. If you first resolved a name as a Flashduty `channel-id` and later resolve the same visible name as a Flashcat `workspace-id`, **do not silently switch** — tell the user these are different objects and state which ID/surface each conclusion uses.

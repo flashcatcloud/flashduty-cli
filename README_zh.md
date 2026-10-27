@@ -81,6 +81,17 @@ APP Key 的创建方法见 [API 参考](https://docs.flashduty.com/zh/openapi/in
 | 平台 | `account`、`member`、`person`、`team`、`role`、`audit` |
 | CLI 自身 | `login`、`whoami`、`config`、`update`、`version`、`completion` |
 
+### 选择集成类型
+
+集成中心管理的公共集成使用 `flashduty integration …`；属于某个协作空间的专属告警集成使用 `flashduty channel integration-…`：
+
+```bash
+flashduty integration list --fields integration_id,name,plugin_type
+flashduty channel integration-list --channel-id 20001 --fields integration_id,channel_id,name,plugin_type
+```
+
+公共集成需要集成中心权限；专属集成需要协作空间权限以及对目标空间的访问或管理权限。按实际归属选择，不能只凭数字 ID 判断类型。两类命令均使用管理用的 App Key，权限失败时不会自动切换接口。随 CLI 分发的 Agent Skill 提供类型选择、查询和经确认后修改配置的指引。
+
 ### 请求体
 
 生成的命令把请求的每个顶层字段做成带类型的 flag，完整 JSON 请求体通过 `--data` 传入（`--data -` 从 stdin 读取）。位置参数和 flag 会覆盖 `--data` 中的同名字段，所以嵌套对象和数组放进 `--data`，标量字段用 flag：
