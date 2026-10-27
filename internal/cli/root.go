@@ -171,6 +171,9 @@ func init() {
 	// attach their curated leaves to the generated path groups.
 	attachEnrichmentMappingDataUpload(rootCmd)
 	attachSafariSkillUpload(rootCmd)
+
+	// Curated AI SRE chat commands (message/subscribe are not generated).
+	attachSafariChat(rootCmd)
 }
 
 // Execute runs the root command as name, the command word the binary was
