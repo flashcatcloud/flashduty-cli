@@ -90,7 +90,7 @@ flashduty integration list --fields integration_id,name,plugin_type
 flashduty channel integration-list --channel-id 20001 --fields integration_id,channel_id,name,plugin_type
 ```
 
-Public integrations require integration permissions; dedicated integrations require channel permissions and access to the owning channel. Choose by ownership, not by the numeric ID. Both use the management App Key, and a permission failure never switches command families. The bundled Agent Skill explains selection, discovery, and confirmed changes.
+Public integration instances require integration permissions. Dedicated reads accept Channels Read, Channels Manage, or Integrations Read and require visibility of the owning channel; dedicated writes require Channels Manage and management access to that channel. The shared `integration type-list` catalog accepts these three read permissions; scoped App Keys must allow `integration.api:read:typeList`. Choose by ownership, not by the numeric ID. Both use the management App Key, and a permission failure never switches command families. The bundled Agent Skill explains selection, discovery, and confirmed changes.
 
 ### Request bodies
 
