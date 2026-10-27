@@ -2770,7 +2770,7 @@ Request fields:
 }
 
 func registerGeneratedChannels(root *cobra.Command) {
-	gChannel := genGroup(root, "channel", "On-call/Channels API")
+	gChannel := genGroup(root, "channel", "On-call API")
 	genAddLeaf(gChannel, genChannelsChannelCreateCmd())
 	genAddLeaf(gChannel, genChannelsChannelDeleteCmd())
 	genAddLeaf(gChannel, genChannelsChannelDisableCmd())
