@@ -7,11 +7,13 @@ Prereq: read `SKILL.md`. Choose the command family from the integration's owners
 | User intent or existing ownership | Command family | Permission boundary |
 |---|---|---|
 | Public integration managed in the integration center; shared ingestion connected to channels through subscriptions or routing | `integration *` | Integrations Read/Manage plus the integration's object permissions |
-| Dedicated alert integration owned by one collaboration space (协作空间专属集成) | `channel integration-*` | Channels Read/Manage plus visibility or management of the owning channel; no integration-center permission required |
+| Dedicated alert integration owned by one collaboration space (协作空间专属集成) | `channel integration-*` | Reads: Channels Read/Manage or Integrations Read plus channel visibility. Writes: Channels Manage plus channel management access |
 
 For an existing integration, use its known ownership; an ID alone does not identify the scope. A target channel receiving alerts does not by itself mean the integration is dedicated: public integrations can also route there. For creation, use a dedicated integration when ingestion belongs to that one channel, or a public integration when the user wants shared ingestion managed in the integration center. If ownership or intended scope is unclear, ask before creating or changing configuration.
 
 Never retry a failed call through the other integration family, including on access denied or not found. Public does not mean anonymous: both families use the management App Key and its owner's permissions. An integration key is a separate credential for inbound events.
+
+`integration type-list` is a shared catalog for both families. It accepts Channels Read, Channels Manage, or Integrations Read. Scoped App Keys must allow `integration.api:read:typeList`; a `channel.integration:*:*` scope does not include this endpoint. Catalog access does not grant access to public integration instances.
 
 ## Public integrations
 
