@@ -391,6 +391,15 @@ Update MCP server
 - body-only (`--data`): env (object); headers (object)
 - response: same shape as `mcp-server-create` above
 
+### send [message]
+Send a message to an AI SRE session
+- `--env-id` string
+- `--env-kind` string
+- `--file` stringArray
+- `--message-file` string
+- `--session-id` string
+- `--team-id` int64
+
 ### session-delete <session-id>
 Delete session
 - `<session-id>` (positional, required) string — Target session ID, from the list returned by 'POST /safari/session/list'. (≥1 chars)
@@ -468,6 +477,13 @@ Upload a skill archive
 - `--skill-id` string
 - `--team-id` int64
 
+### watch --session-id <id> [--root-invocation-id <id>] [--since <unix-ms>]
+Stream an AI SRE session's replies as one JSON line each
+- `--root-invocation-id` string
+- `--session-id` string
+- `--since` int64
+- `--since-event-id` string
+
 <!-- GENERATED:safari END -->
 
 ## Key concepts
@@ -476,6 +492,7 @@ Upload a skill archive
 - **Scope (`team_id`).** `0` = account-wide (every team sees it); `>0` = that team only. Same field on every safari verb.
 - **Auth mode (`auth_mode`).** `shared` (default) = one credential for everyone, stored on the server. `per_user_secret` = each user supplies a secret matching `secret_schema` (which must carry a `header_name`). `per_user_oauth` = each user authorizes the server via OAuth.
 - **`per_user_oauth` needs no OAuth config up front.** Create it with an **empty `oauth_metadata`** — that is the normal, complete state, not a missing prerequisite. The runtime **auto-discovers the OAuth server and dynamically registers a client (DCR)** the first time a user authorizes; you do **not** collect `authorization_url` / `client_id` / `client_secret` / `scopes`. Only pass `oauth_metadata` as a rare fallback, when the endpoint advertises no discovery document.
+- **Chat with the agent: `send` then `watch`.** `send` queues one message and prints `{session_id, invocation_id, root_invocation_id, delivery_mode}`; `watch --session-id <id> --root-invocation-id <root>` prints one JSON line per agent reply (`reply` with `purpose` `progress` or `result`), `settled`, or `error`, and exits 0 when the request is fully done. Run `watch` under a tool that turns each stdout line into a notification (e.g. Claude Code's Monitor). Files go up with `send --file` as attachments, not inlined text.
 
 ## Gotchas
 
