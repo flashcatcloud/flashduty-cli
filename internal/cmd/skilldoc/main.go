@@ -2,7 +2,8 @@
 // command-tree dump in-process (via cli.RootForDump) and either rewrites a
 // card's generated fence (`skilldoc gen <group>`) or validates every card under
 // skills/flashduty against the dump (`skilldoc check`): unknown commands/flags
-// in examples and out-of-date generated fences. Run from the repo root.
+// in examples and verb tables, and out-of-date generated fences. Run from the
+// repo root.
 package main
 
 import (

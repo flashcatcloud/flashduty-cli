@@ -171,3 +171,119 @@ func TestValidate_SkipsBareAndTemplatedMentions(t *testing.T) {
 		t.Errorf("`fduty --json`: want 0 issues, got %+v", byDoc["root-json"])
 	}
 }
+
+// verbTableCard wraps rows in the shape every command card shares: an intent
+// table, then the GENERATED fence that names the card's command group.
+func verbTableCard(fenceID string, rows ...string) string {
+	body := "## Intent → verb\n\n| want | verb |\n|---|---|\n"
+	for _, r := range rows {
+		body += "| x | " + r + " |\n"
+	}
+	return body + "\n" + FenceStart(fenceID) + "\n" + FenceEnd(fenceID) + "\n"
+}
+
+func verbTableDump() Dump {
+	return Dump{
+		Commands: []Command{
+			{Path: "rum field-list", Group: "rum", Flags: []Flag{{Name: "is-facet"}}},
+			{Path: "rum issue-info", Group: "rum", Flags: []Flag{{Name: "issue-id"}}},
+			{Path: "incident war-room list", Group: "incident"},
+			{Path: "safari automation-rule-run", Group: "safari"},
+		},
+		Root: []Flag{{Name: "json", Persistent: true}},
+	}
+}
+
+// A verb cell names a command relative to the card's group, so it never reaches
+// the `fduty …` harvester: the validator must resolve it from the table itself.
+func TestValidate_VerbTableReportsUnknownVerb(t *testing.T) {
+	body := "# card\n\n" + verbTableCard("rum", "`field-list`", "`facet-list`")
+	issues := Validate(verbTableDump(), []Doc{{Path: "rum.md", Body: body}})
+	if len(issues) != 1 {
+		t.Fatalf("want 1 issue, got %+v", issues)
+	}
+	got := issues[0]
+	if got.Kind != "unknown-command" || got.Detail != "rum facet-list" || got.Line != 8 {
+		t.Errorf("want unknown-command `rum facet-list` at line 8, got %+v", got)
+	}
+}
+
+func TestValidate_VerbTableCellShapes(t *testing.T) {
+	cases := []struct {
+		name string
+		cell string
+		kind string // empty → the cell must validate clean
+	}{
+		{"bare verb", "`field-list`", ""},
+		{"verb with positional", "`issue-info <issue-id>`", ""},
+		{"verb with flag", "`field-list --is-facet true`", ""},
+		{"verb with global flag", "`field-list --json`", ""},
+		{"verb then response field", "`field-list` (save the returned `issue_id`)", ""},
+		{"verb then field path", "`field-list` → `.days`", ""},
+		{"flag in its own span", "`field-list` with `--is-facet`", ""},
+		{"stale flag in its own span", "`field-list` with `--no-such-flag`", "unknown-flag"},
+		{"stale flag in the verb span", "`field-list --no-such-flag`", "unknown-flag"},
+		{"second verb stale", "`field-list` / `facet-list`", "unknown-command"},
+		{"verb in trailing prose stale", "`field-list` (`facet-list` is equivalent)", "unknown-command"},
+		{"stale verb with positional", "`facet-list <app-id>`", "unknown-command"},
+		{"verb from another group", "`safari automation-rule-run <rule-id>`", ""},
+		{"stale verb in another group", "`safari automation-rule-kick <rule-id>`", "unknown-command"},
+		{"pipe into jq", "`field-list --json \\| jq '.items[]' --not-a-cli-flag`", ""},
+		{"binary-prefixed invocation", "`flashduty rum field-list`", ""},
+		{"wildcard family", "`field-*`", ""},
+		{"card reference", "`reference/noise.md`", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			issues := Validate(verbTableDump(), []Doc{{Path: "c.md", Body: verbTableCard("rum", tc.cell)}})
+			if tc.kind == "" {
+				if len(issues) != 0 {
+					t.Fatalf("want clean, got %+v", issues)
+				}
+				return
+			}
+			if len(issues) != 1 || issues[0].Kind != tc.kind {
+				t.Fatalf("want 1 %s, got %+v", tc.kind, issues)
+			}
+		})
+	}
+}
+
+// A card documenting part of a group declares that group through a subset
+// fence, so the group need not match the card's file name.
+func TestValidate_VerbTableGroupComesFromFence(t *testing.T) {
+	body := verbTableCard("incident[war-room]", "`war-room list <id>`", "`war-room lst <id>`")
+	issues := Validate(verbTableDump(), []Doc{{Path: "war-room.md", Body: body}})
+	if len(issues) != 1 || issues[0].Detail != "incident war-room lst" {
+		t.Fatalf("want 1 issue on `incident war-room lst`, got %+v", issues)
+	}
+}
+
+// Without a fence no group can be derived, and skipping would quietly switch
+// the check off for that card.
+func TestValidate_VerbTableWithoutFenceIsReported(t *testing.T) {
+	body := "| want | verb |\n|---|---|\n| x | `field-list` |\n"
+	issues := Validate(verbTableDump(), []Doc{{Path: "c.md", Body: body}})
+	if len(issues) != 1 || issues[0].Kind != "unknown-command" || issues[0].Line != 3 {
+		t.Fatalf("want 1 unknown-command at line 3, got %+v", issues)
+	}
+}
+
+// Only `verb` columns carry verbs: other tables hold flags and field names, and
+// a table inside a code fence is sample output.
+func TestValidate_VerbTableIgnoresOtherTables(t *testing.T) {
+	fence := FenceStart("rum") + "\n" + FenceEnd("rum") + "\n"
+	body := "| field | meaning |\n|---|---|\n| `facet-list` | x |\n\n" +
+		"```\n| want | verb |\n|---|---|\n| x | `facet-list` |\n```\n\n" + fence
+	if issues := Validate(verbTableDump(), []Doc{{Path: "c.md", Body: body}}); len(issues) != 0 {
+		t.Fatalf("want clean, got %+v", issues)
+	}
+}
+
+// Prose after a verb table closes it, so a later line is not read as a row.
+func TestValidate_VerbTableEndsAtFirstNonRow(t *testing.T) {
+	body := verbTableCard("rum", "`field-list`") + "\n`facet-list` in prose.\n\n| other | col |\n|---|---|\n| `facet-list` | x |\n"
+	if issues := Validate(verbTableDump(), []Doc{{Path: "c.md", Body: body}}); len(issues) != 0 {
+		t.Fatalf("want clean, got %+v", issues)
+	}
+}
