@@ -2,6 +2,7 @@ package skilldoc
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -76,6 +77,57 @@ func HarvestExamples(md string) []Example {
 		}
 	}
 	return out
+}
+
+// verbCell is the verb-column cell of one row of a `| want | verb |` table.
+// Line is the 1-based line of the row.
+type verbCell struct {
+	Line int
+	Text string
+}
+
+// harvestVerbCells pulls the verb column out of every markdown table headed by
+// a `verb` cell, outside code fences. A table ends at its first non-table line;
+// cells without a code span, the delimiter row among them, are left out.
+func harvestVerbCells(md string) []verbCell {
+	var out []verbCell
+	col := -1 // the open table's verb column; -1 outside a verb table
+	inFence := false
+	for i, line := range strings.Split(md, "\n") {
+		if isFenceMarker(line) {
+			inFence = !inFence
+			col = -1
+			continue
+		}
+		if inFence {
+			continue
+		}
+		cells := tableCells(line)
+		switch {
+		case cells == nil:
+			col = -1
+		case col < 0:
+			col = slices.Index(cells, "verb")
+		case col < len(cells) && strings.Contains(cells[col], "`"):
+			out = append(out, verbCell{Line: i + 1, Text: cells[col]})
+		}
+	}
+	return out
+}
+
+// tableCells splits a markdown table row into its trimmed cells, turning an
+// escaped `\|` back into a plain pipe. It returns nil for a non-table line.
+func tableCells(line string) []string {
+	row := strings.TrimSpace(line)
+	if !strings.HasPrefix(row, "|") {
+		return nil
+	}
+	row = strings.TrimSuffix(strings.TrimPrefix(row, "|"), "|")
+	cells := strings.Split(strings.ReplaceAll(row, `\|`, "\x00"), "|")
+	for i, c := range cells {
+		cells[i] = strings.ReplaceAll(strings.TrimSpace(c), "\x00", "|")
+	}
+	return cells
 }
 
 // isFenceMarker reports whether a line opens or closes a ``` code fence.

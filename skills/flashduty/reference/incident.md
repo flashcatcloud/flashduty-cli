@@ -41,7 +41,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | permanently delete (IRREVERSIBLE) | `remove <id> [<id2>...]` |
 | post-mortem reports (复盘) | `reference/postmortem.md` |
 | war room (IM chat) | `war-room-list <incident-id>` → `war-room-create <incident-id>` |
-| war room (IM chat), nested subcommand form | `war-room list/create/get/add-member/default-observers/delete <id>` |
+| war room (IM chat), nested subcommand form | `war-room list <incident-id>` / `war-room create <incident-id>` / `war-room get <chat-id>` / `war-room add-member <chat-id>` / `war-room default-observers <incident-id>` / `war-room delete <incident-id>` |
 
 ## Hot flow — triage an active incident
 
