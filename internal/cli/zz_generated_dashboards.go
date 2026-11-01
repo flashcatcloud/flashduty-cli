@@ -21,17 +21,17 @@ Execute a draft panel inline without saving a dashboard revision.
 API: POST /monit/dashboard/panel/preview (monit-dashboard-panel-read-preview)
 
 Request fields:
-  --max-data-points int — Downsampling target, 2–5000 points. (2-5000)
+  --max-data-points int — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
   context (object, via --data) (required) — Where an unsaved draft panel or variable set belongs. 'existing' targets a stored dashboard, 'new' a folder that does not contain one yet — the two are mutually exclusive.
-    - dashboard_id (string) — Required for 'existing', forbidden for 'new'.
-    - folder_id (integer) — Required for 'new', forbidden for 'existing'. (min 1)
+    - dashboard_id (string) — Required for 'existing', forbidden for 'new'. The caller must have access to the dashboard's folder.
+    - folder_id (integer) — Required for 'new', forbidden for 'existing'. Must be a folder the caller can access, otherwise the call returns 'FolderNotFound' (HTTP 404). (min 1)
     - kind (string) (required) — Draft context kind: 'existing' = targets a stored dashboard ('dashboard_id' required); 'new' = a folder that does not contain one yet ('folder_id' required). [existing, new]
-  panel (object, via --data) (required) — A single visualization. Panels must not overlap inside the same container; the 24-column grid is validated on save.
+  panel (object, via --data) (required) — A single visualization. 'datasource_ref' is required for every kind except 'text', where it is forbidden. Panels must not overlap inside the same container; the 24-column grid is validated on save.
     - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-      - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+      - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
       - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-      - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
     - description (string) — Optional panel description. (≤1024 chars)
     - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
       - h (integer) (required) — Height in grid rows, 1–100. (1-100)
@@ -40,62 +40,62 @@ Request fields:
       - y (integer) (required) — Zero-based row offset. (min 0)
     - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
     - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
-      - legend_alias (string) — Optional legend label; supports the same variable templates as 'expr'. (≤1024 chars)
-      - query (object) (required) — Query payload shared by dashboards and drill-down entries.
-        - args (object) (required) — Named query arguments; defaults to an empty object. Values are passed through verbatim and must not contain '{{ }}' templates.
-        - expr (string) (required) — Query expression in the target data source's language. May reference event labels through '{{ }}' templates.
-        - min_step_seconds (integer) — Minimum step, in seconds. Only accepted when 'mode' is 'range', and must be greater than zero; omit or pass null to let the server decide. (1-9007199254740)
-        - mode (string) (required) — Evaluation mode: 'instant' evaluates at a single timestamp, 'range' evaluates a stepped series, 'window' returns raw rows inside a time window. [instant, range, window]
+      - legend_alias (string) — Optional legend label, at most 1024 Unicode code points. The console replaces '{{label}}' with that series label's value (for example '{{env}} requests'); dashboard variables are not substituted here. (≤1024 chars)
+      - query (object) (required) — Query payload shared by dashboard panels and alert rule drill-down entries. Template syntax differs by context: dashboard panels use dashboard variables ('${name}'), drill-down entries use event labels ('{{ }}').
+        - args (object) (required) — Named query arguments; defaults to an empty object. In dashboard panels values may use '${name}' templates except for Loki and MySQL datasources. In drill-down entries keys and values must not contain '{{ }}' templates.
+        - expr (string) (required) — Query expression in the datasource's language. In dashboard panels it may reference variables as '${name}', '${name:raw}' (one value inserted as is) '${name:regex}' (values joined as a regex alternation), or, outside Prometheus and Loki, '${name:csv}', '${name:sqlstring}', '${name:json}' and '${name:pipe}', or as '$name' in Prometheus and Loki; write '$${...}' for a literal. Without a formatter, multi-value or 'all' variables and values inside '=~'/'!~' are inserted in regex form, so they cannot be used with '=' or '!='. MySQL queries do not support variables. In drill-down entries the expression may reference event labels through '{{ }}' templates.
+        - min_step_seconds (integer) — Minimum step, in seconds; must be greater than zero. In drill-down entries it is only accepted when 'mode' is 'range'. Omit or pass null to let the server decide. (1-9007199254740)
+        - mode (string) (required) — Evaluation mode: 'instant' = evaluate at a single timestamp; 'range' = evaluate a stepped series over the time range; 'window' = return raw rows inside the time range. Dashboard panels on Prometheus and Loki accept 'instant' or 'range' (Loki 'logs' panels need 'range'); MySQL panels need 'window'. [instant, range, window]
       - ref_id (string) (required) — Single uppercase letter (A–Z) naming the query inside its panel.
     - title (string) (required) — Panel title. (1-189 chars)
-    - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
-      - category_field (string) — Field supplying the category axis.
-      - column_options (object) — Per-column display overrides keyed by field name, at most 100 entries.
-      - data_link (object) — Drill-down link from a table column or bar panel into another dashboard. The target dashboard must exist and the mapping sources must match the source panel's shape.
-        - dashboard_id (string) (required) — Target dashboard ID.
+    - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
+      - category_field (string) — Result field supplying the category axis; required, at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
+      - column_options (object) — Per-column display overrides keyed by result field name, at most 100 entries. Keys must be non-empty, at most 1024 Unicode code points and not 'frame_index' or 'field_index'.
+      - data_link (object) — Drill-down link from a table or bar panel into another dashboard. Only the ID format is checked on save; a link to a dashboard that does not exist is accepted. The mapping sources allowed depend on the source panel kind.
+        - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
         - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
         - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-        - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-      - decimals (integer) — Fixed decimal places; omit or send null to let the renderer decide. (min 0)
+        - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+      - decimals (integer) — Fixed number of decimal places, 0–15; omit or send null to let the console decide. (0-15)
       - display_fields (array<string>) — Log fields rendered for each row.
       - kind (string) (required) — Visualization kind discriminator; always 'time_series'. [time_series, table, stat, bar, gauge, logs, text]
       - link_columns (array<object>) — Drill-down links rendered as table columns. Together with per-column links a table allows at most 5.
-        - dashboard_id (string) (required) — Target dashboard ID.
+        - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
         - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
         - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-        - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-      - markdown (string) — Markdown body, at most 64 KiB. Only a restricted node set (headings, lists, tables, links, code) survives validation. (≤65536 chars)
+        - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+      - markdown (string) — Markdown body, at most 64 KiB. Allowed: paragraphs, headings, lists, block quotes, code blocks and spans, emphasis, tables, horizontal rules and links. Links must be 'https://' URLs or site-relative paths starting with '/'. Images, raw HTML and '${' templates are rejected with 'InvalidParameter', not stripped. (≤65536 chars)
       - max (number) — Scale upper bound; must exceed 'min' when both are set.
       - min (number) — Scale lower bound.
       - options (object) (required) — Open options object for the chosen visualization kind; the only part of the definition that round-trips losslessly. Missing or null normalizes to '{}'.
       - reducer (string) — Reduction applied across the returned rows: 'last_non_null' = most recent non-null value; 'min' = minimum; 'max' = maximum; 'mean' = average; 'sum' = sum. [last_non_null, min, max, mean, sum]
-      - sort (array<object>) — Initial sort keys; fields must be unique.
+      - sort (array<object>) — Initial sort keys, applied in order; each field may appear once.
         - direction (string) (required) — Sort direction: 'asc' = ascending; 'desc' = descending. [asc, desc]
-        - field (string) (required) — Field name to sort by. (≥1 chars)
+        - field (string) (required) — Result field name to sort by; at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
       - threshold (object) — Colour threshold for a numeric value. At least one of 'warning'/'critical' is required, and with both set the pair must be ordered according to 'mode'.
         - critical (number) — Critical bound; must be finite.
         - mode (string) (required) — Direction of the comparison: 'higher_is_worse' = values at or above the bound breach it; 'lower_is_worse' = values at or below the bound breach it. [higher_is_worse, lower_is_worse]
         - warning (number) — Warning bound; must be finite.
-      - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
-      - value_fields (array<string>) — Fields reduced to the displayed values.
-  selections (object, via --data) (required) — Selections keyed by variable name.
+      - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. Defaults to 'unitless' when omitted. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
+      - value_fields (array<string>) — Result fields reduced to the displayed values; at least one, each listed once. Names are matched exactly and must not be 'frame_index' or 'field_index'.
+  selections (object, via --data) — Selections keyed by variable name, at most 20 entries. Variables without an entry fall back to their draft default.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  variables (array<object>, via --data) (required) — Draft variables the panel may reference.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  variables (array<object>, via --data) (required) — Draft variables the panel may reference, at most 20. Required; the panel's queries can only use variables listed here.
     - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-      - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+      - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
       - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-      - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-    - datasource_type (string) — Datasource type the candidates are drawn from.
-    - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+      - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+    - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+    - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
       - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
       - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-    - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+    - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
     - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
     - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+    - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
     - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
     - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -106,68 +106,68 @@ Request fields:
       - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
     - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
       - args (object) — Named query arguments; defaults to an empty object.
-      - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+      - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
       - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
       - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
       - label (string) — Label whose values become candidates.
       - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - label (string) (required) — Label name.
+        - label (string) (required) — Prometheus label name to match, e.g. 'job'; letters, digits, '_', ':', '.' and '-', starting with a letter or '_'.
         - op (string) (required) — Matcher operator: '=' = equals; '!=' = not equals; '=~' = regex match; '!~' = regex does-not-match. [=, !=, =~, !~]
-        - value (string) (required) — Matcher value; may reference other variables through '{{ }}'. (≥1 chars)
-      - metric (string) — Optional metric used to restrict the series considered.
+        - value (string) (required) — Matcher value; may reference other variables as '${name}'. A multi-value or 'all' variable needs '=~' or '!~'. (≥1 chars)
+      - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
       - text_field (string) — Column used as the candidate label; defaults to the value column.
       - value_field (string) — Column used as the candidate value. (≥1 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - budget (object) (required) — Execution accounting for a panel run.
-    - execution_count (integer) (required) — Number of queries launched. (min 0)
-    - max_concurrency (integer) (required) — Concurrency cap applied to the panel's queries. (min 1)
-  - display (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
-    - category_field (string) — Field supplying the category axis.
-    - column_options (object) — Per-column display overrides keyed by field name, at most 100 entries.
-    - data_link (object) — Drill-down link from a table column or bar panel into another dashboard. The target dashboard must exist and the mapping sources must match the source panel's shape.
-      - dashboard_id (string) (required) — Target dashboard ID.
+    - execution_count (integer) (required) — Number of queries that resolved successfully and were dispatched for execution; queries that failed to resolve are not counted. (min 0)
+    - max_concurrency (integer) (required) — Maximum number of the panel's queries executed at the same time; fixed at 6. (min 1)
+  - display (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
+    - category_field (string) — Result field supplying the category axis; required, at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
+    - column_options (object) — Per-column display overrides keyed by result field name, at most 100 entries. Keys must be non-empty, at most 1024 Unicode code points and not 'frame_index' or 'field_index'.
+    - data_link (object) — Drill-down link from a table or bar panel into another dashboard. Only the ID format is checked on save; a link to a dashboard that does not exist is accepted. The mapping sources allowed depend on the source panel kind.
+      - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
       - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
       - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-      - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-    - decimals (integer) — Fixed decimal places; omit or send null to let the renderer decide. (min 0)
+      - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+    - decimals (integer) — Fixed number of decimal places, 0–15; omit or send null to let the console decide. (0-15)
     - display_fields (array<string>) — Log fields rendered for each row.
     - kind (string) (required) — Visualization kind discriminator; always 'time_series'. [time_series, table, stat, bar, gauge, logs, text]
     - link_columns (array<object>) — Drill-down links rendered as table columns. Together with per-column links a table allows at most 5.
-      - dashboard_id (string) (required) — Target dashboard ID.
+      - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
       - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
       - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-      - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-    - markdown (string) — Markdown body, at most 64 KiB. Only a restricted node set (headings, lists, tables, links, code) survives validation. (≤65536 chars)
+      - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+    - markdown (string) — Markdown body, at most 64 KiB. Allowed: paragraphs, headings, lists, block quotes, code blocks and spans, emphasis, tables, horizontal rules and links. Links must be 'https://' URLs or site-relative paths starting with '/'. Images, raw HTML and '${' templates are rejected with 'InvalidParameter', not stripped. (≤65536 chars)
     - max (number) — Scale upper bound; must exceed 'min' when both are set.
     - min (number) — Scale lower bound.
     - options (object) (required) — Open options object for the chosen visualization kind; the only part of the definition that round-trips losslessly. Missing or null normalizes to '{}'.
     - reducer (string) — Reduction applied across the returned rows: 'last_non_null' = most recent non-null value; 'min' = minimum; 'max' = maximum; 'mean' = average; 'sum' = sum. [last_non_null, min, max, mean, sum]
-    - sort (array<object>) — Initial sort keys; fields must be unique.
+    - sort (array<object>) — Initial sort keys, applied in order; each field may appear once.
       - direction (string) (required) — Sort direction: 'asc' = ascending; 'desc' = descending. [asc, desc]
-      - field (string) (required) — Field name to sort by. (≥1 chars)
+      - field (string) (required) — Result field name to sort by; at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
     - threshold (object) — Colour threshold for a numeric value. At least one of 'warning'/'critical' is required, and with both set the pair must be ordered according to 'mode'.
       - critical (number) — Critical bound; must be finite.
       - mode (string) (required) — Direction of the comparison: 'higher_is_worse' = values at or above the bound breach it; 'lower_is_worse' = values at or below the bound breach it. [higher_is_worse, lower_is_worse]
       - warning (number) — Warning bound; must be finite.
-    - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
-    - value_fields (array<string>) — Fields reduced to the displayed values.
-  - panel_id (string) (required) — Panel ID.
-  - refs (array<object>) (required) — One entry per query in the panel.
-    - child_request_id (string) — Request ID of the underlying datasource execution; use it when tracing a single query.
-    - error (object) — Per-variable or per-query failure. A failed arm does not fail the whole call.
-      - message (string) (required) — Human-readable detail for the failure.
-      - reason (string) (required) — Machine-readable failure reason. Observed values include 'invalid_request', 'variable_invalid', 'panel_missing', 'field_missing', 'datasource_permission_denied', 'timeout', 'panel_deadline', 'panel_canceled', 'canceled', 'overloaded', 'source_too_large', 'edge_unavailable', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions' and 'internal'.
-    - execution (object) — Datasource-specific execution payload, passed through unmodified.
-    - ref_id (string) (required) — Panel-local query reference.
-    - state (string) (required) — Per-query execution state: 'success' = the query executed; 'error' = the query failed; 'incompatible' = the datasource accepted the call but the query mode or field selection does not fit the datasource type. [success, error, incompatible]
-  - run_state (string) (required) — Aggregate state of the run: 'success' = all queries succeeded; 'partial' = some succeeded; 'incompatible' = at least one query is incompatible with its datasource; 'cancelled' = the run was cancelled; 'error' = all queries failed. [success, partial, incompatible, cancelled, error]
+    - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. Defaults to 'unitless' when omitted. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
+    - value_fields (array<string>) — Result fields reduced to the displayed values; at least one, each listed once. Names are matched exactly and must not be 'frame_index' or 'field_index'.
+  - panel_id (string) (required) — ID of the draft panel, echoing 'panel.id' from the request.
+  - refs (array<object>) (required) — One entry per query of the panel, in the panel's query order. A query that failed to resolve appears with 'state' 'error'.
+    - child_request_id (string) — Request ID of the underlying datasource execution; use it when tracing a single query. Absent when the query never reached the datasource.
+    - error (object) — Failure of one variable or one query. A failed variable or query does not fail the whole call.
+      - message (string) (required) — Human-readable detail for display or troubleshooting; its wording is not stable, so do not parse it.
+      - reason (string) (required) — Machine-readable failure reason. The set is open; current values: - 'invalid_request': the query or datasource setup is rejected (unsupported datasource type or query mode, non-empty 'args' where none are allowed, a malformed argument). - 'variable_invalid': a variable could not be used (no selection and no default, a selection outside the candidates, an unresolved dependency, a bad substitution, or an unusable candidate list). - 'panel_missing': the panel is not in the dashboard (queries resolve only). - 'datasource_permission_denied': the datasource is missing, disabled, not accessible to the caller, or no accessible datasource matches the variable. - 'field_missing', 'value_not_scalar', 'empty_field_name', 'duplicate_field_name', 'field_type_changed': the result does not fit the panel's visualization, or a SQL variable query returned unusable columns. - 'timeout': the datasource call timed out; 'panel_deadline': the run hit the overall 35-second deadline. - 'canceled', 'panel_canceled': the call was cancelled. - 'overloaded': the datasource side is rate limiting. - 'too_many_rows', 'result_too_large', 'source_too_large': a row, size or candidate-count limit was exceeded. - 'edge_unavailable', 'no_active_edge', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions': the Edge cluster of the datasource is not connected, too old, of unknown version, or mixed. - 'internal': an unexpected server-side error.
+    - execution (object) — Datasource-specific execution result, passed through unmodified. Present when 'state' is 'success' or 'incompatible'; absent when 'state' is 'error'.
+    - ref_id (string) (required) — Query reference within the panel: a single letter 'A'–'Z', as set in the panel's 'queries'.
+    - state (string) (required) — Per-query state: 'success' = the query ran and 'execution' is present; 'error' = the query could not be resolved or executed, or the run was cancelled or timed out, and 'error' explains why; 'incompatible' = the query ran, but its result does not fit the panel's visualization (for example a configured field is missing or not numeric), so 'execution' is still present and 'error' explains the mismatch. [success, error, incompatible]
+  - run_state (string) (required) — Aggregate state of the run: 'success' = every query succeeded; 'partial' = at least one query succeeded and at least one did not; 'cancelled' = no query succeeded and the client cancelled the request; 'incompatible' = no query succeeded and at least one query ran but returned a result that does not fit the panel's visualization; 'error' = no query succeeded and none is 'incompatible' (also when the panel has no queries). [success, partial, incompatible, cancelled, error]
   - time (object) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  - variables (object) (required) — Selections that resolved successfully.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  - variables (object) (required) — Effective selections of the variables that resolved successfully, keyed by variable name; variables that failed to resolve are left out.
 `,
-		Example: `  flashduty monit dashboard-panel-preview --data '{"context":{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","kind":"existing"},"max_data_points":100,"panel":{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"{{env}}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}},"selections":{"env":{"kind":"values","values":["prod"]}},"time":{"from_ms":1791100800000,"to_ms":1791104400000},"variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]}'`,
+		Example: `  flashduty monit dashboard-panel-preview --data '{"context":{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","kind":"existing"},"max_data_points":100,"panel":{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"${env}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}},"selections":{"env":{"kind":"values","values":["prod"]}},"time":{"from_ms":1791100800000,"to_ms":1791104400000},"variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -191,7 +191,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Downsampling target, 2–5000 points. (2-5000)")
+	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -213,64 +213,64 @@ API: POST /monit/dashboard/panel/run (monit-dashboard-panel-read-run)
 
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
-  --max-data-points int — Downsampling target, 2–5000 points; omit or send null for the server default of 100. (2-5000)
-  --panel-id string (required) — Panel to execute.
-  --revision int — Revision guard; when set it must equal the current revision. (min 1)
+  --max-data-points int — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
+  --panel-id string (required) — ID of the panel to execute. It must belong to the dashboard, otherwise the call returns 'TargetNotFound' (HTTP 404).
+  --revision int — Revision guard. When set (non-zero) it must equal the dashboard's current revision, otherwise the call fails with 'DashboardRevisionConflict' (HTTP 409). Omit or send 0 to skip the check.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  variables (object, via --data) (required) — Selections keyed by variable name, at most 20 entries.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  variables (object, via --data) — Selections keyed by variable name, at most 20 entries. Variables without an entry fall back to their stored defaults; a name the dashboard does not define fails the call with HTTP 400.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - budget (object) (required) — Execution accounting for a panel run.
-    - execution_count (integer) (required) — Number of queries launched. (min 0)
-    - max_concurrency (integer) (required) — Concurrency cap applied to the panel's queries. (min 1)
-  - dashboard_id (string) (required) — Dashboard ID.
-  - display (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
-    - category_field (string) — Field supplying the category axis.
-    - column_options (object) — Per-column display overrides keyed by field name, at most 100 entries.
-    - data_link (object) — Drill-down link from a table column or bar panel into another dashboard. The target dashboard must exist and the mapping sources must match the source panel's shape.
-      - dashboard_id (string) (required) — Target dashboard ID.
+    - execution_count (integer) (required) — Number of queries that resolved successfully and were dispatched for execution; queries that failed to resolve are not counted. (min 0)
+    - max_concurrency (integer) (required) — Maximum number of the panel's queries executed at the same time; fixed at 6. (min 1)
+  - dashboard_id (string) (required) — ID of the dashboard that was run, echoing the request.
+  - display (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
+    - category_field (string) — Result field supplying the category axis; required, at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
+    - column_options (object) — Per-column display overrides keyed by result field name, at most 100 entries. Keys must be non-empty, at most 1024 Unicode code points and not 'frame_index' or 'field_index'.
+    - data_link (object) — Drill-down link from a table or bar panel into another dashboard. Only the ID format is checked on save; a link to a dashboard that does not exist is accepted. The mapping sources allowed depend on the source panel kind.
+      - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
       - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
       - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-      - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-    - decimals (integer) — Fixed decimal places; omit or send null to let the renderer decide. (min 0)
+      - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+    - decimals (integer) — Fixed number of decimal places, 0–15; omit or send null to let the console decide. (0-15)
     - display_fields (array<string>) — Log fields rendered for each row.
     - kind (string) (required) — Visualization kind discriminator; always 'time_series'. [time_series, table, stat, bar, gauge, logs, text]
     - link_columns (array<object>) — Drill-down links rendered as table columns. Together with per-column links a table allows at most 5.
-      - dashboard_id (string) (required) — Target dashboard ID.
+      - dashboard_id (string) (required) — ID of the dashboard to open; must be a canonical UUIDv7.
       - pass_time (boolean) (required) — When true the current time range is forwarded to the target.
       - target_id (string) — Optional tab, section or panel ID to focus in the target dashboard.
-      - variable_mappings (object) (required) — Maps target variable names to a source value such as a column or a source variable.
-    - markdown (string) — Markdown body, at most 64 KiB. Only a restricted node set (headings, lists, tables, links, code) survives validation. (≤65536 chars)
+      - variable_mappings (object) (required) — Values to set in the target dashboard, keyed by target variable name (must match '^[A-Za-z_][A-Za-z0-9_]{0,63}$'); each entry says where the value comes from. Send '{}' for none.
+    - markdown (string) — Markdown body, at most 64 KiB. Allowed: paragraphs, headings, lists, block quotes, code blocks and spans, emphasis, tables, horizontal rules and links. Links must be 'https://' URLs or site-relative paths starting with '/'. Images, raw HTML and '${' templates are rejected with 'InvalidParameter', not stripped. (≤65536 chars)
     - max (number) — Scale upper bound; must exceed 'min' when both are set.
     - min (number) — Scale lower bound.
     - options (object) (required) — Open options object for the chosen visualization kind; the only part of the definition that round-trips losslessly. Missing or null normalizes to '{}'.
     - reducer (string) — Reduction applied across the returned rows: 'last_non_null' = most recent non-null value; 'min' = minimum; 'max' = maximum; 'mean' = average; 'sum' = sum. [last_non_null, min, max, mean, sum]
-    - sort (array<object>) — Initial sort keys; fields must be unique.
+    - sort (array<object>) — Initial sort keys, applied in order; each field may appear once.
       - direction (string) (required) — Sort direction: 'asc' = ascending; 'desc' = descending. [asc, desc]
-      - field (string) (required) — Field name to sort by. (≥1 chars)
+      - field (string) (required) — Result field name to sort by; at most 1024 Unicode code points, not 'frame_index' or 'field_index'. (≥1 chars)
     - threshold (object) — Colour threshold for a numeric value. At least one of 'warning'/'critical' is required, and with both set the pair must be ordered according to 'mode'.
       - critical (number) — Critical bound; must be finite.
       - mode (string) (required) — Direction of the comparison: 'higher_is_worse' = values at or above the bound breach it; 'lower_is_worse' = values at or below the bound breach it. [higher_is_worse, lower_is_worse]
       - warning (number) — Warning bound; must be finite.
-    - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
-    - value_fields (array<string>) — Fields reduced to the displayed values.
-  - panel_id (string) (required) — Panel ID.
-  - refs (array<object>) (required) — One entry per query in the panel.
-    - child_request_id (string) — Request ID of the underlying datasource execution; use it when tracing a single query.
-    - error (object) — Per-variable or per-query failure. A failed arm does not fail the whole call.
-      - message (string) (required) — Human-readable detail for the failure.
-      - reason (string) (required) — Machine-readable failure reason. Observed values include 'invalid_request', 'variable_invalid', 'panel_missing', 'field_missing', 'datasource_permission_denied', 'timeout', 'panel_deadline', 'panel_canceled', 'canceled', 'overloaded', 'source_too_large', 'edge_unavailable', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions' and 'internal'.
-    - execution (object) — Datasource-specific execution payload, passed through unmodified.
-    - ref_id (string) (required) — Panel-local query reference.
-    - state (string) (required) — Per-query execution state: 'success' = the query executed; 'error' = the query failed; 'incompatible' = the datasource accepted the call but the query mode or field selection does not fit the datasource type. [success, error, incompatible]
+    - unit (string) — Display unit for the panel's numeric values: 'unitless' = raw number; 'ratio' = fraction of 1; 'percent' = percentage; 'milliseconds' = duration in milliseconds; 'seconds' = duration in seconds; 'bytes' = size in bytes; 'bits' = size in bits; 'count_per_second' = per-second count; 'bytes_per_second' = bytes per second; 'bits_per_second' = bits per second. Defaults to 'unitless' when omitted. [unitless, ratio, percent, milliseconds, seconds, bytes, bits, count_per_second, bytes_per_second, bits_per_second]
+    - value_fields (array<string>) — Result fields reduced to the displayed values; at least one, each listed once. Names are matched exactly and must not be 'frame_index' or 'field_index'.
+  - panel_id (string) (required) — ID of the panel that was run, echoing the request.
+  - refs (array<object>) (required) — One entry per query of the panel, in the panel's query order. A query that failed to resolve appears with 'state' 'error'.
+    - child_request_id (string) — Request ID of the underlying datasource execution; use it when tracing a single query. Absent when the query never reached the datasource.
+    - error (object) — Failure of one variable or one query. A failed variable or query does not fail the whole call.
+      - message (string) (required) — Human-readable detail for display or troubleshooting; its wording is not stable, so do not parse it.
+      - reason (string) (required) — Machine-readable failure reason. The set is open; current values: - 'invalid_request': the query or datasource setup is rejected (unsupported datasource type or query mode, non-empty 'args' where none are allowed, a malformed argument). - 'variable_invalid': a variable could not be used (no selection and no default, a selection outside the candidates, an unresolved dependency, a bad substitution, or an unusable candidate list). - 'panel_missing': the panel is not in the dashboard (queries resolve only). - 'datasource_permission_denied': the datasource is missing, disabled, not accessible to the caller, or no accessible datasource matches the variable. - 'field_missing', 'value_not_scalar', 'empty_field_name', 'duplicate_field_name', 'field_type_changed': the result does not fit the panel's visualization, or a SQL variable query returned unusable columns. - 'timeout': the datasource call timed out; 'panel_deadline': the run hit the overall 35-second deadline. - 'canceled', 'panel_canceled': the call was cancelled. - 'overloaded': the datasource side is rate limiting. - 'too_many_rows', 'result_too_large', 'source_too_large': a row, size or candidate-count limit was exceeded. - 'edge_unavailable', 'no_active_edge', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions': the Edge cluster of the datasource is not connected, too old, of unknown version, or mixed. - 'internal': an unexpected server-side error.
+    - execution (object) — Datasource-specific execution result, passed through unmodified. Present when 'state' is 'success' or 'incompatible'; absent when 'state' is 'error'.
+    - ref_id (string) (required) — Query reference within the panel: a single letter 'A'–'Z', as set in the panel's 'queries'.
+    - state (string) (required) — Per-query state: 'success' = the query ran and 'execution' is present; 'error' = the query could not be resolved or executed, or the run was cancelled or timed out, and 'error' explains why; 'incompatible' = the query ran, but its result does not fit the panel's visualization (for example a configured field is missing or not numeric), so 'execution' is still present and 'error' explains the mismatch. [success, error, incompatible]
   - revision (integer) (required) — Revision the run executed against. (min 1)
-  - run_state (string) (required) — Aggregate state of the run: 'success' = all queries succeeded; 'partial' = some succeeded; 'incompatible' = at least one query is incompatible with its datasource; 'cancelled' = the run was cancelled; 'error' = all queries failed. [success, partial, incompatible, cancelled, error]
+  - run_state (string) (required) — Aggregate state of the run: 'success' = every query succeeded; 'partial' = at least one query succeeded and at least one did not; 'cancelled' = no query succeeded and the client cancelled the request; 'incompatible' = no query succeeded and at least one query ran but returned a result that does not fit the panel's visualization; 'error' = no query succeeded and none is 'incompatible' (also when the panel has no queries). [success, partial, incompatible, cancelled, error]
   - time (object) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  - variables (object) (required) — Selections that resolved successfully.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  - variables (object) (required) — Effective selections of the variables that resolved successfully, keyed by variable name; variables that failed to resolve are left out.
 `,
 		Example: `  flashduty monit dashboard-panel-run --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","max_data_points":100,"panel_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","revision":7,"time":{"from_ms":1791100800000,"to_ms":1791104400000},"variables":{"env":{"kind":"values","values":["prod"]}}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -306,9 +306,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
-	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Downsampling target, 2–5000 points; omit or send null for the server default of 100. (2-5000)")
-	cmd.Flags().StringVar(&fPanelID, "panel-id", "", "Panel to execute. (required)")
-	cmd.Flags().Int64Var(&fRevision, "revision", 0, "Revision guard; when set it must equal the current revision. (min 1)")
+	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)")
+	cmd.Flags().StringVar(&fPanelID, "panel-id", "", "ID of the panel to execute. It must belong to the dashboard, otherwise the call returns 'TargetNotFound' (HTTP 404). (required)")
+	cmd.Flags().Int64Var(&fRevision, "revision", 0, "Revision guard. When set (non-zero) it must equal the dashboard's current revision, otherwise the call fails with 'DashboardRevisionConflict' (HTTP 409). Omit or send 0 to skip the check.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -330,37 +330,37 @@ API: POST /monit/dashboard/runtime/queries/resolve (monit-dashboard-query-read-r
 
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
-  --max-data-points int — Downsampling target used to compute the step and render the built-in time variables, 2–5000 points; omit or send null for the server default of 100. (2-5000)
+  --max-data-points int — Target maximum number of points per series, used to compute the step and render the built-in time variables. 2–5000; omit or send null for the default of 100. (2-5000)
   --panel-ids []string (required) — Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call.
   --preserve-builtin-variables bool — Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  variables (object, via --data) (required) — Selections keyed by variable name, at most 20 entries.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  variables (object, via --data) — Selections keyed by variable name, at most 20 entries. Variables without an entry fall back to their stored defaults; a name the dashboard does not define fails the call with HTTP 400.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - dashboard_id (string) (required) — Dashboard ID.
-  - panels (array<object>) (required) — Per-panel results.
-    - error (object) — Per-variable or per-query failure. A failed arm does not fail the whole call.
-      - message (string) (required) — Human-readable detail for the failure.
-      - reason (string) (required) — Machine-readable failure reason. Observed values include 'invalid_request', 'variable_invalid', 'panel_missing', 'field_missing', 'datasource_permission_denied', 'timeout', 'panel_deadline', 'panel_canceled', 'canceled', 'overloaded', 'source_too_large', 'edge_unavailable', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions' and 'internal'.
-    - panel_id (string) (required) — Panel ID.
-    - queries (array<object>) (required) — Successfully resolved queries.
-      - args (object) (required) — Query arguments; empty object when none.
-      - datasource (object) (required) — The datasource a runtime query was bound to.
-        - id (integer) (required) — Datasource ID. (min 1)
+  - dashboard_id (string) (required) — ID of the dashboard the queries were resolved against, echoing the request.
+  - panels (array<object>) (required) — One entry per requested panel, in request order.
+    - error (object) — Failure of one variable or one query. A failed variable or query does not fail the whole call.
+      - message (string) (required) — Human-readable detail for display or troubleshooting; its wording is not stable, so do not parse it.
+      - reason (string) (required) — Machine-readable failure reason. The set is open; current values: - 'invalid_request': the query or datasource setup is rejected (unsupported datasource type or query mode, non-empty 'args' where none are allowed, a malformed argument). - 'variable_invalid': a variable could not be used (no selection and no default, a selection outside the candidates, an unresolved dependency, a bad substitution, or an unusable candidate list). - 'panel_missing': the panel is not in the dashboard (queries resolve only). - 'datasource_permission_denied': the datasource is missing, disabled, not accessible to the caller, or no accessible datasource matches the variable. - 'field_missing', 'value_not_scalar', 'empty_field_name', 'duplicate_field_name', 'field_type_changed': the result does not fit the panel's visualization, or a SQL variable query returned unusable columns. - 'timeout': the datasource call timed out; 'panel_deadline': the run hit the overall 35-second deadline. - 'canceled', 'panel_canceled': the call was cancelled. - 'overloaded': the datasource side is rate limiting. - 'too_many_rows', 'result_too_large', 'source_too_large': a row, size or candidate-count limit was exceeded. - 'edge_unavailable', 'no_active_edge', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions': the Edge cluster of the datasource is not connected, too old, of unknown version, or mixed. - 'internal': an unexpected server-side error.
+    - panel_id (string) (required) — ID of the panel, echoing an entry of 'panel_ids'.
+    - queries (array<object>) (required) — Queries that resolved successfully, in the panel's query order. Queries that failed are left out; empty array when none resolved.
+      - args (object) (required) — Query arguments; an empty object when none. Only Loki queries carry arguments: 'loki.limit' (a decimal integer from 1 to 1000, the maximum number of log entries) and 'loki.direction' ('latest' or 'earliest').
+      - datasource (object) (required) — The datasource a runtime variable or query was bound to.
+        - id (integer) (required) — Datasource ID, as listed by the datasource list endpoint. (min 1)
         - name (string) (required) — Datasource name.
-        - type (string) (required) — Datasource type identifier.
-      - expr (string) (required) — Expression with variable templates substituted.
-      - min_step_seconds (integer) — Minimum step in seconds; null when unset. (min 1)
-      - mode (string) (required) — Evaluation mode: 'range' = a stepped time series; 'instant' = a single point in time; 'window' = raw rows inside a bounded time window. [range, instant, window]
-      - ref_id (string) (required) — Panel-local query reference.
-    - state (string) (required) — Aggregate state of the panel's queries: 'success' = every query resolved; 'partial' = some resolved; 'error' = none resolved. [success, partial, error]
+        - type (string) (required) — Datasource type identifier. Resolved queries and 'query' variables only use 'prometheus', 'mysql' or 'loki'; the datasource chosen by a 'datasource' variable can be any type identifier the variable was configured with.
+      - expr (string) (required) — Expression with variable templates substituted. Built-in time variables stay verbatim when the request set 'preserve_builtin_variables' to 'true'.
+      - min_step_seconds (integer) — Minimum step in seconds from the panel query; omitted when unset. (min 1)
+      - mode (string) (required) — Evaluation mode: 'range' = a stepped time series; 'instant' = a single point in time; 'window' = rows inside a bounded time window. Prometheus and Loki queries use 'range' or 'instant'; MySQL queries use 'window'. [range, instant, window]
+      - ref_id (string) (required) — Query reference within the panel: a single letter 'A'–'Z'.
+    - state (string) (required) — Resolution state of the panel's queries: 'success' = every query resolved; 'partial' = some resolved and some failed; 'error' = none resolved, including a panel that does not exist. [success, partial, error]
   - revision (integer) (required) — Revision the resolution ran against. (min 1)
   - time (object) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  - variables (object) (required) — Selections that resolved successfully.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  - variables (object) (required) — Effective selections of the variables that resolved successfully, keyed by variable name; variables that failed to resolve are left out.
 `,
 		Args:    requireBodyFieldOrArgs("panel_ids", "panel-ids"),
 		Example: `  flashduty monit dashboard-runtime-queries-resolve --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","panel_ids":["01990d7a-9c5b-7ab0-9c18-33e38f6f2404"],"time":{"from_ms":1791100800000,"to_ms":1791104400000},"variables":{"env":{"kind":"values","values":["prod"]}}}'`,
@@ -400,7 +400,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
-	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Downsampling target used to compute the step and render the built-in time variables, 2–5000 points; omit or send null for the server default of 100. (2-5000)")
+	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series, used to compute the step and render the built-in time variables. 2–5000; omit or send null for the default of 100. (2-5000)")
 	cmd.Flags().StringSliceVar(&fPanelIDs, "panel-ids", nil, "Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call. (required)")
 	cmd.Flags().BoolVar(&fPreserveBuiltinVariables, "preserve-builtin-variables", false, "Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -425,48 +425,48 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
   - dashboard_id (string) (required) — Canonical UUIDv7 assigned by the caller at creation time.
-  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -477,12 +477,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
   - folder_breadcrumb (array<string>) (required) — Folder names from the root down to 'folder_id'.
@@ -491,8 +491,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
   - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
 `,
 		Args:    requireBodyFieldOrExactArg("dashboard_id", "dashboard-id"),
 		Example: `  flashduty monit dashboard-get --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101"}'`,
@@ -539,7 +539,7 @@ func genDashboardsReadListCmd() *cobra.Command {
 		Short: "List dashboards",
 		Long: `List dashboards.
 
-List the dashboards in one folder.
+List the dashboards stored directly in one folder, with word search and paging.
 
 API: POST /monit/dashboard/list (monit-dashboard-read-list)
 
@@ -547,24 +547,24 @@ Request fields:
   --page int — Page number, 1-based. Defaults to 1. (min 1)
   --limit int — Page size, 1–100. Defaults to 20. (1-100)
   --search-after-ctx string
-  --folder-id int (required) — Folder whose dashboards are listed. (min 1)
-  --query string — Optional space-separated search words matched against title and description; at most 128 Unicode code points. (≤128 chars)
+  --folder-id int (required) — Folder whose directly contained dashboards are listed; subfolders are not included. (min 1)
+  --query string — Optional search words separated by whitespace, at most 128 Unicode code points. A dashboard matches when every word appears in its title or description. (≤128 chars)
   sort (array<object>, via --data) — Sort keys; defaults to 'updated_at' descending.
     - direction (string) (required) — Sort direction: 'asc' = ascending; 'desc' = descending. [asc, desc]
     - field (string) (required) — 'title' is available everywhere; 'updated_at' only on list/search, 'deleted_at' only on the trash listing. [title, updated_at, deleted_at]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Dashboards in this page.
-    - dashboard_id (string) (required) — Dashboard ID.
-    - description (string) — Dashboard description; empty when unset.
+    - dashboard_id (string) (required) — Dashboard ID; pass it to 'POST /monit/dashboard/get' for the full definition.
+    - description (string) — Dashboard description; omitted when unset.
     - folder_breadcrumb (array<string>) (required) — Folder path from the root.
-    - folder_id (integer) (required) — Folder ID. (min 1)
+    - folder_id (integer) (required) — ID of the folder the dashboard is stored in. (min 1)
     - revision (integer) (required) — Current revision number. (min 1)
     - title (string) (required) — Dashboard title.
     - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
   - total (integer) (required) — Total number of matching dashboards across all pages.
 `,
 		Args:    requireBodyFieldOrExactArg("folder_id", "folder-id"),
@@ -610,8 +610,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. Defaults to 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. Defaults to 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder whose dashboards are listed. (required) (min 1)")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Optional space-separated search words matched against title and description; at most 128 Unicode code points. (≤128 chars)")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder whose directly contained dashboards are listed; subfolders are not included. (required) (min 1)")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Optional search words separated by whitespace, at most 128 Unicode code points. A dashboard matches when every word appears in its title or description. (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -635,42 +635,42 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - dashboard (object) (required) — Dashboard-level outline entry.
-    - dashboard_id (string) (required) — Dashboard ID.
-    - description (string) — Dashboard description; empty when unset.
+    - dashboard_id (string) (required) — Dashboard ID, as passed in the request.
+    - description (string) — Dashboard description; omitted when unset.
     - revision (integer) (required) — Current revision number. (min 1)
     - title (string) (required) — Dashboard title.
     - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - folder (object) (required) — Folder placement in an outline.
     - breadcrumb (array<string>) (required) — Folder names from the root.
-    - folder_id (integer) (required) — Folder ID. (min 1)
+    - folder_id (integer) (required) — ID of the folder the dashboard is stored in. (min 1)
   - tabs (array<object>) (required) — Tabs, narrowed by 'target_id' when supplied.
     - breadcrumb (array<string>) (required) — Dashboard title followed by the tab title.
-    - description (string) — Tab description; empty when unset.
-    - id (string) (required) — Tab ID.
+    - description (string) — Tab description; omitted when unset.
+    - id (string) (required) — Tab ID; pass it as 'target_id' to narrow the outline to this tab.
     - sections (array<object>) (required) — Sections on the tab.
       - breadcrumb (array<string>) (required) — Dashboard, tab and section titles.
-      - description (string) — Section description; empty when unset.
-      - id (string) (required) — Section ID.
+      - description (string) — Section description; omitted when unset.
+      - id (string) (required) — Section ID; pass it as 'target_id' to narrow the outline to this section.
       - panels (array<object>) (required) — Panels in the section.
         - breadcrumb (array<string>) (required) — Full path of titles from the dashboard down to the panel.
-        - datasource_type (string) — Datasource type the panel queries; empty when the panel has no datasource (text panels).
-        - description (string) — Panel description; empty when unset.
-        - id (string) (required) — Panel ID.
+        - datasource_type (string) — Datasource type from the panel's 'datasource_ref', such as 'prometheus', 'mysql' or 'loki'; omitted for text panels, which have no datasource. The set is open: it echoes whatever type was saved.
+        - description (string) — Panel description; omitted when unset.
+        - id (string) (required) — Panel ID; use it as 'panel_id' for 'POST /monit/dashboard/panel/run' or as 'target_id' here.
         - title (string) (required) — Panel title.
         - viz_config (object) (required) — Visualization kind of an outlined panel.
       - title (string) (required) — Section title.
-    - title (string) (required) — Tab title.
+    - title (string) (required) — Tab title as stored in the definition.
     - top_panels (array<object>) (required) — Panels placed directly on the tab.
       - breadcrumb (array<string>) (required) — Full path of titles from the dashboard down to the panel.
-      - datasource_type (string) — Datasource type the panel queries; empty when the panel has no datasource (text panels).
-      - description (string) — Panel description; empty when unset.
-      - id (string) (required) — Panel ID.
+      - datasource_type (string) — Datasource type from the panel's 'datasource_ref', such as 'prometheus', 'mysql' or 'loki'; omitted for text panels, which have no datasource. The set is open: it echoes whatever type was saved.
+      - description (string) — Panel description; omitted when unset.
+      - id (string) (required) — Panel ID; use it as 'panel_id' for 'POST /monit/dashboard/panel/run' or as 'target_id' here.
       - title (string) (required) — Panel title.
       - viz_config (object) (required) — Visualization kind of an outlined panel.
         - kind (string) (required) — Visualization kind: 'time_series' = time series; 'table' = table; 'stat' = single value; 'bar' = bar chart; 'gauge' = gauge; 'logs' = log stream; 'text' = Markdown text. [time_series, table, stat, bar, gauge, logs, text]
   - variables (array<object>) (required) — Variable summaries.
     - kind (string) (required) — Variable kind: 'datasource' = selects a datasource; 'custom' = fixed inline list; 'query' = resolved by running a query. [datasource, custom, query]
-    - label (string) — Display label; empty when unset.
+    - label (string) — Display label; omitted when unset.
     - name (string) (required) — Variable name.
     - selection (object) — Selection cardinality for a variable.
       - include_all (boolean) (required) — When true the variable also offers an 'all' selection.
@@ -732,23 +732,23 @@ Request fields:
   --page int — Page number, 1-based. Defaults to 1. (min 1)
   --limit int — Page size, 1–100. Defaults to 20. (1-100)
   --search-after-ctx string
-  --query string (required) — Space-separated search words; at least one word and at most 128 Unicode code points. (1-128 chars)
+  --query string (required) — Search words separated by whitespace; at least one word and at most 128 Unicode code points. A dashboard matches when every word appears in its title or description. (1-128 chars)
   sort (array<object>, via --data) — Sort keys; defaults to 'updated_at' descending.
     - direction (string) (required) — Sort direction: 'asc' = ascending; 'desc' = descending. [asc, desc]
     - field (string) (required) — 'title' is available everywhere; 'updated_at' only on list/search, 'deleted_at' only on the trash listing. [title, updated_at, deleted_at]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Dashboards in this page.
-    - dashboard_id (string) (required) — Dashboard ID.
-    - description (string) — Dashboard description; empty when unset.
+    - dashboard_id (string) (required) — Dashboard ID; pass it to 'POST /monit/dashboard/get' for the full definition.
+    - description (string) — Dashboard description; omitted when unset.
     - folder_breadcrumb (array<string>) (required) — Folder path from the root.
-    - folder_id (integer) (required) — Folder ID. (min 1)
+    - folder_id (integer) (required) — ID of the folder the dashboard is stored in. (min 1)
     - revision (integer) (required) — Current revision number. (min 1)
     - title (string) (required) — Dashboard title.
     - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
   - total (integer) (required) — Total number of matching dashboards across all pages.
 `,
 		Example: `  flashduty monit dashboard-search --data '{"limit":20,"p":1,"query":"checkout latency","sort":[{"direction":"asc","field":"title"}]}'`,
@@ -787,7 +787,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. Defaults to 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. Defaults to 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Space-separated search words; at least one word and at most 128 Unicode code points. (required) (1-128 chars)")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Search words separated by whitespace; at least one word and at most 128 Unicode code points. A dashboard matches when every word appears in its title or description. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -811,49 +811,49 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - actor (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
   - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - dashboard_id (string) (required) — Dashboard ID.
-  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  - dashboard_id (string) (required) — ID of the dashboard this revision belongs to.
+  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -864,16 +864,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
   - folder_id (integer) (required) — Folder the dashboard sat in at that revision. (min 1)
-  - message (string) — Optional commit message. (≤1024 chars)
+  - message (string) — Message passed to 'POST /monit/dashboard/update'; omitted when none was given. (≤1024 chars)
   - revision (integer) (required) — Revision number. (min 1)
   - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
 `,
@@ -932,12 +932,12 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Revisions, at most 20.
     - actor (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
     - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - dashboard_id (string) (required) — Dashboard ID.
+    - dashboard_id (string) (required) — ID of the dashboard this revision belongs to.
     - folder_id (integer) (required) — Folder the dashboard sat in at that revision. (min 1)
-    - message (string) — Optional commit message; at most 1024 Unicode code points. (≤1024 chars)
+    - message (string) — Message passed to 'POST /monit/dashboard/update'; omitted when none was given and on revisions written by create, move, delete and restore. (≤1024 chars)
     - revision (integer) (required) — Revision number. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("dashboard_id", "dashboard-id"),
@@ -997,17 +997,17 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Deleted dashboards in this page.
-    - dashboard_id (string) (required) — Dashboard ID.
+    - dashboard_id (string) (required) — ID of the trashed dashboard; pass it to 'POST /monit/dashboard/restore'.
     - deleted_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - deleted_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
-    - description (string) — Dashboard description; empty when unset.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
+    - description (string) — Dashboard description; omitted when unset.
     - folder_breadcrumb (array<string>) (required) — Folder path from the root.
     - folder_id (integer) (required) — Folder the dashboard sat in when deleted. (min 1)
-    - revision (integer) (required) — Revision the dashboard had when deleted. (min 1)
+    - revision (integer) (required) — Current revision of the trashed dashboard (the deletion bumped it); send it as 'expected_revision' to restore. (min 1)
     - title (string) (required) — Dashboard title.
-  - total (integer) (required) — Total number of deleted dashboards.
+  - total (integer) (required) — Total number of trashed dashboards visible to the caller, across all pages.
 `,
 		Example: `  flashduty monit dashboard-trash-list --data '{"limit":20,"p":1,"sort":[{"direction":"desc","field":"deleted_at"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1059,27 +1059,27 @@ API: POST /monit/dashboard/runtime/variables/preview (monit-dashboard-variable-r
 
 Request fields:
   context (object, via --data) (required) — Where an unsaved draft panel or variable set belongs. 'existing' targets a stored dashboard, 'new' a folder that does not contain one yet — the two are mutually exclusive.
-    - dashboard_id (string) — Required for 'existing', forbidden for 'new'.
-    - folder_id (integer) — Required for 'new', forbidden for 'existing'. (min 1)
+    - dashboard_id (string) — Required for 'existing', forbidden for 'new'. The caller must have access to the dashboard's folder.
+    - folder_id (integer) — Required for 'new', forbidden for 'existing'. Must be a folder the caller can access, otherwise the call returns 'FolderNotFound' (HTTP 404). (min 1)
     - kind (string) (required) — Draft context kind: 'existing' = targets a stored dashboard ('dashboard_id' required); 'new' = a folder that does not contain one yet ('folder_id' required). [existing, new]
-  selections (object, via --data) (required) — Selections keyed by variable name, at most 20 entries.
+  selections (object, via --data) — Selections keyed by variable name, at most 20 entries. Variables without an entry fall back to their draft default; a name that is not in 'variables' fails the call with HTTP 400.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  variables (array<object>, via --data) (required) — Draft variables, at most 20.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  variables (array<object>, via --data) (required) — Draft variables, at most 20. They are validated like a stored definition (names, dependencies, option limits) and must stay within 1 MiB.
     - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-      - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+      - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+      - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
       - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-      - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-    - datasource_type (string) — Datasource type the candidates are drawn from.
-    - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+      - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+    - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+    - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
       - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
       - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-    - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+    - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
     - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
     - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-    - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+    - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
     - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
     - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1090,34 +1090,34 @@ Request fields:
       - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
     - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
       - args (object) — Named query arguments; defaults to an empty object.
-      - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+      - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
       - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
       - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
       - label (string) — Label whose values become candidates.
       - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - label (string) (required) — Label name.
+        - label (string) (required) — Prometheus label name to match, e.g. 'job'; letters, digits, '_', ':', '.' and '-', starting with a letter or '_'.
         - op (string) (required) — Matcher operator: '=' = equals; '!=' = not equals; '=~' = regex match; '!~' = regex does-not-match. [=, !=, =~, !~]
-        - value (string) (required) — Matcher value; may reference other variables through '{{ }}'. (≥1 chars)
-      - metric (string) — Optional metric used to restrict the series considered.
+        - value (string) (required) — Matcher value; may reference other variables as '${name}'. A multi-value or 'all' variable needs '=~' or '!~'. (≥1 chars)
+      - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
       - text_field (string) — Column used as the candidate label; defaults to the value column.
       - value_field (string) — Column used as the candidate value. (≥1 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - selections (object) (required) — Effective selections keyed by variable name.
-  - variables (array<object>) (required) — Resolved variables.
-    - candidates (array<object>) (required) — Resolved candidates, at most 1000.
+  - selections (object) (required) — Effective selections keyed by variable name; only variables that resolved successfully appear.
+  - variables (array<object>) (required) — Resolved variables, in the order of the draft 'variables'.
+    - candidates (array<object>) (required) — Selectable options, at most 1000; an empty array when there are none or resolution failed. Order: 'custom' keeps the definition order, 'datasource' is sorted by name then ID, 'query' is sorted by value.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
       - value (string) (required) — Value substituted into templates. (1-1024 chars)
-    - datasource (object) — The datasource a runtime query was bound to.
-      - id (integer) (required) — Datasource ID. (min 1)
+    - datasource (object) — The datasource a runtime variable or query was bound to.
+      - id (integer) (required) — Datasource ID, as listed by the datasource list endpoint. (min 1)
       - name (string) (required) — Datasource name.
-      - type (string) (required) — Datasource type identifier.
-    - error (object) — Per-variable or per-query failure. A failed arm does not fail the whole call.
-      - message (string) (required) — Human-readable detail for the failure.
-      - reason (string) (required) — Machine-readable failure reason. Observed values include 'invalid_request', 'variable_invalid', 'panel_missing', 'field_missing', 'datasource_permission_denied', 'timeout', 'panel_deadline', 'panel_canceled', 'canceled', 'overloaded', 'source_too_large', 'edge_unavailable', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions' and 'internal'.
+      - type (string) (required) — Datasource type identifier. Resolved queries and 'query' variables only use 'prometheus', 'mysql' or 'loki'; the datasource chosen by a 'datasource' variable can be any type identifier the variable was configured with.
+    - error (object) — Failure of one variable or one query. A failed variable or query does not fail the whole call.
+      - message (string) (required) — Human-readable detail for display or troubleshooting; its wording is not stable, so do not parse it.
+      - reason (string) (required) — Machine-readable failure reason. The set is open; current values: - 'invalid_request': the query or datasource setup is rejected (unsupported datasource type or query mode, non-empty 'args' where none are allowed, a malformed argument). - 'variable_invalid': a variable could not be used (no selection and no default, a selection outside the candidates, an unresolved dependency, a bad substitution, or an unusable candidate list). - 'panel_missing': the panel is not in the dashboard (queries resolve only). - 'datasource_permission_denied': the datasource is missing, disabled, not accessible to the caller, or no accessible datasource matches the variable. - 'field_missing', 'value_not_scalar', 'empty_field_name', 'duplicate_field_name', 'field_type_changed': the result does not fit the panel's visualization, or a SQL variable query returned unusable columns. - 'timeout': the datasource call timed out; 'panel_deadline': the run hit the overall 35-second deadline. - 'canceled', 'panel_canceled': the call was cancelled. - 'overloaded': the datasource side is rate limiting. - 'too_many_rows', 'result_too_large', 'source_too_large': a row, size or candidate-count limit was exceeded. - 'edge_unavailable', 'no_active_edge', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions': the Edge cluster of the datasource is not connected, too old, of unknown version, or mixed. - 'internal': an unexpected server-side error.
     - kind (string) (required) — Variable kind: 'datasource' = selects a datasource; 'custom' = fixed inline list; 'query' = resolved by running a query. [datasource, custom, query]
-    - name (string) (required) — Variable name.
-    - selection (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+    - name (string) (required) — Variable name, as defined in the dashboard or draft.
+    - selection (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
       - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
       - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
 `,
@@ -1161,28 +1161,28 @@ API: POST /monit/dashboard/runtime/variables/resolve (monit-dashboard-variable-r
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
-    - from_ms (integer) (required) — Unix timestamp in milliseconds. (min 0)
-    - to_ms (integer) (required) — Unix timestamp in milliseconds. (min 1)
-  variables (object, via --data) (required) — Selections already made, keyed by variable name, at most 20 entries. Variables omitted here fall back to their stored defaults.
+    - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
+    - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
+  variables (object, via --data) — Selections already made, keyed by variable name, at most 20 entries. Variables without an entry fall back to their stored defaults; a name the dashboard does not define fails the call with HTTP 400.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - dashboard_id (string) (required) — Dashboard ID.
+  - dashboard_id (string) (required) — ID of the dashboard the variables were resolved for, echoing the request.
   - revision (integer) (required) — Revision the resolution ran against. (min 1)
   - selections (object) (required) — Effective selections keyed by variable name; only variables that resolved successfully appear.
   - variables (array<object>) (required) — Resolved variables, in definition order.
-    - candidates (array<object>) (required) — Resolved candidates, at most 1000.
+    - candidates (array<object>) (required) — Selectable options, at most 1000; an empty array when there are none or resolution failed. Order: 'custom' keeps the definition order, 'datasource' is sorted by name then ID, 'query' is sorted by value.
       - text (string) (required) — Label shown in the picker. (1-1024 chars)
       - value (string) (required) — Value substituted into templates. (1-1024 chars)
-    - datasource (object) — The datasource a runtime query was bound to.
-      - id (integer) (required) — Datasource ID. (min 1)
+    - datasource (object) — The datasource a runtime variable or query was bound to.
+      - id (integer) (required) — Datasource ID, as listed by the datasource list endpoint. (min 1)
       - name (string) (required) — Datasource name.
-      - type (string) (required) — Datasource type identifier.
-    - error (object) — Per-variable or per-query failure. A failed arm does not fail the whole call.
-      - message (string) (required) — Human-readable detail for the failure.
-      - reason (string) (required) — Machine-readable failure reason. Observed values include 'invalid_request', 'variable_invalid', 'panel_missing', 'field_missing', 'datasource_permission_denied', 'timeout', 'panel_deadline', 'panel_canceled', 'canceled', 'overloaded', 'source_too_large', 'edge_unavailable', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions' and 'internal'.
+      - type (string) (required) — Datasource type identifier. Resolved queries and 'query' variables only use 'prometheus', 'mysql' or 'loki'; the datasource chosen by a 'datasource' variable can be any type identifier the variable was configured with.
+    - error (object) — Failure of one variable or one query. A failed variable or query does not fail the whole call.
+      - message (string) (required) — Human-readable detail for display or troubleshooting; its wording is not stable, so do not parse it.
+      - reason (string) (required) — Machine-readable failure reason. The set is open; current values: - 'invalid_request': the query or datasource setup is rejected (unsupported datasource type or query mode, non-empty 'args' where none are allowed, a malformed argument). - 'variable_invalid': a variable could not be used (no selection and no default, a selection outside the candidates, an unresolved dependency, a bad substitution, or an unusable candidate list). - 'panel_missing': the panel is not in the dashboard (queries resolve only). - 'datasource_permission_denied': the datasource is missing, disabled, not accessible to the caller, or no accessible datasource matches the variable. - 'field_missing', 'value_not_scalar', 'empty_field_name', 'duplicate_field_name', 'field_type_changed': the result does not fit the panel's visualization, or a SQL variable query returned unusable columns. - 'timeout': the datasource call timed out; 'panel_deadline': the run hit the overall 35-second deadline. - 'canceled', 'panel_canceled': the call was cancelled. - 'overloaded': the datasource side is rate limiting. - 'too_many_rows', 'result_too_large', 'source_too_large': a row, size or candidate-count limit was exceeded. - 'edge_unavailable', 'no_active_edge', 'edge_upgrade_required', 'edge_version_unknown', 'mixed_edge_versions': the Edge cluster of the datasource is not connected, too old, of unknown version, or mixed. - 'internal': an unexpected server-side error.
     - kind (string) (required) — Variable kind: 'datasource' = selects a datasource; 'custom' = fixed inline list; 'query' = resolved by running a query. [datasource, custom, query]
-    - name (string) (required) — Variable name.
-    - selection (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+    - name (string) (required) — Variable name, as defined in the dashboard or draft.
+    - selection (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
       - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
       - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
 `,
@@ -1234,48 +1234,48 @@ Create a dashboard from a full definition.
 API: POST /monit/dashboard/create (monit-dashboard-write-create)
 
 Request fields:
-  --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
-  --folder-id int (required) — Folder the dashboard is created in. Must be a folder the caller can write. (min 1)
+  --dashboard-id string (required) — Lowercase canonical UUIDv7 generated by the caller; it becomes the dashboard's permanent ID.
+  --folder-id int (required) — Folder to create the dashboard in; must exist and be accessible to the 'app_key' owner, otherwise 'FolderNotFound'. (min 1)
   --schema-version string (required) — Wire schema version; only 'dashboard.v1' is accepted. [dashboard.v1]
-  definition (object, via --data) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  definition (object, via --data) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1286,60 +1286,60 @@ Request fields:
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
   - dashboard_id (string) (required) — Canonical UUIDv7 assigned by the caller at creation time.
-  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1350,12 +1350,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
   - folder_breadcrumb (array<string>) (required) — Folder names from the root down to 'folder_id'.
@@ -1364,10 +1364,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
   - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
 `,
-		Example: `  flashduty monit dashboard-create --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","definition":{"default_time_range":{"from":"now-1h","to":"now"},"description":"Traffic, errors and dependencies for the checkout service.","refresh_interval":"1m","tabs":[{"description":"Golden signals.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2202","sections":[{"collapsed":false,"description":"Request rate and latency.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2303","panels":[{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"{{env}}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}}],"title":"Traffic"}],"title":"Overview","top_panels":[]}],"title":"Checkout service overview","variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]},"folder_id":12,"schema_version":"dashboard.v1"}'`,
+		Example: `  flashduty monit dashboard-create --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","definition":{"default_time_range":{"from":"now-1h","to":"now"},"description":"Traffic, errors and dependencies for the checkout service.","refresh_interval":"1m","tabs":[{"description":"Golden signals.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2202","sections":[{"collapsed":false,"description":"Request rate and latency.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2303","panels":[{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"${env}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}}],"title":"Traffic"}],"title":"Overview","top_panels":[]}],"title":"Checkout service overview","variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]},"folder_id":12,"schema_version":"dashboard.v1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1397,8 +1397,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder the dashboard is created in. Must be a folder the caller can write. (required) (min 1)")
+	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Lowercase canonical UUIDv7 generated by the caller; it becomes the dashboard's permanent ID. (required)")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Folder to create the dashboard in; must exist and be accessible to the 'app_key' owner, otherwise 'FolderNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&fSchemaVersion, "schema-version", "", "Wire schema version; only 'dashboard.v1' is accepted. (required) [dashboard.v1]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1413,7 +1413,7 @@ func genDashboardsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete dashboard",
 		Long: `Delete dashboard.
 
-Move a dashboard to the trash.
+Move a dashboard to the trash, where it can be restored for 30 days.
 
 API: POST /monit/dashboard/delete (monit-dashboard-write-delete)
 
@@ -1422,8 +1422,8 @@ Request fields:
   --expected-revision int (required) — Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - dashboard_id (string) (required) — Dashboard ID.
-  - revision (integer) (required) — Revision recorded for the deletion. (min 1)
+  - dashboard_id (string) (required) — ID of the dashboard moved to the trash.
+  - revision (integer) (required) — Revision after the deletion; send it as 'expected_revision' to restore. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("dashboard_id", "dashboard-id"),
 		Example: `  flashduty monit dashboard-delete --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","expected_revision":7}'`,
@@ -1479,37 +1479,37 @@ API: POST /monit/dashboard/move (monit-dashboard-write-move)
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
   --expected-revision int (required) — Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (min 1)
-  --folder-id int (required) — Destination folder ID. (min 1)
+  --folder-id int (required) — Destination folder ID; must exist and be accessible to the caller, otherwise 'FolderNotFound'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - changed (boolean) (required) — Whether the stored dashboard actually changed.
+  - changed (boolean) (required) — Whether the dashboard was written and its 'revision' incremented.
   - resource (object) (required) — A stored dashboard: its identity, revision counter, placement and full definition. 'revision' increments on every accepted write and must be echoed back as 'expected_revision' for the next mutation.
     - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
     - dashboard_id (string) (required) — Canonical UUIDv7 assigned by the caller at creation time.
-    - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+    - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
       - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
         - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
         - to (string) (required) — End of the window; only 'now' is accepted. [now]
       - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
       - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-      - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+      - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
         - description (string) — Optional tab description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
         - sections (array<object>) (required) — Sections on the tab, at most 10.
-        - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-        - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+        - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+        - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
       - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-      - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+      - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_type (string) — Datasource type the candidates are drawn from.
-        - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
-        - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+        - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+        - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
+        - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
         - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
         - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+        - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
         - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
         - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - refresh (string) — When the candidates are recomputed: 'on_dashboard_load' = once when the dashboard loads; 'on_time_range_change' = every time the time range changes. [on_dashboard_load, on_time_range_change]
@@ -1521,8 +1521,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
     - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
 `,
 		Example: `  flashduty monit dashboard-move --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","expected_revision":7,"folder_id":15}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1556,7 +1556,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
 	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (required) (min 1)")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Destination folder ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Destination folder ID; must exist and be accessible to the caller, otherwise 'FolderNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1577,54 +1577,54 @@ API: POST /monit/dashboard/restore (monit-dashboard-write-restore)
 
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
-  --expected-revision int (required) — Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (min 1)
-  --folder-id int — Destination folder. Omit to restore to the original folder; when the original folder is no longer writable the call fails with 'RestoreFolderRequired' and you must pass one. (min 1)
+  --expected-revision int (required) — Current revision of the trashed dashboard, as returned by the delete call or listed in the trash. The restore fails with 'DashboardRevisionConflict' if it does not match. (min 1)
+  --folder-id int — Destination folder. Omit or send null to restore into the original folder; if that folder no longer exists the call fails with 'RestoreFolderRequired' and a destination must be passed. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
   - dashboard_id (string) (required) — Canonical UUIDv7 assigned by the caller at creation time.
-  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1635,12 +1635,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
   - folder_breadcrumb (array<string>) (required) — Folder names from the root down to 'folder_id'.
@@ -1649,8 +1649,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
   - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-    - id (integer) (required) — Member ID.
-    - name (string) (required) — Member display name.
+    - id (integer) (required) — Member ID of the person who performed the action.
+    - name (string) (required) — Member display name, recorded at the time of the action.
 `,
 		Args:    requireBodyFieldOrExactArg("dashboard_id", "dashboard-id"),
 		Example: `  flashduty monit dashboard-restore --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","expected_revision":8,"folder_id":15}'`,
@@ -1687,8 +1687,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
-	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (required) (min 1)")
-	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Destination folder. Omit to restore to the original folder; when the original folder is no longer writable the call fails with 'RestoreFolderRequired' and you must pass one. (min 1)")
+	cmd.Flags().Int64Var(&fExpectedRevision, "expected-revision", 0, "Current revision of the trashed dashboard, as returned by the delete call or listed in the trash. The restore fails with 'DashboardRevisionConflict' if it does not match. (required) (min 1)")
+	cmd.Flags().Int64Var(&fFolderID, "folder-id", 0, "Destination folder. Omit or send null to restore into the original folder; if that folder no longer exists the call fails with 'RestoreFolderRequired' and a destination must be passed. (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1713,45 +1713,45 @@ Request fields:
   --expected-revision int (required) — Revision the caller last read. The write fails with 'DashboardRevisionConflict' unless it still matches the stored revision. (min 1)
   --message string — Optional revision message, at most 1024 Unicode code points. Stored with the revision and never returned by this endpoint. (≤1024 chars)
   --schema-version string (required) — Wire schema version; only 'dashboard.v1' is accepted. [dashboard.v1]
-  definition (object, via --data) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+  definition (object, via --data) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
     - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
       - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
       - to (string) (required) — End of the window; only 'now' is accepted. [now]
     - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
     - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-    - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+    - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
       - description (string) — Optional tab description. (≤1024 chars)
       - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
       - sections (array<object>) (required) — Sections on the tab, at most 10.
         - collapsed (boolean) (required) — Whether the section renders collapsed by default.
         - description (string) — Optional section description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the section; unique across the definition.
-        - panels (array<object>) (required) — Panels in the section, at most 30.
+        - panels (array<object>) (required) — Panels in the section; they count toward the tab's 30-panel limit.
         - title (string) (required) — Section title. (1-189 chars)
-      - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-      - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+      - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+      - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
         - description (string) — Optional panel description. (≤1024 chars)
         - grid (object) (required) — 24-column grid placement. 'x' and 'y' are zero-based; 'x + w' must not exceed 24.
         - id (string) (required) — Canonical UUIDv7 identifying the panel; unique across the definition.
         - queries (array<object>) (required) — Queries in the panel. 'time_series' accepts 1–26, 'text' accepts none, every other kind accepts exactly one.
         - title (string) (required) — Panel title. (1-189 chars)
-        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling config object is required; 'time_series' also carries the shared numeric options.
+        - viz_config (object) (required) — Visualization configuration. 'kind' selects the arm and therefore which sibling fields are allowed; 'time_series', 'stat', 'bar' and 'gauge' also carry the shared numeric fields 'unit', 'decimals' and 'threshold'. Fields of another kind are rejected.
     - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-    - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+    - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
       - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (min 1)
-        - datasource_type (string) (required) — Datasource type identifier, e.g. 'prometheus' or 'victorialogs'.
+        - datasource_id (integer) — Datasource ID. Required when 'kind' is 'fixed', forbidden when 'kind' is 'variable'. (1-9007199254740991)
+        - datasource_type (string) (required) — Datasource type identifier: lowercase letters, digits and underscores, starting with a letter. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run. With 'kind' = 'variable' it must equal the referenced datasource variable's 'datasource_type'.
         - kind (string) (required) — 'fixed' uses 'datasource_id'; 'variable' resolves 'name' against a datasource variable. [fixed, variable]
-        - name (string) — Datasource variable name. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
-      - datasource_type (string) — Datasource type the candidates are drawn from.
-      - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
+        - name (string) — Name of a 'datasource' variable in the same definition. Required when 'kind' is 'variable', forbidden when 'kind' is 'fixed'.
+      - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+      - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
         - kind (string) (required) — 'values' selects the listed entries, 'all' selects everything (only allowed when 'include_all' is true). [values, all]
         - values (array<string>) — Selected values, unique and never '$__all'. Must be empty when 'kind' is 'all'.
-      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+      - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
       - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
       - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-      - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+      - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
       - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
       - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - text (string) (required) — Label shown in the picker. (1-1024 chars)
@@ -1762,44 +1762,44 @@ Request fields:
         - mode (string) (required) — Selection cardinality: 'single' makes the resolved selection hold exactly one value; 'multi' allows multiple values. [single, multi]
       - variable_query (object) — Variable query. Pick the arm with 'kind'; the arm must match the referenced datasource type.
         - args (object) — Named query arguments; defaults to an empty object.
-        - expr (string) — SQL statement; may reference other variables through '{{ }}'.
+        - expr (string) — SQL statement whose result supplies the candidates. SQL variable queries run only on MySQL datasources, and MySQL queries do not support variable references.
         - field (string) — Log field whose values become candidates. For a Loki datasource it must be a bare stream label name (letters, digits and underscores). (≥1 chars)
         - kind (string) (required) — Query kind discriminator; always 'prometheus', a label-values query against Prometheus. [prometheus, sql, logs]
         - label (string) — Label whose values become candidates.
         - label_filters (array<object>) — Optional matchers narrowing the series before label values are read.
-        - metric (string) — Optional metric used to restrict the series considered.
+        - metric (string) — Optional metric selector that restricts the series considered; may reference other variables as '${name}' or '$name'.
         - text_field (string) — Column used as the candidate label; defaults to the value column.
         - value_field (string) — Column used as the candidate value. (≥1 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - changed (boolean) (required) — Whether the stored dashboard actually changed.
+  - changed (boolean) (required) — Whether the dashboard was written and its 'revision' incremented.
   - resource (object) (required) — A stored dashboard: its identity, revision counter, placement and full definition. 'revision' increments on every accepted write and must be echoed back as 'expected_revision' for the next mutation.
     - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
     - dashboard_id (string) (required) — Canonical UUIDv7 assigned by the caller at creation time.
-    - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, NaN/Inf, over-range numbers and trailing values are rejected; the serialized form must stay within 1 MiB.
+    - definition (object) (required) — Complete dashboard payload stored as a portable 'dashboard.v1' document. Unknown keys, duplicate keys, trailing values and nesting deeper than 32 levels are rejected, and the serialized form must stay within 1 MiB. Limits: 10 tabs, 10 sections per tab, 30 panels and 100 queries per tab, 100 panels and 300 queries per dashboard, 20 variables.
       - default_time_range (object) (required) — Relative time window. 'from' is one of the fixed presets the validator accepts; 'to' is always the literal string 'now'.
         - from (string) (required) — Start offset relative to 'to': 'now-15m' = 15 minutes ago; 'now-30m' = 30 minutes ago; 'now-1h' = 1 hour ago; 'now-3h' = 3 hours ago; 'now-6h' = 6 hours ago; 'now-12h' = 12 hours ago; 'now-24h' = 24 hours ago; 'now-7d' = 7 days ago. [now-15m, now-30m, now-1h, now-3h, now-6h, now-12h, now-24h, now-7d]
         - to (string) (required) — End of the window; only 'now' is accepted. [now]
       - description (string) — Optional description, at most 1024 Unicode code points. (≤1024 chars)
       - refresh_interval (string) (required) — Auto-refresh cadence applied by the console: 'off' disables auto-refresh; '30s' = every 30 seconds; '1m' = every minute; '5m' = every 5 minutes. [off, 30s, 1m, 5m]
-      - tabs (array<object>) (required) — Tabs, 1–10. Every tab title is unique and every tab or section ID must be a canonical UUIDv7 used only once across the definition.
+      - tabs (array<object>) (required) — Tabs, 1–10. Every tab, section and panel 'id' must be a canonical UUIDv7 used only once across the definition. Tab titles do not need to be unique. A dashboard may hold at most 100 panels and 300 queries across all tabs.
         - description (string) — Optional tab description. (≤1024 chars)
         - id (string) (required) — Canonical UUIDv7 identifying the tab; unique across the definition.
         - sections (array<object>) (required) — Sections on the tab, at most 10.
-        - title (string) (required) — Tab title, 1–189 Unicode code points. Unique among tabs. (1-189 chars)
-        - top_panels (array<object>) (required) — Panels placed directly on the tab, at most 30.
+        - title (string) (required) — Tab title, 1–189 Unicode code points after trimming. (1-189 chars)
+        - top_panels (array<object>) (required) — Panels placed directly on the tab. A tab holds at most 30 panels in total, counting top panels and section panels, and at most 100 queries.
       - title (string) (required) — Dashboard title, 1–189 Unicode code points after trimming. (1-189 chars)
-      - variables (array<object>) (required) — Dashboard variables, at most 20. Names must be unique within the definition and match the variable-name pattern.
+      - variables (array<object>) (required) — Dashboard variables, at most 20, with unique names. Variables may reference other variables but not in a cycle.
         - datasource_ref (object) — Points a panel or query variable at a datasource — either a fixed ID or a datasource variable evaluated at render time.
-        - datasource_type (string) — Datasource type the candidates are drawn from.
-        - default (object) — A concrete selection of variable values. An empty 'values' array is valid wire input and means unresolved — the server never substitutes a default for it.
-        - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID.
+        - datasource_type (string) — Type of datasource offered as candidates; candidates are the account's enabled datasources of this type. The set is open, so saving accepts any such value, but the dashboard runtime only runs 'prometheus', 'mysql' and 'loki' datasources; panels on other types fail when run.
+        - default (object) — A concrete selection of variable values. As a saved variable 'default', 'values' must be non-empty and hold exactly one value in 'single' mode. In runtime requests an empty 'values' array is valid and means unresolved — the server never substitutes a default for it.
+        - default_datasource_id (integer) — Default datasource ID. Without a usable default the runtime picks the first candidate by name, then ID. (max 9007199254740991)
         - kind (string) (required) — Variable kind discriminator; always 'datasource', selecting a datasource. [datasource, custom, query]
         - label (string) — Optional display label; falls back to 'name'. (≤189 chars)
-        - name (string) (required) — Variable name used in '{{ }}' templates, at most 64 characters. Names starting with '__' are reserved for built-in time variables.
+        - name (string) (required) — Variable name, unique within the definition. Queries reference it as '${name}' (or '$name' inside Prometheus and Loki expressions). Names starting with '__' are reserved for the built-in variables '__interval', '__rate_interval', '__range' and '__auto'.
         - name_patterns (array<string>) — Wildcard patterns narrowing the candidates; empty means every datasource of the type.
         - options (array<object>) — Candidate list, 1–1000 entries. Values must be non-empty, unique and must not be '$__all'.
         - refresh (string) — When the candidates are recomputed: 'on_dashboard_load' = once when the dashboard loads; 'on_time_range_change' = every time the time range changes. [on_dashboard_load, on_time_range_change]
@@ -1811,11 +1811,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - schema_version (string) (required) — Wire schema version of 'definition'; only 'dashboard.v1' is accepted. [dashboard.v1]
     - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (object) (required) — Account member recorded as the creator, updater or revision author.
-      - id (integer) (required) — Member ID.
-      - name (string) (required) — Member display name.
+      - id (integer) (required) — Member ID of the person who performed the action.
+      - name (string) (required) — Member display name, recorded at the time of the action.
 `,
 		Args:    requireBodyFieldOrExactArg("dashboard_id", "dashboard-id"),
-		Example: `  flashduty monit dashboard-update --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","definition":{"default_time_range":{"from":"now-1h","to":"now"},"description":"Traffic, errors and dependencies for the checkout service.","refresh_interval":"1m","tabs":[{"description":"Golden signals.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2202","sections":[{"collapsed":false,"description":"Request rate and latency.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2303","panels":[{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"{{env}}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}}],"title":"Traffic"}],"title":"Overview","top_panels":[]}],"title":"Checkout service overview","variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]},"expected_revision":7,"message":"Split the latency panel","schema_version":"dashboard.v1"}'`,
+		Example: `  flashduty monit dashboard-update --data '{"dashboard_id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2101","definition":{"default_time_range":{"from":"now-1h","to":"now"},"description":"Traffic, errors and dependencies for the checkout service.","refresh_interval":"1m","tabs":[{"description":"Golden signals.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2202","sections":[{"collapsed":false,"description":"Request rate and latency.","id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2303","panels":[{"datasource_ref":{"datasource_id":10,"datasource_type":"prometheus","kind":"fixed"},"grid":{"h":8,"w":12,"x":0,"y":0},"id":"01990d7a-9c5b-7ab0-9c18-33e38f6f2404","queries":[{"legend_alias":"{{env}} requests","query":{"args":{},"expr":"sum(rate(http_requests_total{env=\"${env}\"}[5m]))","min_step_seconds":30,"mode":"range"},"ref_id":"A"}],"title":"Request rate","viz_config":{"decimals":2,"kind":"time_series","options":{},"threshold":{"critical":2000,"mode":"higher_is_worse","warning":1000},"unit":"count_per_second"}}],"title":"Traffic"}],"title":"Overview","top_panels":[]}],"title":"Checkout service overview","variables":[{"default":{"kind":"values","values":["prod"]},"kind":"custom","label":"Environment","name":"env","options":[{"text":"Production","value":"prod"},{"text":"Staging","value":"staging"}],"selection":{"include_all":false,"mode":"single"}}]},"expected_revision":7,"message":"Split the latency panel","schema_version":"dashboard.v1"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {

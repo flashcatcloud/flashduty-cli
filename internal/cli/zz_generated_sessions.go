@@ -32,17 +32,21 @@ Request fields:
   --share-token string — Share token for accessing a session through its share link. Omit it for normal account-authorized access. (≤512 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - events (array<object>) (required) — Recent events, ascending by (created_at, event_id).
+  - events (array<object>) (required) — The newest page of events (older pages via 'search_after_ctx'), ascending by ('created_at', 'event_id'). Internal control events are excluded. Always an array.
     - actions (object) — ADK actions envelope (state deltas, transfers, escalation).
     - author (string) — Event author (e.g. user, the agent name).
     - branch (string) — ADK branch path for nested agents.
     - content (object) — ADK content envelope {role, parts:[...]}.
     - created_at (string) (required) — Unix timestamp in milliseconds when the event was written. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - delivery_mode (string) — Delivery mode negotiated for the IM request that produced this event. 'reply_only': the IM client shows only explicit replies, not the agent's final text. Omitted for normal delivery. [reply_only]
     - error_code (string) — Error code when the event represents a failure.
     - error_message (string) — Human-readable error message, when present.
     - event_id (string) (required) — Event identifier.
-    - invocation_id (string) — ADK invocation id grouping a turn.
+    - invocation_id (string) — ID of the invocation (one agent turn) that wrote this event. Omitted when empty.
+    - is_error (boolean) — True when this is an assistant event recording a runtime failure whose message is safe to show to users. Omitted when false.
     - partial (boolean) (required) — True for a streaming partial chunk.
+    - person_id (integer) — Member ID of the person who sent this user message. Omitted on assistant and tool events and when no member is recorded (automation runs, some IM turns).
+    - root_invocation_id (string) — Invocation ID of the top-level user turn this event belongs to, linking events written by nested subagent invocations back to it. Omitted when empty.
     - session_id (string) (required) — Owning session id.
     - status (string) — Event status. One of: 'normal' (a live event included in the context fed to the model), 'compressed' (folded into a compaction summary boundary event; no longer loaded for the model, kept as history only). [normal, compressed]
     - turn_complete (boolean) (required) — True on the terminal event of a turn.
@@ -57,51 +61,58 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - steering (boolean) — True when the message was sent as a mid-turn steering instruction. Omitted when false.
   - search_after_ctx (string) — Opaque keyset cursor; pass back as search_after_ctx to fetch the next older page. Omitted when has_more_older is false.
   - session (object) (required) — One agent session row.
-    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller is the session creator (full access) | | 'team_member' | Caller belongs to the session's bound team (full access) | | 'manager' | Manager grant (reserved; never produced by the current version) | | 'share_link' | Granted via a valid share link (view/fork only; cannot continue or manage) | | 'participant' | Same-account non-member granted via a participable team session (view/continue/fork only) | [owner, team_member, manager, share_link, participant]
+    - access_source (string) — How the caller obtained access. Omitted when the caller has no access. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller created the session (full access) | | 'team_member' | Caller belongs to the session's team (full access) | | 'manager' | Reserved; not produced by the current version | | 'share_link' | Granted by a valid share link (view and fork only; view only for subagent child sessions) | | 'participant' | Another member of the same account on a team session (view, continue, fork; no manage) | [owner, team_member, manager, share_link, participant]
     - app_name (string) (required) — Agent app that owns the session.
     - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
+    - automation (object) — Automation rule that produced this session. Returned by 'POST /safari/session/get' only, for sessions started by an automation rule.
+      - can_edit (boolean) (required) — True when the caller may open and manage the rule; false when the rule has been deleted.
+      - rule_id (string) (required) — ID of the automation rule.
+      - rule_name (string) (required) — Rule name; empty when the rule has since been deleted.
+      - trigger_kind (string) (required) — How this run was triggered: - 'schedule': the rule's schedule fired - 'manual': run on demand (console or 'POST /safari/automation/rule/run') - 'http_post': the rule's HTTP trigger URL was called - 'oncall_incident': an On-call incident event matched the rule - 'war_room_created': a war room was created - '""': the run record no longer exists [schedule, manual, http_post, oncall_incident, war_room_created]
+    - bound_environment (object) — The runner or cloud sandbox the session is bound to. Returned by 'POST /safari/session/get' only; omitted until the session has been bound (after its first message).
       - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
       - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
       - name (string) — Human-readable environment name; empty for cloud bindings using the default allowlist.
-      - status (string) — Live binding health, namespaced by kind: BYOC uses online/pending/offline/deleted; cloud uses available/rebuilding/expired. [online, pending, offline, deleted, available, rebuilding, expired]
+      - status (string) — Live health of the binding. Omitted when unknown. For 'byoc': - 'online': runner connected and ready - 'degraded': runner connected but its executor is unhealthy; messages are still accepted - 'pending': runner has never connected - 'offline': runner heartbeat lost; messages cannot be served - 'deleted': the environment no longer exists; choose another For 'cloud': - 'available': the sandbox can serve the next message (paused or starting sandboxes resume automatically) - 'rebuilding': the sandbox is being resumed or recreated - 'expired': the sandbox failed permanently and cannot recover by itself - 'deleted': the selected cloud environment template was deleted [online, degraded, pending, offline, deleted, available, rebuilding, expired]
+      - team_id (integer) — Team that owns the bound environment; 0 for account-scope environments.
     - can_continue (boolean) (required) — True when the caller can add a new turn to this session.
     - can_fork (boolean) (required) — True when the caller can fork this session.
-    - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
-    - can_view (boolean) (required) — True when the caller can view this session.
-    - context_resolved (object) — Snapshot of the three-tier knowledge resolution for this session.
+    - can_manage (boolean) (required) — True when the caller may rename, archive, or delete the session: the creator of a personal session, or the creator or a member of the owning team for a team session. Account owners and admins get no exemption.
+    - can_view (boolean) (required) — True when the caller can read this session: always true for the creator, team members, and other members of the same account on a team session; true through a valid share link otherwise.
+    - context_resolved (object) — Knowledge versions the session's context resolved. In 'POST /safari/session/get' only 'versions' is filled (with 'resolved_at_ms' = 0); the object is omitted until the agent has resolved knowledge at least once.
       - account_pack_id (string) — Resolved account-scope knowledge ID.
       - incident_id (string) — Bound incident id, when war-room originated.
       - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - team_pack_id (string) — Resolved team-scope knowledge ID.
-      - versions (object) — Resolved version map, one entry per knowledge.
-    - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
+      - versions (object) — Map from knowledge ID to the version the agent last loaded.
+    - context_window (integer) (required) — Maximum context size of the session's model, in tokens. Computed by 'POST /safari/session/get' only; always 0 in list responses and when the lookup fails.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
+    - creator_name (string) — Display name of the session creator. Returned by 'POST /safari/session/list' only; omitted when the name lookup fails.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
-    - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
-    - has_open_tasks (boolean) — Whether the session still has open tasks, used to tell a handed-off turn from a settled session. Best-effort: when the read fails the field is absent ('omitempty'), which callers must treat as "unknown", never as proof the session is idle.
-    - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
+    - entry_kind (string) (required) — Surface that created the session: - 'web': web console (also returned for subagent child sessions and for sessions that predate this field) - 'im': IM bot or IM H5 client - 'api': public API - 'automation': automation rule (unattended run) [web, im, api, automation]
+    - has_open_tasks (boolean) — True when the session still has open tasks (for example running subagents or background processes), which tells a handed-off turn apart from a settled session. Returned by 'POST /safari/session/get' only; omitted when false or when the lookup fails, so treat absence as unknown rather than idle.
+    - has_unread (boolean) (required) — True when assistant output exists that the caller has not viewed yet; always false while 'is_running' is true. Computed by 'POST /safari/session/list' only; always false in 'POST /safari/session/get'.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
     - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
-    - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - last_event_at (string) — Unix timestamp in milliseconds of the latest assistant-side event; user messages alone do not advance it. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (string) (required) — Caller's per-user pin time as a Unix timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - pinned_at (string) (required) — When the caller pinned this session, as a Unix timestamp in milliseconds; 0 when not pinned. Pins are per user. Filled by 'POST /safari/session/list' only; always 0 in 'POST /safari/session/get'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ref (string) — Business object the session is about, as a prefixed reference (for example an incident reference). Omitted when the session is not bound to one.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
-    - standing_tasks (integer) (required) — Number of process-type tasks (background shell or monitor) still alive when the response was rendered.
-    - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
+    - standing_tasks (integer) (required) — Number of the session's process-type tasks (background shell commands or monitors) still alive when the response was built; 0 when none or when the count cannot be read.
+    - state (object) — Raw session-state key/value map. Returned by 'POST /safari/session/get' only; omitted when empty.
+    - status (string) (required) — Lifecycle status. Always 'enabled' in responses: deleted sessions are never returned. [enabled]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
@@ -110,8 +121,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
+    - turn_in_flight (boolean) (required) — 'true' while a turn is executing. 'is_running' additionally covers dispatched sub-task rounds that are still open.
     - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has no knowledge in any scope; not specific to this session.
 `,
 		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
 		Example: `  flashduty safari session-get --data '{"num_recent_events":50,"session_id":"sess_f8oDvqiG64uur6sBNsTc4u"}'`,
@@ -182,7 +193,7 @@ func genSessionsReadListCmd() *cobra.Command {
 		Short: "List sessions",
 		Long: `List sessions.
 
-List agent sessions visible to the caller, filtered by app, surface, archive status, and team.
+List agent sessions visible to the caller, filtered by app, entry surface, archive status, and team.
 
 API: POST /safari/session/list (session-read-list)
 
@@ -190,64 +201,71 @@ Request fields:
   --page int — Page number, 1-based. (min 1)
   --limit int — Page size, 1–100. (1-100)
   --search-after-ctx string
-  --app-name string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]
+  --app-name string (required) — Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'query-assistant' | Monitors query-writing assistant | | 'swe' | Software-engineering agent app (not offered in the console) | [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, query-assistant, swe]
   --asc bool — Ascending order when true, descending when false. Only honored together with 'orderby'; when 'orderby' is omitted the sort is always 'updated_at' descending.
-  --entry-kinds []string — Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]
-  --include-subagent-sessions bool — Include subagent-dispatched sessions in the list.
-  --keyword string — Filter by session-name keyword. (≤64 chars)
+  --entry-kinds []string — Restrict to sessions created from these surfaces: 'web' (console), 'im' (IM bot or IM H5), 'api' (public API), 'automation' (automation rule). Empty returns every kind. [web, im, api, automation]
+  --include-subagent-sessions bool — When true, also list child sessions spawned by subagent dispatch. Defaults to false (top-level sessions only).
+  --keyword string — Return only sessions whose 'session_name' contains this text; leading and trailing spaces are ignored. (≤64 chars)
   --orderby string — Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]
   --person-ids []int — Filter by who started the session: returns only sessions started by these members (a session is kept when 'person_id' matches any of them). Intersects with 'scope' and 'team_ids', so it never widens what the caller is allowed to see.
-  --scope string — Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]
-  --status string — Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]
+  --scope string — Visibility scope: - 'all' (default): sessions the caller created plus sessions bound to teams the caller belongs to - 'personal': the caller's own sessions with no team ('team_id' = 0) - 'team': sessions bound to teams the caller belongs to; empty when the caller is in no team [all, personal, team]
+  --status string — Archive filter: - 'active' (default): sessions that are not archived - 'archived': archived sessions only - 'all': both [active, archived, all]
   --team-ids []int — Optional explicit team filter; intersects with 'scope' and never expands access.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - sessions (array<object>) (required) — The page of sessions.
-    - access_source (string) — How the caller received access to this session. Omitted when no access source is resolved. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller is the session creator (full access) | | 'team_member' | Caller belongs to the session's bound team (full access) | | 'manager' | Manager grant (reserved; never produced by the current version) | | 'share_link' | Granted via a valid share link (view/fork only; cannot continue or manage) | | 'participant' | Same-account non-member granted via a participable team session (view/continue/fork only) | [owner, team_member, manager, share_link, participant]
+  - sessions (array<object>) (required) — The page of sessions: on page 1, the caller's matching pinned sessions (newest pin first) followed by up to 'limit' other sessions in the requested order.
+    - access_source (string) — How the caller obtained access. Omitted when the caller has no access. One of: | Value | Meaning | | --- | --- | | 'owner' | Caller created the session (full access) | | 'team_member' | Caller belongs to the session's team (full access) | | 'manager' | Reserved; not produced by the current version | | 'share_link' | Granted by a valid share link (view and fork only; view only for subagent child sessions) | | 'participant' | Another member of the same account on a team session (view, continue, fork; no manage) | [owner, team_member, manager, share_link, participant]
     - app_name (string) (required) — Agent app that owns the session.
     - archived_at (string) (required) — Unix timestamp in milliseconds when archived; 0 means not archived. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - bound_environment (object) — The runner or cloud sandbox the session is bound to. Null until the first message.
+    - automation (object) — Automation rule that produced this session. Returned by 'POST /safari/session/get' only, for sessions started by an automation rule.
+      - can_edit (boolean) (required) — True when the caller may open and manage the rule; false when the rule has been deleted.
+      - rule_id (string) (required) — ID of the automation rule.
+      - rule_name (string) (required) — Rule name; empty when the rule has since been deleted.
+      - trigger_kind (string) (required) — How this run was triggered: - 'schedule': the rule's schedule fired - 'manual': run on demand (console or 'POST /safari/automation/rule/run') - 'http_post': the rule's HTTP trigger URL was called - 'oncall_incident': an On-call incident event matched the rule - 'war_room_created': a war room was created - '""': the run record no longer exists [schedule, manual, http_post, oncall_incident, war_room_created]
+    - bound_environment (object) — The runner or cloud sandbox the session is bound to. Returned by 'POST /safari/session/get' only; omitted until the session has been bound (after its first message).
       - id (string) (required) — Environment identifier: a cloud sandbox ID for 'cloud' bindings, a runner/environment ID for 'byoc' bindings.
       - kind (string) (required) — Environment kind bound to the session: 'cloud' (managed sandbox) or 'byoc' (self-hosted runner). [cloud, byoc]
       - name (string) — Human-readable environment name; empty for cloud bindings using the default allowlist.
-      - status (string) — Live binding health, namespaced by kind: BYOC uses online/pending/offline/deleted; cloud uses available/rebuilding/expired. [online, pending, offline, deleted, available, rebuilding, expired]
+      - status (string) — Live health of the binding. Omitted when unknown. For 'byoc': - 'online': runner connected and ready - 'degraded': runner connected but its executor is unhealthy; messages are still accepted - 'pending': runner has never connected - 'offline': runner heartbeat lost; messages cannot be served - 'deleted': the environment no longer exists; choose another For 'cloud': - 'available': the sandbox can serve the next message (paused or starting sandboxes resume automatically) - 'rebuilding': the sandbox is being resumed or recreated - 'expired': the sandbox failed permanently and cannot recover by itself - 'deleted': the selected cloud environment template was deleted [online, degraded, pending, offline, deleted, available, rebuilding, expired]
+      - team_id (integer) — Team that owns the bound environment; 0 for account-scope environments.
     - can_continue (boolean) (required) — True when the caller can add a new turn to this session.
     - can_fork (boolean) (required) — True when the caller can fork this session.
-    - can_manage (boolean) (required) — True when the caller may rename/archive/delete the session; personal sessions are creator-only, team sessions allow the creator, account admin, or team member.
-    - can_view (boolean) (required) — True when the caller can view this session.
-    - context_resolved (object) — Snapshot of the three-tier knowledge resolution for this session.
+    - can_manage (boolean) (required) — True when the caller may rename, archive, or delete the session: the creator of a personal session, or the creator or a member of the owning team for a team session. Account owners and admins get no exemption.
+    - can_view (boolean) (required) — True when the caller can read this session: always true for the creator, team members, and other members of the same account on a team session; true through a valid share link otherwise.
+    - context_resolved (object) — Knowledge versions the session's context resolved. In 'POST /safari/session/get' only 'versions' is filled (with 'resolved_at_ms' = 0); the object is omitted until the agent has resolved knowledge at least once.
       - account_pack_id (string) — Resolved account-scope knowledge ID.
       - incident_id (string) — Bound incident id, when war-room originated.
       - resolved_at_ms (string) (required) — Unix timestamp in milliseconds when the knowledge was resolved. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - team_pack_id (string) — Resolved team-scope knowledge ID.
-      - versions (object) — Resolved version map, one entry per knowledge.
-    - context_window (integer) (required) — The bound model's max context size in tokens. 0 means unknown.
+      - versions (object) — Map from knowledge ID to the version the agent last loaded.
+    - context_window (integer) (required) — Maximum context size of the session's model, in tokens. Computed by 'POST /safari/session/get' only; always 0 in list responses and when the lookup fails.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - creator_name (string) — Display name of the session creator, resolved when the response is rendered. Omitted when the member lookup fails.
+    - creator_name (string) — Display name of the session creator. Returned by 'POST /safari/session/list' only; omitted when the name lookup fails.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - current_turn_tokens (integer) (required) — Total tokens (input+output+reasoning) for the in-flight round across the parent and its subagents; only computed by session/get while the session is running, always 0 in session/list responses and when idle.
     - current_turn_wait_ms (integer) (required) — Accumulated ask_user human-wait duration in milliseconds for the current round; resets to 0 at the start of each new round.
-    - entry_kind (string) — Surface that created the session. One of: | Value | Meaning | | --- | --- | | 'web' | Created from the web console | | 'im' | Created from an IM client (IM bot / IM H5) | | 'api' | Created via the public API | | 'automation' | Created by an automation rule (unattended run) | | 'subagent' | Child session spawned by a parent's agent_dispatch (audit label; at runtime it executes on the web tool surface) | [web, im, api, automation, subagent]
-    - has_open_tasks (boolean) — Whether the session still has open tasks, used to tell a handed-off turn from a settled session. Best-effort: when the read fails the field is absent ('omitempty'), which callers must treat as "unknown", never as proof the session is idle.
-    - has_unread (boolean) (required) — True when there is assistant output the caller has not yet viewed.
+    - entry_kind (string) (required) — Surface that created the session: - 'web': web console (also returned for subagent child sessions and for sessions that predate this field) - 'im': IM bot or IM H5 client - 'api': public API - 'automation': automation rule (unattended run) [web, im, api, automation]
+    - has_open_tasks (boolean) — True when the session still has open tasks (for example running subagents or background processes), which tells a handed-off turn apart from a settled session. Returned by 'POST /safari/session/get' only; omitted when false or when the lookup fails, so treat absence as unknown rather than idle.
+    - has_unread (boolean) (required) — True when assistant output exists that the caller has not viewed yet; always false while 'is_running' is true. Computed by 'POST /safari/session/list' only; always false in 'POST /safari/session/get'.
     - incognito (boolean) (required) — True for incognito (non-persisted-memory) sessions.
     - is_mine (boolean) (required) — True when the caller created this session.
     - is_running (boolean) (required) — True when an agent turn is currently in flight for this session.
-    - last_event_at (string) — Unix timestamp in milliseconds of the most recent assistant-side event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - last_event_at (string) — Unix timestamp in milliseconds of the latest assistant-side event; user messages alone do not advance it. Omitted when 0. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - parent_session_id (string) — Parent session id for subagent (child) sessions; empty otherwise.
     - person_id (string) (required) — Creator person id.
-    - pinned_at (string) (required) — Caller's per-user pin time as a Unix timestamp in milliseconds; 0 means not pinned. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - pinned_at (string) (required) — When the caller pinned this session, as a Unix timestamp in milliseconds; 0 when not pinned. Pins are per user. Filled by 'POST /safari/session/list' only; always 0 in 'POST /safari/session/get'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ref (string) — Business object the session is about, as a prefixed reference (for example an incident reference). Omitted when the session is not bound to one.
     - session_id (string) (required) — Session identifier.
     - session_name (string) (required) — Session title; may be empty for untitled sessions.
     - share_enabled (boolean) (required) — True when the session's share link is active.
     - share_version (integer) (required) — Revision of the share link; it increases when sharing is revoked.
     - shared_at (string) (required) — Unix timestamp in milliseconds when sharing was last enabled; 0 if never shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - shared_by (integer) (required) — Person ID that most recently enabled sharing; 0 if never shared.
-    - standing_tasks (integer) (required) — Number of process-type tasks (background shell or monitor) still alive when the response was rendered.
-    - state (object) — Raw session-state bag (session-scoped keys). Omitted when empty.
-    - status (string) (required) — Lifecycle status. One of: 'enabled' (active), 'deleted' (soft-deleted, no longer accessible). [enabled, deleted]
+    - standing_tasks (integer) (required) — Number of the session's process-type tasks (background shell commands or monitors) still alive when the response was built; 0 when none or when the count cannot be read.
+    - state (object) — Raw session-state key/value map. Returned by 'POST /safari/session/get' only; omitted when empty.
+    - status (string) (required) — Lifecycle status. Always 'enabled' in responses: deleted sessions are never returned. [enabled]
     - team_id (integer) (required) — Owning team id; 0 means no team is bound. Immutable after create.
     - team_name (string) — Resolved team name; empty for unbound rows or deleted teams.
     - template_staging_round_id (string) — Current save→validate round id (template-assistant only); empty otherwise.
@@ -256,9 +274,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - input_tokens (integer) (required) — Total prompt (input) tokens, including the cached portion.
       - output_tokens (integer) (required) — Total generated (output) tokens.
       - reasoning_tokens (integer) (required) — Total reasoning/thinking tokens.
+    - turn_in_flight (boolean) (required) — 'true' while a turn is executing. 'is_running' additionally covers dispatched sub-task rounds that are still open.
     - updated_at (string) (required) — Unix timestamp in milliseconds of the last session update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - suggest_init (boolean) (required) — Account-wide onboarding flag: true when the account has no knowledge in any scope; not dependent on this call's filters.
-  - total (integer) (required) — Total number of sessions matching the filter (ignoring pagination).
+  - total (integer) (required) — Number of matching sessions, ignoring pagination. Pinned sessions prepended on page 1 are not counted.
 `,
 		Example: `  flashduty safari session-list --data '{"app_name":"ai-sre","limit":2,"orderby":"updated_at","scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -323,15 +341,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'swe' | Internal benchmarking app (not customer-facing) | (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, swe]")
+	cmd.Flags().StringVar(&fAppName, "app-name", "", "Agent app whose sessions to list. One of: | Value | Meaning | | --- | --- | | 'ask-ai' | Ask AI assistant | | 'support' | Customer-support agent | | 'support-website' | Website support agent (exposed over A2A, not built into the console) | | 'support-flashcat' | Flashcat-site support agent (exposed over A2A) | | 'ai-sre' | The AI SRE main app | | 'template-assistant' | Notification-template assistant (template editing/validation) | | 'query-assistant' | Monitors query-writing assistant | | 'swe' | Software-engineering agent app (not offered in the console) | (required) [ask-ai, support, support-website, support-flashcat, ai-sre, template-assistant, query-assistant, swe]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true, descending when false. Only honored together with 'orderby'; when 'orderby' is omitted the sort is always 'updated_at' descending.")
-	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions produced by these surfaces; empty returns every kind. [web, im, api, automation]")
-	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "Include subagent-dispatched sessions in the list.")
-	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by session-name keyword. (≤64 chars)")
+	cmd.Flags().StringSliceVar(&fEntryKinds, "entry-kinds", nil, "Restrict to sessions created from these surfaces: 'web' (console), 'im' (IM bot or IM H5), 'api' (public API), 'automation' (automation rule). Empty returns every kind. [web, im, api, automation]")
+	cmd.Flags().BoolVar(&fIncludeSubagentSessions, "include-subagent-sessions", false, "When true, also list child sessions spawned by subagent dispatch. Defaults to false (top-level sessions only).")
+	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Return only sessions whose 'session_name' contains this text; leading and trailing spaces are ignored. (≤64 chars)")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' by creation time, 'updated_at' by last update; defaults to 'updated_at' when omitted. [created_at, updated_at]")
 	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Filter by who started the session: returns only sessions started by these members (a session is kept when 'person_id' matches any of them). Intersects with 'scope' and 'team_ids', so it never widens what the caller is allowed to see.")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: 'all' (own personal + accessible team sessions), 'personal', or 'team'; default 'all'. [all, personal, team]")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Archive bucket: active (default) returns un-archived, archived returns archived, all returns both. [active, archived, all]")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope: - 'all' (default): sessions the caller created plus sessions bound to teams the caller belongs to - 'personal': the caller's own sessions with no team ('team_id' = 0) - 'team': sessions bound to teams the caller belongs to; empty when the caller is in no team [all, personal, team]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Archive filter: - 'active' (default): sessions that are not archived - 'archived': archived sessions only - 'all': both [active, archived, all]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Optional explicit team filter; intersects with 'scope' and never expands access.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -345,7 +363,7 @@ func genSessionsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete session",
 		Long: `Delete session.
 
-Delete a session by ID.
+Soft-delete a session together with its subagent sessions and the files it presented.
 
 API: POST /safari/session/delete (session-write-delete)
 

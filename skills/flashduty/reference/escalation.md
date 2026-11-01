@@ -42,41 +42,41 @@ flashduty channel escalate-rule-create \
 
 ### escalate-rule-create
 Create escalation rule
-- `--aggr-window` int64 — Delay window in seconds. 0 disables delay. (0-3600)
+- `--aggr-window` int64 — Delay in seconds, 0–3600, before the first notification for a newly assigned incident; '0' notifies immediately. (0-3600)
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
 - `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first. (0-200)
+- `--priority` int64 — Evaluation order from '0' to '200'; lower values are evaluated first. Omit to place the rule after all existing rules (current highest priority + 1). (0-200)
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
-- body-only (`--data`): filters (array<array<object>>); layers (array<object>) (required); time_filters (array<object>)
+- `--template-id` string (required) — Notification template ID (24-character hex); obtain it from 'POST /template/list'. Must exist.
+- body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
 
 ### escalate-rule-delete
 Delete escalation rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
+- `--rule-id` string (required) — Rule ID (24-character hex), as returned in 'rule_id' by the create or list endpoint of the same rule type.
 
 ### escalate-rule-disable
 Disable escalation rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
+- `--rule-id` string (required) — Rule ID (24-character hex), as returned in 'rule_id' by the create or list endpoint of the same rule type.
 
 ### escalate-rule-enable
 Enable escalation rule
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
+- `--rule-id` string (required) — Rule ID (24-character hex), as returned in 'rule_id' by the create or list endpoint of the same rule type.
 
 ### escalate-rule-info
 Get escalation rule detail
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
-- `--rule-id` string (required) — Rule ID (MongoDB ObjectID).
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
+- `--rule-id` string (required) — Rule ID (24-character hex), as returned in 'rule_id' by the create or list endpoint of the same rule type.
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); aggr_window (integer); channel_id (integer); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### escalate-rule-list <channel-id>
 List escalation rules
 - `<channel-id>` (positional, required) int64
 - `--fields` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); channel_name (string); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); aggr_window (integer); channel_id (integer); created_at (string); deleted_at (string); description (string); filters (object); layers (array<object>); priority (integer); rule_id (string); rule_name (string); status (string); template_id (string); time_filters (array<object>); updated_at (string); updated_by (integer)
 
 ### escalate-rule-reorder
 Reorder escalation rules
@@ -86,13 +86,13 @@ Reorder escalation rules
 
 ### escalate-rule-update
 Update escalation rule
-- `--aggr-window` int64 — Delay window in seconds. 0 disables delay.
+- `--aggr-window` int64 — Delay in seconds before the first notification for a newly assigned incident; '0' notifies immediately. Omitting it resets the value to '0'.
 - `--channel-id` int64 (required) — Owning channel ID; obtain it from 'POST /channel/list'.
-- `--description` string — Rule description, up to 500 characters. (≤500 chars)
-- `--priority` int64 — Evaluation priority. Lower runs first.
+- `--description` string — Rule description, up to 500 characters. Omitting it clears the stored description. (≤500 chars)
+- `--priority` int64 — Evaluation order; lower values are evaluated first. Omit or pass 'null' to keep the current value.
 - `--rule-id` string (required) — Escalation rule ID (MongoDB ObjectID).
 - `--rule-name` string (required) — Rule name, 1 to 39 characters. (1-39 chars)
-- `--template-id` string (required) — Notification template ID (MongoDB ObjectID).
+- `--template-id` string (required) — Notification template ID (24-character hex); obtain it from 'POST /template/list'. Must exist.
 - body-only (`--data`): filters (object); layers (array<object>) (required); time_filters (array<object>)
 
 <!-- GENERATED:channel[escalate-rule] END -->

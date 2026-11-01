@@ -74,7 +74,7 @@ func pastIncidentColumns() []output.Column {
 func newIncidentListCmd() *cobra.Command {
 	var progress, severity, query, since, until, nums, fields, channel string
 	var incidentIDs, ackerIDs, closerIDs, creatorIDs, responderIDs, teamIDs string
-	var asc, everMuted, isMyChannel, isMyTeam, isRare, isSnoozed bool
+	var asc, everMuted, hasUnfinishedWorkItem, isMyChannel, isMyTeam, isRare, isSnoozed bool
 	var channelID int64
 	var limit, page int
 	defaultStructuredFields := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"}
@@ -95,11 +95,12 @@ func newIncidentListCmd() *cobra.Command {
 				}
 
 				req := &flashduty.ListIncidentsRequest{
-					Progress:         progress,
-					IncidentSeverity: severity,
-					StartTime:        startTime,
-					EndTime:          endTime,
-					Query:            query,
+					Progress:              progress,
+					IncidentSeverity:      severity,
+					StartTime:             startTime,
+					EndTime:               endTime,
+					Query:                 query,
+					HasUnfinishedWorkItem: hasUnfinishedWorkItem,
 				}
 				req.Page = page
 				req.Limit = limit
@@ -207,6 +208,7 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&everMuted, "ever-muted", false, "Only incidents that were ever silenced")
 	cmd.Flags().BoolVar(&isMyChannel, "is-my-channel", false, "Only incidents in channels you own")
 	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only incidents in channels owned by your teams")
+	cmd.Flags().BoolVar(&hasUnfinishedWorkItem, "has-unfinished-work-item", false, "Only incidents with an action item or follow-up that is neither done nor cancelled")
 	cmd.Flags().BoolVar(&isRare, "is-rare", false, "Only outlier (rare) incidents")
 	cmd.Flags().BoolVar(&isSnoozed, "is-snoozed", false, "Only snoozed incidents")
 	cmd.Flags().StringVar(&since, "since", "24h", "Start time (duration, date, datetime, or unix timestamp; --since→--until window must be < 31 days). Defaults to 30d when --progress lists only open states (Triggered, Processing)")
@@ -363,6 +365,7 @@ func newIncidentCreateCmd() *cobra.Command {
 	var channelID, escalateLayer int64
 	var assign []int
 	var assignEmails, fieldFlags []string
+	var labels map[string]string
 
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -409,6 +412,7 @@ func newIncidentCreateCmd() *cobra.Command {
 					IncidentSeverity: severity,
 					ChannelID:        channelID,
 					Description:      description,
+					Labels:           labels,
 				}
 				if len(customFields) > 0 {
 					req.Fields = flashduty.CustomFieldValues{}
@@ -454,6 +458,7 @@ func newIncidentCreateCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&channelID, "channel", 0, "Channel ID")
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&description, "description", "", "Description (max 6144 chars)")
+	cmd.Flags().StringToStringVar(&labels, "labels", nil, "Labels to store on the incident, as key=value pairs (up to 50)")
 	cmd.Flags().IntSliceVar(&assign, "assign", nil, "Member IDs to assign directly (use 'flashduty member list' to look up member IDs)")
 	cmd.Flags().StringSliceVar(&assignEmails, "assign-emails", nil, "Member emails to assign (comma-separated); emails with no matching member are ignored")
 	cmd.Flags().StringVar(&escalateRuleID, "escalate-rule-id", "", "Escalation rule ID; assigns the people at --escalate-layer of that rule")

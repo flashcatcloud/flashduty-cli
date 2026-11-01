@@ -29,23 +29,23 @@ Return the top N values for a facet field within a time range, sorted by occurre
 API: POST /rum/facet/count (rum-read-facet-count)
 
 Request fields:
-  --dql string — RUM DQL filter expression applied before counting.
+  --dql string — RUM DQL filter expression applied before counting. Fields in it are validated against the 'scope'.
   --end-time int (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
-  --facet-key string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
+  --facet-key string (required) — Field key whose value distribution to count, such as 'error_type'. Must be a facet field of the given 'scope' with 'show_type: list' and a non-array 'value_type'. List candidates with 'POST /rum/field/list'.
   --kind string — Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. [mapping, native]
   --limit int — Maximum number of top values to return. Default 100, maximum 100. (max 100)
   --scope string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | [session, view, action, error, resource, long_task, vital, issue, sourcemap]
-  --sql string — SQL WHERE clause (no SELECT) for additional filtering.
+  --sql string — Bare SQL 'WHERE' condition (without the 'WHERE' keyword) for extra filtering, such as 'env = 'prod''. Any occurrence of 'SELECT' is rejected.
   --start-time int (required) — Start of the time range, Unix epoch milliseconds.
   --type string — Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | [browser, web, javascript, android, ios, miniprogram, harmony, flutter, electron, react-native]
-  facet_value (any, via --data) — When set, filter events where 'facet_key' equals this value before counting. Accepts string, number, or boolean.
+  facet_value (any, via --data) — When set, count only events whose 'facet_key' equals this value. The JSON type must match the field's 'value_type' (string, number or boolean); a mismatch returns 'InvalidParameter'. When omitted, events with a 'null' value are excluded.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Facet values with their occurrence counts, sorted by count descending, capped at 'limit' (max 100).
     - count (integer) (required) — Number of events with this facet value in the time range.
     - facet_value (any) (required) — The facet value. Type matches the field's 'value_type'.
 `,
-		Example: `  flashduty rum facet-count --data '{"end_time":1712707200000,"facet_key":"error.type","limit":10,"scope":"error","start_time":1712620800000}'`,
+		Example: `  flashduty rum facet-count --data '{"end_time":1712707200000,"facet_key":"error_type","limit":10,"scope":"error","start_time":1712620800000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -93,13 +93,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDql, "dql", "", "RUM DQL filter expression applied before counting.")
+	cmd.Flags().StringVar(&fDql, "dql", "", "RUM DQL filter expression applied before counting. Fields in it are validated against the 'scope'.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the time range, Unix epoch milliseconds. Maximum 31-day span. (required)")
-	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'. (required)")
+	cmd.Flags().StringVar(&fFacetKey, "facet-key", "", "Field key whose value distribution to count, such as 'error_type'. Must be a facet field of the given 'scope' with 'show_type: list' and a non-array 'value_type'. List candidates with 'POST /rum/field/list'. (required)")
 	cmd.Flags().StringVar(&fKind, "kind", "", "Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. [mapping, native]")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of top values to return. Default 100, maximum 100. (max 100)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | (required) [session, view, action, error, resource, long_task, vital, issue, sourcemap]")
-	cmd.Flags().StringVar(&fSql, "sql", "", "SQL WHERE clause (no SELECT) for additional filtering.")
+	cmd.Flags().StringVar(&fSql, "sql", "", "Bare SQL 'WHERE' condition (without the 'WHERE' keyword) for extra filtering, such as 'env = 'prod''. Any occurrence of 'SELECT' is rejected.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the time range, Unix epoch milliseconds. (required)")
 	cmd.Flags().StringVar(&fType, "type", "", "Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | [browser, web, javascript, android, ios, miniprogram, harmony, flutter, electron, react-native]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -131,14 +131,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - enum_values (array<any>) (required) — Predefined enumerable values for this field. Element type matches the field's 'value_type': string for 'string', number for 'number', boolean for 'boolean'. Empty when the field has no fixed set of values.
     - field_key (string) (required) — Unique field key, e.g. 'error.type'.
     - field_name (string) (required) — Human-readable field name.
-    - group (string) (required) — Display group for this field.
+    - group (string) (required) — Display group used to cluster fields in the console, such as 'error', 'action' or 'device'. Empty when the field has no group.
+    - high_cardinality (boolean) (required) — True when grouping by this field is restricted: event ID fields cannot be grouped at all, other high-cardinality fields only with count or sum.
     - is_facet (boolean) (required) — True if value distribution counting is supported for this field.
     - queryable (boolean) (required) — True if this field can be used in DQL/SQL queries.
-    - scopes (array<string>) (required) — RUM scopes this field appears in.
+    - scopes (array<string>) (required) — RUM scopes this field appears in, using the same values as the request 'scopes' (for example 'error', 'issue').
     - show_type (string) (required) — Display type in the analytics UI. One of 'list' (shown as an enumerated value list; only this type supports facet counting) or 'range' (filtered and shown as a numeric/time range). [list, range]
-    - status (string) (required) — Field status, e.g. 'active'.
-    - unit_family (string) (required) — Measurement unit family, e.g. 'time', 'bytes'. Empty for dimensionless fields.
-    - unit_name (string) (required) — Specific measurement unit, e.g. 'millisecond', 'byte'.
+    - status (string) (required) — Field status. 'enabled': the field is in use. 'disabled': the field is defined but switched off. Deleted fields are never returned. [enabled, disabled]
+    - unit_family (string) (required) — Measurement unit family. 'time': a duration or timestamp (see 'unit_name'). 'bytes': a size in bytes. Empty string for dimensionless fields. [time, bytes]
+    - unit_name (string) (required) — Unit of the stored value. Durations: 'nanosecond', 'microsecond', 'millisecond', 'second'. Timestamps: 'unix_millisecond', 'unix_second'. Sizes: 'byte'. Empty string for dimensionless fields. Most built-in duration fields are in 'nanosecond'. [nanosecond, microsecond, millisecond, second, unix_millisecond, unix_second, byte]
     - value_type (string) (required) — Data type of the field value. One of: | Value | Meaning | |---|---| | 'string' | String | | 'number' | Numeric | | 'boolean' | Boolean | | 'array<string>' | Array of strings | | 'array<number>' | Array of numbers | | 'array<boolean>' | Array of booleans | [string, number, boolean, array<string>, array<number>, array<boolean>]
 `,
 		Example: `  flashduty rum field-list --data '{"is_facet":false,"scopes":["error"]}'`,

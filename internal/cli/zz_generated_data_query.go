@@ -25,17 +25,17 @@ Request fields:
   --end-time int (required) — End of the query window, Unix epoch milliseconds. Maximum 31-day span.
   --start-time int (required) — Start of the query window, Unix epoch milliseconds.
   queries (array<object>, via --data) (required) — Queries to execute concurrently. 1 to 10 queries are allowed.
-    - disable_sampling (boolean) — When true, asks the query engine to avoid sampling when possible.
-    - dql (string) — Optional RUM DQL filter expression used together with SQL validation.
+    - disable_sampling (boolean) — When 'true', the query always runs on the full data and the response never carries 'sampling'. When 'false' (default), the server may sample aggregate queries over large time windows.
+    - dql (string) — Optional RUM DQL filter. It is translated and 'AND'-ed into the 'WHERE' clause of 'sql'. A DQL parse error is reported in this query's 'error' entry.
     - format (string) (required) — Output format. 'table' returns rows; 'time_series' returns bucketed time-series rows. [time_series, table]
     - id (string) (required) — Client-supplied query ID. The same value is used as the key in the response object. (≤64 chars)
-    - interval (integer) — Time bucket interval in seconds for 'time_series' queries.
-    - max_points (integer) — Maximum number of points for 'time_series' queries.
-    - search_after_ctx (string) — Opaque cursor returned by a previous table query for continuing pagination.
-    - sql (string) (required) — RUM SQL query to execute.
-    - time_zone (string) — IANA time zone name used when evaluating time functions, such as 'Asia/Shanghai'.
+    - interval (integer) — Minimum time-bucket width in **milliseconds** for 'time_series' queries. Default 3600 (3.6 seconds). The effective width is the smallest step of a fixed ladder that is at least this value and at least the window length divided by 'max_points'; it is returned as 'interval'. Ignored for 'table' queries. (min 1)
+    - max_points (integer) — Upper bound on the number of buckets for 'time_series' queries. Default 1226. The bucket width grows so that the window holds at most this many buckets. Ignored for 'table' queries. (min 1)
+    - search_after_ctx (string) — Cursor from a previous response's 'search_after_ctx', to fetch the next page of the same 'table' query. Only used by non-aggregate queries with 'ORDER BY' and no 'OFFSET'. An invalid value makes this query fail.
+    - sql (string) (required) — RUM SQL 'SELECT' statement. 'FROM' names a scope table ('sessions', 'views', 'actions', 'errors', 'resources', 'long_tasks', 'vitals', 'issues', 'sourcemaps'); columns are 'field_key' values from 'POST /rum/field/list'. The server adds the account and time-range filters.
+    - time_zone (string) — IANA time zone name, such as 'Asia/Shanghai', used to align 'time_series' bucket boundaries to local time. Defaults to UTC alignment. Ignored for 'table' queries; an unknown name fails the request with 'InvalidParameter'.
 `,
-		Example: `  flashduty rum data-query --data '{"end_time":1712707200000,"queries":[{"format":"table","id":"errors_by_type","sql":"SELECT error.type, count(*) AS errors FROM error GROUP BY error.type ORDER BY errors DESC LIMIT 10","time_zone":"Asia/Shanghai"}],"start_time":1712620800000}'`,
+		Example: `  flashduty rum data-query --data '{"end_time":1712707200000,"queries":[{"format":"table","id":"errors_by_type","sql":"SELECT error_type, count(*) AS errors FROM errors GROUP BY error_type ORDER BY errors DESC LIMIT 10"}],"start_time":1712620800000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {

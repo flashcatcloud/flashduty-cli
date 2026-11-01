@@ -16,7 +16,7 @@ func genDataSourcesReadInfoCmd() *cobra.Command {
 		Short: "Get datasource detail",
 		Long: `Get datasource detail.
 
-Retrieve full details of a single data source by its ID, including the 'payload' configuration with its configured connection and authentication settings; treat the response as sensitive and avoid logging or forwarding it. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
+Return one datasource by ID, including its full 'payload' configuration.
 
 API: POST /monit/datasource/info (monit-datasource-read-info)
 
@@ -24,16 +24,20 @@ Request fields:
   --id int (required) — Numeric ID of the target resource; the exact meaning depends on the API being called (e.g. datasource ID, ruleset ID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - account_id (integer) (required) — ID of the account that owns the datasource; always the caller's account.
+  - address (string) (required) — Connection address as stored, after normalization. The format depends on 'type_ident'; see the 'address' field of the create request for each type. At most 4096 characters. (≤4096 chars)
   - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
+  - creator_id (integer) (required) — ID of the member who created the datasource; 'null' when not recorded. The creator can always manage the datasource.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
-  - id (integer) (required) — Unique datasource ID.
-  - name (string) (required) — Datasource display name.
-  - note (string) (required) — Optional description.
+  - id (integer) (required) — Unique datasource ID. Pass it as 'id' to update, delete and info, and as 'datasource_id' to tool invocation.
+  - manage_team_id (integer) (required) — ID of the managing team. Its members can edit, delete, enable or disable the datasource and view its full configuration. 'null' means no managing team: any caller with the Datasources Manage permission can manage it. The creator, the account owner and Admin members can always manage.
+  - my_perm (string) — The caller's access level on this datasource. Only present in list responses. - 'manage': can edit, delete, enable or disable the datasource, view its configuration and query it. - 'readonly': can query and reference the datasource but not change it or read its configuration. [manage, readonly]
+  - name (string) (required) — Datasource name, unique within the account across all types.
+  - note (string) (required) — Free-text note; an empty string when not set.
   - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  - readonly_team_ids (array<integer>) (required) — IDs of the teams allowed to query and reference the datasource, in addition to the managing team, the creator, the account owner and Admin members. 'null' or an empty array means every member of the account can query it.
+  - type_ident (string) (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-info --data '{"id":10}'`,
@@ -67,36 +71,45 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genDataSourcesReadListCmd() *cobra.Command {
 	var dataJSON string
+	var fName string
 	var fType string
 	cmd := &cobra.Command{
 		Use:   "datasource-list",
 		Short: "List datasources",
 		Long: `List datasources.
 
-Return all data sources for the current account. Optionally filter by 'type_ident'. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
+List the account's datasources that the caller can query, optionally filtered by type or exact name.
 
 API: POST /monit/datasource/list (monit-datasource-read-list)
 
 Request fields:
-  --type string — Datasource type identifier. Omit to return all types. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  --name string — Return only the datasource whose name equals this value exactly (names are unique within the account, so at most one item). Omit or leave empty for no name filter.
+  --type string — Return only datasources of this type; omit or leave empty to return all types. An unrecognized value matches nothing and returns an empty array. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
-  - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - account_id (integer) (required) — ID of the account that owns the datasource; always the caller's account.
+  - address (string) (required) — Connection address as stored, after normalization. The format depends on 'type_ident'; see the 'address' field of the create request for each type. At most 4096 characters. (≤4096 chars)
   - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
+  - creator_id (integer) (required) — ID of the member who created the datasource; 'null' when not recorded. The creator can always manage the datasource.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
-  - id (integer) (required) — Unique datasource ID.
-  - name (string) (required) — Datasource display name.
-  - note (string) (required) — Optional description.
+  - id (integer) (required) — Unique datasource ID. Pass it as 'id' to update, delete and info, and as 'datasource_id' to tool invocation.
+  - manage_team_id (integer) (required) — ID of the managing team. Its members can edit, delete, enable or disable the datasource and view its full configuration. 'null' means no managing team: any caller with the Datasources Manage permission can manage it. The creator, the account owner and Admin members can always manage.
+  - my_perm (string) — The caller's access level on this datasource. Only present in list responses. - 'manage': can edit, delete, enable or disable the datasource, view its configuration and query it. - 'readonly': can query and reference the datasource but not change it or read its configuration. [manage, readonly]
+  - name (string) (required) — Datasource name, unique within the account across all types.
+  - note (string) (required) — Free-text note; an empty string when not set.
   - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  - readonly_team_ids (array<integer>) (required) — IDs of the teams allowed to query and reference the datasource, in addition to the managing team, the creator, the account owner and Admin members. 'null' or an empty array means every member of the account can query it.
+  - type_ident (string) (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-list --data '{"type":"prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("name") {
+						body["name"] = fName
+					}
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
 					}
@@ -117,7 +130,8 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fType, "type", "", "Datasource type identifier. Omit to return all types. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。")
+	cmd.Flags().StringVar(&fName, "name", "", "Return only the datasource whose name equals this value exactly (names are unique within the account, so at most one item). Omit or leave empty for no name filter.")
+	cmd.Flags().StringVar(&fType, "type", "", "Return only datasources of this type; omit or leave empty to return all types. An unrecognized value matches nothing and returns an empty array. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -202,7 +216,7 @@ API: POST /monit/datasource/sls/projects (monit-datasource-read-sls-projects)
 Request fields:
   --id int (required) — ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'.
   --offset int — Pagination offset.
-  --query string — Fuzzy filter on project description (maps to the 'description' parameter of Aliyun SLS ListProject). Leave empty to return all.
+  --query string — Fuzzy filter on project name or description; name matches come first. Leave empty to return all.
   --size int — Page size. Defaults to 200 server-side when 0.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -217,7 +231,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - projectName (string) (required) — Project name.
     - region (string) (required) — Region ID, e.g. 'cn-shanghai'.
     - status (string) (required) — Project status, e.g. 'Normal'.
-  - total (integer) (required) — Total number of projects matching 'query', independent of pagination.
+  - total (integer) (required) — Number of projects matching 'query', independent of pagination. A lower bound when 'query' is set.
 `,
 		Example: `  flashduty monit datasource-sls-projects --data '{"id":10,"offset":0,"query":"","size":50}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -254,7 +268,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fID, "id", 0, "ID of an SLS-type datasource. Obtainable via 'POST /monit/datasource/list'. (required)")
 	cmd.Flags().Int64Var(&fOffset, "offset", 0, "Pagination offset.")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Fuzzy filter on project description (maps to the 'description' parameter of Aliyun SLS ListProject). Leave empty to return all.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Fuzzy filter on project name or description; name matches come first. Leave empty to return all.")
 	cmd.Flags().Int64Var(&fSize, "size", 0, "Page size. Defaults to 200 server-side when 0.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -276,7 +290,7 @@ API: POST /monit/datasource/tools/invoke (monit-datasource-tools-invoke)
 
 Request fields:
   --account-id int — Optional consistency check; must equal the authenticated account.
-  --datasource-id int (required) — Datasource ID from /monit/datasource/list. (min 1)
+  --datasource-id int (required) — ID of the datasource to run the tool against, from '/monit/datasource/list'. The caller needs query access to it. For query tools ('<type>.query') the ID must not exceed 9007199254740991. (min 1)
   --tool string (required) — Single tool name prefixed by the datasource type. Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their 'params' follow 'PrometheusQueryParams', 'MySQLQueryParams', 'PostgresQueryParams', 'OracleQueryParams', 'ClickHouseQueryParams', 'ElasticsearchQueryParams', 'LokiQueryParams', 'VictoriaLogsQueryParams', 'SLSQueryParams', or 'TencentCLSQueryParams' respectively. (1-128 chars)
   params (object, via --data) — Tool-specific JSON parameters; omitted means {}. Explicit null is invalid. Query tools ('<type>.query') use the per-datasource params schemas named in the 'tool' description.
 
@@ -286,7 +300,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - summary (string) — Optional non-empty summary.
   - tool (string) (required) — Executed tool name matching the request.
   - truncated (object)
-    - reason (string) (required) — Why the result was truncated. Presence of this object indicates truncation.
+    - reason (string) (required) — Why the result was truncated, as reported by the executing Edge; treat it as an opaque string. The object is present only when the result was truncated.
 `,
 		Args: requireBodyFieldOrExactArg("datasource_id", "datasource-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -322,7 +336,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check; must equal the authenticated account.")
-	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Datasource ID from /monit/datasource/list. (required) (min 1)")
+	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "ID of the datasource to run the tool against, from '/monit/datasource/list'. The caller needs query access to it. For query tools ('<type>.query') the ID must not exceed 9007199254740991. (required) (min 1)")
 	cmd.Flags().StringVar(&fTool, "tool", "", "Single tool name prefixed by the datasource type. Diagnostic tools are defined by the executing Edge (e.g. 'mysql.overview'). Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', 'postgres', 'oracle', 'clickhouse', 'elasticsearch', 'loki', 'victorialogs', 'sls', 'tencent_cls'; their 'params' follow 'PrometheusQueryParams', 'MySQLQueryParams', 'PostgresQueryParams', 'OracleQueryParams', 'ClickHouseQueryParams', 'ElasticsearchQueryParams', 'LokiQueryParams', 'VictoriaLogsQueryParams', 'SLSQueryParams', or 'TencentCLSQueryParams' respectively. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -335,29 +349,33 @@ func genDataSourcesWriteCreateCmd() *cobra.Command {
 	var fEdgeClusterName string
 	var fEnabled bool
 	var fID int64
+	var fManageTeamID int64
 	var fName string
 	var fNote string
+	var fReadonlyTeamIDs []int
 	var fTypeIdent string
 	cmd := &cobra.Command{
 		Use:   "datasource-create",
 		Short: "Create datasource",
 		Long: `Create datasource.
 
-Create a new monitoring data source. The 'payload' must include the type-specific configuration block. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
+Create a monitoring datasource of one of 15 supported types and bind it to a Monitors edge cluster.
 
 API: POST /monit/datasource/create (monit-datasource-write-create)
 
 Request fields:
-  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  --address string — Connection address, required for every type except 'elasticsearch' with 'deployment: cloud'. At most 4096 characters after normalization. Format by type: - 'prometheus', 'loki', 'victorialogs': HTTP URL; 'http://' is prepended when the value does not start with 'http'. - 'mysql', 'oracle', 'postgres': 'host:port'. - 'clickhouse': one or more comma-separated 'host:port' endpoints; duplicates are rejected. - 'elasticsearch' with 'self-managed': one or more comma-separated HTTP(S) URLs (scheme defaults to 'http://') that share identical query parameters; duplicates are rejected. Not needed for 'cloud'. - 'sls': endpoint without the 'http://' or 'https://' prefix. - 'tencent_cls': exactly 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). - 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos': a single 'host:port' (bracket IPv6) with no URI, userinfo or query. - 'kafka': 1-32 unique comma-separated 'host:port' bootstrap addresses (the payload has no broker list). (≤4096 chars)
   --alerting-enabled bool — Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.
-  --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
+  --edge-cluster-name string (required) — Name of the Monitors edge cluster that evaluates rules and runs queries for this datasource. It must be an existing edge cluster of the account, otherwise the call fails with 'InvalidParameter'. Changing it on update closes open alerts of rules that use this datasource.
   --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
-  --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
-  --note string — Optional description.
-  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
-  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+  --id int — Datasource ID. Required for update (an unknown ID, or one in another account, fails with 'ResourceNotFound'); ignored on create.
+  --manage-team-id int — ID of the managing team (see the response field of the same name). On create, omitted means no managing team. On update, omitted keeps the current value, while 'null' or '0' clears it. Required whenever 'readonly_team_ids' is non-empty.
+  --name string (required) — Datasource name; required and unique within the account across all types. This is the name referenced as 'ds_name' in query APIs. Duplicates fail with 'InvalidParameter'.
+  --note string — Free-text note. On update, an omitted or empty value clears the stored note.
+  --readonly-team-ids []int — IDs of the teams allowed to query and reference the datasource (see the response field of the same name). On create, omitted means unrestricted. On update, omitted keeps the current value, while 'null' or an empty array clears it (everyone can query). Duplicates and '0' are dropped. Requires 'manage_team_id': a non-empty list without a managing team fails with 'InvalidParameter'.
+  --type-ident string (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
+  payload (object, via --data) (required) — Type-specific configuration block; must include the key named by 'type_ident'. An update replaces the whole payload, so resend every setting you want to keep (including credentials of non-diagnostic types, which the info endpoint returns). Exceptions: for the diagnostic types, omit the password (and the Kafka 'tls_key') to keep the stored value or send an empty string to clear it; for 'tencent_cls', an omitted or empty 'secret_key' keeps the stored key. Stored secrets are not carried over when 'type_ident' changes. The serialized JSON may not exceed 65,535 bytes.
+    - clickhouse (object) — Settings for 'type_ident' 'clickhouse'.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
@@ -375,31 +393,31 @@ Request fields:
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
       - username (string) — ClickHouse authentication username.
-    - elasticsearch (object) — Elasticsearch datasource configuration.
+    - elasticsearch (object) — Settings for 'type_ident' 'elasticsearch'.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
       - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
-      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - deployment (string) — Deployment type; required. 'cloud' uses Elastic Cloud ('address' is not needed); 'self-managed' uses a self-hosted cluster ('address' is required). [cloud, self-managed]
       - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
       - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
-    - kafka (object) — Diagnostic datasource connection configuration.
-      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+    - kafka (object) — Settings for 'type_ident' 'kafka' (diagnostic-only).
+      - password (string) — Authentication password; supports ${env:NAME}. Required with 'username' for SASL authentication and must be empty when 'sasl_mechanism' is 'none'. On update, omit to keep the stored password; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - sasl_mechanism (string) — SASL mechanism: none (default, no credentials), plain, scram-sha-256, scram-sha-512 (require username and password). [none, plain, scram-sha-256, scram-sha-512]
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 5000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
       - tls_cert (string) — PEM client certificate or ${env:NAME}; configure both tls_cert and tls_key.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_key (string) — PEM client private key or ${env:NAME}; configure both tls_cert and tls_key. Omit on update to preserve; an empty string clears it. Literal keys are omitted from responses.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Required when 'sasl_mechanism' is 'plain', 'scram-sha-256' or 'scram-sha-512'; must be empty when it is 'none'.
+    - loki (object) — Settings for 'type_ident' 'loki'.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
       - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
@@ -412,29 +430,29 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
-    - mongodb_mongod (object) — Diagnostic datasource connection configuration.
+    - mongodb_mongod (object) — Settings for 'type_ident' 'mongodb_mongod' (diagnostic-only); same fields as 'mongodb_mongos'.
       - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - mongodb_mongos (object) — Diagnostic datasource connection configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Must be configured together with 'password'.
+    - mongodb_mongos (object) — Settings for 'type_ident' 'mongodb_mongos' (diagnostic-only); same fields as 'mongodb_mongod'.
       - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Must be configured together with 'password'.
+    - mysql (object) — Settings for 'type_ident' 'mysql'.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
@@ -449,7 +467,7 @@ Request fields:
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
       - username (string) — MySQL authentication username.
-    - oracle (object) — Oracle datasource configuration.
+    - oracle (object) — Settings for 'type_ident' 'oracle'.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
       - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
@@ -457,7 +475,7 @@ Request fields:
       - password (string) — Oracle authentication password.
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - username (string) — Oracle authentication username.
-    - postgres (object) — PostgreSQL datasource configuration.
+    - postgres (object) — Settings for 'type_ident' 'postgres'.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
       - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
@@ -468,10 +486,10 @@ Request fields:
       - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
       - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
       - username (string) — PostgreSQL authentication username.
-    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+    - prometheus (object) — Settings for 'type_ident' 'prometheus'.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
-      - basic_auth_password (string) — Basic auth password.
-      - basic_auth_username (string) — Basic auth username.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'. Returned as stored in create, update and info responses.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
       - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
@@ -481,23 +499,23 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
-    - redis_node (object) — Diagnostic datasource connection configuration.
+    - redis_node (object) — Settings for 'type_ident' 'redis_node' (diagnostic-only).
       - database (integer) — Redis database number; defaults to 0. (min 0)
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - redis_sentinel (object) — Diagnostic datasource connection configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. When set, 'password' is required (on update, omit 'password' to keep the stored one).
+    - redis_sentinel (object) — Settings for 'type_ident' 'redis_sentinel' (diagnostic-only).
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. When set, 'password' is required (on update, omit 'password' to keep the stored one).
+    - sls (object) — Settings for 'type_ident' 'sls'.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - tencent_cls (object) — Tencent CLS credentials. Required when 'type_ident' is 'tencent_cls'.
       - secret_id (string) (required) — Tencent Cloud API SecretId. Always required (create and update). Supports '${env:VAR}' references resolved on the edge.
       - secret_key (string) — Tencent Cloud API SecretKey. Required on create; on update, omit to keep the stored key. Supports '${env:VAR}' references. Never returned by read APIs: responses carry an empty string unless the stored value is an '${env:...}' reference.
-    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+    - victorialogs (object) — Settings for 'type_ident' 'victorialogs'.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
       - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
@@ -512,16 +530,20 @@ Request fields:
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - account_id (integer) (required) — ID of the account that owns the datasource; always the caller's account.
+  - address (string) (required) — Connection address as stored, after normalization. The format depends on 'type_ident'; see the 'address' field of the create request for each type. At most 4096 characters. (≤4096 chars)
   - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
+  - creator_id (integer) (required) — ID of the member who created the datasource; 'null' when not recorded. The creator can always manage the datasource.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
-  - id (integer) (required) — Unique datasource ID.
-  - name (string) (required) — Datasource display name.
-  - note (string) (required) — Optional description.
+  - id (integer) (required) — Unique datasource ID. Pass it as 'id' to update, delete and info, and as 'datasource_id' to tool invocation.
+  - manage_team_id (integer) (required) — ID of the managing team. Its members can edit, delete, enable or disable the datasource and view its full configuration. 'null' means no managing team: any caller with the Datasources Manage permission can manage it. The creator, the account owner and Admin members can always manage.
+  - my_perm (string) — The caller's access level on this datasource. Only present in list responses. - 'manage': can edit, delete, enable or disable the datasource, view its configuration and query it. - 'readonly': can query and reference the datasource but not change it or read its configuration. [manage, readonly]
+  - name (string) (required) — Datasource name, unique within the account across all types.
+  - note (string) (required) — Free-text note; an empty string when not set.
   - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  - readonly_team_ids (array<integer>) (required) — IDs of the teams allowed to query and reference the datasource, in addition to the managing team, the creator, the account owner and Admin members. 'null' or an empty array means every member of the account can query it.
+  - type_ident (string) (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-create --data '{"address":"http://prometheus.example.com:9090","edge_cluster_name":"default","name":"Prometheus Prod","note":"Production Prometheus","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
@@ -543,11 +565,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					if cmd.Flags().Changed("manage-team-id") {
+						body["manage_team_id"] = fManageTeamID
+					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
 					}
 					if cmd.Flags().Changed("note") {
 						body["note"] = fNote
+					}
+					if cmd.Flags().Changed("readonly-team-ids") {
+						body["readonly_team_ids"] = fReadonlyTeamIDs
 					}
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
@@ -575,14 +603,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address, required for every type except 'elasticsearch' with 'deployment: cloud'. At most 4096 characters after normalization. Format by type: - 'prometheus', 'loki', 'victorialogs': HTTP URL; 'http://' is prepended when the value does not start with 'http'. - 'mysql', 'oracle', 'postgres': 'host:port'. - 'clickhouse': one or more comma-separated 'host:port' endpoints; duplicates are rejected. - 'elasticsearch' with 'self-managed': one or more comma-separated HTTP(S) URLs (scheme defaults to 'http://') that share identical query parameters; duplicates are rejected. Not needed for 'cloud'. - 'sls': endpoint without the 'http://' or 'https://' prefix. - 'tencent_cls': exactly 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). - 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos': a single 'host:port' (bracket IPv6) with no URI, userinfo or query. - 'kafka': 1-32 unique comma-separated 'host:port' bootstrap addresses (the payload has no broker list). (≤4096 chars)")
 	cmd.Flags().BoolVar(&fAlertingEnabled, "alerting-enabled", false, "Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.")
-	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
+	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Name of the Monitors edge cluster that evaluates rules and runs queries for this datasource. It must be an existing edge cluster of the account, otherwise the call fails with 'InvalidParameter'. Changing it on update closes open alerts of rules that use this datasource. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
-	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query APIs. (required)")
-	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update (an unknown ID, or one in another account, fails with 'ResourceNotFound'); ignored on create.")
+	cmd.Flags().Int64Var(&fManageTeamID, "manage-team-id", 0, "ID of the managing team (see the response field of the same name). On create, omitted means no managing team. On update, omitted keeps the current value, while 'null' or '0' clears it. Required whenever 'readonly_team_ids' is non-empty.")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource name; required and unique within the account across all types. This is the name referenced as 'ds_name' in query APIs. Duplicates fail with 'InvalidParameter'. (required)")
+	cmd.Flags().StringVar(&fNote, "note", "", "Free-text note. On update, an omitted or empty value clears the stored note.")
+	cmd.Flags().IntSliceVar(&fReadonlyTeamIDs, "readonly-team-ids", nil, "IDs of the teams allowed to query and reference the datasource (see the response field of the same name). On create, omitted means unrestricted. On update, omitted keeps the current value, while 'null' or an empty array clears it (everyone can query). Duplicates and '0' are dropped. Requires 'manage_team_id': a non-empty list without a managing team fails with 'InvalidParameter'.")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. (required) [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -595,7 +625,7 @@ func genDataSourcesWriteDeleteCmd() *cobra.Command {
 		Short: "Delete datasource",
 		Long: `Delete datasource.
 
-Delete a data source by ID. Alert rules referencing this datasource are not blocked: the datasource is removed from their monitoring scope and their open alerts on it are closed automatically.
+Delete a datasource by ID; alert rules that reference it are not blocked.
 
 API: POST /monit/datasource/delete (monit-datasource-write-delete)
 
@@ -642,29 +672,33 @@ func genDataSourcesWriteUpdateCmd() *cobra.Command {
 	var fEdgeClusterName string
 	var fEnabled bool
 	var fID int64
+	var fManageTeamID int64
 	var fName string
 	var fNote string
+	var fReadonlyTeamIDs []int
 	var fTypeIdent string
 	cmd := &cobra.Command{
 		Use:   "datasource-update",
 		Short: "Update datasource",
 		Long: `Update datasource.
 
-Update an existing data source. Supply 'id' plus the fields to change. Supports diagnostic types redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka; enabled and alerting_enabled are independent.
+Update a datasource by ID, replacing its name, note, address, payload and edge cluster.
 
 API: POST /monit/datasource/update (monit-datasource-write-update)
 
 Request fields:
-  --address string — Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  --address string — Connection address, required for every type except 'elasticsearch' with 'deployment: cloud'. At most 4096 characters after normalization. Format by type: - 'prometheus', 'loki', 'victorialogs': HTTP URL; 'http://' is prepended when the value does not start with 'http'. - 'mysql', 'oracle', 'postgres': 'host:port'. - 'clickhouse': one or more comma-separated 'host:port' endpoints; duplicates are rejected. - 'elasticsearch' with 'self-managed': one or more comma-separated HTTP(S) URLs (scheme defaults to 'http://') that share identical query parameters; duplicates are rejected. Not needed for 'cloud'. - 'sls': endpoint without the 'http://' or 'https://' prefix. - 'tencent_cls': exactly 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). - 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos': a single 'host:port' (bracket IPv6) with no URI, userinfo or query. - 'kafka': 1-32 unique comma-separated 'host:port' bootstrap addresses (the payload has no broker list). (≤4096 chars)
   --alerting-enabled bool — Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.
-  --edge-cluster-name string (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
+  --edge-cluster-name string (required) — Name of the Monitors edge cluster that evaluates rules and runs queries for this datasource. It must be an existing edge cluster of the account, otherwise the call fails with 'InvalidParameter'. Changing it on update closes open alerts of rules that use this datasource.
   --enabled bool — Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.
-  --id int — Datasource ID. Required for update; omit for create.
-  --name string (required) — Datasource display name. This is the name referenced as 'ds_name' in query APIs.
-  --note string — Optional description.
-  --type-ident string (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
-  payload (object, via --data) (required) — Type-specific configuration block. Must include the key matching 'type_ident'. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-    - clickhouse (object) — ClickHouse datasource configuration. TLS fields are inherited from TLSClientConfig.
+  --id int — Datasource ID. Required for update (an unknown ID, or one in another account, fails with 'ResourceNotFound'); ignored on create.
+  --manage-team-id int — ID of the managing team (see the response field of the same name). On create, omitted means no managing team. On update, omitted keeps the current value, while 'null' or '0' clears it. Required whenever 'readonly_team_ids' is non-empty.
+  --name string (required) — Datasource name; required and unique within the account across all types. This is the name referenced as 'ds_name' in query APIs. Duplicates fail with 'InvalidParameter'.
+  --note string — Free-text note. On update, an omitted or empty value clears the stored note.
+  --readonly-team-ids []int — IDs of the teams allowed to query and reference the datasource (see the response field of the same name). On create, omitted means unrestricted. On update, omitted keeps the current value, while 'null' or an empty array clears it (everyone can query). Duplicates and '0' are dropped. Requires 'manage_team_id': a non-empty list without a managing team fails with 'InvalidParameter'.
+  --type-ident string (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
+  payload (object, via --data) (required) — Type-specific configuration block; must include the key named by 'type_ident'. An update replaces the whole payload, so resend every setting you want to keep (including credentials of non-diagnostic types, which the info endpoint returns). Exceptions: for the diagnostic types, omit the password (and the Kafka 'tls_key') to keep the stored value or send an empty string to clear it; for 'tencent_cls', an omitted or empty 'secret_key' keeps the stored key. Stored secrets are not carried over when 'type_ident' changes. The serialized JSON may not exceed 65,535 bytes.
+    - clickhouse (object) — Settings for 'type_ident' 'clickhouse'.
       - database (string) — Default database for authentication.
       - dial_timeout_mills (integer) — Dial timeout in milliseconds.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
@@ -682,31 +716,31 @@ Request fields:
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
       - username (string) — ClickHouse authentication username.
-    - elasticsearch (object) — Elasticsearch datasource configuration.
+    - elasticsearch (object) — Settings for 'type_ident' 'elasticsearch'.
       - api_key (string) — Elastic Cloud API key. Only for 'cloud' deployment.
       - certificate_fingerprint (string) — SHA-256 fingerprint of the Elasticsearch CA certificate, used to verify the server chain (the recommended check for ES 8 default security).
       - cloud_id (string) — Elastic Cloud deployment ID. Only for 'cloud' deployment.
-      - deployment (string) — Deployment type. 'cloud' uses Elastic Cloud; 'self-managed' uses a self-hosted cluster. [cloud, self-managed]
+      - deployment (string) — Deployment type; required. 'cloud' uses Elastic Cloud ('address' is not needed); 'self-managed' uses a self-hosted cluster ('address' is required). [cloud, self-managed]
       - headers (array<string>) — Custom HTTP headers added to every request, each entry formatted as 'Key: Value'.
       - password (string) — Authentication password for self-managed clusters; ignored when 'service_token' is set.
       - service_token (string) — Service token; overrides username/password if set.
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - tls_ca (string) — PEM-encoded CA certificate used to verify the Elasticsearch server certificate.
       - username (string) — Username for 'self-managed' deployment.
-    - kafka (object) — Diagnostic datasource connection configuration.
-      - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
+    - kafka (object) — Settings for 'type_ident' 'kafka' (diagnostic-only).
+      - password (string) — Authentication password; supports ${env:NAME}. Required with 'username' for SASL authentication and must be empty when 'sasl_mechanism' is 'none'. On update, omit to keep the stored password; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - sasl_mechanism (string) — SASL mechanism: none (default, no credentials), plain, scram-sha-256, scram-sha-512 (require username and password). [none, plain, scram-sha-256, scram-sha-512]
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 5000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
       - tls_cert (string) — PEM client certificate or ${env:NAME}; configure both tls_cert and tls_key.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_key (string) — PEM client private key or ${env:NAME}; configure both tls_cert and tls_key. Omit on update to preserve; an empty string clears it. Literal keys are omitted from responses.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - loki (object) — Loki datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Required when 'sasl_mechanism' is 'plain', 'scram-sha-256' or 'scram-sha-512'; must be empty when it is 'none'.
+    - loki (object) — Settings for 'type_ident' 'loki'.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
       - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
@@ -719,29 +753,29 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
-    - mongodb_mongod (object) — Diagnostic datasource connection configuration.
+    - mongodb_mongod (object) — Settings for 'type_ident' 'mongodb_mongod' (diagnostic-only); same fields as 'mongodb_mongos'.
       - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - mongodb_mongos (object) — Diagnostic datasource connection configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Must be configured together with 'password'.
+    - mongodb_mongos (object) — Settings for 'type_ident' 'mongodb_mongos' (diagnostic-only); same fields as 'mongodb_mongod'.
       - auth_source (string) — Authentication database; defaults to admin. Username and password must be configured together. Client certificates are unsupported.
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
       - tls_ca (string) — PEM CA certificates or an ${env:NAME} reference.
-      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false.
+      - tls_enabled (boolean) — Whether TLS is enabled; defaults to false. When false, all 'tls_*' fields are cleared on save.
       - tls_max_version (string) — Maximum TLS version: 1.2 or 1.3; empty means no constraint. Must not be below the minimum.
       - tls_min_version (string) — Minimum TLS version: 1.2 (default) or 1.3.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Skip server certificate verification when TLS is enabled.
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - mysql (object) — MySQL datasource configuration. TLS fields are inherited from TLSClientConfig.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. Must be configured together with 'password'.
+    - mysql (object) — Settings for 'type_ident' 'mysql'.
       - idle_conns (integer) — Maximum idle connections.
       - lifetime_seconds (integer) — Connection maximum lifetime in seconds.
       - open_conns (integer) — Maximum open connections.
@@ -756,7 +790,7 @@ Request fields:
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification; derived from 'tls_mode' when set ('require' → 'true', 'verify-full' → 'false') — only manually effective under legacy empty 'tls_mode'.
       - username (string) — MySQL authentication username.
-    - oracle (object) — Oracle datasource configuration.
+    - oracle (object) — Settings for 'type_ident' 'oracle'.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
       - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
@@ -764,7 +798,7 @@ Request fields:
       - password (string) — Oracle authentication password.
       - timeout_mills (integer) — Per-query timeout in milliseconds; '0' or omitted uses the default of 10000 (10 seconds).
       - username (string) — Oracle authentication username.
-    - postgres (object) — PostgreSQL datasource configuration.
+    - postgres (object) — Settings for 'type_ident' 'postgres'.
       - idle_conns (integer) — Maximum number of idle connections in the pool; '0' or omitted uses the default of 4.
       - lifetime_seconds (integer) — Maximum connection lifetime in seconds; '0' or omitted uses the default of 600 (10 minutes).
       - open_conns (integer) — Maximum number of open connections in the pool; '0' or omitted uses the default of 32.
@@ -775,10 +809,10 @@ Request fields:
       - tls_cert (string) — PEM-encoded client certificate for mutual TLS; must be configured together with 'tls_key'.
       - tls_key (string) — PEM-encoded client private key; must be configured together with 'tls_cert'.
       - username (string) — PostgreSQL authentication username.
-    - prometheus (object) — Prometheus datasource configuration. TLS fields are inherited from TLSClientConfig.
+    - prometheus (object) — Settings for 'type_ident' 'prometheus'.
       - basic_auth_enabled (boolean) — Enable HTTP Basic Auth.
-      - basic_auth_password (string) — Basic auth password.
-      - basic_auth_username (string) — Basic auth username.
+      - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'. Returned as stored in create, update and info responses.
+      - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
       - headers (array<string>) — Custom HTTP headers in 'Key: Value' format.
       - params (array<string>) — Custom query parameters in 'key=value' format.
       - tls_ca (string) — PEM-encoded CA certificate used to verify the server certificate.
@@ -788,23 +822,23 @@ Request fields:
       - tls_min_version (string) — Minimum TLS version, one of '1.0', '1.1', '1.2', '1.3'; empty means no constraint and it must not exceed 'tls_max_version'.
       - tls_server_name (string) — Server name used for TLS SNI and certificate verification; defaults to the host from the connection address when empty.
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
-    - redis_node (object) — Diagnostic datasource connection configuration.
+    - redis_node (object) — Settings for 'type_ident' 'redis_node' (diagnostic-only).
       - database (integer) — Redis database number; defaults to 0. (min 0)
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - redis_sentinel (object) — Diagnostic datasource connection configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. When set, 'password' is required (on update, omit 'password' to keep the stored one).
+    - redis_sentinel (object) — Settings for 'type_ident' 'redis_sentinel' (diagnostic-only).
       - password (string) — Authentication password; supports ${env:NAME}. Omit on update to preserve; explicitly send an empty string to clear. Literal passwords are omitted from responses.
       - timeout_ms (integer) — Connection timeout in milliseconds; defaults to 3000 when omitted. (1000-10000)
-      - username (string) — Authentication username; an ${env:NAME} reference is supported.
-    - sls (object) — Alibaba Cloud SLS datasource configuration.
+      - username (string) — Authentication username; an ${env:NAME} reference is supported. When set, 'password' is required (on update, omit 'password' to keep the stored one).
+    - sls (object) — Settings for 'type_ident' 'sls'.
       - access_key_id (string) — Alibaba Cloud Access Key ID.
       - access_key_secret (string) — Alibaba Cloud Access Key Secret.
       - headers (array<string>) — Custom HTTP headers.
     - tencent_cls (object) — Tencent CLS credentials. Required when 'type_ident' is 'tencent_cls'.
       - secret_id (string) (required) — Tencent Cloud API SecretId. Always required (create and update). Supports '${env:VAR}' references resolved on the edge.
       - secret_key (string) — Tencent Cloud API SecretKey. Required on create; on update, omit to keep the stored key. Supports '${env:VAR}' references. Never returned by read APIs: responses carry an empty string unless the stored value is an '${env:...}' reference.
-    - victorialogs (object) — VictoriaLogs datasource configuration. TLS fields are inherited from TLSClientConfig.
+    - victorialogs (object) — Settings for 'type_ident' 'victorialogs'.
       - basic_auth_enabled (boolean) — Whether HTTP Basic Auth is enabled; when 'false', 'basic_auth_username'/'basic_auth_password' are ignored.
       - basic_auth_password (string) — Basic Auth password, effective when 'basic_auth_enabled' is 'true'.
       - basic_auth_username (string) — Basic Auth username, effective when 'basic_auth_enabled' is 'true'.
@@ -819,16 +853,20 @@ Request fields:
       - tls_skip_verify (boolean) — Whether to skip server certificate verification (insecure, for self-signed setups only).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - address (string) (required) — Connection address. For Prometheus/Loki/VictoriaLogs: HTTP URL. For MySQL/Oracle/Postgres/ClickHouse: 'host:port'. For SLS: endpoint without http/https prefix. Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)
+  - account_id (integer) (required) — ID of the account that owns the datasource; always the caller's account.
+  - address (string) (required) — Connection address as stored, after normalization. The format depends on 'type_ident'; see the 'address' field of the create request for each type. At most 4096 characters. (≤4096 chars)
   - alerting_enabled (boolean) (required) — Whether alert evaluation is allowed. Alerting also requires enabled=true and an alerting-capable type. Always false for diagnostic-only types; false does not block non-alerting queries or tools.
+  - creator_id (integer) (required) — ID of the member who created the datasource; 'null' when not recorded. The creator can always manage the datasource.
   - edge_cluster_name (string) (required) — Monitors edge cluster name responsible for evaluating rules using this datasource.
   - enabled (boolean) (required) — Whether business execution is enabled. Disabled datasources reject business queries and tools; enabling does not change alerting_enabled.
-  - id (integer) (required) — Unique datasource ID.
-  - name (string) (required) — Datasource display name.
-  - note (string) (required) — Optional description.
+  - id (integer) (required) — Unique datasource ID. Pass it as 'id' to update, delete and info, and as 'datasource_id' to tool invocation.
+  - manage_team_id (integer) (required) — ID of the managing team. Its members can edit, delete, enable or disable the datasource and view its full configuration. 'null' means no managing team: any caller with the Datasources Manage permission can manage it. The creator, the account owner and Admin members can always manage.
+  - my_perm (string) — The caller's access level on this datasource. Only present in list responses. - 'manage': can edit, delete, enable or disable the datasource, view its configuration and query it. - 'readonly': can query and reference the datasource but not change it or read its configuration. [manage, readonly]
+  - name (string) (required) — Datasource name, unique within the account across all types.
+  - note (string) (required) — Free-text note; an empty string when not set.
   - payload (any) (required) — Type-specific configuration block; must contain the key matching 'type_ident'. Always 'null' in '/monit/datasource/list' responses (the list query does not read the payload column); populated in create/update/info responses. For 'tencent_cls', 'secret_key' is masked to an empty string unless it is an '${env:...}' reference. For diagnostic types, password and Kafka tls_key are omitted from responses unless they are ${env:...} references. On update, omit those fields to preserve stored secrets; explicitly send an empty string to clear. Other configuration fields retain their existing behavior.
-  - type_ident (string) (required) — Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。
+  - readonly_team_ids (array<integer>) (required) — IDs of the teams allowed to query and reference the datasource, in addition to the managing team, the creator, the account owner and Admin members. 'null' or an empty array means every member of the account can query it.
+  - type_ident (string) (required) — Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]
   - updated_at (string) (required) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty monit datasource-update --data '{"address":"http://prometheus-v2.example.com:9090","edge_cluster_name":"default","id":10,"name":"Prometheus Prod v2","note":"Updated","payload":{"prometheus":{"basic_auth_enabled":false}},"type_ident":"prometheus"}'`,
@@ -850,11 +888,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("id") {
 						body["id"] = fID
 					}
+					if cmd.Flags().Changed("manage-team-id") {
+						body["manage_team_id"] = fManageTeamID
+					}
 					if cmd.Flags().Changed("name") {
 						body["name"] = fName
 					}
 					if cmd.Flags().Changed("note") {
 						body["note"] = fNote
+					}
+					if cmd.Flags().Changed("readonly-team-ids") {
+						body["readonly_team_ids"] = fReadonlyTeamIDs
 					}
 					if cmd.Flags().Changed("type-ident") {
 						body["type_ident"] = fTypeIdent
@@ -882,14 +926,16 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address. Required for every type except 'elasticsearch' with 'deployment: cloud'. Prometheus/Loki/VictoriaLogs: HTTP URL; MySQL/Oracle/Postgres/ClickHouse: 'host:port'; SLS: endpoint without the 'http(s)://' prefix; 'tencent_cls': must be 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). Redis/MongoDB diagnostic types: one host:port, bracket IPv6; no URI, userinfo or query. Kafka: 1–32 unique comma-separated host:port bootstrap addresses; payload has no broker list. At most 4096 characters after normalization. (≤4096 chars)")
+	cmd.Flags().StringVar(&fAddress, "address", "", "Connection address, required for every type except 'elasticsearch' with 'deployment: cloud'. At most 4096 characters after normalization. Format by type: - 'prometheus', 'loki', 'victorialogs': HTTP URL; 'http://' is prepended when the value does not start with 'http'. - 'mysql', 'oracle', 'postgres': 'host:port'. - 'clickhouse': one or more comma-separated 'host:port' endpoints; duplicates are rejected. - 'elasticsearch' with 'self-managed': one or more comma-separated HTTP(S) URLs (scheme defaults to 'http://') that share identical query parameters; duplicates are rejected. Not needed for 'cloud'. - 'sls': endpoint without the 'http://' or 'https://' prefix. - 'tencent_cls': exactly 'cls.tencentcloudapi.com' or 'cls.internal.tencentcloudapi.com' (requires Monitors edge >= v0.66.0). - 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos': a single 'host:port' (bracket IPv6) with no URI, userinfo or query. - 'kafka': 1-32 unique comma-separated 'host:port' bootstrap addresses (the payload has no broker list). (≤4096 chars)")
 	cmd.Flags().BoolVar(&fAlertingEnabled, "alerting-enabled", false, "Whether this datasource may evaluate alerts. Omitted on create: true for alerting types, false for diagnostic-only types; omitted on update: preserve current value. null is invalid. redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos and kafka reject true. Disabling is rejected with conflict when enabled rules reference the datasource.")
-	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Monitors edge cluster name responsible for evaluating rules using this datasource. (required)")
+	cmd.Flags().StringVar(&fEdgeClusterName, "edge-cluster-name", "", "Name of the Monitors edge cluster that evaluates rules and runs queries for this datasource. It must be an existing edge cluster of the account, otherwise the call fails with 'InvalidParameter'. Changing it on update closes open alerts of rules that use this datasource. (required)")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether business execution is enabled. Omitted on create: true; omitted on update: preserve the current value. Explicit false disables execution; null is invalid. Does not change alerting_enabled.")
-	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update; omit for create.")
-	cmd.Flags().StringVar(&fName, "name", "", "Datasource display name. This is the name referenced as 'ds_name' in query APIs. (required)")
-	cmd.Flags().StringVar(&fNote, "note", "", "Optional description.")
-	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type identifier. Allowed: 'prometheus', 'loki', 'mysql', 'oracle', 'postgres', 'clickhouse', 'elasticsearch', 'sls', 'tencent_cls', 'victorialogs', 'redis_node', 'redis_sentinel', 'mongodb_mongod', 'mongodb_mongos', 'kafka'。 (required)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "Datasource ID. Required for update (an unknown ID, or one in another account, fails with 'ResourceNotFound'); ignored on create.")
+	cmd.Flags().Int64Var(&fManageTeamID, "manage-team-id", 0, "ID of the managing team (see the response field of the same name). On create, omitted means no managing team. On update, omitted keeps the current value, while 'null' or '0' clears it. Required whenever 'readonly_team_ids' is non-empty.")
+	cmd.Flags().StringVar(&fName, "name", "", "Datasource name; required and unique within the account across all types. This is the name referenced as 'ds_name' in query APIs. Duplicates fail with 'InvalidParameter'. (required)")
+	cmd.Flags().StringVar(&fNote, "note", "", "Free-text note. On update, an omitted or empty value clears the stored note.")
+	cmd.Flags().IntSliceVar(&fReadonlyTeamIDs, "readonly-team-ids", nil, "IDs of the teams allowed to query and reference the datasource (see the response field of the same name). On create, omitted means unrestricted. On update, omitted keeps the current value, while 'null' or an empty array clears it (everyone can query). Duplicates and '0' are dropped. Requires 'manage_team_id': a non-empty list without a managing team fails with 'InvalidParameter'.")
+	cmd.Flags().StringVar(&fTypeIdent, "type-ident", "", "Datasource type. Alerting types (can evaluate alert rules): - 'prometheus': Prometheus-compatible metrics. - 'loki': Grafana Loki logs. - 'mysql': MySQL. - 'oracle': Oracle Database. - 'postgres': PostgreSQL. - 'clickhouse': ClickHouse. - 'elasticsearch': Elasticsearch. - 'sls': Alibaba Cloud Simple Log Service. - 'tencent_cls': Tencent Cloud Log Service (CLS). - 'victorialogs': VictoriaLogs. Diagnostic-only types (cannot evaluate alerts, 'alerting_enabled' is always 'false'): - 'redis_node': a single Redis node. - 'redis_sentinel': Redis Sentinel. - 'mongodb_mongod': a MongoDB mongod instance. - 'mongodb_mongos': a MongoDB mongos router. - 'kafka': a Kafka cluster. The 'payload' key that holds the type-specific settings has the same name as the type. (required) [prometheus, loki, mysql, oracle, postgres, clickhouse, elasticsearch, sls, tencent_cls, victorialogs, redis_node, redis_sentinel, mongodb_mongod, mongodb_mongos, kafka]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -173,7 +173,7 @@ Add a comment to incident timelines
 ### comment-type-create
 Create a comment type
 - `--color` string (required) — Label color as a hex value in #RRGGBB format. Normalized to uppercase.
-- `--name` string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+- `--name` string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (≤40 chars)
 - response: single object (`data` unwrapped to the top level) — fields: comment_type_id (string); item (object)
 
 ### comment-type-delete <comment-type-id>
@@ -192,7 +192,7 @@ Reorder comment types
 Update a comment type
 - `--color` string — New label color as a hex value in #RRGGBB format. Normalized to uppercase.
 - `<comment-type-id>` (positional, required) string — ID of the comment type to update (24-character hex ObjectID).
-- `--name` string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+- `--name` string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (≤40 chars)
 
 ### create
 Create a new incident
@@ -203,6 +203,7 @@ Create a new incident
 - `--escalate-layer` int64
 - `--escalate-rule-id` string
 - `--field` stringArray
+- `--labels` stringToString
 - `--severity` string
 - `--title` string
 
@@ -215,7 +216,7 @@ Execute custom action
 ### detail <id>
 View full incident detail with AI summary
 - `--fields` string
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### disable-merge <incident-id> [<id2>...]
 Disable incident merge
@@ -227,17 +228,17 @@ View incident feed (paginated timeline)
 - `--limit` int
 - `--page` int
 - `--types` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); agent_session_id (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
 
 ### field-reset <incident-id>
 Update incident custom field
-- `--field-name` string (required) — Custom field name; must match a field defined on the account.
+- `--field-name` string (required) — Custom field name (the field's 'field_name', not its display name). The field must exist and be enabled; list fields with 'POST /field/list'.
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - body-only (`--data`): field_value (any)
 
 ### get <id> [<id2> ...]
 Get incident details
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### info [<incident-id>]
 Get incident detail
@@ -254,6 +255,7 @@ List incidents
 - `--creator-ids` string
 - `--ever-muted` bool
 - `--fields` string
+- `--has-unfinished-work-item` bool
 - `--incident-ids` string
 - `--is-my-channel` bool
 - `--is-my-team` bool
@@ -274,7 +276,7 @@ List incidents
 ### list-by-ids <incident-id> [<id2>...]
 List incidents by IDs
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to query; obtain them from 'POST /incident/list'.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
+- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### merge <target_id>
 Merge incidents into a target incident
@@ -287,7 +289,7 @@ Merge incidents into a target incident
 List past incidents
 - `<incident-id>` (positional, required) string — Reference incident ID (MongoDB ObjectID).
 - `--limit` int64 — Maximum number of similar incidents to return. (0-100)
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### reassign <id>
 Reassign an incident to new responders
@@ -300,7 +302,7 @@ Permanently remove incidents
 ### reopen <incident-id> [<id2>...]
 Reopen incident
 - `<incident-ids>` (positional, required) stringSlice — Incident IDs to reopen. At most 100 per call.
-- `--reason` string — Optional reason recorded on the timeline. (≤1024 chars)
+- `--reason` string — Optional free-text reason, recorded on the 'i_reopen' timeline entry. At most 1,024 characters. (≤1024 chars)
 
 ### reset <incident-id>
 Update incident fields
@@ -324,7 +326,7 @@ Resolve incident
 ### responder-add <person-id> [<id2>...]
 Add incident responder
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders.
+- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders. IDs that are already responders, or that do not exist in the account, are skipped.
 - body-only (`--data`): notify (object)
 
 ### sdp-request-list
@@ -334,8 +336,8 @@ Get ServiceDeskPlus linked incidents
 - `--end-time` string — Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--incident-id` string — Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)
 - `--integration-id` int64 — ServiceDeskPlus integration ID. (min 0)
-- `--limit` int64 — Page size. Defaults to 20; maximum 100. (0-100)
-- `--page` int64 — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
+- `--limit` int64 — Page size. Defaults to 20; maximum 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)
+- `--page` int64 — Not supported; pagination uses only 'search_after_ctx', so this value is ignored. (min 0)
 - `--request-id` string — ServiceDeskPlus request ID. (≤64 chars)
 - `--search-after-ctx` string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
 - `--since` string
@@ -348,7 +350,7 @@ Get ServiceDeskPlus linked incidents
 Find similar incidents
 - `--fields` string
 - `--limit` int
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); score (number); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### snooze <id> [<id2> ...]
 Snooze incidents
@@ -405,27 +407,29 @@ List incident war rooms
 
 ### war-room-add-member <chat-id>
 Add war-room member
-- `<chat-id>` (positional, required) string — Chat ID of the war room within the IM platform.
+- `<chat-id>` (positional, required) string — Chat ID of the war-room group on the IM platform, as returned for the war room by 'POST /incident/war-room/list'.
 - `--integration-id` int64 (required) — ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'.
-- `--member-ids` intSlice (required) — Person IDs to add to the war room.
+- `--member-ids` intSlice (required) — Person IDs (member IDs, or the account ID for the owner) to add. Must not be empty.
 
 ### war-room-create
 Create war room
-- `--add-observers` bool — When true, also add historical responders of the incident as observers.
+- `--add-observers` bool — When true, also invite members who were assigned or added as responders earlier but are no longer current responders.
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `--integration-id` int64 (required) — IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported.
-- `--member-ids` intSlice — Additional member IDs to add to the war room.
+- `--integration-id` int64 (required) — IM integration ID with war room enabled; obtain it from 'POST /datasource/im/war-room-enabled/list'. Feishu, DingTalk, WeCom (self-built app only), and Slack are supported.
+- `--member-ids` intSlice — Member IDs to invite into the group; every ID must be a valid member of the account.
 - response: same shape as `get <chat_id>` above
 
 ### war-room-default-observers <incident-id>
 Get war-room default observers
-- `<incident-id>` (positional, required) string — Incident ID, a MongoDB ObjectID hex string.
+- `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - response: same shape as `default-observers <incident_id>` above
 
 ### war-room-delete
 Delete war room
+- `--chat-id` string — Chat ID of the war room to unlink, from 'POST /incident/war-room/list'. Required when 'unlink_only' is 'true' and must match the current war room; ignored otherwise.
 - `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
+- `--unlink-only` bool — When true, only remove the link between the incident and the war room without dissolving the group. Allowed only for account owners and admins, only when the IM integration is disabled or deleted, and requires 'chat_id'.
 
 ### war-room-detail <chat-id>
 Get war room detail
@@ -435,14 +439,15 @@ Get war room detail
 
 ### war-room-list <incident-id>
 List war rooms
+- `--for-create` bool — When 'true', return only 'exists' instead of 'items': whether the incident has any war room, on any integration and including ones whose integration is unavailable. 'integration_id' is ignored.
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
 - `--integration-id` int64 — Optional filter: only return war rooms for this IM integration.
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
+- response: `{items: [...], exists}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); chat_id (string); chat_name (string); created_at (string); created_by (integer); incident_id (string); integration_id (integer); integration_unavailable (boolean); plugin_type (string); status (string)
 
 ### work-item-assignees-reset <work-item-id>
 Reset work item assignees
 - `--assignee-ids` intSlice — Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.
-- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `--version` int64 (required) — The item's current 'version' (≥ 1) for optimistic locking.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object); removed_assignee_ids (array<integer>)
@@ -458,8 +463,8 @@ Complete a work item
 ### work-item-convert <work-item-id>
 Convert a work item to a follow-up
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-- `--target-status` string — Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. (≤64 chars) · enum: open | in_progress | done | cancelled
-- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `--target-status` string — Optional status to set on the converted follow-up; omitted or 'null' keeps the current status. Values: 'open' (not started), 'in_progress' (being worked on), 'done' (finished), 'cancelled' (no longer needed). (≤64 chars) · enum: open | in_progress | done | cancelled
+- `--version` int64 (required) — The item's current 'version' (≥ 1) for optimistic locking.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - response: same shape as `work-item-assignees-reset <work-item-id>` above
 
@@ -469,45 +474,45 @@ Create a work item
 - `--description` string — Optional longer description (max 65,535 characters). (≤65535 chars)
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
 - `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID) the item is anchored to.
-- `--item-type` string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. · enum: action | follow_up
-- `--post-mortem-id` string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
-- `--priority` string — Optional client-defined priority (max 64 characters). (≤64 chars)
+- `--item-type` string (required) — Work item type. - 'action': a to-do on an incident that is not closed yet; must not set 'post_mortem_id'. - 'follow_up': a post-mortem follow-up on a closed incident; 'post_mortem_id' is optional. · enum: action | follow_up
+- `--post-mortem-id` string — Post-mortem ID (32-character hex string). Forbidden for 'action'. Optional for 'follow_up': when set, the incident must be linked to that report; when omitted, the incident's post-mortem is used if it exists.
+- `--priority` string — Optional free-form priority, at most 64 characters. The console uses 'high', 'medium' and 'low'; any other string is stored as-is. (≤64 chars)
 - `--status` string — Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. (≤64 chars) · enum: open | in_progress | done | cancelled
-- `--title` string (required) — Item title (max 512 characters). (≤512 chars)
+- `--title` string (required) — Item title, at most 512 characters; leading and trailing spaces are trimmed and it must not be blank. (≤512 chars)
 - body-only (`--data`): assignees (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: added_assignee_ids (array<integer>); idempotent_replay (boolean); item (object)
 
 ### work-item-delete <work-item-id>
 Delete a work item
-- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `--version` int64 (required) — The item's current 'version' (≥ 1) for optimistic locking.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - response: same shape as `work-item-assignees-reset <work-item-id>` above
 
 ### work-item-list
 List work items
-- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.
+- `--assignee-id` int64 — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that member or an account owner or admin. Ignored when 'assignee_type' is 'ai_sre'.
 - `--assignee-type` string — Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. · enum: person | ai_sre
-- `--cursor` string — Pagination cursor from a previous response's 'next_cursor'.
+- `--cursor` string — Opaque cursor from a previous response's 'next_cursor'. An invalid cursor returns 'InvalidParameter'.
 - `--incident-id` string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
 - `--item-type` string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. · enum: action | follow_up
-- `--limit` int64 — Page size, at most 200. Defaults to 50. (0-200)
+- `--limit` int64 — Page size. 0, negative or omitted means 50; values above 200 are treated as 200.
 - `--post-mortem-id` string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
 - response: `{items: [...], has_more, idempotent_replay, next_cursor}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: agent_session_id (string); agent_session_venue (string); assignee_ids (array<integer>); assignees (array<object>); converted_at_seconds (string); converted_by (integer); created_at_seconds (string); created_by (integer); description (string); incident_id (string); item_type (string); legacy_source_id (string); post_mortem_id (string); priority (string); source_kind (string); status (string); title (string); updated_at_seconds (string); updated_by (integer); version (integer); work_item_id (string)
 
 ### work-item-post-mortem-bind
 Bind work items to a post-mortem
 - `--idempotency-key` string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-- `--incident-id` string (required) — Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound.
+- `--incident-id` string (required) — Incident ID (MongoDB ObjectID) whose converted, unbound items are bound. It must be linked to 'post_mortem_id'.
 - `--post-mortem-id` string (required) — Post-mortem ID (32-character hex string) to bind the follow-ups to.
 - response: same shape as `work-item-list` above
 
 ### work-item-update <work-item-id>
 Update a work item
-- `--description` string — New description (max 65,535 characters). (≤65535 chars)
-- `--priority` string — New client-defined priority (max 64 characters). (≤64 chars)
-- `--status` string — New status. One of 'open', 'in_progress', 'done', 'cancelled'. (≤64 chars) · enum: open | in_progress | done | cancelled
-- `--title` string — New title (max 512 characters). (≤512 chars)
-- `--version` int64 (required) — Current item version for optimistic locking. Must match the stored version.
+- `--description` string — New description, at most 65,535 characters; '""' clears it. 'null' or omitted keeps the current value. (≤65535 chars)
+- `--priority` string — New free-form priority, at most 64 characters; '""' clears it. 'null' or omitted keeps the current value. (≤64 chars)
+- `--status` string — New status. 'null' or omitted keeps the current status. - 'open': not started. - 'in_progress': being worked on. - 'done': finished. - 'cancelled': no longer needed. · enum: open | in_progress | done | cancelled
+- `--title` string — New title, at most 512 characters; trimmed and must not be blank. 'null' or omitted keeps the current title. (≤512 chars)
+- `--version` int64 (required) — The item's current 'version' (≥ 1) for optimistic locking.
 - `<work-item-id>` (positional, required) string — Work item ID (opaque string, max 128 characters). (≤128 chars)
 - response: same shape as `work-item-assignees-reset <work-item-id>` above
 

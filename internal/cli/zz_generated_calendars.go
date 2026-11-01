@@ -19,7 +19,7 @@ func genCalendarsCalEventDeleteCmd() *cobra.Command {
 		Short: "Delete calendar event",
 		Long: `Delete calendar event.
 
-Delete one event of a personal calendar by event_id, or clear the calendar's own events off the days [start_at, end_at). Pass either event_id or both start_at and end_at. Cleared days fall back to the linked holiday calendars and the weekly workdays.
+Delete one personal-calendar event by ID, or clear the calendar's own events from a date range.
 
 API: POST /calendar/event/delete (calEventDelete)
 
@@ -89,7 +89,7 @@ func genCalendarsCalEventListCmd() *cobra.Command {
 		Short: "List calendar events",
 		Long: `List calendar events.
 
-Return events for a personal calendar within a year/month/day scope. When month and day are both omitted the whole year is returned. The response also carries days, the resolved state of every day in the scope.
+Return a personal calendar's events for a year, month or day, plus the resolved state of each day.
 
 API: POST /calendar/event/list (calEventList)
 
@@ -104,15 +104,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) (required) — Calendar events sorted by start_at.
     - account_id (integer) — Account ID. Only present for private events.
     - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
-    - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) (required) — Creation timestamp (Unix seconds); '0' for generated 'non_work.*' entries. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Creator person ID. Only present for private events.
     - description (string) (required) — Event description.
     - end_at (string) (required) — Event end date (YYYY-MM-DD, exclusive).
-    - event_id (string) (required) — Event ID.
+    - event_id (string) (required) — Event ID. 'cale.<id>' for the calendar's own events, 'non_work.YYYYMMDD' for generated non-working weekdays, and '<holiday cal_id>.<id>' for events inherited from a holiday calendar.
     - is_off (boolean) (required) — Whether the event marks a non-working day.
     - start_at (string) (required) — Event start date (YYYY-MM-DD).
     - summary (string) (required) — Event summary.
-    - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_at (string) (required) — Last update timestamp (Unix seconds); '0' for generated 'non_work.*' entries. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - total (integer) (required) — Total number of events returned.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
@@ -174,7 +174,7 @@ func genCalendarsCalEventUpsertCmd() *cobra.Command {
 		Short: "Upsert calendar event",
 		Long: `Upsert calendar event.
 
-Create or update an event the calendar owns (a day off or a working-day override) over the days [start_at, end_at). Omit event_id to create a new event; a given event_id must be an existing event of this calendar. The write clears the calendar's other own events off the same days: an event fully inside the range is deleted, one partly inside is shortened, and one spanning the range is split in two, so the latest write decides those days. end_at must be later than start_at.
+Create or update one of a personal calendar's own events: a day off or a working-day override.
 
 API: POST /calendar/event/upsert (calEventUpsert)
 
@@ -262,17 +262,17 @@ func genCalendarsCalendarCreateCmd() *cobra.Command {
 		Short: "Create calendar",
 		Long: `Create calendar.
 
-Create a personal service calendar. Each account is limited to 5 calendars.
+Create a personal service calendar with its weekly workdays and linked holiday calendars.
 
 API: POST /calendar/create (calendarCreate)
 
 Request fields:
-  --cal-name string (required) — Calendar display name. (1-39 chars)
+  --cal-name string (required) — Calendar display name; must be unique within the account. (1-39 chars)
   --description string — Calendar description. (≤499 chars)
   --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).
-  --team-id int — Owning team ID. 0 means no team.
-  --timezone string — IANA timezone. Defaults to Asia/Shanghai when empty.
-  --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
+  --team-id int — Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.
+  --timezone string — IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.
+  --workdays []int — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - cal_id (string) (required) — ID of the newly created calendar (format cal.<uuid>).
@@ -317,12 +317,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalName, "cal-name", "", "Calendar display name. (required) (1-39 chars)")
+	cmd.Flags().StringVar(&fCalName, "cal-name", "", "Calendar display name; must be unique within the account. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Calendar description. (≤499 chars)")
 	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. 0 means no team.")
-	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone. Defaults to Asia/Shanghai when empty.")
-	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.")
+	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -335,7 +335,7 @@ func genCalendarsCalendarDeleteCmd() *cobra.Command {
 		Short: "Delete calendar",
 		Long: `Delete calendar.
 
-Delete a personal service calendar. The call fails when referenced by escalation or silence rules.
+Delete a personal service calendar and its events when no rule references it.
 
 API: POST /calendar/delete (calendarDelete)
 
@@ -387,7 +387,7 @@ func genCalendarsCalendarInfoCmd() *cobra.Command {
 		Short: "Get calendar info",
 		Long: `Get calendar info.
 
-Return details of a service calendar.
+Return the details of one service calendar of the account by its ID.
 
 API: POST /calendar/info (calendarInfo)
 
@@ -395,7 +395,7 @@ Request fields:
   --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
+  - account_id (integer) (required) — ID of the account that owns the calendar.
   - cal_id (string) (required) — Calendar ID.
   - cal_name (string) (required) — Calendar display name.
   - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -408,7 +408,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - timezone (string) (required) — IANA timezone.
   - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater person ID.
-  - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday). Omitted when empty.
+  - workdays (array<integer>) — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. Omitted when empty.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar info --data '{"cal_id":"cal.eh9gvPtWeH3xXgKeVSRxRg"}'`,
@@ -462,7 +462,7 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Calendar items.
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns the calendar.
     - cal_id (string) (required) — Calendar ID.
     - cal_name (string) (required) — Calendar display name.
     - created_at (string) (required) — Creation timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -475,7 +475,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - timezone (string) (required) — IANA timezone.
     - updated_at (string) (required) — Last update timestamp (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater person ID.
-    - workdays (array<integer>) — Workday numbers (0 = Sunday, 6 = Saturday). Omitted when empty.
+    - workdays (array<integer>) — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. Omitted when empty.
   - total (integer) (required) — Total number of calendars returned.
 `,
 		Example: `  flashduty calendar list --data '{"kind":"personal"}'`,
@@ -525,18 +525,18 @@ func genCalendarsCalendarUpdateCmd() *cobra.Command {
 		Short: "Update calendar",
 		Long: `Update calendar.
 
-Update a personal service calendar. Only non-null fields are updated.
+Update a personal service calendar; only the fields you send are changed.
 
 API: POST /calendar/update (calendarUpdate)
 
 Request fields:
   --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
-  --cal-name string — New calendar name. (1-39 chars)
+  --cal-name string — New calendar name; must be unique within the account. (1-39 chars)
   --description string — New description. (≤499 chars)
-  --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from.
-  --team-id int — New owning team ID; obtain it from 'POST /team/list'.
-  --timezone string — New IANA timezone.
-  --workdays []int — Workday numbers (0 = Sunday, 6 = Saturday).
+  --extra-cal-ids []string — Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.
+  --team-id int — New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.
+  --timezone string — New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.
+  --workdays []int — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.
 `,
 		Args:    requireBodyFieldOrExactArg("cal_id", "cal-id"),
 		Example: `  flashduty calendar update --data '{"cal_id":"cal.QiNvtdKs4Wj52kZhT3LafM","cal_name":"Production On-Call Calendar (Updated)","timezone":"America/New_York","workdays":[1,2,3,4,5]}'`,
@@ -589,12 +589,12 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
-	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name. (1-39 chars)")
+	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name; must be unique within the account. (1-39 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤499 chars)")
-	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'.")
-	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone.")
-	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Workday numbers (0 = Sunday, 6 = Saturday).")
+	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.")
+	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

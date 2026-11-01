@@ -81,6 +81,10 @@ func pascal(toks []string) string {
 
 // serviceName derives a service type prefix from a two-level tag's last segment.
 func serviceName(tag string) string {
+	// Monitors and RUM both tag "Dashboards"; this mirrors the SDK's service name.
+	if tag == "RUM/Dashboards" {
+		return "RumDashboards"
+	}
 	seg := tag
 	if i := strings.LastIndex(tag, "/"); i >= 0 {
 		seg = tag[i+1:]

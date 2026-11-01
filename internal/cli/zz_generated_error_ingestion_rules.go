@@ -18,25 +18,25 @@ func genErrorIngestionRulesCreateCmd() *cobra.Command {
 		Short: "Create an error ingestion rule",
 		Long: `Create an error ingestion rule.
 
-Create a new error ingestion rule that filters which errors are stored.
+Create a rule whose matching errors are kept out of issue grouping; matched errors are still stored.
 
 API: POST /rum/error-ingestion/rules/create (rum-error-ingestion-rules-create)
 
 Request fields:
   --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-  --description string — Rule description, up to 512 characters. (≤512 chars)
+  --description string — Rule description, up to 512 characters. Defaults to an empty string. (≤512 chars)
   --rule-name string (required) — Rule name, 1-128 characters. (1-128 chars)
-  filters (array<array<object>>, via --data) (required) — Filter conditions (OR-of-ANDs) to match errors; matched errors are dropped and not ingested.
-    - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
-    - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
-    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
+  filters (array<array<object>>, via --data) (required) — Conditions (OR-of-ANDs) that select errors. A matched error is still stored but is not grouped into any issue.
+    - key (string) (required) — Field to match. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash' (value 'true' or 'false'), or a 'context.'-prefixed path into the error's custom context. Context objects are flattened with dots up to 3 levels ('context.a.b.c'); a deeper object is compared as its JSON text, and array values can't be matched.
+    - oper (string) (required) — Match mode: - 'IN': matches when the field value matches any entry in 'vals'. A context field the error doesn't carry never matches. - 'NOTIN': matches when the field value matches none of 'vals'. A context field the error doesn't carry always matches. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is one of: an exact, case-sensitive string; a wildcard pattern using '*'/'?' that must match the whole value; a regexp wrapped in '/' (matches anywhere in the value unless anchored); 'cidr:<range>' (the value is parsed as an IP); or 'num:lt|le|gt|ge:<number>' (the value is parsed as a number, non-numeric values don't match).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rule_id (string) (required) — ID assigned to the new rule.
   - rule_name (string) (required) — Echo of the created rule's name.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
-		Example: `  flashduty rum error-ingestion-rules-create --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","description":"Only ingest TypeError/ReferenceError from production, excluding Safari.","filters":[[{"key":"error.env","oper":"IN","vals":["production"]},{"key":"error.error_type","oper":"IN","vals":["TypeError","ReferenceError"]}],[{"key":"error.browser_name","oper":"NOTIN","vals":["Safari"]}]],"rule_name":"Production console errors"}'`,
+		Example: `  flashduty rum error-ingestion-rules-create --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","description":"Keep cross-origin script errors, ResizeObserver warnings, and debug pages out of issues.","filters":[[{"key":"error.error_message","oper":"IN","vals":["Script error.","ResizeObserver loop*"]}],[{"key":"error.view_url","oper":"IN","vals":["https://example.com/debug/*"]}]],"rule_name":"Ignore browser noise"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -70,7 +70,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 512 characters. (≤512 chars)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Rule description, up to 512 characters. Defaults to an empty string. (≤512 chars)")
 	cmd.Flags().StringVar(&fRuleName, "rule-name", "", "Rule name, 1-128 characters. (required) (1-128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -257,37 +257,37 @@ API: POST /rum/error-ingestion/rules/history/list (rum-error-ingestion-rules-his
 
 Request fields:
   --page int — Zero-based page number. Default 0. (min 0)
-  --limit int — Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)
+  --limit int — Page size. Default 20; values above 100 are clamped to 100, and values of 0 or below fall back to 20.
   --search-after-ctx string
   --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-  --asc bool — Sort ascending instead of the default descending order.
-  --orderby string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
+  --asc bool — 'true' sorts ascending; 'false' (default) sorts descending, newest first.
+  --orderby string — Sort column: - 'updated_at': time of the change that created the version (default). - 'version': version number. Any other value falls back to 'updated_at'. [updated_at, version]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) (required) — Whether another page of history exists after this one.
+  - has_next_page (boolean) (required) — 'true' when more versions exist after this page.
   - items (array<object>) (required) — History snapshots, ordered by 'orderby'/'asc'.
-    - rules (array<object>) (required) — The application's complete rule list as of this version.
-      - account_id (integer) (required) — Account ID.
+    - rules (array<object>) (required) — The application's complete non-deleted rule list as it was just before the change that created this version. Empty for the version created by the application's first rule.
+      - account_id (integer) (required) — ID of the account that owns the rule.
       - application_id (string) (required) — RUM application ID the rule belongs to.
       - created_at (string) (required) — Unix timestamp in milliseconds when the row was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - created_by (integer) (required) — Member ID who created the rule.
-      - deleted_at (string) (required) — Unix timestamp in milliseconds when the row was soft-deleted; '0' when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - description (string) (required) — Rule description.
+      - deleted_at (string) (required) — Soft-delete time as a Unix timestamp in milliseconds. Always '0' here, because snapshots contain only non-deleted rules. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - description (string) (required) — Rule description as of this snapshot version; empty string when none was given.
       - filters (array<array<object>>) (required) — The rule's filter conditions as of this snapshot version.
-        - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
-        - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
-        - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
-      - id (integer) (required) — Internal row ID.
-      - rule_id (string) (required) — Rule ID.
-      - rule_name (string) (required) — Rule name.
-      - status (string) (required) — The rule's status as of this snapshot version. [enabled, disabled]
+        - key (string) (required) — Field to match. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash' (value 'true' or 'false'), or a 'context.'-prefixed path into the error's custom context. Context objects are flattened with dots up to 3 levels ('context.a.b.c'); a deeper object is compared as its JSON text, and array values can't be matched.
+        - oper (string) (required) — Match mode: - 'IN': matches when the field value matches any entry in 'vals'. A context field the error doesn't carry never matches. - 'NOTIN': matches when the field value matches none of 'vals'. A context field the error doesn't carry always matches. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is one of: an exact, case-sensitive string; a wildcard pattern using '*'/'?' that must match the whole value; a regexp wrapped in '/' (matches anywhere in the value unless anchored); 'cidr:<range>' (the value is parsed as an IP); or 'num:lt|le|gt|ge:<number>' (the value is parsed as a number, non-numeric values don't match).
+      - id (integer) (required) — Internal storage row ID. Not accepted by any endpoint; use 'rule_id' instead. Changes when the rule is restored by a history revert.
+      - rule_id (string) (required) — Rule ID, the same value 'list' returns for this rule.
+      - rule_name (string) (required) — Rule name as of this snapshot version.
+      - status (string) (required) — The rule's status as of this snapshot version: - 'enabled': applied to newly ingested errors. - 'disabled': kept but not applied. [enabled, disabled]
       - updated_at (string) (required) — Unix timestamp in milliseconds when the row was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - updated_by (integer) (required) — Member ID who last updated the rule.
-    - updated_at (string) (required) — Unix timestamp in milliseconds when this snapshot was recorded. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - updated_by (integer) (required) — Member ID whose action triggered this snapshot.
-    - updated_by_name (string) (required) — Display name of the member whose action triggered this snapshot.
-    - version (integer) (required) — History version number, incrementing from 1.
-  - total (integer) (required) — Total number of history versions for the application.
+      - updated_by (integer) (required) — Member ID who last updated the rule before this snapshot.
+    - updated_at (string) (required) — Time of the change that created this version, as a Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) (required) — Member ID of the person who made the change that created this version.
+    - updated_by_name (string) (required) — Display name of that member at the time of the change.
+    - version (integer) (required) — History version number, starting at 1 and incremented by every write. Pass it to 'POST /rum/error-ingestion/rules/history/revert'.
+  - total (integer) (required) — Total number of history versions for the application, across all pages.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum error-ingestion-rules-history-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","asc":false,"limit":20,"orderby":"updated_at","p":0}'`,
@@ -333,11 +333,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Zero-based page number. Default 0. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 20; values above 100 are clamped to 100, and values of 0 or below fall back to 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending instead of the default descending order.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "'true' sorts ascending; 'false' (default) sorts descending, newest first.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort column: - 'updated_at': time of the change that created the version (default). - 'version': version number. Any other value falls back to 'updated_at'. [updated_at, version]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -417,16 +417,16 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Rules, newest-created first.
-    - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) (required) — Rule description, up to 512 characters.
-    - filters (array<array<object>>) (required) — The rule's filter conditions.
-      - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
-      - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
-      - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
-    - rule_id (string) (required) — Rule ID.
+    - created_at (string) (required) — Unix timestamp in milliseconds when the rule was created; reset to the revert time when the rule is restored by a history revert. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) (required) — Rule description, up to 512 characters; empty string when none was given.
+    - filters (array<array<object>>) (required) — The rule's conditions. An error that matches them is stored but not grouped into any issue.
+      - key (string) (required) — Field to match. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash' (value 'true' or 'false'), or a 'context.'-prefixed path into the error's custom context. Context objects are flattened with dots up to 3 levels ('context.a.b.c'); a deeper object is compared as its JSON text, and array values can't be matched.
+      - oper (string) (required) — Match mode: - 'IN': matches when the field value matches any entry in 'vals'. A context field the error doesn't carry never matches. - 'NOTIN': matches when the field value matches none of 'vals'. A context field the error doesn't carry always matches. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is one of: an exact, case-sensitive string; a wildcard pattern using '*'/'?' that must match the whole value; a regexp wrapped in '/' (matches anywhere in the value unless anchored); 'cidr:<range>' (the value is parsed as an IP); or 'num:lt|le|gt|ge:<number>' (the value is parsed as a number, non-numeric values don't match).
+    - rule_id (string) (required) — Rule ID, generated by the server on 'create'. It stays the same across updates and history reverts.
     - rule_name (string) (required) — Rule name, 1-128 characters. Not required to be unique within the application.
-    - status (string) (required) — Current status of the rule. [enabled, disabled]
-    - updated_at (string) (required) — Unix timestamp in milliseconds when the rule was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) (required) — Rule status: - 'enabled': the rule is applied to newly ingested errors. - 'disabled': the rule is kept but not applied. [enabled, disabled]
+    - updated_at (string) (required) — Unix timestamp in milliseconds of the last update, enable, or disable; reset to the revert time when the rule is restored by a history revert. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum error-ingestion-rules-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
@@ -482,11 +482,11 @@ Request fields:
   --rule-id string (required) — Rule ID to update. Get rule IDs via 'POST /rum/error-ingestion/rules/list'.
   --rule-name string — New rule name, 1-128 characters. Omit to leave unchanged. (1-128 chars)
   filters (array<array<object>>, via --data) — New filter conditions. Omit to leave unchanged.
-    - key (string) (required) — Field key. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash', or a 'context.'-prefixed custom context path (up to 3 levels deep).
-    - oper (string) (required) — Match mode: 'IN' matches when the field value matches any entry in 'vals'; 'NOTIN' matches when it matches none. [IN, NOTIN]
-    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is an exact string, or a special pattern using wildcards ('*'/'?'), a regexp wrapped in '/', a 'cidr:'-prefixed CIDR match, or a 'num:lt|le|gt|ge:'-prefixed numeric comparison.
+    - key (string) (required) — Field to match. One of 'error.usr_id', 'error.usr_email', 'error.error_type', 'error.error_message', 'error.error_stack', 'error.view_url', 'error.env', 'error.version', 'error.service', 'error.browser_name', 'error.browser_version', 'error.fingerprint', 'error.is_crash' (value 'true' or 'false'), or a 'context.'-prefixed path into the error's custom context. Context objects are flattened with dots up to 3 levels ('context.a.b.c'); a deeper object is compared as its JSON text, and array values can't be matched.
+    - oper (string) (required) — Match mode: - 'IN': matches when the field value matches any entry in 'vals'. A context field the error doesn't carry never matches. - 'NOTIN': matches when the field value matches none of 'vals'. A context field the error doesn't carry always matches. [IN, NOTIN]
+    - vals (array<string>) (required) — Values to match against, at least 1 entry. Each entry is one of: an exact, case-sensitive string; a wildcard pattern using '*'/'?' that must match the whole value; a regexp wrapped in '/' (matches anywhere in the value unless anchored); 'cidr:<range>' (the value is parsed as an IP); or 'num:lt|le|gt|ge:<number>' (the value is parsed as a number, non-numeric values don't match).
 `,
-		Example: `  flashduty rum error-ingestion-rules-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","description":"Now also excludes staging traffic.","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
+		Example: `  flashduty rum error-ingestion-rules-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","description":"Known browser noise and errors from internal debug pages.","rule_id":"9spXEVoMeZWujjz25yrgTe"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {

@@ -62,47 +62,47 @@ Create public integration
 
 ### delete <integration-id>
 Delete public integration
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 
 ### disable <integration-id>
 Disable public integration
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 
 ### enable <integration-id>
 Enable public integration
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 
 ### info <integration-id>
 Get public integration detail
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
-- response: single object (`data` unwrapped to the top level) — fields: category (string); created_at (string); creator_id (integer); description (string); editable (boolean); integration_id (integer); integration_key (string); last_time (string); name (string); no_editable (boolean); plugin_id (integer); plugin_type (string); plugin_type_name (string); ref_id (string); settings (object); status (string); team_id (integer); test (object); updated_at (string); updated_by (integer)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
+- response: single object (`data` unwrapped to the top level) — fields: category (string); created_at (string); creator_id (integer); description (string); editable (boolean); integration_id (integer); integration_key (string); last_source_time (string); last_time (string); name (string); no_editable (boolean); plugin_id (integer); plugin_type (string); plugin_type_name (string); ref_id (string); settings (object); status (string); team_id (integer); test (object); updated_at (string); updated_by (integer)
 
 ### key-rotate <integration-id>
 Rotate public integration key
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 - response: single object (`data` unwrapped to the top level) — fields: integration_key (string)
 
 ### list
 List public integrations
 - `--asc` bool — Sort ascending when true, descending when false.
-- `--category` string — Filter by category. Accepts a comma-separated list.
+- `--category` string — Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.
 - `--is-my-team` bool — Limit the result to integrations owned by your teams.
 - `--limit` int64 — Page size. Defaults to 100, maximum 100. (1-100)
-- `--name` string — Filter by integration name.
+- `--name` string — Filter by integration name; matches any name that contains this text.
 - `--orderby` string — Sort field. Defaults to 'created_at'; 'plugin_type' is sorted by the underlying plugin. · enum: created_at | updated_at | name | plugin_type | status
 - `--page` int64 — Page number, 1-based. (min 1)
-- `--plugin-type` string — Filter by integration type. Accepts a comma-separated list.
+- `--plugin-type` string — Comma-separated integration type keys, for example 'standard.alert,prometheus.alert'; the keys are the 'plugin_type' values from 'POST /integration/type/list'.
 - `--ref-ids` stringSlice — Filter by source reference IDs. Each value must start with 'c_' (channel), 'a_' (account) or 'w_'.
 - `--search-after-ctx` string
-- `--status` string — Filter by status. Accepts a comma-separated list.
+- `--status` string — Comma-separated status filter: 'enabled' (accepting events) and/or 'disabled' (paused).
 - `--team-ids` intSlice — Filter by team IDs. With 'is_my_team', the values narrow that set further.
-- `--type` string — Deprecated. Merged into 'plugin_type' when both are set.
-- response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); category (string); created_at (string); creator_id (integer); data_source_id (integer); description (string); editable (boolean); exclusive_data_source_id (integer); integration_id (integer); integration_key (string); last_time (string); name (string); no_editable (boolean); plugin_id (integer); plugin_type (string); plugin_type_name (string); ref_id (string); settings (object); status (string); team_id (integer); updated_at (string); updated_by (integer)
+- `--type` string — Deprecated alias of 'plugin_type' (comma-separated type keys such as 'prometheus.alert', 'zabbix.alert'). Ignored when 'plugin_type' is also set.
+- response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); category (string); created_at (string); creator_id (integer); data_source_id (integer); description (string); editable (boolean); exclusive_data_source_id (integer); integration_id (integer); integration_key (string); last_source_time (string); last_time (string); name (string); no_editable (boolean); plugin_id (integer); plugin_type (string); plugin_type_name (string); ref_id (string); settings (object); status (string); team_id (integer); updated_at (string); updated_by (integer)
 
 ### type-list
 List integration types
 - `--asc` bool — Sort ascending when 'true' (the default); descending when 'false'.
-- `--category` string — Filter by category. Accepts a comma-separated list, for example 'event.alert,event.change'.
+- `--category` string — Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.
 - `--limit` int64 — Page size. Defaults to 20, maximum 100. (1-100)
 - `--orderby` string — Sort field. When omitted, types are returned in console ranking order. · enum: id | created_at | updated_at | name | type
 - `--page` int64 — Page number, 1-based. (min 1)
@@ -112,7 +112,7 @@ List integration types
 ### update <integration-id>
 Update public integration
 - `--description` string — New description, at most 499 characters. (≤499 chars)
-- `<integration-id>` (positional, required) int64 — Integration ID. (min 1)
+- `<integration-id>` (positional, required) int64 — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 - `--is-test` bool — Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.
 - `--name` string — New name, 2–49 characters. (2-49 chars)
 - `--team-id` int64 — New owning team ID; '0' clears the team assignment. (min 0)

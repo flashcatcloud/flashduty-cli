@@ -58,14 +58,15 @@ List active status page events
 ### change-create <page-id>
 Create status page event
 - `--auto-update-by-schedule` bool — Maintenance only: automatically advance the status based on the scheduled window.
-- `--close-at-seconds` string — Event close time in Unix seconds. Must be greater than or equal to the first update's 'at_seconds'. For retrospective events this is the time the event ended; for maintenances with 'auto_update_by_schedule' it schedules the automatic transition to 'completed' and must be within 30 days from now. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--close-at-seconds` string — Event close time in Unix seconds; must be greater than or equal to the first update's 'at_seconds'. For maintenances this is the scheduled end; with 'auto_update_by_schedule' the event switches to 'completed' at this time, which must be within 30 days from now. For a retrospective event in a terminal status, omitting it uses the latest update's time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--description` string (required) — Event description (Markdown). Must not be empty.
-- `--is-retrospective` bool — Mark this event as a retrospective (historical) one.
+- `--draft-id` string — ID of a draft created by 'POST /status-page/draft/create' to publish with this event. The draft must be pending, target this 'page_id' and 'type', and have no 'change_id'; it is marked published once the event is created. Omit when not publishing a draft.
+- `--is-retrospective` bool — Mark the event as retrospective (a past event recorded afterwards). Requires at least 2 entries in 'updates'.
 - `--linked-changes` stringSlice — Linked change IDs (related incidents, deployments, etc.).
-- `--notify-subscribers` bool — Notify subscribers about this event and all its updates.
+- `--notify-subscribers` bool — Notify subscribers about this event. On creation one notification is sent for the last update; later timeline entries also notify while this is 'true'.
 - `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 - `--responders` intSlice — Member IDs responsible for the event.
-- `--start-at-seconds` string — Event start time in Unix seconds. The stored start time is always derived from the first update's 'at_seconds' (which defaults to the current time when omitted); for maintenances with 'auto_update_by_schedule', this value schedules the automatic transition to 'ongoing'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--start-at-seconds` string — Event start time in Unix seconds. Maintenances store this value as the scheduled start (with 'auto_update_by_schedule', the time the event switches to 'ongoing'); when it is omitted or 0, and always for incidents, the start time is the first update's 'at_seconds'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Initial event status. 'investigating'/'identified'/'monitoring'/'resolved' apply to incidents; 'scheduled'/'ongoing'/'completed' apply to maintenances. · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--title` string (required) — Event title, up to 255 characters. (≤255 chars)
 - `--type` string (required) — Change type: 'incident' unplanned incident, 'maintenance' planned maintenance. · enum: incident | maintenance
@@ -94,11 +95,12 @@ List status page events
 
 ### change-timeline-create
 Create event timeline entry
-- `--at-seconds` string — Update timestamp in Unix seconds. Defaults to the current time when omitted or 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--at-seconds` string — Update time in Unix seconds; must not be earlier than the event's latest timeline entry. Defaults to the current time when omitted or 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--change-id` int64 (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
 - `--description` string (required) — Update description (Markdown). Must not be empty.
+- `--draft-id` string — ID of a pending draft created by 'POST /status-page/draft/create' whose 'change_id' is this event; it is marked published when the update is stored. Omit when not publishing a draft.
 - `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
-- `--status` string (required) — Change status after this update; must be valid for the change type. When transitioning to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
+- `--status` string (required) — Event status after this update; must be valid for the event type. Pass the current status to post an update without a status change. When moving to 'resolved' or 'completed', all affected components must be back to 'operational'. | Value | Meaning | |---|---| | 'investigating' | Investigating (incident). | | 'identified' | Root cause identified (incident). | | 'monitoring' | Fix deployed, monitoring (incident). | | 'resolved' | Resolved (incident). | | 'scheduled' | Scheduled (maintenance). | | 'ongoing' | In progress (maintenance). | | 'completed' | Completed (maintenance). | · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - body-only (`--data`): component_changes (array<object>)
 - response: single object (`data` unwrapped to the top level) — fields: update_id (string)
 
@@ -110,18 +112,18 @@ Delete event timeline entry
 
 ### change-timeline-update
 Update event timeline entry
-- `--at-seconds` string — New update timestamp in Unix seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--at-seconds` string — New update time in Unix seconds; must not be earlier than the previous entry or later than the next one. Omit or pass 0 to keep the current time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--change-id` int64 (required) — Owning change ID; obtain it from 'GET /status-page/change/list'.
-- `--description` string — New update description (Markdown).
+- `--description` string — New update description (Markdown). Omit or pass an empty string to keep the current text; editing the latest entry also updates the event description.
 - `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
 - `--update-id` string (required) — Target timeline update ID; obtain it from 'GET /status-page/change/info'.
 
 ### change-update
 Update status page event
 - `--change-id` int64 (required) — Target change ID; obtain it from 'GET /status-page/change/list'.
-- `--linked-changes` stringSlice — Linked event IDs. Pass the full replacement list.
+- `--linked-changes` stringSlice — Linked event IDs, replacing the current list. An omitted or empty array keeps the current list.
 - `--page-id` int64 (required) — Status page ID; obtain it from 'GET /status-page/list'.
-- `--responders` intSlice — Member IDs responsible for this event. Pass the full replacement list.
+- `--responders` intSlice — Member IDs responsible for this event, replacing the current list. An omitted or empty array keeps the current list.
 - `--title` string — New event title, up to 255 characters. Omit to keep the existing value. (≤255 chars)
 
 ### component-delete <component-id> [<id2>...]
@@ -138,15 +140,15 @@ Upsert status page component
 ### create
 Create status page
 - `--contact-info` string — Get-in-touch contact, such as a mailto or website URL.
-- `--custom-domain` string — Custom domain for a public status page. (≤255 chars)
+- `--custom-domain` string — Custom domain; allowed only for public pages and must not be used by another status page. (≤255 chars)
 - `--date-view` string (required) — How change dates are displayed: 'calendar' calendar view, 'list' list view. · enum: calendar | list
 - `--display-uptime-mode` string (required) — Uptime display mode: 'chart_and_percentage' chart plus percentage, 'chart' chart only, 'none' hidden. · enum: chart_and_percentage | chart | none
 - `--name` string (required) — Display name of the status page. (≤255 chars)
 - `--page-footer` string — Footer content shown on the status page.
 - `--page-header` string — Header content shown on the status page.
-- `--page-title` string — Browser title shown for the status page.
+- `--page-title` string — Accepted for compatibility but not stored; it has no effect.
 - `--type` string (required) — Visibility type: 'public' accessible to anyone, 'internal' restricted to logged-in members of this account. · enum: public | internal
-- `--url-name` string (required) — URL-safe slug, unique per account and page type. (≤255 chars)
+- `--url-name` string (required) — URL-safe slug; normalized to lowercase with non-alphanumeric characters replaced by hyphens, and must be unique among the account's pages of the same type. (≤255 chars)
 - body-only (`--data`): custom_links (array<object>); subscription (object)
 - response: single object (`data` unwrapped to the top level) — fields: page_id (integer); page_name (string); page_url_name (string)
 
@@ -156,7 +158,7 @@ Delete status page
 
 ### draft-create
 Create status page draft
-- `--source` string — Opaque marker of the drafting origin, e.g. 'ai_sre:sess_xxx'. Up to 64 characters. (≤64 chars)
+- `--source` string — Free-form text recording where the draft came from, such as an AI session reference; stored and shown with the draft, not interpreted. Up to 64 characters. (≤64 chars)
 - body-only (`--data`): draft (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: created_at (string); draft_id (string)
 
@@ -172,14 +174,14 @@ List status pages
 ### migrate-email-subscribers
 Migrate email subscribers
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
-- `--source-page-id` string (required) — Atlassian Statuspage source page ID.
+- `--source-page-id` string (required) — Atlassian Statuspage source page ID; only letters, digits, '_', and '-' are accepted.
 - `--target-page-id` int64 (required) — Flashduty target status page ID that will receive the imported subscribers.
 - response: single object (`data` unwrapped to the top level) — fields: job_id (string)
 
 ### migrate-structure <source-page-id>
 Migrate status page structure
 - `--api-key` string (required) — Atlassian Statuspage API key with access to the source page.
-- `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID.
+- `<source-page-id>` (positional, required) string — Atlassian Statuspage source page ID; only letters, digits, '_', and '-' are accepted.
 - `--url-name` string — Target URL name for the new status page, normalized to a URL-safe slug (max 255 characters). Omit or pass null to derive it from the source page name; an explicitly empty string is rejected. (≤255 chars)
 - response: same shape as `migrate-email-subscribers` above
 
@@ -244,10 +246,10 @@ Upsert status page template
 ### update <page-id>
 Update status page
 - `--contact-info` string — Get-in-touch contact, such as a mailto or website URL. Omit or pass null to keep the existing value.
-- `--custom-domain` string — Custom domain for a public status page. Omit or pass null to keep the existing value. (≤255 chars)
+- `--custom-domain` string — Custom domain for a public status page; must not be used by another status page. Rejected for internal pages. Omit or pass null to keep the existing value; an empty string removes the domain. (≤255 chars)
 - `--dark-logo` string — Dark-mode logo image of the status page. Omit or pass null to keep the existing value.
-- `--date-view` string — How change dates are displayed. Leave empty to keep the current value. 'calendar' uses a calendar view; 'list' uses a list view. · enum: calendar | list
-- `--display-uptime-mode` string — How uptime is displayed. Leave empty to keep the current value. 'chart_and_percentage' shows both chart and percentage; 'chart' shows only the chart; 'none' hides uptime. · enum: chart_and_percentage | chart | none
+- `--date-view` string — How event dates are displayed: 'calendar' uses a calendar view, 'list' uses a list view. Omit or pass null to keep the current value; an empty string clears the setting. · enum: calendar | list
+- `--display-uptime-mode` string — How uptime is displayed: 'chart_and_percentage' shows the chart and the percentage, 'chart' shows only the chart, 'none' hides uptime. Omit or pass null to keep the current value; an empty string clears the setting. · enum: chart_and_percentage | chart | none
 - `--favicon` string — Favicon of the status page. Omit or pass null to keep the existing value.
 - `--logo` string — Logo image of the status page. Omit or pass null to keep the existing value.
 - `--logo-url` string — URL opened when the logo is clicked. Omit or pass null to keep the existing value. (≤255 chars)
@@ -255,9 +257,9 @@ Update status page
 - `--page-footer` string — Footer content shown on the status page. Omit or pass null to keep the existing value.
 - `--page-header` string — Header content shown on the status page. Omit or pass null to keep the existing value.
 - `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
-- `--page-title` string — Browser title shown for the status page. Omit or pass null to keep the existing value.
-- `--template-preference` string — Preferred event template type: 'pre_defined' or 'message'. Omit or pass null to keep the existing value.
-- `--url-name` string — URL-safe slug, unique per account and page type. Omit or pass null to keep the existing value. (≤255 chars)
+- `--page-title` string — Accepted for compatibility but not stored; it has no effect.
+- `--template-preference` string — Event template mode used when publishing events in the console: 'message' (status descriptions: per-status texts) or 'pre_defined' (full status updates: complete examples with title, status, and description). Omit or pass null to keep the current value; the value is not validated. · enum: pre_defined | message
+- `--url-name` string — URL-safe slug; normalized to lowercase with non-alphanumeric characters replaced by hyphens, and must be unique among the account's pages of the same type. Omit or pass null to keep the existing value. (≤255 chars)
 - body-only (`--data`): custom_links (array<object>); subscription (object)
 
 <!-- GENERATED:status-page END -->

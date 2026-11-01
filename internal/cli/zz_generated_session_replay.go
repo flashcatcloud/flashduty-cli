@@ -23,31 +23,31 @@ API: POST /rum/session-replay/metadata (rum-session-replay-read-metadata)
 
 Request fields:
   --session-id string (required) — RUM session ID (the 'session.id' attribute on RUM events).
-  --ts int — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
+  --ts int — Session start time, Unix milliseconds. Optional. When set, it must match the session's start exactly; use it to pick one session when a 'session_id' was reused. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - application (object) — Application the session belongs to.
     - id (string) — RUM application ID the session belongs to.
   - device (object) — Device that recorded the session.
     - type (string) — Device type recorded for the session, e.g. 'desktop', 'mobile', 'tablet'.
-  - foreground_periods (array<object>) — Foreground periods across the session (mobile sessions only; empty for web).
-    - end (string) — Unix timestamp in milliseconds when the foreground period ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - start (string) — Unix timestamp in milliseconds when the foreground period started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - foreground_periods (array<object>) — Periods during which a view was in the foreground (focused), collected from every returned view. Empty when the SDK reported none.
+    - end (string) — End of the foreground period, in **nanoseconds** since the start of the view identified by 'view_id' (not a Unix timestamp). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - start (string) — Start of the foreground period, in **nanoseconds** since the start of the view identified by 'view_id' (not a Unix timestamp). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - view_id (string) — View ID active during this foreground period.
   - session (object) — Session bounds and state.
-    - end (string) — Unix timestamp in milliseconds when the session ended (or was last updated, if still active). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - end (string) — Unix timestamp in milliseconds of the session end: the later of the session's recorded end and the end of its last returned view. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - is_active (boolean) — Whether the session was still active as of the last recorded event.
-    - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
+    - server_time_delta (integer) — Always '0': timestamps are returned as recorded by the client, without clock-skew correction.
     - source (string) — SDK platform that recorded the session. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - start (string) — Unix timestamp in milliseconds when the session started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - views (array<object>) — Every view recorded during the session, in chronological order.
-    - container_source (string) — SDK platform of the container app, when this view is embedded (e.g. a WebView inside a native app). Omitted when the view is not embedded.
+  - views (array<object>) — Views of the session that carry replay data, ordered by start time.
+    - container_source (string) — SDK platform of the app that embeds this view (for example a WebView inside a native app). Omitted when the view is not embedded. | Value | Meaning | |---|---| | 'browser' | Web browser application | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - container_view_id (string) — View ID of the containing view, when this view is embedded. Omitted when the view is not embedded.
     - end (string) — Unix timestamp in milliseconds when the view ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - is_active (boolean) — Whether the view was still active as of the last recorded event.
-    - loading_type (string) — How the view was entered, e.g. 'initial_load', 'route_change'.
+    - loading_type (string) — How the view was entered, as reported by the SDK. Web: 'initial_load', 'route_change'. Mobile: 'activity_display', 'activity_redisplay', 'fragment_display', 'fragment_redisplay', 'view_controller_display', 'view_controller_redisplay'. Empty when not reported.
     - name (string) — View name, typically the route or screen name.
-    - server_time_delta (integer) — Clock skew in milliseconds between the client and Flashduty's servers, added to client timestamps for correction.
+    - server_time_delta (integer) — Always '0': timestamps are returned as recorded by the client, without clock-skew correction.
     - source (string) — SDK platform that recorded the view. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
     - start (string) — Unix timestamp in milliseconds when the view started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - url (string) — URL (web) or screen identifier (mobile) associated with the view.
@@ -85,7 +85,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID (the 'session.id' attribute on RUM events). (required)")
-	cmd.Flags().Int64Var(&fTS, "ts", 0, "Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.")
+	cmd.Flags().Int64Var(&fTS, "ts", 0, "Session start time, Unix milliseconds. Optional. When set, it must match the session's start exactly; use it to pick one session when a 'session_id' was reused. (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -111,16 +111,16 @@ Request fields:
   --limit int — Maximum number of segments to return. 1-99, default 20. (1-99)
   --search-after-ctx string — Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).
   --session-id string (required) — RUM session ID (the 'session.id' attribute on RUM events).
-  --ts int — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
+  --ts int — Unix timestamp in milliseconds. When set and 'search_after_ctx' is empty, paging starts at the last full-snapshot segment at or before this time (searching up to 4 hours back); if none is found, paging starts from the beginning. (min 1)
   --url-mode bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
   --view-id string — Restrict results to segments belonging to this view. Omit to page through the entire session.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - items (array<string>) — Presigned, time-limited URLs (valid 1 hour) for downloading each segment's raw compressed bytes.
-  - search_after_ctx (string) — Pagination cursor to pass as 'search_after_ctx' on the next call. Empty when this page was the last one.
+  - items (array<string>) — Presigned URLs (valid 1 hour) for downloading each segment object. The object body is zlib-compressed; decompress it to get the segment JSON.
+  - search_after_ctx (string) — Cursor to pass as 'search_after_ctx' on the next call. Set whenever this page returned 'limit' segments (the next page may then be empty); empty string when fewer were returned.
 `,
 		Args:    requireBodyFieldOrExactArg("session_id", "session-id"),
-		Example: `  flashduty rum session-replay-segments --data '{"limit":20,"session_id":"0a4a2e64-8a4f-4b9a-9c1e-3a2f9e6d7c81","url_mode":true}'`,
+		Example: `  flashduty rum session-replay-segments --data '{"limit":2,"session_id":"0a4a2e64-8a4f-4b9a-9c1e-3a2f9e6d7c81","url_mode":true}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -165,7 +165,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Maximum number of segments to return. 1-99, default 20. (1-99)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).")
 	cmd.Flags().StringVar(&fSessionID, "session-id", "", "RUM session ID (the 'session.id' attribute on RUM events). (required)")
-	cmd.Flags().Int64Var(&fTS, "ts", 0, "Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.")
+	cmd.Flags().Int64Var(&fTS, "ts", 0, "Unix timestamp in milliseconds. When set and 'search_after_ctx' is empty, paging starts at the last full-snapshot segment at or before this time (searching up to 4 hours back); if none is found, paging starts from the beginning. (min 1)")
 	cmd.Flags().BoolVar(&fURLMode, "url-mode", false, "When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.")
 	cmd.Flags().StringVar(&fViewID, "view-id", "", "Restrict results to segments belonging to this view. Omit to page through the entire session.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")

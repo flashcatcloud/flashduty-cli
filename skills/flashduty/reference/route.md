@@ -51,18 +51,18 @@ flashduty route list <integration-id-1> <integration-id-2> --output-format toon
 
 ### info <integration-id>
 Get routing rule detail
-- `<integration-id>` (positional, required) int64 — Integration ID. Must be greater than 0.
+- `<integration-id>` (positional, required) int64 — Shared integration ID, greater than 0; obtain it from 'POST /integration/list'.
 - response: single object (`data` unwrapped to the top level) — fields: cases (array<object>); created_at (string); creator_id (integer); default (object); deleted_at (string); integration_id (integer); sections (array<object>); status (string); updated_at (string); updated_by (integer); version (integer)
 
 ### list <integration-id> [<id2>...]
 List routing rules
-- `<integration-ids>` (positional, required) intSlice — Integration IDs to fetch routing rules for.
+- `<integration-ids>` (positional, required) intSlice — Shared integration IDs to fetch routing rules for, at least one; obtain them from 'POST /integration/list'.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: cases (array<object>); created_at (string); creator_id (integer); default (object); deleted_at (string); integration_id (integer); sections (array<object>); status (string); updated_at (string); updated_by (integer); version (integer)
 
 ### upsert <integration-id>
 Upsert routing rule
-- `<integration-id>` (positional, required) int64 — Integration the rule belongs to.
-- `--version` int64 — Reserved for optimistic concurrency control; currently ignored — the server increments 'version' automatically on every upsert.
+- `<integration-id>` (positional, required) int64 — Shared integration ID; obtain it from 'POST /integration/list'. Channel-exclusive integrations are rejected with 'InvalidParameter'.
+- `--version` int64 — Ignored. The server increments 'version' on every upsert and does not compare it with this value.
 - body-only (`--data`): cases (array<object>); default (object); sections (array<object>)
 
 <!-- GENERATED:route END -->

@@ -37,12 +37,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - resource_id (string) (required) — Unique resource identifier for the account's RUM resource.
   - resource_name (string) (required) — Display name of the resource.
   - session.days (integer) (required) — Retention period in days for session data.
-  - session_investigate.free_cnt (integer) (required) — Free quota for investigate sessions per application, per billing window.
+  - session_investigate.free_cnt (integer) (required) — Free quota of investigate (error tracking) sessions per application, per billing window. A negative value means unlimited.
   - session_investigate.used_cnt (integer) (required) — Number of investigate (error tracking) sessions used in the current billing window.
-  - session_limit_reached (boolean) (required) — 'true' when a 'version=free' account has exceeded its combined free session quota across all applications. Always 'false' for non-free plans.
-  - session_measure.free_cnt (integer) (required) — Free quota for measure sessions per application, per billing window.
+  - session_limit_reached (boolean) (required) — 'true' when a 'version=free' account's investigate or replay sessions in the current window have reached the per-application free quota multiplied by the number of applications. Always 'false' for non-free plans and for accounts without applications.
+  - session_measure.free_cnt (integer) (required) — Free quota of measure (performance) sessions per application, per billing window. A negative value means unlimited.
   - session_measure.used_cnt (integer) (required) — Number of measure (performance) sessions used in the current billing window.
-  - session_replay.free_cnt (integer) (required) — Free quota for session-replay sessions per application, per billing window.
+  - session_replay.free_cnt (integer) (required) — Free quota of session-replay sessions per application, per billing window. A negative value means unlimited.
   - session_replay.used_cnt (integer) (required) — Number of session-replay sessions used in the current billing window.
   - status (string) (required) — Status of the resource. A resource with status 'deleted' or 'destroyed' never reaches this field — the operation returns 'ResourceNotFound' for those instead. [enabled, disabled]
   - updated_at (string) (required) — Unix timestamp in seconds when the resource was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.

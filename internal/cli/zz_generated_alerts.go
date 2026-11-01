@@ -37,18 +37,18 @@ Request fields:
   --limit int — Page size, max 100, default 20. (0-100)
   --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — Sort ascending when 'true'.
-  --channel-ids []int — Filter by channel IDs. At most 100 entries.
+  --channel-ids []int — Filter by channel IDs. At most 100 entries. Channels the caller cannot access are dropped; if none remain, the result is empty.
   --end-time string (required) — End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --integration-ids []int — Filter by integration IDs.
   --integration-types []string — Filter by integration types (plugin keys).
   --orderby string — Sort field; only 'event_time' is supported. [event_time]
-  --severities string — Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.
+  --severities string — Comma-separated filter on 'event_severity', e.g. 'Critical,Warning'. Meaningful values: 'Critical', 'Warning', 'Info'. Values are not validated; an unknown value (or 'Ok') matches nothing.
   --start-time string (required) — Start of the search window, Unix epoch seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists (probed by fetching limit+1 rows).
   - items (array<object>) — Raw alert events on the current page.
-    - account_id (integer) — Account ID.
+    - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
@@ -61,11 +61,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
-      - alt (string) — Alt text.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - integration_id (integer) — Integration that produced this event.
-    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
@@ -140,13 +140,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
-	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries. Channels the caller cannot access are dropped; if none remain, the result is empty.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; only 'event_time' is supported. [event_time]")
-	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Accepted values: 'Critical', 'Warning', 'Info', 'Ok'.")
+	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated filter on 'event_severity', e.g. 'Critical,Warning'. Meaningful values: 'Critical', 'Warning', 'Info'. Values are not validated; an unknown value (or 'Ok') matches nothing.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -179,7 +179,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether another page is available.
   - items (array<object>) (required) — Raw alert events in the requested order.
-    - account_id (integer) — Account ID.
+    - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
@@ -192,11 +192,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
-      - alt (string) — Alt text.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - integration_id (integer) — Integration that produced this event.
-    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
@@ -281,7 +281,7 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists.
   - items (array<object>) — Alert feed records on the current page.
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns the alert.
     - agent_session_id (string) — AI SRE session that produced the entry. Omitted when no agent wrote it.
     - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
@@ -303,7 +303,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - status (string) — Severity level. [Ok, Critical, Warning, Info]
       - target_incident (object) — Incident the alerts were merged into. Omitted when not recorded.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
       - title (string) — New title set on the target incident. Omitted when unchanged.
     - ref_id (string) (required) — ObjectID of the alert this entry references.
@@ -380,7 +380,7 @@ Request fields:
   --alert-id string (required) — Alert ID (ObjectID hex string).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) — Account ID.
+  - account_id (integer) — ID of the account that owns the alert.
   - alert_id (string) — Unique alert ID (ObjectID hex string).
   - alert_key (string) — Deduplication key.
   - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
@@ -392,14 +392,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - data_source_id (integer) — Deprecated: use 'integration_id' instead.
   - data_source_name (string) — Deprecated: use 'integration_name' instead.
   - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
-  - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+  - data_source_type (string) — Deprecated: use 'integration_type' instead (same value, e.g. 'prometheus.alert'). Omitted when empty.
   - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) — Alert description.
   - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
   - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - event_cnt (integer) — Total number of raw events received by this alert.
   - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
-    - account_id (integer) — Account ID.
+    - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - alert_id (string) — Parent alert ID (MongoDB ObjectID).
     - alert_key (string) — Deduplication key used to merge events into an alert.
     - channel_id (integer) — Channel ID the event is routed to.
@@ -412,29 +412,29 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
     - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - images (array<object>) — Images attached to the event.
-      - alt (string) — Alt text.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - integration_id (integer) — Integration that produced this event.
-    - integration_type (string) — Type/plugin key of the integration that produced this event.
+    - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
     - labels (object) — Label key-value pairs.
     - title (string) — Event title.
     - title_rule (string) — Title template used to derive 'title' from labels.
     - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - ever_muted (boolean) — True if this alert has ever been silenced.
-  - images (array<object>) — Images attached to the alert.
-    - alt (string) — Alt text.
+  - images (array<object>) — Images attached to the alert; 'null' when there are none.
+    - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
     - href (string) — Optional link URL when the image is clicked.
     - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
   - incident (object) — Associated incident, if any.
     - incident_id (string) — Incident ID (ObjectID hex string).
-    - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+    - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
     - title (string) — Incident title.
   - integration_id (integer) — ID of the integration that produced this alert.
   - integration_name (string) — Display name of the integration.
-  - integration_ref_id (string) — External reference ID of the integration.
-  - integration_type (string) — Type/plugin key of the integration.
-  - labels (object) — Label key-value pairs.
+  - integration_ref_id (string) — Owner reference of the integration: 'a_<account_id>' for an account-level integration, 'c_<channel_id>' for a channel-owned one.
+  - integration_type (string) — Type key of the integration that produced the alert, e.g. 'prometheus.alert' or 'zabbix.alert'; same values as 'plugin_type' from 'POST /integration/type/list'.
+  - labels (object) — Label key-value pairs; 'null' when the alert has no labels.
   - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
   - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
@@ -509,20 +509,20 @@ Request fields:
   --search-after-ctx string — Opaque cursor from the previous response for the next page.
   --alert-ids []string — Filter to specific alert IDs (ObjectID hex strings). Invalid IDs are ignored; if none are valid, the result is empty.
   --alert-keys []string — Filter by alert deduplication keys.
-  --alert-severity string — Comma-separated severity filter, e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'.
+  --alert-severity string — Comma-separated filter on 'alert_severity', e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'; other values return 'InvalidParameter'. 'Ok' matches nothing because 'alert_severity' is never 'Ok'.
   --asc bool — Sort ascending by 'start_time' when 'true'; default is descending.
-  --by-updated-at bool — When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.
+  --by-updated-at bool — When 'true', also require the alert's 'updated_at' to fall within ['start_time', 'end_time'], in addition to the 'start_time' filter; the span must then not exceed 7 days.
   --channel-ids []int — Filter by channel IDs.
-  --end-time string (required) — End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days and must lie within the account's data retention period. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --end-time string (required) — End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days (7 days with 'by_updated_at'). A value before the start of the data retention period returns 'InvalidParameter'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --ever-muted bool — Filter by whether the alert has ever been silenced.
   --integration-ids []int — Filter by integration IDs.
   --is-active bool — Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.
-  --start-time string (required) — Start of the search window, Unix epoch seconds. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --start-time string (required) — Start of the search window, Unix epoch seconds, applied to the alert's 'start_time'. A value earlier than the account's data retention period is moved up to the retention start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) — True if more pages are available.
+  - has_next_page (boolean) — 'true' when another page exists. Exact in both cursor mode ('search_after_ctx' sent) and page-number mode, including past the 1,000 cap of 'total'.
   - items (array<object>) — Alerts on the current page.
-    - account_id (integer) — Account ID.
+    - account_id (integer) — ID of the account that owns the alert.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
     - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
@@ -534,14 +534,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_id (integer) — Deprecated: use 'integration_id' instead.
     - data_source_name (string) — Deprecated: use 'integration_name' instead.
     - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
-    - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+    - data_source_type (string) — Deprecated: use 'integration_type' instead (same value, e.g. 'prometheus.alert'). Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
     - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
-      - account_id (integer) — Account ID.
+      - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
@@ -554,29 +554,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
-        - alt (string) — Alt text.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link URL when the image is clicked.
         - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
       - integration_id (integer) — Integration that produced this event.
-      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
       - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) — True if this alert has ever been silenced.
-    - images (array<object>) — Images attached to the alert.
-      - alt (string) — Alt text.
+    - images (array<object>) — Images attached to the alert; 'null' when there are none.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+      - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
       - title (string) — Incident title.
     - integration_id (integer) — ID of the integration that produced this alert.
     - integration_name (string) — Display name of the integration.
-    - integration_ref_id (string) — External reference ID of the integration.
-    - integration_type (string) — Type/plugin key of the integration.
-    - labels (object) — Label key-value pairs.
+    - integration_ref_id (string) — Owner reference of the integration: 'a_<account_id>' for an account-level integration, 'c_<channel_id>' for a channel-owned one.
+    - integration_type (string) — Type key of the integration that produced the alert, e.g. 'prometheus.alert' or 'zabbix.alert'; same values as 'plugin_type' from 'POST /integration/type/list'.
+    - labels (object) — Label key-value pairs; 'null' when the alert has no labels.
     - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
     - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
@@ -584,8 +584,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Present only when 'has_next_page' is true.
-  - total (integer) — Total matching alerts, capped at 1000.
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Omitted when the page is empty; in cursor mode also omitted when there is no next page.
+  - total (integer) — Number of matching alerts, capped at 1,000.
 `,
 		Example: `  flashduty alert list --data '{"end_time":1712707200,"is_active":true,"limit":20,"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -664,16 +664,16 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor from the previous response for the next page.")
 	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Filter to specific alert IDs (ObjectID hex strings). Invalid IDs are ignored; if none are valid, the result is empty.")
 	cmd.Flags().StringSliceVar(&fAlertKeys, "alert-keys", nil, "Filter by alert deduplication keys.")
-	cmd.Flags().StringVar(&fAlertSeverity, "alert-severity", "", "Comma-separated severity filter, e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'.")
+	cmd.Flags().StringVar(&fAlertSeverity, "alert-severity", "", "Comma-separated filter on 'alert_severity', e.g. 'Critical,Warning'. Allowed values: 'Critical', 'Warning', 'Info', 'Ok'; other values return 'InvalidParameter'. 'Ok' matches nothing because 'alert_severity' is never 'Ok'.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending by 'start_time' when 'true'; default is descending.")
-	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', the time range filter is applied on 'updated_at' rather than 'start_time'.")
+	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', also require the alert's 'updated_at' to fall within ['start_time', 'end_time'], in addition to the 'start_time' filter; the span must then not exceed 7 days.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days and must lie within the account's data retention period. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days (7 days with 'by_updated_at'). A value before the start of the data retention period returns 'InvalidParameter'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "Filter by whether the alert has ever been silenced.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds, applied to the alert's 'start_time'. A value earlier than the account's data retention period is moved up to the retention start. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -687,17 +687,17 @@ func genAlertsReadListByIDsCmd() *cobra.Command {
 		Short: "List alerts by IDs",
 		Long: `List alerts by IDs.
 
-Return the details of multiple alerts by their IDs in a single request. Note: this endpoint does not paginate — 'total' and 'has_next_page' are always '0'/'false' and 'search_after_ctx' is never set.
+Return the details of several alerts by ID in one request, without pagination.
 
 API: POST /alert/list-by-ids (alert-read-list-by-ids)
 
 Request fields:
-  --alert-ids []string (required) — Alert IDs (ObjectID hex strings) to fetch.
+  --alert-ids []string (required) — Alert IDs (ObjectID hex strings) to fetch. A malformed ID fails the request; IDs not found in the account are left out of the result.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) — True if more pages are available.
+  - has_next_page (boolean) — 'true' when another page exists. Exact in both cursor mode ('search_after_ctx' sent) and page-number mode, including past the 1,000 cap of 'total'.
   - items (array<object>) — Alerts on the current page.
-    - account_id (integer) — Account ID.
+    - account_id (integer) — ID of the account that owns the alert.
     - alert_id (string) — Unique alert ID (ObjectID hex string).
     - alert_key (string) — Deduplication key.
     - alert_severity (string) — Current severity — the highest severity ever seen on this alert: 'Critical', 'Warning', or 'Info'. [Critical, Warning, Info]
@@ -709,14 +709,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - data_source_id (integer) — Deprecated: use 'integration_id' instead.
     - data_source_name (string) — Deprecated: use 'integration_name' instead.
     - data_source_ref_id (string) — Deprecated: use 'integration_ref_id' instead.
-    - data_source_type (string) — Deprecated: use 'integration_type' instead. Omitted when empty.
+    - data_source_type (string) — Deprecated: use 'integration_type' instead (same value, e.g. 'prometheus.alert'). Omitted when empty.
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when the alert is not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) — Alert description.
     - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) — Resolution time, Unix epoch seconds. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) — Total number of raw events received by this alert.
     - events (array<object>) — Raw events of this alert. Omitted here; populated only by 'POST /incident/alert/list'.
-      - account_id (integer) — Account ID.
+      - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
@@ -729,29 +729,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
-        - alt (string) — Alt text.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link URL when the image is clicked.
         - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
       - integration_id (integer) — Integration that produced this event.
-      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
       - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) — True if this alert has ever been silenced.
-    - images (array<object>) — Images attached to the alert.
-      - alt (string) — Alt text.
+    - images (array<object>) — Images attached to the alert; 'null' when there are none.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link URL when the image is clicked.
       - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
     - incident (object) — Associated incident, if any.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+      - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
       - title (string) — Incident title.
     - integration_id (integer) — ID of the integration that produced this alert.
     - integration_name (string) — Display name of the integration.
-    - integration_ref_id (string) — External reference ID of the integration.
-    - integration_type (string) — Type/plugin key of the integration.
-    - labels (object) — Label key-value pairs.
+    - integration_ref_id (string) — Owner reference of the integration: 'a_<account_id>' for an account-level integration, 'c_<channel_id>' for a channel-owned one.
+    - integration_type (string) — Type key of the integration that produced the alert, e.g. 'prometheus.alert' or 'zabbix.alert'; same values as 'plugin_type' from 'POST /integration/type/list'.
+    - labels (object) — Label key-value pairs; 'null' when the alert has no labels.
     - last_time (string) — Last-event time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - responder_email (string) — Responder email. Always empty in this response — responder tracking lives on the associated incident.
     - responder_name (string) — Responder display name. Always empty in this response — responder tracking lives on the associated incident.
@@ -759,8 +759,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - title (string) — Alert title.
     - title_rule (string) — Title template used to derive 'title' from the event labels (e.g. '$service::$cluster').
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Present only when 'has_next_page' is true.
-  - total (integer) — Total matching alerts, capped at 1000.
+  - search_after_ctx (string) — Cursor for the next page — the ObjectID hex of the last alert on this page; pass it back as 'search_after_ctx'. Omitted when the page is empty; in cursor mode also omitted when there is no next page.
+  - total (integer) — Number of matching alerts, capped at 1,000.
 `,
 		Args:    requireBodyFieldOrArgs("alert_ids", "alert-ids"),
 		Example: `  flashduty alert list-by-ids --data '{"alert_ids":["663a1b2c3d4e5f6789abcdef"]}'`,
@@ -790,7 +790,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs (ObjectID hex strings) to fetch. (required)")
+	cmd.Flags().StringSliceVar(&fAlertIDs, "alert-ids", nil, "Alert IDs (ObjectID hex strings) to fetch. A malformed ID fails the request; IDs not found in the account are left out of the result. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -816,20 +816,20 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - integration_id (integer) — Integration ID this pipeline applies to.
   - rules (array<object>) — Ordered list of processing rules.
-    - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
-      - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
-      - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
-      - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
+    - if (array<object>) — AND-filter list — the rule applies only when every condition matches the incoming event. Keys: 'severity' (aliases 'alert_severity', 'event_severity'), 'status', 'title', 'title_rule', 'description', 'alert_key', 'integration_id' (alias 'data_source_id'), and 'labels.<name>'; other keys return 'InvalidParameter'. 'null' or omitted means the rule applies to all events.
+      - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+      - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
     - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
-      - description (string) — New description template.
-      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
-      - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
-        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
-        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
-        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
+      - description (string) — Description template. Only a value starting with '[TPL]' takes effect: the rest is rendered as a Go template against the event and replaces the description. A value without the prefix leaves the description unchanged.
+      - equals (array<string>) — Keys whose values must be equal on the source alert and the current event: 'title', 'severity', or 'labels.<name>'. Must not be empty ('InvalidParameter'). Any other key, or a label missing on the event, means the rule never inhibits.
+      - severity (string) — Severity to set: 'Critical', 'Warning' or 'Info'. The event status is set to the same value. [Critical, Warning, Info]
+      - source_filters (array<object>) — AND-conditions a source alert must meet. Allowed keys: 'severity', 'title', and 'labels.<name>'; other keys return 'InvalidParameter'.
+        - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+        - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
+      - title (string) — Title rule. A value starting with '[TPL]' is a Go template rendered against the event, e.g. '[TPL]{{.Labels.service}}'. Otherwise it is a '::'-separated list in which each '$name' part is replaced by the value of label 'name' and other parts are kept as written.
   - status (string) — Pipeline status. Always 'enabled' in these responses — deleted pipelines are filtered out. [enabled]
   - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) — Member ID who last updated the pipeline.
@@ -889,17 +889,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - deleted_at (string) — Soft-delete time, Unix epoch seconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - integration_id (integer) — Integration ID this pipeline applies to.
     - rules (array<object>) — Ordered list of processing rules.
-      - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
-        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
-        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
-        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
+      - if (array<object>) — AND-filter list — the rule applies only when every condition matches the incoming event. Keys: 'severity' (aliases 'alert_severity', 'event_severity'), 'status', 'title', 'title_rule', 'description', 'alert_key', 'integration_id' (alias 'data_source_id'), and 'labels.<name>'; other keys return 'InvalidParameter'. 'null' or omitted means the rule applies to all events.
+        - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+        - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
       - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
       - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
-        - description (string) — New description template.
-        - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
-        - severity (string) — Target severity level. [Critical, Warning, Info]
-        - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
-        - title (string) — New title template. Supports Golang template syntax referencing alert fields.
+        - description (string) — Description template. Only a value starting with '[TPL]' takes effect: the rest is rendered as a Go template against the event and replaces the description. A value without the prefix leaves the description unchanged.
+        - equals (array<string>) — Keys whose values must be equal on the source alert and the current event: 'title', 'severity', or 'labels.<name>'. Must not be empty ('InvalidParameter'). Any other key, or a label missing on the event, means the rule never inhibits.
+        - severity (string) — Severity to set: 'Critical', 'Warning' or 'Info'. The event status is set to the same value. [Critical, Warning, Info]
+        - source_filters (array<object>) — AND-conditions a source alert must meet. Allowed keys: 'severity', 'title', and 'labels.<name>'; other keys return 'InvalidParameter'.
+        - title (string) — Title rule. A value starting with '[TPL]' is a Go template rendered against the event, e.g. '[TPL]{{.Labels.service}}'. Otherwise it is a '::'-separated list in which each '$name' part is replaced by the value of label 'name' and other parts are kept as written.
     - status (string) — Pipeline status. Always 'enabled' in these responses — deleted pipelines are filtered out. [enabled]
     - updated_at (string) — Last update timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) — Member ID who last updated the pipeline.
@@ -937,6 +937,105 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genAlertsReadPipelinePreviewCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "pipeline-preview <integration-id>",
+		Short: "Preview alert pipeline processing",
+		Long: `Preview alert pipeline processing.
+
+Run unsaved alert processing rules over one event, the way ingestion would.
+
+API: POST /alert/pipeline/preview (alert-read-pipeline-preview)
+
+Request fields:
+  --integration-id int (required) — Integration whose saved enrichment runs first and whose pipeline context the preview uses. (min 1)
+  event (object, via --data) (required) — The event to run the rules over.
+    - account_id (integer) — Account the event belongs to. Set by the platform on stored samples.
+    - alert_key (string) — Deduplication key that merges events into one alert. Empty is allowed: the preview mints a random key, so nothing is merged.
+    - data_source_id (integer) — Integration the sample was received by. Set by the platform on stored samples.
+    - data_source_type (string) — Integration type of the event. Set by the platform on stored samples.
+    - description (string) — Event description, truncated to 2048 characters.
+    - event_severity (string) — Severity carried by a firing event. The preview overwrites it with 'event_status' for firing events. [Critical, Warning, Info]
+    - event_status (string) (required) — Event status. 'Critical', 'Warning' and 'Info' are firing events; 'Ok' is a recovery. [Critical, Warning, Info, Ok]
+    - event_time (integer) — Unix timestamp in seconds. The preview stamps the current time, so the value sent is ignored.
+    - images (array<object>) — Images attached to the event. Images whose 'src' is empty, longer than 512 characters, or does not start with 'img_' or 'http' are dropped; at most the first 5 are kept, and 'alt' and 'href' are cut to 128 and 512 characters.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
+      - href (string) — Optional link URL when the image is clicked.
+      - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
+    - labels (object) — Event labels. Up to 50 entries; keys are label names, values strings.
+    - title (string) — Event title. Required unless 'title_rule' is set; the two are the source of the alert title.
+    - title_rule (string) — Title template such as '$service::$alertname', built from 'labels' when 'title' is empty.
+  rules (array<object>, via --data) — Alert processing rules to try, in order. At most 50. The integration's stored pipeline is not used.
+    - if (array<object>) — AND-filter list — the rule applies only when every condition matches the incoming event. Keys: 'severity' (aliases 'alert_severity', 'event_severity'), 'status', 'title', 'title_rule', 'description', 'alert_key', 'integration_id' (alias 'data_source_id'), and 'labels.<name>'; other keys return 'InvalidParameter'. 'null' or omitted means the rule applies to all events.
+      - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+      - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
+    - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
+      - description (string) — Description template. Only a value starting with '[TPL]' takes effect: the rest is rendered as a Go template against the event and replaces the description. A value without the prefix leaves the description unchanged.
+      - equals (array<string>) — Keys whose values must be equal on the source alert and the current event: 'title', 'severity', or 'labels.<name>'. Must not be empty ('InvalidParameter'). Any other key, or a label missing on the event, means the rule never inhibits.
+      - severity (string) — Severity to set: 'Critical', 'Warning' or 'Info'. The event status is set to the same value. [Critical, Warning, Info]
+      - source_filters (array<object>) — AND-conditions a source alert must meet. Allowed keys: 'severity', 'title', and 'labels.<name>'; other keys return 'InvalidParameter'.
+        - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+        - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
+      - title (string) — Title rule. A value starting with '[TPL]' is a Go template rendered against the event, e.g. '[TPL]{{.Labels.service}}'. Otherwise it is a '::'-separated list in which each '$name' part is replaced by the value of label 'name' and other parts are kept as written.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - after (object) (required) — The event as notification templates would render it once the rules ran.
+    - description (string) (required) — Event description.
+    - labels (object) (required) — Label set.
+    - severity (string) (required) — Severity the event carried at this point. Empty for a recovery event sent without 'event_severity'. [Critical, Warning, Info]
+    - title (string) (required) — Event title.
+  - before (object) (required) — The event as it arrived.
+    - description (string) (required) — Event description.
+    - labels (object) (required) — Label set.
+    - severity (string) (required) — Severity the event carried at this point. Empty for a recovery event sent without 'event_severity'. [Critical, Warning, Info]
+    - title (string) (required) — Event title.
+  - dropped (boolean) (required) — 'true' when a rule dropped the event, so no alert would be created.
+  - inhibited (boolean) (required) — 'true' when a rule inhibited the event because a matching source alert is active.
+  - is_recovery (boolean) (required) — 'true' when the event is a recovery event: ingestion closes the alert without running the pipeline.
+  - steps (array<object>) (required) — One entry per rule, in the order they ran.
+    - detail (string) (required) — 'condition_not_met', 'no_active_source_alert', 'inhibit_not_evaluated' or 'recovery_event' for those outcomes; otherwise the resulting value or the error message.
+    - index (integer) (required) — Zero-based position of the rule in 'rules'.
+    - kind (string) (required) — Rule type that ran. | Value | Meaning | |---|---| | 'title_reset' | Rewrote the title from the rule's template. | | 'description_reset' | Rewrote the description from the rule's template. | | 'severity_reset' | Reset the severity and status to the rule's 'severity'. | | 'alert_drop' | Discarded the event; no alert is created. | | 'alert_inhibit' | Discarded the event while a matching source alert is active. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
+    - result (string) (required) — Outcome of the rule: 'applied' (it changed the event or stopped the pipeline), 'not_matched' (its 'if' conditions did not all match), or 'not_executed' (an earlier rule stopped the pipeline, or the event is a recovery). [applied, not_matched, not_executed]
+`,
+		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
+		Example: `  flashduty alert pipeline-preview --data '{"event":{"description":"Root filesystem is 95% full on db-3.","event_status":"Warning","labels":{"env":"prod","host":"db-3","service":"mysql"},"title":"Disk usage 95% on db-3"},"integration_id":6113996590131,"rules":[{"if":[{"key":"labels.env","oper":"IN","vals":["test"]}],"kind":"severity_reset","settings":{"severity":"Info"}},{"if":[{"key":"title","oper":"IN","vals":["/.*noise.*/"]}],"kind":"alert_drop","settings":{}}]}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "integration_id", "int"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.AlertPipelinePreviewRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Alerts.ReadPipelinePreview(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Alerts", "ReadPipelinePreview"))
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration whose saved enrichment runs first and whose pipeline context the preview uses. (required) (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genAlertsWriteMergeCmd() *cobra.Command {
 	var dataJSON string
 	var fAlertIDs []string
@@ -949,7 +1048,7 @@ func genAlertsWriteMergeCmd() *cobra.Command {
 		Short: "Merge alerts into an incident",
 		Long: `Merge alerts into an incident.
 
-Associate one or more alerts with an existing incident. If a source alert previously belonged to a different incident and that incident becomes empty after the merge, it will be automatically closed.
+Move one or more alerts into an existing incident and close source incidents left empty.
 
 API: POST /alert/merge (alert-write-merge)
 
@@ -1026,22 +1125,22 @@ Set the alert processing pipeline for an integration. Replaces the existing conf
 API: POST /alert/pipeline/upsert (alert-write-pipeline-upsert)
 
 Request fields:
-  --integration-id int (required) — Integration ID to configure.
-  rules (array<object>, via --data) (required) — Rules to apply, evaluated in array order. Between 1 and 50 entries.
-    - if (array<object>) — AND-filter list — the rule applies only when every condition matches. 'null' or omitted means the rule applies to all events.
-      - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
-      - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
-      - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
+  --integration-id int (required) — ID of the integration to configure; account-level and channel-owned integrations are both accepted.
+  rules (array<object>, via --data) (required) — Rules to apply, evaluated in array order. At most 50 entries; an empty array removes all rules.
+    - if (array<object>) — AND-filter list — the rule applies only when every condition matches the incoming event. Keys: 'severity' (aliases 'alert_severity', 'event_severity'), 'status', 'title', 'title_rule', 'description', 'alert_key', 'integration_id' (alias 'data_source_id'), and 'labels.<name>'; other keys return 'InvalidParameter'. 'null' or omitted means the rule applies to all events.
+      - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+      - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+      - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
     - kind (string) (required) — Rule type. Rules run in array order; when the 'if' condition matches, the event is processed according to 'kind'. | Value | Meaning | |---|---| | 'title_reset' | Rewrites the event title from the 'settings.title' template. | | 'description_reset' | Rewrites the event description from the 'settings.description' template. | | 'severity_reset' | Resets the event severity and status to 'settings.severity' ('Critical'/'Warning'/'Info'). | | 'alert_drop' | Discards the matching event outright; no alert is created. | | 'alert_inhibit' | Discards the event (inhibition) when an active source alert matching 'settings.source_filters' and correlated via 'settings.equals' exists. | [title_reset, description_reset, severity_reset, alert_drop, alert_inhibit]
     - settings (object) — Kind-specific settings. Shape depends on 'kind': - 'title_reset': '{ "title": "<string>" }' - 'description_reset': '{ "description": "<string>" }' - 'severity_reset': '{ "severity": "Critical"|"Warning"|"Info" }' - 'alert_drop': '{}' (empty object) - 'alert_inhibit': '{ "equals": ["<label_key>", ...], "source_filters": <OrFilterGroup> }'
-      - description (string) — New description template.
-      - equals (array<string>) — Label keys whose values must be equal between the source and current alert for inhibition to apply.
-      - severity (string) — Target severity level. [Critical, Warning, Info]
-      - source_filters (array<object>) — AND-filter list identifying the source alerts to inhibit — every condition must match.
-        - key (string) (required) — Field name to filter on. Use plain names for built-in alert fields (e.g. 'alert_severity', 'alert_key', 'check', 'resource', 'service', 'cluster') or the 'labels.<name>' prefix for custom alert labels (e.g. 'labels.env', 'labels.region').
-        - oper (string) (required) — Filter operator. 'IN' — value must match one of 'vals'; 'NOTIN' — value must not match any of 'vals'. Supports regex patterns wrapped in '/pattern/'. [IN, NOTIN]
-        - vals (array<string>) (required) — List of values to match against. Each entry is a plain string or a '/regex/' pattern.
-      - title (string) — New title template. Supports Golang template syntax referencing alert fields.
+      - description (string) — Description template. Only a value starting with '[TPL]' takes effect: the rest is rendered as a Go template against the event and replaces the description. A value without the prefix leaves the description unchanged.
+      - equals (array<string>) — Keys whose values must be equal on the source alert and the current event: 'title', 'severity', or 'labels.<name>'. Must not be empty ('InvalidParameter'). Any other key, or a label missing on the event, means the rule never inhibits.
+      - severity (string) — Severity to set: 'Critical', 'Warning' or 'Info'. The event status is set to the same value. [Critical, Warning, Info]
+      - source_filters (array<object>) — AND-conditions a source alert must meet. Allowed keys: 'severity', 'title', and 'labels.<name>'; other keys return 'InvalidParameter'.
+        - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+        - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
+      - title (string) — Title rule. A value starting with '[TPL]' is a Go template rendered against the event, e.g. '[TPL]{{.Labels.service}}'. Otherwise it is a '::'-separated list in which each '$name' part is replaced by the value of label 'name' and other parts are kept as written.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty alert pipeline-upsert --data '{"integration_id":10001,"rules":[{"if":[{"key":"labels.env","oper":"IN","vals":["prod"]}],"kind":"title_reset","settings":{"title":"[TPL]{{.Labels.service}} / {{.Labels.check}}"}},{"if":null,"kind":"severity_reset","settings":{"severity":"Warning"}}]}'`,
@@ -1075,7 +1174,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID to configure. (required)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of the integration to configure; account-level and channel-owned integrations are both accepted. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1083,7 +1182,7 @@ Request fields:
 func registerGeneratedAlerts(root *cobra.Command) {
 	gAlertEvent := genGroup(root, "alert-event", "On-call/Alerts API")
 	genAddLeaf(gAlertEvent, genAlertsEventReadListCmd())
-	gAlert := genGroup(root, "alert", "On-call/Alerts API")
+	gAlert := genGroup(root, "alert", "On-call API")
 	genAddLeaf(gAlert, genAlertsReadEventListCmd())
 	genAddLeaf(gAlert, genAlertsReadFeedCmd())
 	genAddLeaf(gAlert, genAlertsReadInfoCmd())
@@ -1091,6 +1190,7 @@ func registerGeneratedAlerts(root *cobra.Command) {
 	genAddLeaf(gAlert, genAlertsReadListByIDsCmd())
 	genAddLeaf(gAlert, genAlertsReadPipelineInfoCmd())
 	genAddLeaf(gAlert, genAlertsReadPipelineListCmd())
+	genAddLeaf(gAlert, genAlertsReadPipelinePreviewCmd())
 	genAddLeaf(gAlert, genAlertsWriteMergeCmd())
 	genAddLeaf(gAlert, genAlertsWritePipelineUpsertCmd())
 }

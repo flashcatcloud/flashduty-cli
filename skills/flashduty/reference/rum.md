@@ -64,10 +64,10 @@ flashduty rum application-create <team_id> \
 ### application-create <team-id>
 Create application
 - `--application-name` string (required) — Application name. 1–40 characters. (1-40 chars)
-- `--is-private` bool — Restrict access to team members only.
-- `--no-geo` bool — Do not infer geographic location.
-- `--no-ip` bool — Do not collect IP addresses.
-- `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'.
+- `--is-private` bool — If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application. Default 'false'.
+- `--no-geo` bool — If 'true', geographic location is not inferred from the client IP. Default 'false'.
+- `--no-ip` bool — If 'true', client IP addresses are not collected. Default 'false'.
+- `<team-id>` (positional, required) int64 — Owning team ID. Get team IDs via 'POST /team/list'. (min 1)
 - `--type` string (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); repositories (array<object>); tracing (object)
 - response: single object (`data` unwrapped to the top level) — fields: application_id (string); application_name (string); client_token (string)
@@ -83,56 +83,56 @@ Get application detail
 
 ### application-infos <application-id> [<id2>...]
 Batch get applications
-- `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
+- `<application-ids>` (positional, required) stringSlice — Up to 200 application IDs. Duplicates are collapsed, and unknown or deleted IDs are skipped. Get IDs via 'POST /rum/application/list'.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); repositories (array<object>); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-list
 List applications
-- `--asc` bool — Sort ascending if 'true'.
-- `--is-my-team` bool — If 'true', return only applications belonging to the current user's teams.
+- `--asc` bool — Sort ascending if 'true'; default 'false' (descending).
+- `--is-my-team` bool — If 'true', return only applications owned by teams the caller belongs to. When the caller belongs to no team, the list is empty.
 - `--limit` int64 — Page size. Range: 1–100. Default: 20. (1-100)
 - `--orderby` string — Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. · enum: created_at | updated_at
 - `--page` int64 — Page number (1-based). Default: 1. (min 1)
-- `--query` string — Substring match on the application name.
+- `--query` string — Substring match on the application name (SQL 'LIKE', so '%' and '_' act as wildcards).
 - `--search-after-ctx` string
 - `--team-id` int64 — Filter by team ID. Get team IDs via 'POST /team/list'.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alerting (object); application_id (string); application_name (string); client_token (string); created_at (string); created_by (integer); is_private (boolean); links (object); no_geo (boolean); no_ip (boolean); repositories (array<object>); status (string); team_id (integer); tracing (object); type (string); updated_at (string); updated_by (integer)
 
 ### application-remote-config-get <application-id>
 Get remote config detail
-- `<application-id>` (positional, required) string — RUM application ID.
-- response: single object (`data` unwrapped to the top level) — fields: config (object); updated_at (string); version (integer)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- response: single object (`data` unwrapped to the top level) — fields: config (any); updated_at (string); version (integer)
 
 ### application-remote-config-history-list <application-id>
 List remote config history
-- `<application-id>` (positional, required) string — RUM application ID.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 - `--asc` bool — Ascending order. Default: false (descending).
-- `--limit` int64 — Page size. Default 20, max 100. (max 100)
-- `--orderby` string — Sort field. Default: 'updated_at'. · enum: updated_at | version
+- `--limit` int64 — Page size. '0' or a negative value means 20; values above 100 are treated as 100.
+- `--orderby` string — Sort field: - 'updated_at': publish time (default). - 'version': version number. Any other value falls back to 'updated_at'. · enum: updated_at | version
 - `--page` int64 — Zero-based page index; offset is p multiplied by limit. (0-100000)
 - `--search-after-ctx` string
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: config (object); content_hash (string); equivalent_to (integer); reason (string); updated_at (string); updated_by (integer); updated_by_name (string); version (integer)
 
 ### application-remote-config-history-revert <application-id>
 Revert remote config
-- `<application-id>` (positional, required) string — RUM application ID.
-- `--reason` string — Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)
-- `--version` int64 (required) — History version to republish. (min 1)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--reason` string — Optional free-text note (not an enum), at most 255 characters, stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. The server does not fill it in when omitted. (≤255 chars)
+- `--version` int64 (required) — Version to restore. Must be one of the retained versions listed by 'POST /rum/application/remote-config/history/list'. (min 1)
 - response: single object (`data` unwrapped to the top level) — fields: version (integer)
 
 ### application-remote-config-preview <application-id>
 Preview remote config
-- `--app-version` string — App version the simulated client reports.
-- `<application-id>` (positional, required) string — RUM application ID.
-- `--env` string — Environment the simulated client reports.
-- `--sdk` string — SDK name and version the simulated client reports, e.g. 'web@2.4.1'.
+- `--app-version` string — App version the simulated client reports, compared exactly with rules' 'match.app_version' (no range or prefix matching). Omitted = not reported.
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--env` string — Environment the simulated client reports, compared exactly with rules' 'match.env'. Omitted = not reported, so rules that test 'env' cannot match.
+- `--sdk` string — SDK identifier the simulated client reports, e.g. 'web@2.4.1', compared exactly with rules' 'match.sdk'. Omitted = not reported.
 - body-only (`--data`): config (object)
 - response: single object (`data` unwrapped to the top level) — fields: hit_rule_index (integer); values (object)
 
 ### application-remote-config-update <application-id>
 Update remote config
-- `<application-id>` (positional, required) string — RUM application ID.
-- `--reason` string — Operator's note on why this version was published. Stored verbatim. (≤255 chars)
+- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+- `--reason` string — Optional free-text note (not an enum) on why this version was published, at most 255 characters; stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. (≤255 chars)
 - body-only (`--data`): config (object) (required)
 - response: same shape as `application-remote-config-history-revert <application-id>` above
 
@@ -140,18 +140,81 @@ Update remote config
 Update application
 - `<application-id>` (positional, required) string — Application ID to update. Get application IDs via 'POST /rum/application/list'.
 - `--application-name` string — New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)
-- `--is-private` bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
+- `--is-private` bool — 'true' limits access to the account owner, account admins, the creator and members of the owning team; 'false' makes the application visible to everyone in the account. Omit to leave unchanged.
 - `--no-geo` bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
 - `--no-ip` bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
-- `--team-id` int64 — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
+- `--team-id` int64 — New owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged. Moving the application to another team changes who can edit it.
 - `--type` string — Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | · enum: browser | ios | android | react-native | flutter | kotlin-multiplatform | roku | unity | miniprogram | harmony | electron
 - body-only (`--data`): alerting (object); links (object); repositories (array<object>); tracing (object)
 
 ### application-webhook-test <application-id>
 Test application webhook
-- `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- `--webhook-url` string (required) — Webhook URL to receive the sample alert event.
+- `<application-id>` (positional, required) string — RUM application whose name is put in the sample event's 'labels.application_name'. The caller must be able to edit it. Get application IDs via 'POST /rum/application/list'.
+- `--webhook-url` string (required) — Webhook URL to receive the sample alert event; must use 'http' or 'https'. Not saved: use 'POST /rum/application/update' with 'alerting.webhook_url' to store it.
 - response: single object (`data` unwrapped to the top level) — fields: message (string); ok (boolean); status_code (integer)
+
+### dashboard-create
+Create dashboard
+- `--application-id` string (required) — Application the dashboard belongs to. Every query in 'definition' must read this same application. 1 to 64 bytes.
+- `--dashboard-id` string (required) — Dashboard ID to create, a canonical UUIDv7.
+- `--schema-version` string (required) — Wire schema of the definition. Must be 'dashboard.v1'. · enum: dashboard.v1
+- body-only (`--data`): definition (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: application_id (string); created_at (string); created_by (object); dashboard_id (string); definition (object); revision (integer); schema_version (string); updated_at (string); updated_by (object)
+
+### dashboard-delete <dashboard-id>
+Delete dashboard
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- `--expected-revision` int64 (required) — Revision the caller last read. Must be at least 1. (min 1)
+- response: single object (`data` unwrapped to the top level) — fields: dashboard_id (string); revision (integer)
+
+### dashboard-get <dashboard-id>
+Get dashboard detail
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- response: same shape as `dashboard-create` above
+
+### dashboard-list
+List dashboards
+- `--application-id` string — Keep only the dashboards of this application. Omit to list the dashboards of every application.
+- `--limit` int64 — Page size, 1–100. Defaults to 20. (1-100)
+- `--page` int64 — Page number, 1-based. Defaults to 1. (min 1)
+- `--query` string — Search text, at most 128 characters. Split on spaces; each word must appear in the title or the description.
+- `--search-after-ctx` string
+- body-only (`--data`): sort (array<object>)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: application_id (string); dashboard_id (string); description (string); revision (integer); title (string); updated_at (string); updated_by (object)
+
+### dashboard-restore <dashboard-id>
+Restore dashboard
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- `--expected-revision` int64 (required) — Revision the caller last read. Must be at least 1. (min 1)
+- response: same shape as `dashboard-create` above
+
+### dashboard-revisions-get <dashboard-id>
+Get dashboard revision
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- `--revision` int64 (required) — Revision number to read. Must be at least 1. (min 1)
+- response: single object (`data` unwrapped to the top level) — fields: actor (object); created_at (string); dashboard_id (string); definition (object); message (string); revision (integer); schema_version (string)
+
+### dashboard-revisions-list <dashboard-id>
+List dashboard revisions
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: actor (object); created_at (string); dashboard_id (string); message (string); revision (integer)
+
+### dashboard-trash-list
+List deleted dashboards
+- `--limit` int64 — Page size, 1–100. Defaults to 20. (1-100)
+- `--page` int64 — Page number, 1-based. Defaults to 1. (min 1)
+- `--search-after-ctx` string
+- body-only (`--data`): sort (array<object>)
+- response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: dashboard_id (string); deleted_at (string); deleted_by (object); description (string); revision (integer); title (string)
+
+### dashboard-update <dashboard-id>
+Update dashboard
+- `<dashboard-id>` (positional, required) string — Dashboard ID, a canonical UUIDv7.
+- `--expected-revision` int64 (required) — Revision the caller last read. Must be at least 1. (min 1)
+- `--message` string — Optional change message stored with the revision, at most 1024 characters. (≤1024 chars)
+- `--schema-version` string (required) — Wire schema of the definition. Must be 'dashboard.v1'. · enum: dashboard.v1
+- body-only (`--data`): definition (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: changed (boolean); resource (object)
 
 ### data-query
 Query RUM data
@@ -162,7 +225,7 @@ Query RUM data
 ### error-ingestion-rules-create <application-id>
 Create an error ingestion rule
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- `--description` string — Rule description, up to 512 characters. (≤512 chars)
+- `--description` string — Rule description, up to 512 characters. Defaults to an empty string. (≤512 chars)
 - `--rule-name` string (required) — Rule name, 1-128 characters. (1-128 chars)
 - body-only (`--data`): filters (array<array<object>>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: rule_id (string); rule_name (string)
@@ -185,9 +248,9 @@ Enable an error ingestion rule
 ### error-ingestion-rules-history-list <application-id>
 List error ingestion rule history
 - `<application-id>` (positional, required) string — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-- `--asc` bool — Sort ascending instead of the default descending order.
-- `--limit` int64 — Page size. Default 20, capped at 100; values ≤ 0 fall back to the default. (max 100)
-- `--orderby` string — Sort column: 'updated_at' or 'version'. Unrecognized values fall back to 'updated_at'.
+- `--asc` bool — 'true' sorts ascending; 'false' (default) sorts descending, newest first.
+- `--limit` int64 — Page size. Default 20; values above 100 are clamped to 100, and values of 0 or below fall back to 20.
+- `--orderby` string — Sort column: - 'updated_at': time of the change that created the version (default). - 'version': version number. Any other value falls back to 'updated_at'. · enum: updated_at | version
 - `--page` int64 — Zero-based page number. Default 0. (min 0)
 - `--search-after-ctx` string
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: rules (array<object>); updated_at (string); updated_by (integer); updated_by_name (string); version (integer)
@@ -212,13 +275,13 @@ Update an error ingestion rule
 
 ### facet-count
 Count facet value distribution
-- `--dql` string — RUM DQL filter expression applied before counting.
+- `--dql` string — RUM DQL filter expression applied before counting. Fields in it are validated against the 'scope'.
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Maximum 31-day span.
-- `--facet-key` string (required) — Field key whose value distribution to count; must be a registered field of the given 'scope'. List available fields via 'POST /rum/field/list'.
+- `--facet-key` string (required) — Field key whose value distribution to count, such as 'error_type'. Must be a facet field of the given 'scope' with 'show_type: list' and a non-array 'value_type'. List candidates with 'POST /rum/field/list'.
 - `--kind` string — Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. · enum: mapping | native
 - `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
 - `--scope` string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
-- `--sql` string — SQL WHERE clause (no SELECT) for additional filtering.
+- `--sql` string — Bare SQL 'WHERE' condition (without the 'WHERE' keyword) for extra filtering, such as 'env = 'prod''. Any occurrence of 'SELECT' is rejected.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
 - `--type` string — Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | · enum: browser | web | javascript | android | ios | miniprogram | harmony | flutter | electron | react-native
 - body-only (`--data`): facet_value (any)
@@ -228,52 +291,52 @@ Count facet value distribution
 List RUM fields
 - `--is-facet` bool — When omitted or 'null', return all fields. When 'true', return only facet-enabled fields. When 'false', return only fields that are not facet-enabled.
 - `--scopes` stringSlice — Filter by RUM data scopes; unknown values are rejected with a parameter error. Omit to list fields of all scopes. | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
-- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); description (string); edit_able (boolean); enum_values (array<any>); field_key (string); field_name (string); group (string); high_cardinality (boolean); is_facet (boolean); queryable (boolean); scopes (array<string>); show_type (string); status (string); unit_family (string); unit_name (string); value_type (string)
 
 ### issue-export
 Export issues as CSV
 - `--application-ids` stringSlice — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
 - `--asc` bool — Sort ascending when 'true'; descending by default.
 - `--by-intersection` bool — When 'true', match by time-range overlap: export issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' exports only issues created inside the window.
-- `--console-origin` string — Console origin used to build the 'issue_url' column, e.g. 'https://console.flashcat.cloud'. The service cannot infer it (SaaS, on-premises and dev releases answer on different origins).
-- `--dql` string — DQL query for advanced filtering. Cannot be used with 'sql'.
+- `--console-origin` string — Console origin used to build the 'issue_url' column, e.g. 'https://console.flashcat.cloud'; a trailing '/' is trimmed. The service cannot infer it. When omitted, 'issue_url' holds only the path '/rum/error-tracking/issue/<issue_id>'.
+- `--dql` string — DQL query for advanced filtering. Field names must be fields of the 'issue' scope (see 'POST /rum/field/list' with 'scopes: ["issue"]'); a bare full-text term searches the error message. Cannot be used with 'sql'.
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
 - `--error-required` bool — If 'true', only export issues with at least one associated error event.
-- `--export-fields` stringSlice — CSV columns to export, in the order they appear. Unknown keys are rejected with a parameter error; an empty array uses the default column set. | Value | Column content | |---|---| | 'issue_id' | Issue ID | | 'issue_url' | Console URL of the issue detail page (built from 'console_origin') | | 'application_name' | Owning application name | | 'service' | Service name | | 'error_type' | Error type | | 'error_message' | Error message | | 'status' | Triage status | | 'severity' | Severity | | 'is_crash' | Whether the error caused a crash | | 'error_count' | Error occurrence count | | 'session_count' | Affected session count | | 'first_seen_at' | First occurrence time (rendered in 'time_zone') | | 'first_seen_version' | Application version at first occurrence | | 'last_seen_at' | Most recent occurrence time (rendered in 'time_zone') | | 'last_seen_version' | Application version at the most recent occurrence | | 'versions' | All affected versions | | 'suspected_cause' | Suspected cause category | | 'resolved_at' | Resolution time (rendered in 'time_zone') | · enum: issue_id | issue_url | application_name | service | error_type | error_message | status | severity | is_crash | error_count | session_count | first_seen_at | first_seen_version | last_seen_at | last_seen_version | versions | suspected_cause | resolved_at
+- `--export-fields` stringSlice — CSV columns to export, in the order they appear. Unknown keys are rejected with a parameter error and duplicates are dropped. Empty or omitted: every column below except the 'sample_first_*' group. | Value | Column content | |---|---| | 'issue_id' | Issue ID | | 'issue_url' | Console URL of the issue detail page (built from 'console_origin') | | 'application_name' | Owning application name | | 'service' | Service name | | 'error_type' | Error type | | 'error_message' | Error message | | 'status' | Triage status | | 'severity' | Severity | | 'is_crash' | Whether the error caused a crash | | 'error_count' | Error occurrence count | | 'session_count' | Affected session count | | 'first_seen_at' | First occurrence time (rendered in 'time_zone') | | 'first_seen_version' | Application version at first occurrence | | 'last_seen_at' | Most recent occurrence time (rendered in 'time_zone') | | 'last_seen_version' | Application version at the most recent occurrence | | 'versions' | All affected versions | | 'suspected_cause' | Suspected cause category | | 'resolved_at' | Resolution time (rendered in 'time_zone'); empty while unresolved | | 'sample_time' | Latest error event in the time window: time of the event (rendered in 'time_zone') | | 'sample_version' | Latest error event in the time window: application version | | 'sample_view' | Latest error event in the time window: view name, or the view URL when the name is empty | | 'sample_session_id' | Latest error event in the time window: session ID | | 'sample_device' | Latest error event in the time window: device brand and model | | 'sample_os' | Latest error event in the time window: OS name and version | | 'sample_browser' | Latest error event in the time window: browser name and version | | 'sample_stack' | Latest error event in the time window: error stack, truncated to the first 20 lines | | 'sample_first_time' | Earliest error event in the time window: time of the event (rendered in 'time_zone') | | 'sample_first_version' | Earliest error event in the time window: application version | | 'sample_first_view' | Earliest error event in the time window: view name, or the view URL when the name is empty | | 'sample_first_session_id' | Earliest error event in the time window: session ID | | 'sample_first_device' | Earliest error event in the time window: device brand and model | | 'sample_first_os' | Earliest error event in the time window: OS name and version | | 'sample_first_browser' | Earliest error event in the time window: browser name and version | | 'sample_first_stack' | Earliest error event in the time window: error stack, truncated to the first 20 lines | · enum: issue_id | issue_url | application_name | service | error_type | error_message | status | severity | is_crash | error_count | session_count | first_seen_at | first_seen_version | last_seen_at | last_seen_version | versions | suspected_cause | resolved_at | sample_time | sample_version | sample_view | sample_session_id | sample_device | sample_os | sample_browser | sample_stack | sample_first_time | sample_first_version | sample_first_view | sample_first_session_id | sample_first_device | sample_first_os | sample_first_browser | sample_first_stack
 - `--limit` int64 — Page size (1–100). Ignored by the export — the row cap is fixed at 100. (1-100)
 - `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
 - `--page` int64 — Page number (1-based). Ignored by the export — the first 100 matching rows are always read. (min 1)
 - `--search-after-ctx` string
-- `--sql` string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
-- `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- `--sql` string — SQL-style WHERE condition for advanced filtering, without the 'WHERE' keyword (for example 'error_count > 100'). Field names must be fields of the 'issue' scope; any text containing 'SELECT' is rejected. Cannot be used with 'dql'.
+- `--start-time` int64 (required) — Start of the time range, Unix timestamp in milliseconds (a value that looks like seconds is rejected). Issues are matched by creation time unless 'by_intersection' is 'true'.
 - `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
-- `--time-zone` string — IANA time zone used to render timestamps in the CSV, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'.
+- `--time-zone` string — IANA time zone used to render the CSV time columns and the file name, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'. An unknown zone name returns 'InvalidParameter'.
 
 ### issue-info <issue-id>
 Get issue detail
 - `<issue-id>` (positional, required) string — Issue ID. Get issue IDs via 'POST /rum/issue/list'.
-- response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
+- response: single object (`data` unwrapped to the top level) — fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolve_mode (string); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
 ### issue-list
 List issues
 - `--application-ids` stringSlice — Filter by application IDs. Get IDs via 'POST /rum/application/list'.
 - `--asc` bool — Sort ascending when 'true'; descending by default.
 - `--by-intersection` bool — When 'true', match by time-range overlap: return issues still active within the window ('last_seen_timestamp' >= 'start_time') even if created before it. Default 'false' returns only issues created inside the window.
-- `--dql` string — DQL query for advanced filtering. Cannot be used with 'sql'.
+- `--dql` string — DQL query for advanced filtering. Field names must be fields of the 'issue' scope (see 'POST /rum/field/list' with 'scopes: ["issue"]'); a bare full-text term searches the error message. Cannot be used with 'sql'.
 - `--end-time` int64 (required) — End of the time range, Unix epoch milliseconds. Must be greater than 'start_time'; maximum range: 183 days.
 - `--error-required` bool — If 'true', only return issues with at least one associated error event.
 - `--limit` int64 — Page size. Range: 1–100. Default: 20. (1-100)
 - `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
 - `--page` int64 — Page number (1-based). Default: 1. (min 1)
 - `--search-after-ctx` string
-- `--sql` string — SQL-style query for advanced filtering. Cannot be used with 'dql'.
-- `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
+- `--sql` string — SQL-style WHERE condition for advanced filtering, without the 'WHERE' keyword (for example 'error_count > 100'). Field names must be fields of the 'issue' scope; any text containing 'SELECT' is rejected. Cannot be used with 'dql'.
+- `--start-time` int64 (required) — Start of the time range, Unix timestamp in milliseconds (a value that looks like seconds is rejected). Issues are matched by creation time unless 'by_intersection' is 'true'.
 - `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolve_mode (string); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
 ### issue-preset-severity-rules-create <application-id>
 Create preset severity rule
@@ -337,7 +400,8 @@ Update preset severity rule
 ### issue-update <issue-id>
 Update issue
 - `<issue-id>` (positional, required) string — Issue ID to update. Get issue IDs via 'POST /rum/issue/list'.
-- `--status` string — New status. Setting 'resolved' records the resolution time and operator; switching away from 'resolved' clears them. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
+- `--resolve-mode` string — How the issue reacts when its error recurs after being resolved. Applied only together with 'status: resolved'; defaults to 'any' there when omitted, and is ignored with any other status. | Value | Meaning | |---|---| | 'any' | Reopen the issue on any recurrence | | 'version' | Reopen only when the error recurs in an application version the issue has not been seen in; errors without a version always reopen it | · enum: any | version
+- `--status` string — New status. Setting 'resolved' on an unresolved issue records the resolution time and operator and clears 'regression'; switching away from 'resolved' clears the resolution time and operator. Omit to keep the current status. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-cause` string — New suspected cause; setting it marks the cause source as 'user', overriding the automatic classification. One of: | Value | Meaning | |---|---| | 'api.failed_request' | API request failure | | 'network.error' | Network connectivity error | | 'code.exception' | Code exception | | 'code.invalid_object_access' | Invalid object access | | 'code.invalid_argument' | Invalid argument | | 'unknown' | Unknown cause | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 
 ### resource-info
@@ -348,7 +412,7 @@ Get RUM resource info
 ### session-replay-metadata <session-id>
 Get session replay metadata
 - `<session-id>` (positional, required) string — RUM session ID (the 'session.id' attribute on RUM events).
-- `--ts` int64 — Unix timestamp in milliseconds of the session start time. Optional; disambiguates when a session ID has been reused across different time windows.
+- `--ts` int64 — Session start time, Unix milliseconds. Optional. When set, it must match the session's start exactly; use it to pick one session when a 'session_id' was reused. (min 1)
 - response: single object (`data` unwrapped to the top level) — fields: application (object); device (object); foreground_periods (array<object>); session (object); views (array<object>)
 
 ### session-replay-segments <session-id>
@@ -356,7 +420,7 @@ List session replay segments
 - `--limit` int64 — Maximum number of segments to return. 1-99, default 20. (1-99)
 - `--search-after-ctx` string — Pagination cursor from a previous call. Take it from the 'search_after_ctx' field (URL mode) or the 'X-Search-After-Ctx' response header (streaming mode).
 - `<session-id>` (positional, required) string — RUM session ID (the 'session.id' attribute on RUM events).
-- `--ts` int64 — Unix timestamp in milliseconds. When set (and 'search_after_ctx' is empty), seeks to the most recent full-snapshot segment at or before this time instead of starting from the beginning.
+- `--ts` int64 — Unix timestamp in milliseconds. When set and 'search_after_ctx' is empty, paging starts at the last full-snapshot segment at or before this time (searching up to 4 hours back); if none is found, paging starts from the beginning. (min 1)
 - `--url-mode` bool — When 'true', return presigned download URLs as a JSON envelope instead of streaming segment bytes. Defaults to 'false'.
 - `--view-id` string — Restrict results to segments belonging to this view. Omit to page through the entire session.
 - response: single object (`data` unwrapped to the top level) — fields: items (array<string>); search_after_ctx (string)
