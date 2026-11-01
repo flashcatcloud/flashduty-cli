@@ -72,12 +72,12 @@ flashduty calendar event-delete <cal-id> --start-at 2026-01-10 --end-at 2026-01-
 
 ### create
 Create calendar
-- `--cal-name` string (required) — Calendar display name. (1-39 chars)
+- `--cal-name` string (required) — Calendar display name; must be unique within the account. (1-39 chars)
 - `--description` string — Calendar description. (≤499 chars)
 - `--extra-cal-ids` stringSlice — Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).
-- `--team-id` int64 — Owning team ID. 0 means no team.
-- `--timezone` string — IANA timezone. Defaults to Asia/Shanghai when empty.
-- `--workdays` intSlice — Workday numbers (0 = Sunday, 6 = Saturday).
+- `--team-id` int64 — Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.
+- `--timezone` string — IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.
+- `--workdays` intSlice — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.
 - response: single object (`data` unwrapped to the top level) — fields: cal_id (string); cal_name (string)
 
 ### delete <cal-id>
@@ -124,12 +124,12 @@ List calendars
 ### update <cal-id>
 Update calendar
 - `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
-- `--cal-name` string — New calendar name. (1-39 chars)
+- `--cal-name` string — New calendar name; must be unique within the account. (1-39 chars)
 - `--description` string — New description. (≤499 chars)
-- `--extra-cal-ids` stringSlice — Additional public-holiday calendar IDs to inherit events from.
-- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
-- `--timezone` string — New IANA timezone.
-- `--workdays` intSlice — Workday numbers (0 = Sunday, 6 = Saturday).
+- `--extra-cal-ids` stringSlice — Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.
+- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.
+- `--timezone` string — New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.
+- `--workdays` intSlice — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.
 
 <!-- GENERATED:calendar END -->
 

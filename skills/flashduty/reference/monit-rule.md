@@ -74,7 +74,7 @@ flashduty monit rule-update-fields --ids <id1>,<id2> --fields enabled --enabled 
 
 ### rule-audit-detail
 Get rule audit snapshot
-- `--id` int64 (required) — Audit record ID — the 'id' of an audit row returned by 'POST /monit/rule/audits', NOT the rule ID. Passing a rule ID returns HTTP 400.
+- `--id` int64 (required) — Audit record ID — the 'id' of a row returned by 'POST /monit/rule/audits', not the rule ID. A rule ID is looked up as an audit record ID, which usually returns 'InvalidParameter' ('alert rule audit not found') or an unrelated record.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); action (string); alert_rule_id (integer); content (string); created_at (string); creator_id (integer); creator_name (string); id (integer)
 
 ### rule-audits
@@ -95,20 +95,20 @@ Delete alert rule
 
 ### rule-delete-batch
 Batch delete alert rules
-- `--ids` intSlice (required) — Rule IDs.
+- `--ids` intSlice (required) — IDs of the alert rules to delete; must contain at least one ID. Get them from 'POST /monit/rule/list/basic'.
 
 ### rule-list-basic
 List alert rules
-- `--folder-id` int64 — Folder ID. Must be an existing folder; '0' is rejected with a 'folder_not_found' error.
-- `--include-descendants` bool — Also include rules from all descendant folders. When 'true', each returned item carries only 'id', 'folder_id' and 'name'; combine with 'query' / 'limit' for rule-picker scenarios.
+- `--folder-id` int64 — ID of the folder to list. Must be an existing folder the caller can manage; '0' or an unknown ID returns 'InvalidParameter'.
+- `--include-descendants` bool — Also search all descendant folders. When 'true', results are sorted by name, capped by 'limit', and each item fills only 'id', 'folder_id' and 'name' (other fields carry zero values); combine with 'query' for rule-picker scenarios.
 - `--limit` int64 — Max number of rules returned; only effective when 'include_descendants' is 'true'. Defaults to 50, capped at 100. (max 100)
-- `--query` string — Rule name fuzzy filter; only effective when 'include_descendants' is 'true'.
+- `--query` string — Filter by rule name substring; a numeric value also matches the rule with that ID. Only effective when 'include_descendants' is 'true'.
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); active_alert_count (integer); created_at (string); creator_id (integer); creator_name (string); cron_pattern (string); debug_log_enabled (boolean); delay_seconds (integer); ds_type (string); enabled (boolean); folder_id (integer); id (integer); labels (object); name (string); runtime_state (string); timezone (string); triggered (boolean); updated_at (string); updater_id (integer); updater_name (string)
 
 ### rule-move
 Move alert rules to folder
-- `--dest-folder-id` int64 (required) — Destination folder ID. Obtainable via 'POST /monit/folder/list'.
-- `--ids` intSlice (required) — Rule IDs to move.
+- `--dest-folder-id` int64 (required) — Destination folder ID, from 'POST /monit/folder/list'. Must be non-zero; a folder that does not exist or that the caller cannot manage fails the whole call with 'AccessDenied'.
+- `--ids` intSlice (required) — IDs of the rules to move; must contain at least one ID.
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### rule-update-fields
@@ -117,40 +117,40 @@ Batch update rule fields
 - `--cron-pattern` string — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval descriptor; 'CRON_TZ='/'TZ=' prefixes are not allowed. Effective only when 'fields' includes 'cron_pattern'.
 - `--debug-log-enabled` bool — Whether to enable debug logging; the edge emits detailed evaluation logs for troubleshooting. Effective only when 'fields' includes 'debug_log_enabled'.
 - `--delay-seconds` int64 — Seconds to shift the evaluation query window backward, compensating for data ingestion latency. Effective only when 'fields' includes 'delay_seconds'.
-- `--description` string — Rule description (Markdown). Effective only when 'fields' includes 'description'.
+- `--description` string — Rule description, rendered according to the rule's existing 'description_type' (which this endpoint cannot change). Effective only when 'fields' includes 'description'.
 - `--ds-ids` intSlice — Datasource IDs, merged with 'ds_list' to decide which datasources the rule monitors; IDs survive datasource renames. Effective only when 'fields' includes 'ds_ids'.
 - `--ds-list` stringSlice — Datasource name match patterns; wildcards supported. Effective only when 'fields' includes 'ds_list'.
-- `--ds-type` string — Datasource type identifier. Effective only when 'fields' includes 'ds_type'.
+- `--ds-type` string — Datasource type identifier. Enabled rules must use a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'. Effective only when 'fields' includes 'ds_type'.
 - `--enabled` bool — Whether the rule is enabled. Setting it to 'false' makes the server clean up the rule's active alerts. Effective only when 'fields' includes 'enabled'.
-- `--fields` stringSlice (required) — Field names to update. Only listed fields are updated, taking new values from the same-named request fields; values for unlisted fields are silently ignored. · enum: labels | ds_type | ds_list | ds_ids | enabled | debug_log_enabled | cron_pattern | timezone | delay_seconds | enabled_times | annotations | description | channel_ids | repeat_interval | repeat_total
-- `--ids` intSlice (required) — Rule IDs to update.
-- `--repeat-interval` int64 — Interval in seconds between repeated alert notifications. Effective only when 'fields' includes 'repeat_interval'.
-- `--repeat-total` int64 — Maximum number of repeated notifications. Effective only when 'fields' includes 'repeat_total'.
-- `--timezone` string — Timezone in which the rule executes. IANA timezone name; defaults to 'Asia/Shanghai'.
+- `--fields` stringSlice (required) — Names of the fields to update. Each listed field takes the value of the same-named request field, and is set to its zero value when that value is omitted; values sent for unlisted fields are ignored. An unknown name fails the whole call with 'InvalidParameter'. · enum: labels | ds_type | ds_list | ds_ids | enabled | debug_log_enabled | cron_pattern | timezone | delay_seconds | enabled_times | annotations | description | channel_ids | repeat_interval | repeat_total
+- `--ids` intSlice (required) — IDs of the rules to update; must contain at least one ID.
+- `--repeat-interval` int64 — Interval in seconds between repeated alert notifications; values below 1 fall back to 3600, maximum 2147483647. Effective only when 'fields' includes 'repeat_interval'.
+- `--repeat-total` int64 — Maximum number of repeated notifications; values below 1 fall back to 3, maximum 2147483647. Effective only when 'fields' includes 'repeat_total'.
+- `--timezone` string — Timezone the rule runs in, as an IANA name (e.g. 'Asia/Shanghai', 'UTC'); empty falls back to 'Asia/Shanghai'. Effective only when 'fields' includes 'timezone'.
 - body-only (`--data`): annotations (object); annotations_patch (object); enabled_times (array<object>); labels (object); labels_patch (object)
 - response: same shape as `rule-move` above
 
 ### rule-v2-create <folder-id>
 Create alert rule (V2)
 - `--account-id` int64 — Account ID, filled by the server from the authentication context; any client-supplied value is ignored.
-- `--channel-ids` intSlice — Collaboration space IDs alerts are sent to. May be empty; alerts then route through the global integration.
+- `--channel-ids` intSlice — Collaboration space IDs alerts are sent to. May be empty; alerts then route through the global integration. The serialized JSON may not exceed 255 characters.
 - `--created-at` string — Creation time as a Unix timestamp in seconds, generated by the server; any client-supplied value is ignored. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--creator-id` int64 — Creator member ID, filled by the server from the current user; any client-supplied value is ignored.
 - `--creator-name` string — Creator name, filled by the server; any client-supplied value is ignored.
-- `--cron-pattern` string (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval. Must not start with 'CRON_TZ=' or 'TZ='; set the timezone in the 'timezone' field instead.
+- `--cron-pattern` string (required) — Schedule expression: a 6-field cron with seconds (e.g. '0 * * * * *'), a descriptor such as '@hourly', or '@every <duration>' with a whole number of seconds of at least '1s' (e.g. '@every 30s'). Must not start with 'CRON_TZ=' or 'TZ='; set the timezone in the 'timezone' field instead.
 - `--debug-log-enabled` bool — Enable debug logging; the edge then emits detailed evaluation logs for this rule, useful when the rule does not trigger as expected.
 - `--delay-seconds` int64 — Seconds the evaluation query window is shifted back, compensating for data ingestion latency.
-- `--description` string — Rule description, Markdown format.
+- `--description` string — Rule description; rendered as plain text or Markdown according to 'description_type'.
 - `--description-type` string — Format of the description content. Empty or omitted defaults to 'text'. 'text' = plain text; 'markdown' = Markdown, rendered as such in alert details. · enum: text | markdown
-- `--ds-ids` intSlice — Datasource ID list, merged with 'ds_list' to decide the monitored datasources; IDs survive datasource renames. At least one of 'ds_list' / 'ds_ids' must be provided.
-- `--ds-list` stringSlice — Datasource name match patterns (wildcards supported). At least one of 'ds_list' / 'ds_ids' must be non-empty; both are merged to decide which datasources the rule monitors.
-- `--ds-type` string (required) — Datasource type identifier (e.g. 'prometheus', 'elasticsearch').
+- `--ds-ids` intSlice — Datasource ID list, merged with 'ds_list' to decide the monitored datasources; IDs survive datasource renames. At least one of 'ds_list' / 'ds_ids' must be provided. The serialized JSON may not exceed 512 characters.
+- `--ds-list` stringSlice — Datasource name match patterns (wildcards supported). At least one of 'ds_list' / 'ds_ids' must be non-empty; both are merged to decide which datasources the rule monitors. The serialized JSON may not exceed 512 characters.
+- `--ds-type` string (required) — Datasource type the rule queries. When the rule is enabled it must be a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'.
 - `--enabled` bool (required) — Whether the rule is enabled. Required — the server enforces an explicit value (including 'false') while decoding. Setting it to 'false' on update clears the rule's active alerts.
 - `<folder-id>` (positional, required) int64 — ID of the folder the rule belongs to; list folders via 'POST /monit/folder/list'. Cannot be changed through the update API — use '/monit/rule/move' instead.
 - `--id` int64 — Rule ID. Required on update; omit on create (assigned by the server).
 - `--name` string (required) — Rule name. Must be unique within the folder and at most 128 characters.
-- `--repeat-interval` int64 — Notification repeat interval in seconds. Values below 1 fall back to the default 3600.
-- `--repeat-total` int64 — Maximum number of repeat notifications. Values below 1 fall back to the default 3.
+- `--repeat-interval` int64 — Notification repeat interval in seconds. Values below 1 fall back to the default 3600; maximum 2147483647.
+- `--repeat-total` int64 — Maximum number of repeat notifications. Values below 1 fall back to the default 3; maximum 2147483647.
 - `--timezone` string — Timezone the rule runs in; it decides how the cron schedule and enabled time windows are interpreted. Only IANA names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); abbreviations or offsets like 'Local', 'UTC+8', 'CST' are rejected. Empty falls back to 'Asia/Shanghai'.
 - `--updated-at` string — Last update time as a Unix timestamp in seconds, generated by the server; any client-supplied value is ignored. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--updater-id` int64 — ID of the member who last updated the rule, filled by the server; any client-supplied value is ignored.
@@ -166,24 +166,24 @@ Get alert rule detail (V2)
 ### rule-v2-update <folder-id>
 Update alert rule (V2)
 - `--account-id` int64 — Account ID, filled by the server from the authentication context; any client-supplied value is ignored.
-- `--channel-ids` intSlice — Collaboration space IDs alerts are sent to. May be empty; alerts then route through the global integration.
+- `--channel-ids` intSlice — Collaboration space IDs alerts are sent to. May be empty; alerts then route through the global integration. The serialized JSON may not exceed 255 characters.
 - `--created-at` string — Creation time as a Unix timestamp in seconds, generated by the server; any client-supplied value is ignored. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--creator-id` int64 — Creator member ID, filled by the server from the current user; any client-supplied value is ignored.
 - `--creator-name` string — Creator name, filled by the server; any client-supplied value is ignored.
-- `--cron-pattern` string (required) — Schedule expression: a 6-field cron (with seconds) or an '@every 30s' interval. Must not start with 'CRON_TZ=' or 'TZ='; set the timezone in the 'timezone' field instead.
+- `--cron-pattern` string (required) — Schedule expression: a 6-field cron with seconds (e.g. '0 * * * * *'), a descriptor such as '@hourly', or '@every <duration>' with a whole number of seconds of at least '1s' (e.g. '@every 30s'). Must not start with 'CRON_TZ=' or 'TZ='; set the timezone in the 'timezone' field instead.
 - `--debug-log-enabled` bool — Enable debug logging; the edge then emits detailed evaluation logs for this rule, useful when the rule does not trigger as expected.
 - `--delay-seconds` int64 — Seconds the evaluation query window is shifted back, compensating for data ingestion latency.
-- `--description` string — Rule description, Markdown format.
+- `--description` string — Rule description; rendered as plain text or Markdown according to 'description_type'.
 - `--description-type` string — Format of the description content. Empty or omitted defaults to 'text'. 'text' = plain text; 'markdown' = Markdown, rendered as such in alert details. · enum: text | markdown
-- `--ds-ids` intSlice — Datasource ID list, merged with 'ds_list' to decide the monitored datasources; IDs survive datasource renames. At least one of 'ds_list' / 'ds_ids' must be provided.
-- `--ds-list` stringSlice — Datasource name match patterns (wildcards supported). At least one of 'ds_list' / 'ds_ids' must be non-empty; both are merged to decide which datasources the rule monitors.
-- `--ds-type` string (required) — Datasource type identifier (e.g. 'prometheus', 'elasticsearch').
+- `--ds-ids` intSlice — Datasource ID list, merged with 'ds_list' to decide the monitored datasources; IDs survive datasource renames. At least one of 'ds_list' / 'ds_ids' must be provided. The serialized JSON may not exceed 512 characters.
+- `--ds-list` stringSlice — Datasource name match patterns (wildcards supported). At least one of 'ds_list' / 'ds_ids' must be non-empty; both are merged to decide which datasources the rule monitors. The serialized JSON may not exceed 512 characters.
+- `--ds-type` string (required) — Datasource type the rule queries. When the rule is enabled it must be a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'.
 - `--enabled` bool (required) — Whether the rule is enabled. Required — the server enforces an explicit value (including 'false') while decoding. Setting it to 'false' on update clears the rule's active alerts.
 - `<folder-id>` (positional, required) int64 — ID of the folder the rule belongs to; list folders via 'POST /monit/folder/list'. Cannot be changed through the update API — use '/monit/rule/move' instead.
 - `--id` int64 — Rule ID. Required on update; omit on create (assigned by the server).
 - `--name` string (required) — Rule name. Must be unique within the folder and at most 128 characters.
-- `--repeat-interval` int64 — Notification repeat interval in seconds. Values below 1 fall back to the default 3600.
-- `--repeat-total` int64 — Maximum number of repeat notifications. Values below 1 fall back to the default 3.
+- `--repeat-interval` int64 — Notification repeat interval in seconds. Values below 1 fall back to the default 3600; maximum 2147483647.
+- `--repeat-total` int64 — Maximum number of repeat notifications. Values below 1 fall back to the default 3; maximum 2147483647.
 - `--timezone` string — Timezone the rule runs in; it decides how the cron schedule and enabled time windows are interpreted. Only IANA names are accepted (e.g. 'Asia/Shanghai', 'UTC', 'Europe/London'); abbreviations or offsets like 'Local', 'UTC+8', 'CST' are rejected. Empty falls back to 'Asia/Shanghai'.
 - `--updated-at` string — Last update time as a Unix timestamp in seconds, generated by the server; any client-supplied value is ignored. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--updater-id` int64 — ID of the member who last updated the rule, filled by the server; any client-supplied value is ignored.

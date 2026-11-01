@@ -24,43 +24,43 @@ Request fields:
   --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) — Account ID.
-  - alerting (object) — Alerting configuration of the application.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+  - account_id (integer) (required) — ID of the Flashduty account that owns the application.
+  - alerting (object) (required) — Alerting configuration of the application. Always an object.
+    - channel_ids (array<integer>) — On-call channel IDs that receive the alerts; used only when 'delivery_mode' is 'oncall'. Kept as a draft in 'webhook' mode. Can be 'null' when never set.
     - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
-    - enabled (boolean) (required) — Whether alerting is enabled.
+    - enabled (boolean) (required) — Whether alerting is on. 'false' turns alerting off; with 'false', 'webhook_url' is not checked.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
-    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
-  - application_id (string) — Unique application ID.
-  - application_name (string) — Application display name.
-  - client_token (string) — Token used to initialize the RUM SDK.
-  - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - created_by (integer) — Creator member ID.
-  - is_private (boolean) — If 'true', the application is only accessible to team members.
-  - links (object) — External-link integration configuration.
-    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'. Required in that mode while 'enabled' is 'true'; must use 'http' or 'https', and on Flashduty cloud must not resolve to a private, loopback, link-local or reserved address. Ignored in 'oncall' mode. Omitted from responses when empty.
+  - application_id (string) (required) — Unique application ID.
+  - application_name (string) (required) — Application display name.
+  - client_token (string) (required) — Token used to initialize the RUM SDK.
+  - created_at (string) (required) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_by (integer) (required) — Member ID of the creator. The creator can always edit the application.
+  - is_private (boolean) (required) — If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application.
+  - links (object) (required) — External-link integration configuration. Always an object; 'systems' can be 'null' when no system was ever saved.
+    - enabled (boolean) (required) — Master switch for the external-link integration. Treated as 'false' when omitted.
     - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
-      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - enabled (boolean) (required) — Whether this external system link is shown. Treated as 'false' when omitted.
       - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
-      - icon_color (string) — Display color for the link icon.
-      - icon_text (string) — Short text shown in the link icon.
-      - id (string) — Stable client-side identifier for this external system.
+      - icon_color (string) — Display color for the link icon, e.g. '#0F766E'. Omitted from responses when empty.
+      - icon_text (string) — Short text shown in the link icon, e.g. 'S3'. Omitted from responses when empty.
+      - id (string) — Client-chosen identifier for this external system, kept as sent; the server does not validate it.
       - name (string) (required) — Display name of the external system.
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
-  - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
-  - no_ip (boolean) — If 'true', IP addresses are not collected.
-  - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+  - no_geo (boolean) (required) — If 'true', geographic location is not inferred from IP.
+  - no_ip (boolean) (required) — If 'true', IP addresses are not collected.
+  - repositories (array<object>) (required) — Linked source code repositories, in order; the first entry is the primary repository. Empty array when none are linked. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
     - repo (string) (required) — GitHub repository in 'owner/name' form.
     - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
-  - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
-  - team_id (integer) — Owning team ID.
-  - tracing (object) — APM tracing integration configuration.
-    - enabled (boolean) (required) — Whether tracing integration is enabled.
-    - endpoint (string) (required) — Trace endpoint URL (http or https).
-    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-  - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-  - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - updated_by (integer) — Last updater member ID.
+  - status (string) (required) — Application status: - 'enabled': the SDK 'client_token' is accepted and data is collected. Every application created through the API starts in this state. - 'disabled': the 'client_token' is rejected, so no new data is collected. No public operation sets this status. - 'deleted': soft-delete marker; deleted applications are filtered out of every response, so this value is never returned. [enabled, disabled, deleted]
+  - team_id (integer) (required) — Owning team ID. Members of this team can edit the application and, when it is private, see it.
+  - tracing (object) (required) — APM tracing integration configuration. Always an object; when tracing was never configured it is 'enabled: false' with empty 'open_type' and 'endpoint'.
+    - enabled (boolean) (required) — Whether trace links are shown on RUM events.
+    - endpoint (string) (required) — Trace endpoint URL; must start with 'http' or 'https'. Required whenever 'tracing' is sent, even with 'enabled: false'. Empty in responses when tracing was never configured.
+    - open_type (string) (required) — How the trace link opens: - 'popup': open trace details in a popup. - 'tab': open them in a new browser tab. - '""' (empty): returned only when tracing was never configured; rejected in requests. [popup, tab]
+  - type (string) (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+  - updated_at (string) (required) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-info --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
@@ -108,47 +108,47 @@ Retrieve details for multiple RUM applications by their IDs in one request.
 API: POST /rum/application/infos (rum-application-read-infos)
 
 Request fields:
-  --application-ids []string (required) — Up to 200 application IDs. Get IDs via 'POST /rum/application/list'.
+  --application-ids []string (required) — Up to 200 application IDs. Duplicates are collapsed, and unknown or deleted IDs are skipped. Get IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Application info items matching the requested 'application_ids' (max 200, deduplicated).
-    - account_id (integer) — Account ID.
-    - alerting (object) — Alerting configuration of the application.
-      - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+  - items (array<object>) (required) — Applications found among the requested 'application_ids', in no guaranteed order. Empty array when none match.
+    - account_id (integer) (required) — ID of the Flashduty account that owns the application.
+    - alerting (object) (required) — Alerting configuration of the application. Always an object.
+      - channel_ids (array<integer>) — On-call channel IDs that receive the alerts; used only when 'delivery_mode' is 'oncall'. Kept as a draft in 'webhook' mode. Can be 'null' when never set.
       - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
-      - enabled (boolean) (required) — Whether alerting is enabled.
+      - enabled (boolean) (required) — Whether alerting is on. 'false' turns alerting off; with 'false', 'webhook_url' is not checked.
       - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
-      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
-    - application_id (string) — Unique application ID.
-    - application_name (string) — Application display name.
-    - client_token (string) — Token used to initialize the RUM SDK.
-    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - created_by (integer) — Creator member ID.
-    - is_private (boolean) — If 'true', the application is only accessible to team members.
-    - links (object) — External-link integration configuration.
-      - enabled (boolean) (required) — Whether external link integration is enabled.
+      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'. Required in that mode while 'enabled' is 'true'; must use 'http' or 'https', and on Flashduty cloud must not resolve to a private, loopback, link-local or reserved address. Ignored in 'oncall' mode. Omitted from responses when empty.
+    - application_id (string) (required) — Unique application ID.
+    - application_name (string) (required) — Application display name.
+    - client_token (string) (required) — Token used to initialize the RUM SDK.
+    - created_at (string) (required) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_by (integer) (required) — Member ID of the creator. The creator can always edit the application.
+    - is_private (boolean) (required) — If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application.
+    - links (object) (required) — External-link integration configuration. Always an object; 'systems' can be 'null' when no system was ever saved.
+      - enabled (boolean) (required) — Master switch for the external-link integration. Treated as 'false' when omitted.
       - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
-        - enabled (boolean) (required) — Whether this external system link is enabled.
+        - enabled (boolean) (required) — Whether this external system link is shown. Treated as 'false' when omitted.
         - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
-        - icon_color (string) — Display color for the link icon.
-        - icon_text (string) — Short text shown in the link icon.
-        - id (string) — Stable client-side identifier for this external system.
+        - icon_color (string) — Display color for the link icon, e.g. '#0F766E'. Omitted from responses when empty.
+        - icon_text (string) — Short text shown in the link icon, e.g. 'S3'. Omitted from responses when empty.
+        - id (string) — Client-chosen identifier for this external system, kept as sent; the server does not validate it.
         - name (string) (required) — Display name of the external system.
         - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
-    - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
-    - no_ip (boolean) — If 'true', IP addresses are not collected.
-    - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+    - no_geo (boolean) (required) — If 'true', geographic location is not inferred from IP.
+    - no_ip (boolean) (required) — If 'true', IP addresses are not collected.
+    - repositories (array<object>) (required) — Linked source code repositories, in order; the first entry is the primary repository. Empty array when none are linked. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
       - repo (string) (required) — GitHub repository in 'owner/name' form.
       - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
-    - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
-    - team_id (integer) — Owning team ID.
-    - tracing (object) — APM tracing integration configuration.
-      - enabled (boolean) (required) — Whether tracing integration is enabled.
-      - endpoint (string) (required) — Trace endpoint URL (http or https).
-      - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-    - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - updated_by (integer) — Last updater member ID.
+    - status (string) (required) — Application status: - 'enabled': the SDK 'client_token' is accepted and data is collected. Every application created through the API starts in this state. - 'disabled': the 'client_token' is rejected, so no new data is collected. No public operation sets this status. - 'deleted': soft-delete marker; deleted applications are filtered out of every response, so this value is never returned. [enabled, disabled, deleted]
+    - team_id (integer) (required) — Owning team ID. Members of this team can edit the application and, when it is private, see it.
+    - tracing (object) (required) — APM tracing integration configuration. Always an object; when tracing was never configured it is 'enabled: false' with empty 'open_type' and 'endpoint'.
+      - enabled (boolean) (required) — Whether trace links are shown on RUM events.
+      - endpoint (string) (required) — Trace endpoint URL; must start with 'http' or 'https'. Required whenever 'tracing' is sent, even with 'enabled: false'. Empty in responses when tracing was never configured.
+      - open_type (string) (required) — How the trace link opens: - 'popup': open trace details in a popup. - 'tab': open them in a new browser tab. - '""' (empty): returned only when tracing was never configured; rejected in requests. [popup, tab]
+    - type (string) (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+    - updated_at (string) (required) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) (required) — Last updater member ID.
 `,
 		Args:    requireBodyFieldOrArgs("application_ids", "application-ids"),
 		Example: `  flashduty rum application-infos --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD","WoyQQ3BohkdtPivubEvE8o"]}'`,
@@ -178,7 +178,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. Get IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringSliceVar(&fApplicationIDs, "application-ids", nil, "Up to 200 application IDs. Duplicates are collapsed, and unknown or deleted IDs are skipped. Get IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -206,53 +206,53 @@ Request fields:
   --page int — Page number (1-based). Default: 1. (min 1)
   --limit int — Page size. Range: 1–100. Default: 20. (1-100)
   --search-after-ctx string
-  --asc bool — Sort ascending if 'true'.
-  --is-my-team bool — If 'true', return only applications belonging to the current user's teams.
+  --asc bool — Sort ascending if 'true'; default 'false' (descending).
+  --is-my-team bool — If 'true', return only applications owned by teams the caller belongs to. When the caller belongs to no team, the list is empty.
   --orderby string — Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. [created_at, updated_at]
-  --query string — Substring match on the application name.
+  --query string — Substring match on the application name (SQL 'LIKE', so '%' and '_' act as wildcards).
   --team-id int — Filter by team ID. Get team IDs via 'POST /team/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
-  - items (array<object>) — RUM applications of the current page.
-    - account_id (integer) — Account ID.
-    - alerting (object) — Alerting configuration of the application.
-      - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+  - has_next_page (boolean) (required) — Whether more pages exist; 'true' when matching records remain beyond the current page.
+  - items (array<object>) (required) — RUM applications on the current page. Empty array when nothing matches.
+    - account_id (integer) (required) — ID of the Flashduty account that owns the application.
+    - alerting (object) (required) — Alerting configuration of the application. Always an object.
+      - channel_ids (array<integer>) — On-call channel IDs that receive the alerts; used only when 'delivery_mode' is 'oncall'. Kept as a draft in 'webhook' mode. Can be 'null' when never set.
       - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
-      - enabled (boolean) (required) — Whether alerting is enabled.
+      - enabled (boolean) (required) — Whether alerting is on. 'false' turns alerting off; with 'false', 'webhook_url' is not checked.
       - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
-      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
-    - application_id (string) — Unique application ID.
-    - application_name (string) — Application display name.
-    - client_token (string) — Token used to initialize the RUM SDK.
-    - created_at (string) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - created_by (integer) — Creator member ID.
-    - is_private (boolean) — If 'true', the application is only accessible to team members.
-    - links (object) — External-link integration configuration.
-      - enabled (boolean) (required) — Whether external link integration is enabled.
+      - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'. Required in that mode while 'enabled' is 'true'; must use 'http' or 'https', and on Flashduty cloud must not resolve to a private, loopback, link-local or reserved address. Ignored in 'oncall' mode. Omitted from responses when empty.
+    - application_id (string) (required) — Unique application ID.
+    - application_name (string) (required) — Application display name.
+    - client_token (string) (required) — Token used to initialize the RUM SDK.
+    - created_at (string) (required) — Creation timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_by (integer) (required) — Member ID of the creator. The creator can always edit the application.
+    - is_private (boolean) (required) — If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application.
+    - links (object) (required) — External-link integration configuration. Always an object; 'systems' can be 'null' when no system was ever saved.
+      - enabled (boolean) (required) — Master switch for the external-link integration. Treated as 'false' when omitted.
       - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
-        - enabled (boolean) (required) — Whether this external system link is enabled.
+        - enabled (boolean) (required) — Whether this external system link is shown. Treated as 'false' when omitted.
         - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
-        - icon_color (string) — Display color for the link icon.
-        - icon_text (string) — Short text shown in the link icon.
-        - id (string) — Stable client-side identifier for this external system.
+        - icon_color (string) — Display color for the link icon, e.g. '#0F766E'. Omitted from responses when empty.
+        - icon_text (string) — Short text shown in the link icon, e.g. 'S3'. Omitted from responses when empty.
+        - id (string) — Client-chosen identifier for this external system, kept as sent; the server does not validate it.
         - name (string) (required) — Display name of the external system.
         - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
-    - no_geo (boolean) — If 'true', geographic location is not inferred from IP.
-    - no_ip (boolean) — If 'true', IP addresses are not collected.
-    - repositories (array<object>) — Linked source code repositories, in order; the first entry is the primary repository. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
+    - no_geo (boolean) (required) — If 'true', geographic location is not inferred from IP.
+    - no_ip (boolean) (required) — If 'true', IP addresses are not collected.
+    - repositories (array<object>) (required) — Linked source code repositories, in order; the first entry is the primary repository. Empty array when none are linked. Linking grants no access by itself: AI sessions can only read repositories granted to the account's GitHub App installations.
       - repo (string) (required) — GitHub repository in 'owner/name' form.
       - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
-    - status (string) — Application status. One of 'enabled' (active, receiving data), 'disabled' (deactivated), 'deleted' (soft-delete marker; every query filters it out, so it never actually appears in responses). [enabled, disabled, deleted]
-    - team_id (integer) — Owning team ID.
-    - tracing (object) — APM tracing integration configuration.
-      - enabled (boolean) (required) — Whether tracing integration is enabled.
-      - endpoint (string) (required) — Trace endpoint URL (http or https).
-      - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
-    - type (string) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-    - updated_at (string) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - updated_by (integer) — Last updater member ID.
-  - total (integer) — Total number of applications matching the filter conditions.
+    - status (string) (required) — Application status: - 'enabled': the SDK 'client_token' is accepted and data is collected. Every application created through the API starts in this state. - 'disabled': the 'client_token' is rejected, so no new data is collected. No public operation sets this status. - 'deleted': soft-delete marker; deleted applications are filtered out of every response, so this value is never returned. [enabled, disabled, deleted]
+    - team_id (integer) (required) — Owning team ID. Members of this team can edit the application and, when it is private, see it.
+    - tracing (object) (required) — APM tracing integration configuration. Always an object; when tracing was never configured it is 'enabled: false' with empty 'open_type' and 'endpoint'.
+      - enabled (boolean) (required) — Whether trace links are shown on RUM events.
+      - endpoint (string) (required) — Trace endpoint URL; must start with 'http' or 'https'. Required whenever 'tracing' is sent, even with 'enabled: false'. Empty in responses when tracing was never configured.
+      - open_type (string) (required) — How the trace link opens: - 'popup': open trace details in a popup. - 'tab': open them in a new browser tab. - '""' (empty): returned only when tracing was never configured; rejected in requests. [popup, tab]
+    - type (string) (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
+    - updated_at (string) (required) — Last update timestamp, Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) (required) — Last updater member ID.
+  - total (integer) (required) — Total number of applications matching the filter conditions.
 `,
 		Example: `  flashduty rum application-list --data '{"is_my_team":false,"limit":20,"p":1,"query":""}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -302,10 +302,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). Default: 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Range: 1–100. Default: 20. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if 'true'.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If 'true', return only applications belonging to the current user's teams.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending if 'true'; default 'false' (descending).")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "If 'true', return only applications owned by teams the caller belongs to. When the caller belongs to no team, the list is empty.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' (creation time) or 'updated_at' (last update time); defaults to 'updated_at' when omitted. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the application name.")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the application name (SQL 'LIKE', so '%' and '_' act as wildcards).")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Filter by team ID. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -324,32 +324,12 @@ Retrieve the live remote configuration of a RUM application and the version it i
 API: POST /rum/application/remote-config/get (rum-application-remote-config-read-get)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - config (object) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
-    - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
-    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
-    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
-      - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
-      - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
-    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
-    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
-    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
-      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
-      - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
-        - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
-        - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
-  - updated_at (string) — Unix timestamp in milliseconds - when the current version was published. 0 when never configured. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - version (integer) — Version the live configuration is stored under. 0 means the application has never been configured.
+  - config (any) (required) — The live configuration (the newest published version). 'null' when the application has never been configured.
+  - updated_at (string) (required) — Unix timestamp in milliseconds - when the current version was published. 0 when never configured. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - version (integer) (required) — Version the live configuration is stored under. 0 means the application has never been configured.
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-remote-config-get --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o"}'`,
@@ -379,7 +359,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -403,38 +383,38 @@ API: POST /rum/application/remote-config/history/list (rum-application-remote-co
 
 Request fields:
   --page int — Zero-based page index; offset is p multiplied by limit. (0-100000)
-  --limit int — Page size. Default 20, max 100. (max 100)
+  --limit int — Page size. '0' or a negative value means 20; values above 100 are treated as 100.
   --search-after-ctx string
-  --application-id string (required) — RUM application ID.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
   --asc bool — Ascending order. Default: false (descending).
-  --orderby string — Sort field. Default: 'updated_at'. [updated_at, version]
+  --orderby string — Sort field: - 'updated_at': publish time (default). - 'version': version number. Any other value falls back to 'updated_at'. [updated_at, version]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) — Whether more pages remain.
-  - items (array<object>) — Version items, newest first by default.
-    - config (object) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+  - has_next_page (boolean) (required) — 'true' when more versions remain after this page.
+  - items (array<object>) (required) — Versions on this page, newest first by default. Empty array when the application has never been configured.
+    - config (object) (required) — The configuration content that went live under this version.
       - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
-      - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
-      - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+      - custom (object) — Free-form key/value map that SDKs hand to the host app verbatim; the platform does not interpret it. At most 5 keys, each key 1–64 bytes, each value valid JSON of at most 4 KB nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it. Omitted from responses when empty.
+      - default (object) — Values every client receives unless a matching rule overrides them.
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
         - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
         - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
-      - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
-      - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
-      - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
-        - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+        - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+        - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+        - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
+      - enabled (boolean) — Kill switch. When 'false' the SDK config endpoint returns no values and SDKs fall back to their init values; 'default' and 'rules' are kept. Treated as 'false' when omitted.
+      - refresh_on_foreground (boolean) — If 'true', clients re-check the configuration when they return to the foreground instead of waiting for the next poll. Default 'false'; omitted from responses when 'false'.
+      - rules (array<object>) — Targeting rules, evaluated in order; the first match wins. At most 20. Can be 'null' when the configuration was saved without rules.
+        - match (object) (required) — Conditions on what the SDK reports in its config request, combined with AND and compared as exact strings. Keys are limited to 'env', 'app_version' and 'sdk'; values are 1–256 bytes. A key the SDK does not report never matches.
         - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-    - content_hash (string) — Hash of the configuration content; lets the console identify versions with identical content.
-    - equivalent_to (integer) — Earliest version carrying the same content, when that is not this version itself.
-    - reason (string) — Operator's note left when the version was published. Empty when none was given.
-    - updated_at (string) — Unix timestamp in milliseconds - when the version was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - updated_by (integer) — ID of the member who published the version.
-    - updated_by_name (string) — Name of the member who published the version.
-    - version (integer) — Version number, unique within the application.
-  - total (integer) — Total number of versions.
+    - content_hash (string) (required) — Fingerprint of the stored configuration: the first 16 hex characters of its SHA-256. Versions with equal hashes have identical content. Can be empty for older versions.
+    - equivalent_to (integer) — Earliest retained version with the same 'content_hash', e.g. the version a revert restored. Omitted when this version is itself the earliest.
+    - reason (string) (required) — Free-text note (not an enum) sent as 'reason' when the version was published or reverted; '""' when none was given.
+    - updated_at (string) (required) — Unix timestamp in milliseconds - when the version was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - updated_by (integer) (required) — ID of the member who published the version.
+    - updated_by_name (string) (required) — Name of the member who published the version at publish time, truncated to 128 characters.
+    - version (integer) (required) — Version number, unique within the application.
+  - total (integer) (required) — Number of retained versions (at most 50).
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-remote-config-history-list --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","asc":false,"limit":20,"orderby":"updated_at","p":0}'`,
@@ -480,11 +460,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Zero-based page index; offset is p multiplied by limit. (0-100000)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Default 20, max 100. (max 100)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. '0' or a negative value means 20; values above 100 are treated as 100.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order. Default: false (descending).")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at'. [updated_at, version]")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: - 'updated_at': publish time (default). - 'version': version number. Any other value falls back to 'updated_at'. [updated_at, version]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -505,41 +485,41 @@ Evaluate a draft remote configuration against a client context without publishin
 API: POST /rum/application/remote-config/preview (rum-application-remote-config-read-preview)
 
 Request fields:
-  --app-version string — App version the simulated client reports.
-  --application-id string (required) — RUM application ID.
-  --env string — Environment the simulated client reports.
-  --sdk string — SDK name and version the simulated client reports, e.g. 'web@2.4.1'.
-  config (object, via --data) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+  --app-version string — App version the simulated client reports, compared exactly with rules' 'match.app_version' (no range or prefix matching). Omitted = not reported.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --env string — Environment the simulated client reports, compared exactly with rules' 'match.env'. Omitted = not reported, so rules that test 'env' cannot match.
+  --sdk string — SDK identifier the simulated client reports, e.g. 'web@2.4.1', compared exactly with rules' 'match.sdk'. Omitted = not reported.
+  config (object, via --data) — Draft configuration to evaluate, validated like 'POST /rum/application/remote-config/update'. Omit to evaluate the live configuration.
     - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
-    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
-    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+    - custom (object) — Free-form key/value map that SDKs hand to the host app verbatim; the platform does not interpret it. At most 5 keys, each key 1–64 bytes, each value valid JSON of at most 4 KB nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it. Omitted from responses when empty.
+    - default (object) — Values every client receives unless a matching rule overrides them.
+      - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
       - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
       - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
-    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
-    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
-    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
-      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+      - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+      - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+      - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
+    - enabled (boolean) — Kill switch. When 'false' the SDK config endpoint returns no values and SDKs fall back to their init values; 'default' and 'rules' are kept. Treated as 'false' when omitted.
+    - refresh_on_foreground (boolean) — If 'true', clients re-check the configuration when they return to the foreground instead of waiting for the next poll. Default 'false'; omitted from responses when 'false'.
+    - rules (array<object>) — Targeting rules, evaluated in order; the first match wins. At most 20. Can be 'null' when the configuration was saved without rules.
+      - match (object) (required) — Conditions on what the SDK reports in its config request, combined with AND and compared as exact strings. Keys are limited to 'env', 'app_version' and 'sdk'; values are 1–256 bytes. A key the SDK does not report never matches.
       - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
         - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
         - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+        - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+        - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+        - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - hit_rule_index (integer) — 0-based index of the rule that decided the result, or -1 when only the default applied.
-  - values (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-    - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+  - hit_rule_index (integer) (required) — 0-based index into 'config.rules' of the first rule that matched, or '-1' when no rule matched (only 'default' applied) or the configuration is disabled or absent.
+  - values (object) (required) — 'default' merged with the matching rule's 'set'. Fields set by neither are omitted; an empty object means the client keeps all its init values.
+    - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
     - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
     - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-    - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-    - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-    - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+    - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+    - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+    - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-remote-config-preview --data '{"app_version":"2.14.3","application_id":"WoyQQ3BohkdtPivubEvE8o","env":"production","sdk":"web@2.4.1"}'`,
@@ -578,10 +558,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAppVersion, "app-version", "", "App version the simulated client reports.")
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fEnv, "env", "", "Environment the simulated client reports.")
-	cmd.Flags().StringVar(&fSdk, "sdk", "", "SDK name and version the simulated client reports, e.g. 'web@2.4.1'.")
+	cmd.Flags().StringVar(&fAppVersion, "app-version", "", "App version the simulated client reports, compared exactly with rules' 'match.app_version' (no range or prefix matching). Omitted = not reported.")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fEnv, "env", "", "Environment the simulated client reports, compared exactly with rules' 'match.env'. Omitted = not reported, so rules that test 'env' cannot match.")
+	cmd.Flags().StringVar(&fSdk, "sdk", "", "SDK identifier the simulated client reports, e.g. 'web@2.4.1', compared exactly with rules' 'match.sdk'. Omitted = not reported.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -601,12 +581,12 @@ Republish an earlier remote configuration version's content as a new version.
 API: POST /rum/application/remote-config/history/revert (rum-application-remote-config-write-history-revert)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --reason string — Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)
-  --version int (required) — History version to republish. (min 1)
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --reason string — Optional free-text note (not an enum), at most 255 characters, stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. The server does not fill it in when omitted. (≤255 chars)
+  --version int (required) — Version to restore. Must be one of the retained versions listed by 'POST /rum/application/remote-config/history/list'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - version (integer) — New version number created by the revert.
+  - version (integer) — New version number created by the revert (previous highest version + 1).
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-remote-config-history-revert --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","reason":"Rolled back after the Q4 launch incident","version":7}'`,
@@ -642,9 +622,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fReason, "reason", "", "Operator's note. The console fills in 'rolled back to vN' when left empty. (≤255 chars)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "History version to republish. (required) (min 1)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fReason, "reason", "", "Optional free-text note (not an enum), at most 255 characters, stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. The server does not fill it in when omitted. (≤255 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "Version to restore. Must be one of the retained versions listed by 'POST /rum/application/remote-config/history/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -663,32 +643,32 @@ Publish a complete new remote configuration version for a RUM application.
 API: POST /rum/application/remote-config/update (rum-application-remote-config-write-update)
 
 Request fields:
-  --application-id string (required) — RUM application ID.
-  --reason string — Operator's note on why this version was published. Stored verbatim. (≤255 chars)
-  config (object, via --data) (required) — The whole per-application remote configuration. A change reaches an SDK asynchronously and is applied when that SDK creates its next session, so a running session never flips a decision mid-flight.
+  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
+  --reason string — Optional free-text note (not an enum) on why this version was published, at most 255 characters; stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. (≤255 chars)
+  config (object, via --data) (required) — The complete configuration to publish.
     - activation (string) — How a change lands on a client that is already running: 'next_session' (the default, and what an empty value means) leaves running sessions untouched and applies the change to new sessions; 'immediate' ends the running session as soon as the change arrives so a new session starts under the new configuration. [next_session, immediate]
-    - custom (object) — Application-defined pass-through values handed to the host app verbatim. At most 5 keys, each key up to 64 bytes, each value up to 4 KB of JSON nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it.
-    - default (object) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-      - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+    - custom (object) — Free-form key/value map that SDKs hand to the host app verbatim; the platform does not interpret it. At most 5 keys, each key 1–64 bytes, each value valid JSON of at most 4 KB nested at most 3 levels, 16 KB in total. Anyone holding the public client token can read it. Omitted from responses when empty.
+    - default (object) — Values every client receives unless a matching rule overrides them.
+      - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
       - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
       - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-      - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-      - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-      - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
-    - enabled (boolean) — Kill switch. When false the engine reports no values at all and SDKs fall back to their init values.
-    - refresh_on_foreground (boolean) — Let clients re-check the configuration when they return to the foreground instead of waiting for the next poll.
-    - rules (array<object>) — Targeting rules, evaluated in order; at most 20 per application.
-      - match (object) (required) — Key/value conditions the SDK's config request must equal. Keys are limited to 'env', 'app_version' and 'sdk'; values are at most 256 bytes.
+      - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+      - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+      - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
+    - enabled (boolean) — Kill switch. When 'false' the SDK config endpoint returns no values and SDKs fall back to their init values; 'default' and 'rules' are kept. Treated as 'false' when omitted.
+    - refresh_on_foreground (boolean) — If 'true', clients re-check the configuration when they return to the foreground instead of waiting for the next poll. Default 'false'; omitted from responses when 'false'.
+    - rules (array<object>) — Targeting rules, evaluated in order; the first match wins. At most 20. Can be 'null' when the configuration was saved without rules.
+      - match (object) (required) — Conditions on what the SDK reports in its config request, combined with AND and compared as exact strings. Keys are limited to 'env', 'app_version' and 'sdk'; values are 1–256 bytes. A key the SDK does not report never matches.
       - set (object) (required) — The SDK knobs a configuration can set. Every field is optional: a value absent from both rule and default is omitted from the SDK response, which tells the SDK to keep its init value.
-        - defaultPrivacyLevel (string) — How Session Replay masks a page by default. [mask, mask-user-input, allow]
+        - defaultPrivacyLevel (string) — How Session Replay masks a page by default: - 'mask': replaces text and hides input values. - 'mask-user-input': keeps page text but hides what users type. - 'allow': records the page as it is; content already uploaded cannot be masked later. [mask, mask-user-input, allow]
         - sessionOnError (boolean) — Keep sessions the session sample rate did not draw when they report an error; applies only to sessions that rate missed, so it does nothing alongside a rate of 100.
         - sessionReplayOnError (boolean) — The same switch for Session Replay: un-sampled sessions still record and upload their recording only when the session errors.
-        - sessionReplaySampleRate (integer) — Session Replay sampling rate (0-100). (0-100)
-        - sessionSampleRate (integer) — Session sampling rate (0-100). (0-100)
-        - traceSampleRate (integer) — Trace sampling rate (0-100): which sessions inject trace headers into their requests. (0-100)
+        - sessionReplaySampleRate (integer) — Percentage of sessions that record Session Replay (0–100). (0-100)
+        - sessionSampleRate (integer) — Percentage of sessions collected (0–100). (0-100)
+        - traceSampleRate (integer) — Percentage of sessions that inject trace headers into their requests (0–100). Decided per session: a session traces all of its requests or none. (0-100)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - version (integer) — New published version number.
+  - version (integer) — Version number allocated to the published configuration (previous highest version + 1).
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-remote-config-update --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","config":{"activation":"next_session","custom":{"feature_flags":{"checkout_v2":true}},"default":{"defaultPrivacyLevel":"mask-user-input","sessionReplaySampleRate":20,"sessionSampleRate":100,"traceSampleRate":100},"enabled":true,"refresh_on_foreground":false,"rules":[{"match":{"env":"production"},"set":{"defaultPrivacyLevel":"mask","sessionReplaySampleRate":0,"sessionSampleRate":5}}]},"reason":"Tighten replay sampling for the Q4 launch"}'`,
@@ -721,8 +701,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. (required)")
-	cmd.Flags().StringVar(&fReason, "reason", "", "Operator's note on why this version was published. Stored verbatim. (≤255 chars)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fReason, "reason", "", "Optional free-text note (not an enum) on why this version was published, at most 255 characters; stored verbatim and returned as 'reason' by 'POST /rum/application/remote-config/history/list'. (≤255 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -741,16 +721,16 @@ Send a sample RUM alert event to verify an application's webhook URL.
 API: POST /rum/application/webhook/test (rum-application-webhook-test)
 
 Request fields:
-  --application-id string (required) — RUM application ID. Get application IDs via 'POST /rum/application/list'.
-  --webhook-url string (required) — Webhook URL to receive the sample alert event.
+  --application-id string (required) — RUM application whose name is put in the sample event's 'labels.application_name'. The caller must be able to edit it. Get application IDs via 'POST /rum/application/list'.
+  --webhook-url string (required) — Webhook URL to receive the sample alert event; must use 'http' or 'https'. Not saved: use 'POST /rum/application/update' with 'alerting.webhook_url' to store it.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - message (string) (required) — 'ok' on success, otherwise the delivery error message.
-  - ok (boolean) (required) — Whether the webhook endpoint accepted the sample event.
-  - status_code (integer) (required) — HTTP status code returned by the webhook endpoint. 0 when the request did not receive a response.
+  - message (string) (required) — 'ok' on success. Otherwise 'unexpected status <code>' when the endpoint answered with an error status, or 'request failed: <error>' when no response was received.
+  - ok (boolean) (required) — 'true' when the endpoint answered with a status below 400 (after following redirects); 'false' otherwise.
+  - status_code (integer) (required) — HTTP status code of the last delivery attempt. '0' when no response was received (connection error or timeout).
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
-		Example: `  flashduty rum application-webhook-test --data '{"application_id":"rum-app-prod","webhook_url":"https://hooks.example.com/rum-alerts"}'`,
+		Example: `  flashduty rum application-webhook-test --data '{"application_id":"WoyQQ3BohkdtPivubEvE8o","webhook_url":"https://hooks.example.com/rum-alerts"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -780,8 +760,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application ID. Get application IDs via 'POST /rum/application/list'. (required)")
-	cmd.Flags().StringVar(&fWebhookURL, "webhook-url", "", "Webhook URL to receive the sample alert event. (required)")
+	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "RUM application whose name is put in the sample event's 'labels.application_name'. The caller must be able to edit it. Get application IDs via 'POST /rum/application/list'. (required)")
+	cmd.Flags().StringVar(&fWebhookURL, "webhook-url", "", "Webhook URL to receive the sample alert event; must use 'http' or 'https'. Not saved: use 'POST /rum/application/update' with 'alerting.webhook_url' to store it. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -805,39 +785,39 @@ API: POST /rum/application/create (rum-application-write-create)
 
 Request fields:
   --application-name string (required) — Application name. 1–40 characters. (1-40 chars)
-  --is-private bool — Restrict access to team members only.
-  --no-geo bool — Do not infer geographic location.
-  --no-ip bool — Do not collect IP addresses.
-  --team-id int (required) — Owning team ID. Get team IDs via 'POST /team/list'.
+  --is-private bool — If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application. Default 'false'.
+  --no-geo bool — If 'true', geographic location is not inferred from the client IP. Default 'false'.
+  --no-ip bool — If 'true', client IP addresses are not collected. Default 'false'.
+  --team-id int (required) — Owning team ID. Get team IDs via 'POST /team/list'. (min 1)
   --type string (required) — Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
   alerting (object, via --data) — Alerting configuration; defaults to disabled ('enabled: false') when omitted.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+    - channel_ids (array<integer>) — On-call channel IDs that receive the alerts; used only when 'delivery_mode' is 'oncall'. Kept as a draft in 'webhook' mode. Can be 'null' when never set.
     - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
-    - enabled (boolean) (required) — Whether alerting is enabled.
+    - enabled (boolean) (required) — Whether alerting is on. 'false' turns alerting off; with 'false', 'webhook_url' is not checked.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
-    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'. Required in that mode while 'enabled' is 'true'; must use 'http' or 'https', and on Flashduty cloud must not resolve to a private, loopback, link-local or reserved address. Ignored in 'oncall' mode. Omitted from responses when empty.
   links (object, via --data) — Optional external-link integration configuration.
-    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - enabled (boolean) (required) — Master switch for the external-link integration. Treated as 'false' when omitted.
     - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
-      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - enabled (boolean) (required) — Whether this external system link is shown. Treated as 'false' when omitted.
       - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
-      - icon_color (string) — Display color for the link icon.
-      - icon_text (string) — Short text shown in the link icon.
-      - id (string) — Stable client-side identifier for this external system.
+      - icon_color (string) — Display color for the link icon, e.g. '#0F766E'. Omitted from responses when empty.
+      - icon_text (string) — Short text shown in the link icon, e.g. 'S3'. Omitted from responses when empty.
+      - id (string) — Client-chosen identifier for this external system, kept as sent; the server does not validate it.
       - name (string) (required) — Display name of the external system.
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   repositories (array<object>, via --data) — Source code repositories to link, in order; the first entry is the primary repository. At most 10 entries.
     - repo (string) (required) — GitHub repository in 'owner/name' form.
     - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
-  tracing (object, via --data) — Optional APM tracing integration configuration.
-    - enabled (boolean) (required) — Whether tracing integration is enabled.
-    - endpoint (string) (required) — Trace endpoint URL (http or https).
-    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+  tracing (object, via --data) — Optional APM tracing integration configuration. Stored as empty ('enabled: false', empty 'open_type' and 'endpoint') when omitted.
+    - enabled (boolean) (required) — Whether trace links are shown on RUM events.
+    - endpoint (string) (required) — Trace endpoint URL; must start with 'http' or 'https'. Required whenever 'tracing' is sent, even with 'enabled: false'. Empty in responses when tracing was never configured.
+    - open_type (string) (required) — How the trace link opens: - 'popup': open trace details in a popup. - 'tab': open them in a new browser tab. - '""' (empty): returned only when tracing was never configured; rejected in requests. [popup, tab]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - application_id (string) — Auto-generated unique application ID.
-  - application_name (string) — Application display name.
-  - client_token (string) — Token for RUM SDK initialization.
+  - application_id (string) (required) — Server-generated application ID (22-character short UUID); pass it as 'application_id' to the other application operations.
+  - application_name (string) (required) — Application display name.
+  - client_token (string) (required) — Token used to initialize the RUM SDK. Also returned by 'POST /rum/application/info'.
 `,
 		Args:    requireBodyFieldOrExactArg("team_id", "team-id"),
 		Example: `  flashduty rum application-create --data '{"application_name":"My Web App","is_private":false,"links":{"enabled":true,"systems":[{"enabled":true,"event_types":["crash","error"],"icon_color":"#0F766E","icon_text":"S3","id":"s3-crash-logs","name":"S3 Crash Logs","url":"https://s3.example.com/logs?app=${application_id}\u0026trace=${trace_id}"}]},"team_id":2477033058131,"type":"browser"}'`,
@@ -883,10 +863,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "Application name. 1–40 characters. (required) (1-40 chars)")
-	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to team members only.")
-	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "Do not infer geographic location.")
-	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "Do not collect IP addresses.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. (required)")
+	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "If 'true', only the account owner, account admins, the creator and members of the owning team can see or edit the application. Default 'false'.")
+	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "If 'true', geographic location is not inferred from the client IP. Default 'false'.")
+	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "If 'true', client IP addresses are not collected. Default 'false'.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&fType, "type", "", "Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | (required) [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -958,41 +938,41 @@ func genApplicationsWriteUpdateCmd() *cobra.Command {
 		Short: "Update application",
 		Long: `Update application.
 
-Update an existing RUM application. All fields except 'application_id' are optional — only provided fields are updated.
+Update selected fields of a RUM application; fields left out of the request keep their current values.
 
 API: POST /rum/application/update (rum-application-write-update)
 
 Request fields:
   --application-id string (required) — Application ID to update. Get application IDs via 'POST /rum/application/list'.
   --application-name string — New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)
-  --is-private bool — Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.
+  --is-private bool — 'true' limits access to the account owner, account admins, the creator and members of the owning team; 'false' makes the application visible to everyone in the account. Omit to leave unchanged.
   --no-geo bool — When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.
   --no-ip bool — When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.
-  --team-id int — Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.
+  --team-id int — New owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged. Moving the application to another team changes who can edit it.
   --type string — Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]
-  alerting (object, via --data) — Alerting configuration. Omit to leave unchanged.
-    - channel_ids (array<integer>) — Channel IDs to send alerts to. Used only when 'delivery_mode' is 'oncall'.
+  alerting (object, via --data) — Alerting configuration. When sent, it replaces the stored alerting object (except 'integration_id', which the server manages). Omit to leave unchanged.
+    - channel_ids (array<integer>) — On-call channel IDs that receive the alerts; used only when 'delivery_mode' is 'oncall'. Kept as a draft in 'webhook' mode. Can be 'null' when never set.
     - delivery_mode (string) — Alert delivery channel: 'oncall' routes alert events through Flashduty On-call, 'webhook' POSTs them directly to 'webhook_url'. An empty value is treated as 'oncall', and on create/update it is persisted as the deployment default ('webhook' on RUM-only on-premises deployments, 'oncall' otherwise). Omitted when empty (legacy rows). [oncall, webhook]
-    - enabled (boolean) (required) — Whether alerting is enabled.
+    - enabled (boolean) (required) — Whether alerting is on. 'false' turns alerting off; with 'false', 'webhook_url' is not checked.
     - integration_id (integer) — Associated on-call integration ID (read-only, auto-assigned on save when 'delivery_mode' is 'oncall').
-    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'; required in that mode, ignored otherwise. Omitted when empty.
-  links (object, via --data) — External-link integration configuration. Omit to leave unchanged.
-    - enabled (boolean) (required) — Whether external link integration is enabled.
+    - webhook_url (string) — URL that receives alert events when 'delivery_mode' is 'webhook'. Required in that mode while 'enabled' is 'true'; must use 'http' or 'https', and on Flashduty cloud must not resolve to a private, loopback, link-local or reserved address. Ignored in 'oncall' mode. Omitted from responses when empty.
+  links (object, via --data) — External-link integration configuration. When sent, it replaces the stored object, including the whole 'systems' list. Omit to leave unchanged.
+    - enabled (boolean) (required) — Master switch for the external-link integration. Treated as 'false' when omitted.
     - systems (array<object>) — External systems whose URL templates can be opened from matching RUM events.
-      - enabled (boolean) (required) — Whether this external system link is enabled.
+      - enabled (boolean) (required) — Whether this external system link is shown. Treated as 'false' when omitted.
       - event_types (array<string>) (required) — RUM event types where this external system link is shown; at least one is required. | Value | Meaning | |---|---| | 'crash' | Crash events (errors flagged 'is_crash') | | 'error' | Error events | | 'view' | Page/screen view events | | 'action' | User action events | | 'resource' | Resource load events | | 'session' | Session events | | 'all' | All event types | [crash, error, view, action, resource, session, all]
-      - icon_color (string) — Display color for the link icon.
-      - icon_text (string) — Short text shown in the link icon.
-      - id (string) — Stable client-side identifier for this external system.
+      - icon_color (string) — Display color for the link icon, e.g. '#0F766E'. Omitted from responses when empty.
+      - icon_text (string) — Short text shown in the link icon, e.g. 'S3'. Omitted from responses when empty.
+      - id (string) — Client-chosen identifier for this external system, kept as sent; the server does not validate it.
       - name (string) (required) — Display name of the external system.
       - url (string) (required) — HTTP or HTTPS URL template. '${var}' tokens are resolved from the RUM event context.
   repositories (array<object>, via --data) — Replaces the linked source code repositories when present; an empty array removes all links, and omitting the field leaves them unchanged. At most 10 entries.
     - repo (string) (required) — GitHub repository in 'owner/name' form.
     - subdir (string) — Directory holding the application inside the repository, relative to the repository root. '.' is the repository root; an empty value is saved as '.'.
-  tracing (object, via --data) — APM tracing integration configuration. Omit to leave unchanged.
-    - enabled (boolean) (required) — Whether tracing integration is enabled.
-    - endpoint (string) (required) — Trace endpoint URL (http or https).
-    - open_type (string) (required) — How to open the trace link. One of 'popup' (open trace details in a popup) or 'tab' (open in a new browser tab). [popup, tab]
+  tracing (object, via --data) — APM tracing integration configuration. When sent, it replaces the stored object and must carry a valid 'open_type' and 'endpoint'. Omit to leave unchanged.
+    - enabled (boolean) (required) — Whether trace links are shown on RUM events.
+    - endpoint (string) (required) — Trace endpoint URL; must start with 'http' or 'https'. Required whenever 'tracing' is sent, even with 'enabled: false'. Empty in responses when tracing was never configured.
+    - open_type (string) (required) — How the trace link opens: - 'popup': open trace details in a popup. - 'tab': open them in a new browser tab. - '""' (empty): returned only when tracing was never configured; rejected in requests. [popup, tab]
 `,
 		Args:    requireBodyFieldOrExactArg("application_id", "application-id"),
 		Example: `  flashduty rum application-update --data '{"alerting":{"channel_ids":[2490121812131],"enabled":true},"application_id":"WoyQQ3BohkdtPivubEvE8o","application_name":"My Web App v2","links":{"enabled":true,"systems":[{"enabled":true,"event_types":["crash","error"],"icon_color":"#0F766E","icon_text":"S3","id":"s3-crash-logs","name":"S3 Crash Logs","url":"https://s3.example.com/logs?app=${application_id}\u0026trace=${trace_id}"}]}}'`,
@@ -1046,10 +1026,10 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fApplicationID, "application-id", "", "Application ID to update. Get application IDs via 'POST /rum/application/list'. (required)")
 	cmd.Flags().StringVar(&fApplicationName, "application-name", "", "New application name, 1–40 characters. Omit to leave unchanged. (1-40 chars)")
-	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "Restrict access to members of the owning team; 'false' explicitly makes the application public. Omit to leave unchanged.")
+	cmd.Flags().BoolVar(&fIsPrivate, "is-private", false, "'true' limits access to the account owner, account admins, the creator and members of the owning team; 'false' makes the application visible to everyone in the account. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fNoGeo, "no-geo", false, "When 'true', stop inferring geographic location from IP; when 'false', resume inferring it. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fNoIP, "no-ip", false, "When 'true', stop collecting user IP addresses; when 'false', resume collecting them. Omit to leave unchanged.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID. Get team IDs via 'POST /team/list'. Omit to leave unchanged. Moving the application to another team changes who can edit it.")
 	cmd.Flags().StringVar(&fType, "type", "", "Application type. Omit to leave unchanged. Platform identifier: | Value | Meaning | |---|---| | 'browser' | Web browser application (JavaScript SDK) | | 'ios' | Apple iOS application | | 'android' | Android application | | 'react-native' | React Native application | | 'flutter' | Flutter application | | 'kotlin-multiplatform' | Kotlin Multiplatform application | | 'roku' | Roku channel application | | 'unity' | Unity application | | 'miniprogram' | WeChat mini program | | 'harmony' | HarmonyOS application | | 'electron' | Electron desktop application | [browser, ios, android, react-native, flutter, kotlin-multiplatform, roku, unity, miniprogram, harmony, electron]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

@@ -62,7 +62,7 @@ flashduty role upsert --role-id <role-id> --role-name "Incident Responder" \
 
 ### delete <role-id>
 Delete a role
-- `--is-force` bool — When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.
+- `--is-force` bool — When false (default), deletion fails with 'ReferenceExist' while members still hold the role, listing them in 'data.refs'. When true, the role is first revoked from all holders and then deleted. Does not bypass the SSO default-role check.
 - `<role-id>` (positional, required) int64 — Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 ### disable <role-id>
@@ -87,12 +87,12 @@ List roles
 
 ### member-grant <member-id> [<id2>...]
 Grant role to members
-- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role.
+- `<member-ids>` (positional, required) intSlice — IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected.
 - `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### member-revoke <member-id> [<id2>...]
 Revoke role from members
-- `<member-ids>` (positional, required) intSlice — Member IDs to grant/revoke the role.
+- `<member-ids>` (positional, required) intSlice — IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected.
 - `--role-id` int64 (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 
 ### permission-factor-list
@@ -102,15 +102,15 @@ List permission factors
 
 ### permission-list
 List permissions
-- `--role-ids` intSlice — Filter to permissions granted to these roles.
-- `--with-all` bool — If true, return all permissions with is_granted set to indicate which are granted.
+- `--role-ids` intSlice — Role IDs (built-in or custom) whose granted permissions to return or mark. IDs that do not exist are ignored.
+- `--with-all` bool — When true, return every permission and use 'is_granted' to mark the ones granted by 'role_ids'. When false (default), return only the granted permissions.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); class (string); description (string); id (integer); is_granted (boolean); permission_name (string); permission_type (string); scope (string); source (string); source_ref (string); status (string)
 
 ### upsert
 Create or update a role
-- `--description` string — Role description. (≤499 chars)
-- `--permission-ids` intSlice — Permission IDs to grant. Replaces the existing set.
-- `--role-id` int64 — Role ID. Omit or set to 0 to create.
+- `--description` string — Role description, up to 499 characters. Omitting it on update clears the stored description. (≤499 chars)
+- `--permission-ids` intSlice — IDs of the permissions the role grants (from 'POST /role/permission/list'). Replaces the existing set; omitting it or sending an empty array leaves the role with no permissions.
+- `--role-id` int64 — ID of the custom role to update. Omit or set to 0 to create a new role. Do not pass the built-in role IDs '2', '6', or '8'.
 - `--role-name` string (required) — Role display name. 1–39 characters. (1-39 chars)
 - response: single object (`data` unwrapped to the top level) — fields: role_id (integer); role_name (string)
 

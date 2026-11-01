@@ -42,17 +42,17 @@ flashduty channel create --channel-name "production-api" --team-id <team-id> \
 
 ### create
 Create channel
-- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. · enum: trigger | update
+- `--auto-resolve-mode` string — How the auto-resolve timer runs. 'trigger' (default) starts the timer once when the incident is triggered; 'update' restarts it whenever a new alert merges into the incident. · enum: trigger | update
 - `--auto-resolve-timeout` int64 — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
-- `--channel-name` string (required) — Channel name. 1 to 59 characters. (1-59 chars)
+- `--channel-name` string (required) — Channel name, 1–59 characters, unique within the account. Must not contain a comma or start or end with whitespace. (1-59 chars)
 - `--description` string — Free-form description. Up to 500 characters. (≤500 chars)
 - `--disable-auto-close` bool — Disable automatic incident closing.
 - `--disable-outlier-detection` bool — Disable outlier incident detection.
-- `--is-external-report-enabled` bool — Allow external reporters to file incidents into this channel.
+- `--is-external-report-enabled` bool — When true, external reporters can file incidents into this channel, and the response carries the generated 'external_report_token'.
 - `--is-private` bool — When true, the channel is visible only to its managing teams.
 - `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
-- `--plugin-ids` intSlice — IDs of plugins (integrations) subscribed to this channel.
-- `--team-id` int64 (required) — Owning team ID; obtain it from 'POST /team/list'.
+- `--plugin-ids` intSlice — Integration type IDs (the 'plugin_id' shown on integrations returned by 'POST /integration/list'). For each ID, a channel-exclusive integration of that type is created, named after the type. An unknown ID returns 'InvalidParameter'.
+- `--team-id` int64 (required) — Owning team ID; obtain it from 'POST /team/list'. Required and must exist.
 - body-only (`--data`): escalate_rule (object); event_group (object); flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: channel_id (integer); channel_name (string); external_report_token (string)
 
@@ -96,17 +96,17 @@ List channels
 
 ### update <channel-id>
 Update channel
-- `--auto-resolve-mode` string — Auto-resolve timing mode: 'trigger' starts the timer when the incident triggers, 'update' restarts it on every alert update. Applied only when 'auto_resolve_timeout' is also present in the request. · enum: trigger | update
+- `--auto-resolve-mode` string — How the auto-resolve timer runs: 'trigger' starts it once when the incident is triggered, 'update' restarts it whenever a new alert merges in. Applied only together with 'auto_resolve_timeout'; if 'auto_resolve_timeout' is sent without it, the mode resets to 'trigger'. · enum: trigger | update
 - `--auto-resolve-timeout` int64 — Auto-resolve timeout in seconds. 0 disables auto-resolve. Max 30 days. (0-2592000)
 - `<channel-id>` (positional, required) int64 — ID of the channel to update; obtain it from 'POST /channel/list'.
-- `--channel-name` string — New channel name. 1 to 59 characters. (1-59 chars)
+- `--channel-name` string — New channel name, 1–59 characters, unique within the account. A changed name must not contain a comma or start or end with whitespace. Omit or pass 'null' to keep the current name. (1-59 chars)
 - `--description` string — New description. Up to 500 characters. (≤500 chars)
 - `--disable-auto-close` bool — Disable automatic incident closing.
 - `--disable-outlier-detection` bool — Disable outlier incident detection.
-- `--is-external-report-enabled` bool — Allow external reporters to file incidents into this channel.
+- `--is-external-report-enabled` bool — 'true' enables external reporting and generates a new token, returned in the response (any previous token stops working); 'false' disables it and clears the token.
 - `--is-private` bool — When true, the channel is visible only to its managing teams.
-- `--managing-team-ids` intSlice — Additional teams that can manage the channel. Up to 3 entries.
-- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
+- `--managing-team-ids` intSlice — Replaces the additional managing teams, up to 3; every ID must exist. Pass '[]' to remove them all; omit to keep the current list.
+- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'. Must exist. Omit or pass 'null' to keep the current team.
 - body-only (`--data`): event_group (object); flapping (object); group (object)
 - response: single object (`data` unwrapped to the top level) — fields: external_report_token (string)
 

@@ -24,13 +24,13 @@ Request fields:
   --role-id int (required) — Role ID to query. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - created_at (string) (required) — Unix epoch seconds the role was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - description (string) (required) — Role description.
-  - editable (boolean) (required) — False for built-in roles which cannot be modified.
-  - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
-  - role_id (integer) (required) — Unique role ID.
-  - role_name (string) (required) — Role display name.
-  - status (string) (required) — Role status. [enabled, disabled]
+  - created_at (string) (required) — Time the role was created, Unix timestamp in seconds. Built-in roles carry a fixed timestamp. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - description (string) (required) — Role description. For built-in roles it is localized by the request language.
+  - editable (boolean) (required) — 'false' for the built-in roles (Admin, Responder, Viewer); 'true' for custom roles.
+  - permission_ids (array<integer>) (required) — IDs of the permissions the role grants, in ascending order; resolve them with 'POST /role/permission/list'. Empty array when none.
+  - role_id (integer) (required) — Role ID. Built-in roles use the fixed IDs '2' (Admin), '6' (Responder), and '8' (Viewer).
+  - role_name (string) (required) — Role name, unique in the account. The built-in roles are named 'Admin', 'Responder', and 'Viewer' in every language.
+  - status (string) (required) — Role status. 'enabled' — active; 'disabled' — turned off with 'POST /role/disable'; it grants no permissions to the members who hold it. Built-in roles are always 'enabled'; deleted roles are never returned. [enabled, disabled]
   - updated_at (string) (required) — Unix epoch seconds the role was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
@@ -87,15 +87,15 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Array of roles; includes account roles plus built-in global roles unless 'no_global=true'; empty array when no results.
-    - created_at (string) (required) — Unix epoch seconds the role was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) (required) — Role description.
-    - editable (boolean) (required) — False for built-in roles which cannot be modified.
-    - permission_ids (array<integer>) (required) — IDs of permissions granted by this role.
-    - role_id (integer) (required) — Unique role ID.
-    - role_name (string) (required) — Role display name.
-    - status (string) (required) — Role status. [enabled, disabled]
+    - created_at (string) (required) — Time the role was created, Unix timestamp in seconds. Built-in roles carry a fixed timestamp. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) (required) — Role description. For built-in roles it is localized by the request language.
+    - editable (boolean) (required) — 'false' for the built-in roles (Admin, Responder, Viewer); 'true' for custom roles.
+    - permission_ids (array<integer>) (required) — IDs of the permissions the role grants, in ascending order; resolve them with 'POST /role/permission/list'. Empty array when none.
+    - role_id (integer) (required) — Role ID. Built-in roles use the fixed IDs '2' (Admin), '6' (Responder), and '8' (Viewer).
+    - role_name (string) (required) — Role name, unique in the account. The built-in roles are named 'Admin', 'Responder', and 'Viewer' in every language.
+    - status (string) (required) — Role status. 'enabled' — active; 'disabled' — turned off with 'POST /role/disable'; it grants no permissions to the members who hold it. Built-in roles are always 'enabled'; deleted roles are never returned. [enabled, disabled]
     - updated_at (string) (required) — Unix epoch seconds the role was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - total (integer) (required) — Total role count.
+  - total (integer) (required) — Number of roles returned: custom roles plus the 3 built-in roles unless 'no_global' is true.
 `,
 		Example: `  flashduty role list --data '{"asc":false,"orderby":"created_at"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,13 +143,13 @@ func genRolesPermissionsReadListPermissionCmd() *cobra.Command {
 		Short: "List permissions",
 		Long: `List permissions.
 
-Return all available permissions, optionally filtered to those granted to specific roles.
+List permission entries and mark which of them the given roles grant.
 
 API: POST /role/permission/list (role-read-list-permission)
 
 Request fields:
-  --role-ids []int — Filter to permissions granted to these roles.
-  --with-all bool — If true, return all permissions with is_granted set to indicate which are granted.
+  --role-ids []int — Role IDs (built-in or custom) whose granted permissions to return or mark. IDs that do not exist are ignored.
+  --with-all bool — When true, return every permission and use 'is_granted' to mark the ones granted by 'role_ids'. When false (default), return only the granted permissions.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Array of permission items: system-level permissions plus the caller's account-scoped custom-menu permissions (never other tenants' rows).
@@ -192,8 +192,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Filter to permissions granted to these roles.")
-	cmd.Flags().BoolVar(&fWithAll, "with-all", false, "If true, return all permissions with is_granted set to indicate which are granted.")
+	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs (built-in or custom) whose granted permissions to return or mark. IDs that do not exist are ignored.")
+	cmd.Flags().BoolVar(&fWithAll, "with-all", false, "When true, return every permission and use 'is_granted' to mark the ones granted by 'role_ids'. When false (default), return only the granted permissions.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -206,7 +206,7 @@ func genRolesPermissionsReadListPermissionFactorCmd() *cobra.Command {
 		Short: "List permission factors",
 		Long: `List permission factors.
 
-Return all permission factors (API, button, menu, URL, visit) granted to the calling member, optionally filtered by type. Requires a member-scoped credential — calls authenticated as the account principal (e.g. an account-level app key) are rejected with a 400, because the account principal implicitly holds every permission.
+List the permission factors granted to the calling member through their roles.
 
 API: POST /role/permission/factor/list (role-read-list-permission-factor)
 
@@ -257,12 +257,12 @@ func genRolesPermissionsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete a role",
 		Long: `Delete a role.
 
-Delete a custom role. While members still hold the role, the call fails with 'ReferenceExist' unless 'is_force' is true.
+Delete a custom role, optionally revoking it from every member who still holds it.
 
 API: POST /role/delete (role-write-delete)
 
 Request fields:
-  --is-force bool — When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.
+  --is-force bool — When false (default), deletion fails with 'ReferenceExist' while members still hold the role, listing them in 'data.refs'. When true, the role is first revoked from all holders and then deleted. Does not bypass the SSO default-role check.
   --role-id int (required) — Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer).
 `,
 		Args:    requireBodyFieldOrExactArg("role_id", "role-id"),
@@ -300,7 +300,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "When false (default), deletion fails with a 'ReferenceExist' error listing the members that still hold the role in 'data.refs'. When true, the role is first revoked from all holders and then deleted.")
+	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "When false (default), deletion fails with 'ReferenceExist' while members still hold the role, listing them in 'data.refs'. When true, the role is first revoked from all holders and then deleted. Does not bypass the SSO default-role check.")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to delete. Get IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -314,7 +314,7 @@ func genRolesPermissionsWriteDisableCmd() *cobra.Command {
 		Short: "Disable a role",
 		Long: `Disable a role.
 
-Disable a custom role to prevent it from granting permissions.
+Set a custom role's status to disabled without deleting it.
 
 API: POST /role/disable (role-write-disable)
 
@@ -424,7 +424,7 @@ Assign a role to one or more members, giving them its permissions.
 API: POST /role/member/grant (role-write-grant-role)
 
 Request fields:
-  --member-ids []int (required) — Member IDs to grant/revoke the role.
+  --member-ids []int (required) — IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected.
   --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
@@ -462,7 +462,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -482,7 +482,7 @@ Remove a role from one or more members, revoking the permissions it granted.
 API: POST /role/member/revoke (role-write-revoke-role)
 
 Request fields:
-  --member-ids []int (required) — Member IDs to grant/revoke the role.
+  --member-ids []int (required) — IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected.
   --role-id int (required) — Role ID to grant or revoke. Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrArgs("member_ids", "member-ids"),
@@ -520,7 +520,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to grant/revoke the role. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "IDs of the members to grant the role to or revoke it from (from 'POST /member/list'). All must be members of the account; duplicates are rejected. (required)")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID to grant or revoke. Get IDs from 'POST /role/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -542,9 +542,9 @@ Create a new custom role or update an existing one. Pass 'role_id' to update.
 API: POST /role/upsert (role-write-upsert)
 
 Request fields:
-  --description string — Role description. (≤499 chars)
-  --permission-ids []int — Permission IDs to grant. Replaces the existing set.
-  --role-id int — Role ID. Omit or set to 0 to create.
+  --description string — Role description, up to 499 characters. Omitting it on update clears the stored description. (≤499 chars)
+  --permission-ids []int — IDs of the permissions the role grants (from 'POST /role/permission/list'). Replaces the existing set; omitting it or sending an empty array leaves the role with no permissions.
+  --role-id int — ID of the custom role to update. Omit or set to 0 to create a new role. Do not pass the built-in role IDs '2', '6', or '8'.
   --role-name string (required) — Role display name. 1–39 characters. (1-39 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -584,9 +584,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "Role description. (≤499 chars)")
-	cmd.Flags().IntSliceVar(&fPermissionIDs, "permission-ids", nil, "Permission IDs to grant. Replaces the existing set.")
-	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Role ID. Omit or set to 0 to create.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Role description, up to 499 characters. Omitting it on update clears the stored description. (≤499 chars)")
+	cmd.Flags().IntSliceVar(&fPermissionIDs, "permission-ids", nil, "IDs of the permissions the role grants (from 'POST /role/permission/list'). Replaces the existing set; omitting it or sending an empty array leaves the role with no permissions.")
+	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "ID of the custom role to update. Omit or set to 0 to create a new role. Do not pass the built-in role IDs '2', '6', or '8'.")
 	cmd.Flags().StringVar(&fRoleName, "role-name", "", "Role display name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

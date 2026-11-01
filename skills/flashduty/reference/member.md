@@ -58,7 +58,7 @@ flashduty member list --query "alice" --output-format toon
 Delete member
 - `--country-code` string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
 - `--email` string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
-- `--is-force` bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
+- `--is-force` bool — Skip the reference check. When false (default), the call fails with 'ReferenceExist' if the member belongs to a team, is targeted by an escalation rule, or is in a schedule. A forced delete does not remove those references.
 - `--member-id` int64 — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
 - `--member-name` string — Member name. Only used when 'member_id' is not provided
 - `--phone` string — Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent
@@ -66,13 +66,13 @@ Delete member
 
 ### info
 Get current member info
-- response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); created_at (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); mp_account_id (string); mp_plat (string); phone (string); phone_verified (boolean); time_zone (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_avatar (string); account_email (string); account_id (integer); account_locale (string); account_name (string); account_role_ids (array<integer>); account_time_zone (string); avatar (string); country_code (string); created_at (string); domain (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); mp_account_id (string); mp_plat (string); phone (string); phone_verified (boolean); resolved_time_zone (string); time_zone (string)
 
 ### info-reset
 Reset member info
 - `--country-code` string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
 - `--email` string — Email address used to identify the member.
-- `--from` string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
+- `--from` string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled and the member is not the caller; any other value is ignored.
 - `--member-id` int64 — Member ID used to identify the member.
 - `--member-name` string — Member name used to identify the member.
 - `--phone` string — Phone number used to identify the member. Include country_code when the number is not in E.164 format.
@@ -91,8 +91,8 @@ List members
 - `--limit` int64 — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
 - `--member-id` int64 — Filter by member ID. Return only the member with this ID.
 - `--orderby` string — Sort field. Default: 'updated_at' · enum: created_at | updated_at
-- `--page` int64 — Page number, 1-based (min 1)
-- `--query` string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
+- `--page` int64 — Page number, starting at 1. Defaults to the first page. (min 1)
+- `--query` string — Keyword. Matches a substring of the member name or email; a numeric keyword also matches an exact member ID, and a keyword that parses as a phone number (without '+', parsed as a Chinese number) also matches the exact phone.
 - `--role-id` int64 — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 - `--search-after-ctx` string
 - response: `{items: [...], limit, p, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_role_ids (array<integer>); avatar (string); country_code (string); created_at (string); email (string); email_verified (boolean); is_external (boolean); locale (string); member_id (integer); member_name (string); phone (string); phone_verified (boolean); ref_id (string); status (string); time_zone (string); updated_at (string)
@@ -100,24 +100,24 @@ List members
 ### notify
 Notify members
 - `--html` string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. '<script>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are silently removed before sending, since email clients never execute them; inline 'style' attributes are kept as written. '<style>', '<svg>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', and '<button>' tags, an '<img>' with a missing or non-'https' 'src' (including 'data:'), or an '<a>' whose href scheme is not 'http', 'https', or 'mailto' are rejected instead of stripped: the request fails with '400' rather than silently changing what recipients see. (≤102400 chars)
-- `--person-ids` intSlice — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
+- `--person-ids` intSlice — Recipient member IDs. Optional, up to 20; duplicate and non-positive IDs are dropped. Omitted or empty sends to the caller only.
 - `--subject` string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
 - response: single object (`data` unwrapped to the top level) — fields: agent_instructions (string); recipients (array<object>)
 
 ### role-grant <role-id> [<id2>...]
 Grant role to member
-- `--member-id` int64 (required) — Member ID
+- `--member-id` int64 (required) — ID of the member whose roles change (from 'POST /member/list').
 - `<role-ids>` (positional, required) intSlice — Role IDs to grant; appended to the member's current roles (duplicates are deduplicated).
 
 ### role-revoke <role-id> [<id2>...]
 Revoke role from member
-- `--member-id` int64 (required) — Member ID
+- `--member-id` int64 (required) — ID of the member whose roles change (from 'POST /member/list').
 - `<role-ids>` (positional, required) intSlice — Role IDs to remove from the member.
 
 ### role-update <member-id>
 Update member roles
-- `<member-id>` (positional, required) int64 — Member ID
-- `--role-ids` intSlice — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
+- `<member-id>` (positional, required) int64 — ID of the member whose roles change (from 'POST /member/list').
+- `--role-ids` intSlice — New role ID set; replaces the member's existing roles entirely (not additive). Get IDs from 'POST /role/list'.
 
 <!-- GENERATED:member END -->
 

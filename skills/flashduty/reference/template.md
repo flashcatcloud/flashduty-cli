@@ -97,21 +97,21 @@ Create a template
 - `--feishu` string — Feishu robot message template source.
 - `--feishu-app` string — Feishu app message template source.
 - `--feishu-app-card-v2-preserve-blank-lines` bool — Keep blank lines in the body of Feishu app card v2 messages.
-- `--feishu-app-card-v2-table-enabled` bool — Render alert labels as a table in Feishu app cards.
+- `--feishu-app-card-v2-table-enabled` bool — Render Markdown tables in the 'feishu_app' content as native Feishu card tables.
 - `--feishu-app-war-room-enabled` bool — Show the Create War Room button on Feishu app cards.
 - `--incident-card-closed-action-apps` stringSlice — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source.
 - `--slack-app` string — Slack app message template source.
 - `--slack-app-war-room-enabled` bool — Show the Create War Room button on Slack app cards.
 - `--sms` string — SMS template source (Go 'text/template' syntax).
-- `--team-id` int64 — Team scope. 0 for account-wide.
+- `--team-id` int64 — Owning team ID from 'POST /team/list'; '0' (default) means account-wide. A non-zero ID must be an existing team.
 - `--teams-app` string — Microsoft Teams app message template source.
 - `--telegram` string — Telegram bot message template source.
-- `--template-name` string (required) — Template name, unique per account. 1–39 characters. (1-39 chars)
+- `--template-name` string (required) — Template name, 1–39 characters, unique among the account's non-deleted templates and different from the built-in preset template's name in every supported language. (1-39 chars)
 - `--voice` string — Voice call script template source.
 - `--wecom` string — WeCom robot message template source.
 - `--wecom-app` string — WeCom app message template source.
-- `--wecom-markdown-v2-enabled` bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.
+- `--wecom-markdown-v2-enabled` bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes.
 - `--zoom` string — Zoom bot message template source.
 - body-only (`--data`): incident_card_hidden_fields (object)
 - response: single object (`data` unwrapped to the top level) — fields: template_id (string); template_name (string)
@@ -136,26 +136,27 @@ Get template detail
 
 ### list
 List templates
-- `--asc` bool — Ascending sort order.
+- `--asc` bool — Sort ascending when 'true'; defaults to newest first.
 - `--creator-id` int64 — Filter by creator member ID; obtain member IDs from 'POST /member/list'.
-- `--is-my-team` bool — When true, only return templates scoped to teams the caller belongs to.
+- `--is-my-team` bool — When 'true', only templates of teams the caller belongs to are returned. If 'team_ids' is also sent, only teams in both lists are kept. When they share no team, or the caller belongs to no team, the result is empty.
 - `--limit` int64 — Page size. Capped at 100. (1-100)
-- `--orderby` string — Sort field. · enum: created_at | updated_at
+- `--orderby` string — Sort field: 'created_at' (default, creation time) or 'updated_at' (last update time). · enum: created_at | updated_at
 - `--page` int64 — Page number, starting at 1. (min 1)
-- `--query` string — Regex or substring match on template_name.
+- `--query` string — Case-insensitive regular expression matched against 'template_name'; an invalid expression is matched as literal text.
 - `--search-after-ctx` string
-- `--team-ids` intSlice — Filter by specific team IDs.
+- `--team-ids` intSlice — Return only templates of these team IDs (from 'POST /team/list'); '0' selects account-wide templates. Empty or omitted applies no team filter. See 'is_my_team' for how the two combine.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); created_at (string); creator_id (integer); deleted_at (string); description (string); dingtalk (string); dingtalk_app (string); dingtalk_app_war_room_enabled (boolean); email (string); feishu (string); feishu_app (string); feishu_app_card_v2_preserve_blank_lines (boolean); feishu_app_card_v2_table_enabled (boolean); feishu_app_war_room_enabled (boolean); incident_card_closed_action_apps (array<string>); incident_card_hidden_fields (object); slack (string); slack_app (string); slack_app_war_room_enabled (boolean); sms (string); status (string); team_id (integer); teams_app (string); telegram (string); template_id (string); template_name (string); updated_at (string); updated_by (integer); voice (string); wecom (string); wecom_app (string); wecom_markdown_v2_enabled (boolean); zoom (string)
 
 ### preview
 Preview template
-- `--content` string (required) — Template content to render.
-- `--feishu-app-card-v2-enabled` bool — Render the preview as a Feishu app card v2 message.
+- `--content` string — Template source to render for the channel 'type'. Empty or omitted previews the channel's built-in preset content. Ignored for 'push'.
 - `--feishu-app-card-v2-preserve-blank-lines` bool — Keep blank lines in the body of the Feishu app card v2 preview.
-- `--incident-id` string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
-- `--type` string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
+- `--feishu-app-card-v2-table-enabled` bool — Render Markdown tables in 'feishu_app' content as native Feishu card tables, as the template setting of the same name does.
+- `--incident-id` string — Incident whose data is rendered (24-character hex ID from '/incident/list'); must exist in the account, otherwise 'InvalidParameter'. When omitted a mock incident is used.
+- `--type` string (required) — Channel to preview; other values return 'InvalidParameter'. - 'email': email body (HTML template). - 'sms', 'voice': SMS text and voice call script. - 'push': mobile app push (fixed content; 'content' is ignored). - 'dingtalk', 'wecom', 'feishu', 'zoom', 'telegram', 'slack': robot (webhook) messages. - 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app': IM app cards. · enum: email | sms | voice | push | dingtalk | wecom | feishu | zoom | telegram | slack | feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
+- `--wecom-markdown-v2-enabled` bool — Preview 'wecom' content as a 'markdown_v2' message, as the template setting of the same name does (size limit 4,096 bytes).
 - body-only (`--data`): incident_card_hidden_fields (object)
-- response: single object (`data` unwrapped to the top level) — fields: content (string); fixed_fields (array<object>); message (string); success (boolean)
+- response: single object (`data` unwrapped to the top level) — fields: blocks (array<object>); card (object); content (string); message (string); notices (array<object>); size_bytes (integer); size_limit_bytes (integer); success (boolean)
 
 ### update <template-id>
 Update a template
@@ -167,7 +168,7 @@ Update a template
 - `--feishu` string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--feishu-app` string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
 - `--feishu-app-card-v2-preserve-blank-lines` bool — When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.
-- `--feishu-app-card-v2-table-enabled` bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
+- `--feishu-app-card-v2-table-enabled` bool — Render Markdown tables in the 'feishu_app' content as native Feishu card tables. Omit to keep the current setting.
 - `--feishu-app-war-room-enabled` bool — When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.
 - `--incident-card-closed-action-apps` stringSlice — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. · enum: feishu_app | dingtalk_app | wecom_app | slack_app | teams_app
 - `--slack` string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
@@ -178,11 +179,11 @@ Update a template
 - `--teams-app` string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.
 - `--telegram` string — Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.
 - `<template-id>` (positional, required) string — Target template ID; obtain it from 'POST /template/list'.
-- `--template-name` string (required) — Template name. 1–39 characters. (1-39 chars)
+- `--template-name` string (required) — Template name, 1–39 characters. Required and written on every call; must not be used by another template. (1-39 chars)
 - `--voice` string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
 - `--wecom` string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
 - `--wecom-app` string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
-- `--wecom-markdown-v2-enabled` bool — When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.
+- `--wecom-markdown-v2-enabled` bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes. Omit to keep the current setting.
 - `--zoom` string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
 - body-only (`--data`): incident_card_hidden_fields (object)
 

@@ -16,7 +16,7 @@ func genArtifactsReadGetCmd() *cobra.Command {
 		Short: "Get artifact detail",
 		Long: `Get artifact detail.
 
-Get a single published artifact by ID.
+Get one published artifact by ID, including its source file, owner and public-share state.
 
 API: POST /safari/artifact/gallery/get (artifact-read-get)
 
@@ -26,25 +26,26 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
   - can_edit (boolean) (required) — Whether the caller may manage this artifact (rename, transfer, delete, share): the creator, any member of the owning team, or a manager of the source session.
-  - content_type (string) (required) — MIME type of the file.
+  - content_type (string) (required) — MIME type, derived from the file-name extension when the file was produced: 'text/html' (.html/.htm), 'text/markdown' (.md), 'text/plain' (.txt/.log), 'text/csv', 'text/yaml' (.yaml/.yml), 'text/x-python', 'text/x-go', 'text/x-sh', 'application/json', 'application/xml', 'application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp', 'application/zip', 'application/gzip' (.tar/.gz/.tgz); any other extension is 'application/octet-stream'. Empty when the underlying file record is missing.
   - created_at (string) (required) — Unix timestamp in milliseconds when the artifact was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_name (string) (required) — Creator's display name.
   - file_id (string) (required) — Presented-file ID ('pf_' prefix) currently holding the artifact's bytes. Changes on every republish.
-  - is_mine (boolean) (required) — Whether the caller is the creator.
-  - name (string) (required) — Underlying file name including extension.
-  - person_id (integer) (required) — Person (member) ID of the creator.
+  - is_mine (boolean) (required) — 'true' when the caller (for an 'app_key' call, the key owner) is the creator, i.e. 'person_id' equals the caller's person ID.
+  - name (string) (required) — Underlying file name including extension. Empty when the underlying file record is missing.
+  - person_id (integer) (required) — Person ID of the artifact's creator: the owner of the source session at first publish. It never changes on republish or scope transfer.
+  - pinned_at (string) — Unix timestamp in milliseconds when the caller pinned this artifact in the console gallery. Pins are per member; omitted when the caller has not pinned it. Pinned artifacts are listed first by '/safari/artifact/gallery/list'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - public_url (string) — Anonymous public link — a console '/share/artifact/<artifact_id>' page served entirely from CDN. Present only while shared; anyone with the link can view it, no login required.
   - session_id (string) (required) — Source session ID ('sess_' prefix) that produced the file.
   - session_title (string) — Source session's title. Omitted when the session has been deleted.
   - share_enabled (boolean) — Whether anonymous public sharing is on. Omitted when false.
   - share_file_id (string) — Presented-file ID the public snapshot was materialized from. When 'share_enabled' is true and 'file_id' differs from 'share_file_id', the public snapshot is stale — call '/safari/artifact/gallery/share/sync' to refresh it.
   - shared_at (string) — Unix timestamp in milliseconds of the last share enable or snapshot sync. Present only while shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - shared_by (integer) — Person ID of the member who enabled sharing. Present only while shared.
+  - shared_by (integer) — Person ID of the member who enabled sharing; a later snapshot sync does not change it. Present only while shared.
   - size (integer) (required) — File size in bytes.
-  - team_id (integer) (required) — Owning team ID. '0' means a personal artifact (creator-only management); a positive value means team-owned.
+  - team_id (integer) (required) — Owning scope. '0' means a personal artifact: it appears only in its creator's list, and can be managed by the creator or by anyone who can manage the source session. A positive value is the owning team ID: the artifact appears in that team's members' lists and any team member can manage it. Set from the source session at first publish; change it with '/safari/artifact/gallery/update'.
   - team_name (string) — Owning team's display name. Omitted for personal artifacts.
   - title (string) (required) — Display title in the gallery.
-  - updated_at (string) (required) — Unix timestamp in milliseconds when the artifact was last updated (rename, transfer, or republish). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) (required) — Unix timestamp in milliseconds of the last change to the artifact row (rename, transfer, republish, or share state change). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("artifact_id", "artifact-id"),
 		Example: `  flashduty safari artifact-gallery-get --data '{"artifact_id":"art_VnfrWic8UbB9q3EfYR4Gmg"}'`,
@@ -92,12 +93,12 @@ Check which presented files already have a live published artifact.
 API: POST /safari/artifact/gallery/file-state (artifact-read-get-file-state)
 
 Request fields:
-  --file-ids []string (required) — Presented-file IDs ('pf_' prefix) to probe. At most 50 per call; duplicates and empty strings are ignored.
+  --file-ids []string (required) — Presented-file IDs ('pf_' prefix) to check. At most 50 entries per call, counted before duplicates and empty strings are removed; more fails with 'InvalidParameter'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — One entry per requested file that has a live published artifact; files without one are omitted.
+  - items (array<object>) (required) — One entry per requested file whose session file path currently has a live gallery artifact; files without one, and unknown IDs, are omitted. An empty array when none match.
     - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
-    - file_id (string) (required) — Echoes the requested presented-file ID.
+    - file_id (string) (required) — The requested presented-file ID this entry answers for.
     - gallery_path (string) (required) — Console-relative path of the artifact page: '/ai-sre/artifacts/<artifact_id>'.
     - title (string) (required) — Gallery display title of the published artifact.
 `,
@@ -129,7 +130,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fFileIDs, "file-ids", nil, "Presented-file IDs ('pf_' prefix) to probe. At most 50 per call; duplicates and empty strings are ignored. (required)")
+	cmd.Flags().StringSliceVar(&fFileIDs, "file-ids", nil, "Presented-file IDs ('pf_' prefix) to check. At most 50 entries per call, counted before duplicates and empty strings are removed; more fails with 'InvalidParameter'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -154,37 +155,38 @@ API: POST /safari/artifact/gallery/list (artifact-read-list)
 
 Request fields:
   --asc bool — Sort ascending when true, descending when false. Applies only when 'orderby' is set.
-  --limit int — Page size. Defaults to 20; capped at 100. (max 100)
-  --orderby string — Sort field: 'created_at' or 'updated_at'. Empty means 'updated_at' descending. [created_at, updated_at]
-  --page int — Page number, 1-based. (min 1)
+  --limit int — Number of artifacts per page. Values below 1 fall back to 20; values above 100 are capped at 100 (not rejected).
+  --orderby string — Sort field: 'created_at' (publish time) or 'updated_at' (last change). Empty sorts by 'updated_at' descending. In every case the caller's pinned artifacts come first, and 'artifact_id' breaks ties. [created_at, updated_at]
+  --page int — Page number, 1-based. Values below 1 are treated as 1.
   --query string — Case-insensitive substring match on the artifact title.
   --scope string — Visibility scope. 'all' (default) lists the caller's own personal artifacts plus artifacts of every team the caller belongs to; 'personal' lists only the caller's own; 'team' lists only team-owned artifacts of the caller's teams. [all, personal, team]
-  --team-ids []int — Restrict to artifacts owned by these team IDs, intersected with the caller's visibility — teams the caller does not belong to silently return nothing.
+  --team-ids []int — Restrict to artifacts owned by these team IDs, intersected with the 'scope' filter. Non-positive IDs are ignored; teams the caller does not belong to return nothing, and personal artifacts are excluded whenever this is set.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Artifacts on this page.
+  - items (array<object>) (required) — Artifacts on this page; the caller's pinned artifacts come first. An empty array when nothing matches.
     - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
     - can_edit (boolean) (required) — Whether the caller may manage this artifact (rename, transfer, delete, share): the creator, any member of the owning team, or a manager of the source session.
-    - content_type (string) (required) — MIME type of the file.
+    - content_type (string) (required) — MIME type, derived from the file-name extension when the file was produced: 'text/html' (.html/.htm), 'text/markdown' (.md), 'text/plain' (.txt/.log), 'text/csv', 'text/yaml' (.yaml/.yml), 'text/x-python', 'text/x-go', 'text/x-sh', 'application/json', 'application/xml', 'application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp', 'application/zip', 'application/gzip' (.tar/.gz/.tgz); any other extension is 'application/octet-stream'. Empty when the underlying file record is missing.
     - created_at (string) (required) — Unix timestamp in milliseconds when the artifact was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_name (string) (required) — Creator's display name.
     - file_id (string) (required) — Presented-file ID ('pf_' prefix) currently holding the artifact's bytes. Changes on every republish.
-    - is_mine (boolean) (required) — Whether the caller is the creator.
-    - name (string) (required) — Underlying file name including extension.
-    - person_id (integer) (required) — Person (member) ID of the creator.
+    - is_mine (boolean) (required) — 'true' when the caller (for an 'app_key' call, the key owner) is the creator, i.e. 'person_id' equals the caller's person ID.
+    - name (string) (required) — Underlying file name including extension. Empty when the underlying file record is missing.
+    - person_id (integer) (required) — Person ID of the artifact's creator: the owner of the source session at first publish. It never changes on republish or scope transfer.
+    - pinned_at (string) — Unix timestamp in milliseconds when the caller pinned this artifact in the console gallery. Pins are per member; omitted when the caller has not pinned it. Pinned artifacts are listed first by '/safari/artifact/gallery/list'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - public_url (string) — Anonymous public link — a console '/share/artifact/<artifact_id>' page served entirely from CDN. Present only while shared; anyone with the link can view it, no login required.
     - session_id (string) (required) — Source session ID ('sess_' prefix) that produced the file.
     - session_title (string) — Source session's title. Omitted when the session has been deleted.
     - share_enabled (boolean) — Whether anonymous public sharing is on. Omitted when false.
     - share_file_id (string) — Presented-file ID the public snapshot was materialized from. When 'share_enabled' is true and 'file_id' differs from 'share_file_id', the public snapshot is stale — call '/safari/artifact/gallery/share/sync' to refresh it.
     - shared_at (string) — Unix timestamp in milliseconds of the last share enable or snapshot sync. Present only while shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - shared_by (integer) — Person ID of the member who enabled sharing. Present only while shared.
+    - shared_by (integer) — Person ID of the member who enabled sharing; a later snapshot sync does not change it. Present only while shared.
     - size (integer) (required) — File size in bytes.
-    - team_id (integer) (required) — Owning team ID. '0' means a personal artifact (creator-only management); a positive value means team-owned.
+    - team_id (integer) (required) — Owning scope. '0' means a personal artifact: it appears only in its creator's list, and can be managed by the creator or by anyone who can manage the source session. A positive value is the owning team ID: the artifact appears in that team's members' lists and any team member can manage it. Set from the source session at first publish; change it with '/safari/artifact/gallery/update'.
     - team_name (string) — Owning team's display name. Omitted for personal artifacts.
     - title (string) (required) — Display title in the gallery.
-    - updated_at (string) (required) — Unix timestamp in milliseconds when the artifact was last updated (rename, transfer, or republish). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - total (integer) — Total number of artifacts matching the filter across all pages.
+    - updated_at (string) (required) — Unix timestamp in milliseconds of the last change to the artifact row (rename, transfer, republish, or share state change). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - total (integer) (required) — Total number of artifacts matching the filter across all pages.
 `,
 		Example: `  flashduty safari artifact-gallery-list --data '{"limit":20,"page":1,"scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -229,12 +231,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when true, descending when false. Applies only when 'orderby' is set.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20; capped at 100. (max 100)")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' or 'updated_at'. Empty means 'updated_at' descending. [created_at, updated_at]")
-	cmd.Flags().Int64Var(&fPage, "page", 0, "Page number, 1-based. (min 1)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of artifacts per page. Values below 1 fall back to 20; values above 100 are capped at 100 (not rejected).")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' (publish time) or 'updated_at' (last change). Empty sorts by 'updated_at' descending. In every case the caller's pinned artifacts come first, and 'artifact_id' breaks ties. [created_at, updated_at]")
+	cmd.Flags().Int64Var(&fPage, "page", 0, "Page number, 1-based. Values below 1 are treated as 1.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring match on the artifact title.")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Visibility scope. 'all' (default) lists the caller's own personal artifacts plus artifacts of every team the caller belongs to; 'personal' lists only the caller's own; 'team' lists only team-owned artifacts of the caller's teams. [all, personal, team]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to artifacts owned by these team IDs, intersected with the caller's visibility — teams the caller does not belong to silently return nothing.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to artifacts owned by these team IDs, intersected with the 'scope' filter. Non-positive IDs are ignored; teams the caller does not belong to return nothing, and personal artifacts are excluded whenever this is set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -257,9 +259,12 @@ Request fields:
   --share-token string — Optional session share-link token. Needed only when the caller reaches the file through a shared session link rather than account membership.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - content_type (string) (required) — MIME type of the file.
+  - content_type (string) (required) — MIME type, derived from the file-name extension when the file was produced: 'text/html' (.html/.htm), 'text/markdown' (.md), 'text/plain' (.txt/.log), 'text/csv', 'text/yaml' (.yaml/.yml), 'text/x-python', 'text/x-go', 'text/x-sh', 'application/json', 'application/xml', 'application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp', 'application/zip', 'application/gzip' (.tar/.gz/.tgz); any other extension is 'application/octet-stream'.
   - download_url (string) (required) — Relative URL ('/safari/artifact/stream?...') that serves the file as an attachment. Prepend the API base 'https://api.flashcat.cloud' before use; expires with 'expires_in'.
-  - expires_in (integer) (required) — Validity of both URLs in seconds (300).
+  - expires_in (integer) (required) — Validity of both URLs in seconds. Always '300'.
+  - frame_base (string) — Frame URL directory of this artifact version, ending with '/'; append a file's relative path to load any file of a multi-file version. Empty, and therefore omitted, for single-object rows, whose frame route resolves only the file's own name.
+  - frame_expires_in (integer) (required) — Validity of 'frame_url' and 'frame_base' in seconds. Always '43200' (12 hours).
+  - frame_url (string) (required) — Sandboxed iframe URL ('/safari/artifact/f/<token>/<file name>') that serves this file for an embedded preview. The token in the path is its only credential; it expires with 'frame_expires_in'.
   - name (string) (required) — File name including extension.
   - preview_url (string) (required) — Same as 'download_url' but served inline for browser preview.
   - size (integer) (required) — File size in bytes.
@@ -425,7 +430,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - title (string) (required) — Gallery display title.
 `,
 		Args:    requireBodyFieldOrExactArg("file_id", "file-id"),
-		Example: `  flashduty safari artifact-gallery-publish-from-file --data '{"file_id":"pf_SdhEA5fbZJGnHzwrNJMMSB","title":"SK 海力士 2026 Q2 财报深度分析"}'`,
+		Example: `  flashduty safari artifact-gallery-publish-from-file --data '{"file_id":"pf_SdhEA5fbZJGnHzwrNJMMSB","title":"Checkout API latency postmortem"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -478,10 +483,10 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
-  - public_url (string) (required) — Anonymous public link served entirely from CDN. Anyone with the link can view the content, no login required.
+  - public_url (string) (required) — Anonymous public link, '<console origin>/share/artifact/<artifact_id>'. Anyone with the link can view the content without signing in. The link is the same on every enable.
   - share_enabled (boolean) (required) — Always 'true' in this response.
   - shared_at (string) (required) — Unix timestamp in milliseconds of the last share enable or snapshot sync. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - shared_by (integer) (required) — Person ID of the member who enabled sharing.
+  - shared_by (integer) (required) — Person ID of the member who enabled sharing. A snapshot sync keeps the original value.
 `,
 		Args:    requireBodyFieldOrExactArg("artifact_id", "artifact-id"),
 		Example: `  flashduty safari artifact-gallery-share-enable --data '{"artifact_id":"art_VnfrWic8UbB9q3EfYR4Gmg"}'`,
@@ -581,10 +586,10 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
-  - public_url (string) (required) — Anonymous public link served entirely from CDN. Anyone with the link can view the content, no login required.
+  - public_url (string) (required) — Anonymous public link, '<console origin>/share/artifact/<artifact_id>'. Anyone with the link can view the content without signing in. The link is the same on every enable.
   - share_enabled (boolean) (required) — Always 'true' in this response.
   - shared_at (string) (required) — Unix timestamp in milliseconds of the last share enable or snapshot sync. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - shared_by (integer) (required) — Person ID of the member who enabled sharing.
+  - shared_by (integer) (required) — Person ID of the member who enabled sharing. A snapshot sync keeps the original value.
 `,
 		Args:    requireBodyFieldOrExactArg("artifact_id", "artifact-id"),
 		Example: `  flashduty safari artifact-gallery-share-sync --data '{"artifact_id":"art_VnfrWic8UbB9q3EfYR4Gmg"}'`,
@@ -635,34 +640,35 @@ API: POST /safari/artifact/gallery/update (artifact-write-update)
 
 Request fields:
   --artifact-id string (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
-  --team-id int — Transfer target scope. '0' moves the artifact to personal scope (only the creator can manage it); a positive value moves it to a team the caller must belong to. Omit to leave unchanged.
-  --title string — New title. Trimmed; must be non-empty when provided. Omit to leave unchanged.
+  --team-id int — Transfer target. '0' moves the artifact to personal scope and only its creator may do that; a positive value moves it to that team, and the caller must be a member of the team; a negative value fails with 'InvalidParameter'. Omit or send 'null' to keep the current scope. The creator ('person_id') never changes.
+  --title string — New title. Leading and trailing spaces are trimmed; a blank value fails with 'InvalidParameter'. Omit or send 'null' to keep the current title.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - artifact_id (string) (required) — Artifact ID ('art_' prefix). Also the key of the public-share link.
   - can_edit (boolean) (required) — Whether the caller may manage this artifact (rename, transfer, delete, share): the creator, any member of the owning team, or a manager of the source session.
-  - content_type (string) (required) — MIME type of the file.
+  - content_type (string) (required) — MIME type, derived from the file-name extension when the file was produced: 'text/html' (.html/.htm), 'text/markdown' (.md), 'text/plain' (.txt/.log), 'text/csv', 'text/yaml' (.yaml/.yml), 'text/x-python', 'text/x-go', 'text/x-sh', 'application/json', 'application/xml', 'application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp', 'application/zip', 'application/gzip' (.tar/.gz/.tgz); any other extension is 'application/octet-stream'. Empty when the underlying file record is missing.
   - created_at (string) (required) — Unix timestamp in milliseconds when the artifact was published. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_name (string) (required) — Creator's display name.
   - file_id (string) (required) — Presented-file ID ('pf_' prefix) currently holding the artifact's bytes. Changes on every republish.
-  - is_mine (boolean) (required) — Whether the caller is the creator.
-  - name (string) (required) — Underlying file name including extension.
-  - person_id (integer) (required) — Person (member) ID of the creator.
+  - is_mine (boolean) (required) — 'true' when the caller (for an 'app_key' call, the key owner) is the creator, i.e. 'person_id' equals the caller's person ID.
+  - name (string) (required) — Underlying file name including extension. Empty when the underlying file record is missing.
+  - person_id (integer) (required) — Person ID of the artifact's creator: the owner of the source session at first publish. It never changes on republish or scope transfer.
+  - pinned_at (string) — Unix timestamp in milliseconds when the caller pinned this artifact in the console gallery. Pins are per member; omitted when the caller has not pinned it. Pinned artifacts are listed first by '/safari/artifact/gallery/list'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - public_url (string) — Anonymous public link — a console '/share/artifact/<artifact_id>' page served entirely from CDN. Present only while shared; anyone with the link can view it, no login required.
   - session_id (string) (required) — Source session ID ('sess_' prefix) that produced the file.
   - session_title (string) — Source session's title. Omitted when the session has been deleted.
   - share_enabled (boolean) — Whether anonymous public sharing is on. Omitted when false.
   - share_file_id (string) — Presented-file ID the public snapshot was materialized from. When 'share_enabled' is true and 'file_id' differs from 'share_file_id', the public snapshot is stale — call '/safari/artifact/gallery/share/sync' to refresh it.
   - shared_at (string) — Unix timestamp in milliseconds of the last share enable or snapshot sync. Present only while shared. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - shared_by (integer) — Person ID of the member who enabled sharing. Present only while shared.
+  - shared_by (integer) — Person ID of the member who enabled sharing; a later snapshot sync does not change it. Present only while shared.
   - size (integer) (required) — File size in bytes.
-  - team_id (integer) (required) — Owning team ID. '0' means a personal artifact (creator-only management); a positive value means team-owned.
+  - team_id (integer) (required) — Owning scope. '0' means a personal artifact: it appears only in its creator's list, and can be managed by the creator or by anyone who can manage the source session. A positive value is the owning team ID: the artifact appears in that team's members' lists and any team member can manage it. Set from the source session at first publish; change it with '/safari/artifact/gallery/update'.
   - team_name (string) — Owning team's display name. Omitted for personal artifacts.
   - title (string) (required) — Display title in the gallery.
-  - updated_at (string) (required) — Unix timestamp in milliseconds when the artifact was last updated (rename, transfer, or republish). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updated_at (string) (required) — Unix timestamp in milliseconds of the last change to the artifact row (rename, transfer, republish, or share state change). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args:    requireBodyFieldOrExactArg("artifact_id", "artifact-id"),
-		Example: `  flashduty safari artifact-gallery-update --data '{"artifact_id":"art_VnfrWic8UbB9q3EfYR4Gmg","title":"SK 海力士 2026 Q2 财报深度分析（终稿）"}'`,
+		Example: `  flashduty safari artifact-gallery-update --data '{"artifact_id":"art_VnfrWic8UbB9q3EfYR4Gmg","title":"Checkout API latency postmortem (final)"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -696,8 +702,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fArtifactID, "artifact-id", "", "Artifact ID ('art_' prefix). Also the key of the public-share link. (required)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Transfer target scope. '0' moves the artifact to personal scope (only the creator can manage it); a positive value moves it to a team the caller must belong to. Omit to leave unchanged.")
-	cmd.Flags().StringVar(&fTitle, "title", "", "New title. Trimmed; must be non-empty when provided. Omit to leave unchanged.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Transfer target. '0' moves the artifact to personal scope and only its creator may do that; a positive value moves it to that team, and the caller must be a member of the team; a negative value fails with 'InvalidParameter'. Omit or send 'null' to keep the current scope. The creator ('person_id') never changes.")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New title. Leading and trailing spaces are trimmed; a blank value fails with 'InvalidParameter'. Omit or send 'null' to keep the current title.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

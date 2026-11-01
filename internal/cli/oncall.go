@@ -70,14 +70,15 @@ func newOncallWhoCmd() *cobra.Command {
 					}},
 					{Header: "ON_CALL", MaxWidth: 40, Field: func(v any) string {
 						s := v.(flashduty.ScheduleItem)
-						return formatOncallMembers(&s.CurOncall, nameByID)
+						return formatOncallMembers(s.CurOncall, nameByID)
 					}},
 					{Header: "UNTIL", Field: func(v any) string {
-						return output.FormatTime(v.(flashduty.ScheduleItem).CurOncall.End)
+						_, end := oncallWindow(v.(flashduty.ScheduleItem).CurOncall)
+						return output.FormatTime(end)
 					}},
 					{Header: "NEXT", MaxWidth: 40, Field: func(v any) string {
 						s := v.(flashduty.ScheduleItem)
-						return formatOncallMembers(&s.NextOncall, nameByID)
+						return formatOncallMembers(s.NextOncall, nameByID)
 					}},
 				}
 
@@ -212,12 +213,14 @@ func newOncallScheduleGetCmd() *cobra.Command {
 				_, _ = fmt.Fprintf(ctx.Writer, "Status:        %s\n", status)
 				_, _ = fmt.Fprintf(ctx.Writer, "Layers:        %s\n", scheduleLayerCount(*s))
 
-				curOnCall := formatOncallMembers(&s.CurOncall, nameByID)
-				curUntil := output.FormatTime(s.CurOncall.End)
+				curOnCall := formatOncallMembers(s.CurOncall, nameByID)
+				_, curEnd := oncallWindow(s.CurOncall)
+				curUntil := output.FormatTime(curEnd)
 				_, _ = fmt.Fprintf(ctx.Writer, "Current:       %s (until %s)\n", curOnCall, curUntil)
 
-				nextOnCall := formatOncallMembers(&s.NextOncall, nameByID)
-				nextFrom := output.FormatTime(s.NextOncall.Start)
+				nextOnCall := formatOncallMembers(s.NextOncall, nameByID)
+				nextStart, _ := oncallWindow(s.NextOncall)
+				nextFrom := output.FormatTime(nextStart)
 				_, _ = fmt.Fprintf(ctx.Writer, "Next:          %s (from %s)\n", nextOnCall, nextFrom)
 
 				// Print computed slots table
@@ -284,9 +287,21 @@ func scheduleLayerCount(s flashduty.ScheduleItem) string {
 	}
 }
 
+// oncallWindow returns a shift's window. A nil group means nobody is on call;
+// its zero times render as "-".
+func oncallWindow(g *flashduty.ScheduleOncallGroup) (start, end flashduty.Timestamp) {
+	if g == nil {
+		return start, end
+	}
+	return g.Start, g.End
+}
+
 // scheduleGroupName resolves a schedule group's display name: the nullable
 // group_name when set, else the legacy name, else a placeholder.
-func scheduleGroupName(g flashduty.ScheduleGroup) string {
+func scheduleGroupName(g *flashduty.ScheduleGroup) string {
+	if g == nil {
+		return "-"
+	}
 	if g.GroupName != nil && *g.GroupName != "" {
 		return *g.GroupName
 	}
@@ -314,7 +329,7 @@ func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup, nameByID map[int
 		}
 	}
 	if len(names) == 0 {
-		return scheduleGroupName(oncall.Group)
+		return scheduleGroupName(&oncall.Group)
 	}
 	return strings.Join(names, ", ")
 }
@@ -327,7 +342,10 @@ func formatOncallMembers(oncall *flashduty.ScheduleOncallGroup, nameByID map[int
 func resolveScheduleOncallPeople(rc *RunContext, items []flashduty.ScheduleItem) map[int64]string {
 	seen := make(map[int64]struct{})
 	ids := make([]uint64, 0)
-	collect := func(g flashduty.ScheduleOncallGroup) {
+	collect := func(g *flashduty.ScheduleOncallGroup) {
+		if g == nil {
+			return
+		}
 		for _, m := range g.Group.Members {
 			for _, pid := range m.PersonIDs {
 				if pid == 0 {

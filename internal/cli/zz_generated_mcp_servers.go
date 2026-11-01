@@ -28,29 +28,31 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
-  - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
-  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - args (array<string>) — Command arguments (stdio transport). Omitted when 'can_edit' is 'false'.
+  - auth_mode (string) — Who supplies the credential; omitted when empty, which behaves like 'shared': - 'shared': one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds as stored; '0' means the 60-second default is used.
+  - can_edit (boolean) (required) — Whether the caller may update, enable, disable, or delete this server: 'true' for an account-scoped server only for the account owner or an admin, for a team server only for members of that team. Create and update responses always return 'true'.
   - command (string) — Executable command (stdio transport only).
-  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - connect_timeout (integer) (required) — Connection timeout in seconds as stored; '0' means the 10-second default is used.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
-  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - env (object) — Environment variables ('stdio' transport). Values under credential-looking names, or encrypted at rest, are masked as '****'. Omitted when empty.
   - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
-  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - headers (object) — HTTP headers ('sse' / 'streamable-http' transport), masked by the same rule as 'env'. Omitted when empty.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
-  - proxy_url (string) — Outbound proxy URL used to reach the server.
+  - proxy_url (string) — Outbound proxy URL used to reach the server. Not settable through the public API; omitted when empty. When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
-  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
-  - status (string) (required) — Server status. [enabled, disabled]
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team).
+  - source_template_name (string) — Marketplace template this server was installed from; omitted for servers created by hand.
+  - status (string) (required) — Whether the server's tools are offered to AI SRE sessions: - 'enabled': available (default on create). - 'disabled': kept but not offered; re-enable with 'POST /safari/mcp/server/enable'. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - test_error (string) — Error message from the last connection test; omitted when the last test succeeded or the server was never tested.
+  - tested_at (string) — Time of the last connection test, Unix timestamp in milliseconds; omitted if the server was never tested. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - url (string) — Server URL (sse / streamable-http transport).
+  - url (string) — Server URL (sse / streamable-http transport). When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-get --data '{"server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
@@ -104,13 +106,13 @@ List MCP servers visible to the caller across account and team scopes, with pagi
 API: POST /safari/mcp/server/list (mcp-read-server-list)
 
 Request fields:
-  --page int — Page number, 1-based.
-  --limit int — Page size.
+  --page int — Page number, 1-based; values below 1 are treated as 1.
+  --limit int — Page size; values below 1 fall back to 20. No upper bound is enforced.
   --search-after-ctx string
-  --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true.
+  --include-account bool — Include account-scoped ('team_id=0') rows. Defaults to 'true'; ignored when 'scope' is 'account' (always included) or 'team' (never included).
   --query string — Case-insensitive substring search across name, description, AI-generated description, server ID, transport, URL, command, and source template name. (≤128 chars)
   --scope string — Restrict results to a scope: 'account' for account-wide rows only, 'team' for the caller's own visible team rows only, or omit (defaults to 'all') for both, subject to team_ids/include_account. [all, account, team]
-  --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
+  --team-ids []int — Restrict to these team IDs. IDs of teams the caller does not belong to are ignored; empty means all of the caller's teams.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - servers (array<object>) (required) — MCP servers on this page.
@@ -118,29 +120,31 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
     - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
     - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
-    - args (array<string>) — Command arguments (stdio transport).
-    - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-    - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
-    - can_edit (boolean) (required) — Whether the caller may edit this server.
+    - args (array<string>) — Command arguments (stdio transport). Omitted when 'can_edit' is 'false'.
+    - auth_mode (string) — Who supplies the credential; omitted when empty, which behaves like 'shared': - 'shared': one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. [shared, per_user_secret, per_user_oauth]
+    - call_timeout (integer) (required) — Tool-call timeout in seconds as stored; '0' means the 60-second default is used.
+    - can_edit (boolean) (required) — Whether the caller may update, enable, disable, or delete this server: 'true' for an account-scoped server only for the account owner or an admin, for a team server only for members of that team. Create and update responses always return 'true'.
     - command (string) — Executable command (stdio transport only).
-    - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+    - connect_timeout (integer) (required) — Connection timeout in seconds as stored; '0' means the 10-second default is used.
     - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the server.
     - description (string) (required) — Server description.
-    - env (object) — Environment variables (stdio transport). Secret values are masked.
+    - env (object) — Environment variables ('stdio' transport). Values under credential-looking names, or encrypted at rest, are masked as '****'. Omitted when empty.
     - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
-    - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+    - headers (object) — HTTP headers ('sse' / 'streamable-http' transport), masked by the same rule as 'env'. Omitted when empty.
     - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
-    - proxy_url (string) — Outbound proxy URL used to reach the server.
+    - proxy_url (string) — Outbound proxy URL used to reach the server. Not settable through the public API; omitted when empty. When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
     - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
     - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-    - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
-    - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
-    - status (string) (required) — Server status. [enabled, disabled]
+    - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team).
+    - source_template_name (string) — Marketplace template this server was installed from; omitted for servers created by hand.
+    - status (string) (required) — Whether the server's tools are offered to AI SRE sessions: - 'enabled': available (default on create). - 'disabled': kept but not offered; re-enable with 'POST /safari/mcp/server/enable'. [enabled, disabled]
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+    - test_error (string) — Error message from the last connection test; omitted when the last test succeeded or the server was never tested.
+    - tested_at (string) — Time of the last connection test, Unix timestamp in milliseconds; omitted if the server was never tested. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
     - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - url (string) — Server URL (sse / streamable-http transport).
+    - url (string) — Server URL (sse / streamable-http transport). When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
   - total (integer) (required) — Total number of matching servers.
 `,
 		Example: `  flashduty safari mcp-server-list --data '{"include_account":true,"limit":20,"p":1}'`,
@@ -185,13 +189,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based; values below 1 are treated as 1.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size; values below 1 fall back to 20. No upper bound is enforced.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true.")
+	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped ('team_id=0') rows. Defaults to 'true'; ignored when 'scope' is 'account' (always included) or 'team' (never included).")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring search across name, description, AI-generated description, server ID, transport, URL, command, and source template name. (≤128 chars)")
 	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict results to a scope: 'account' for account-wide rows only, 'team' for the caller's own visible team rows only, or omit (defaults to 'all') for both, subject to team_ids/include_account. [all, account, team]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Restrict to these team IDs. IDs of teams the caller does not belong to are ignored; empty means all of the caller's teams.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -228,53 +232,55 @@ Request fields:
   --allow-insecure-oauth-http bool — Allow this server's OAuth token exchange over plaintext HTTP. Testing use only; defaults to false.
   --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification when connecting to this server. Testing use only; defaults to false.
   --args []string — Command arguments (stdio transport).
-  --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
-  --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
+  --auth-mode string — Who supplies the credential: - 'shared' (default; an empty value behaves the same): one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. 'per_user_secret' requires 'secret_schema' with a non-empty 'header_name'; any other value returns 'InvalidParameter'. [shared, per_user_secret, per_user_oauth]
+  --call-timeout int — Tool-call timeout in seconds. Omitted or '0' is stored as '0' and means the 60-second default.
   --command string — Executable command (stdio transport).
-  --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
+  --connect-timeout int — Connection timeout in seconds. Omitted or '0' is stored as '0' and means the 10-second default.
   --description string (required) — Server description. (1-1024 chars)
   --environments []string — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.
   --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
   --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
-  --server-name string (required) — MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team), case-insensitive. (1-255 chars)
-  --source-template-name string — Marketplace template name when created from a connector template.
+  --server-name string (required) — MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team). (1-255 chars)
+  --source-template-name string — Name of the marketplace template to install. When set, the template must exist, the server is created at account scope, and the connection fields must match the template except for its declared parameter values. Cannot be changed later.
   --status string — Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]
-  --team-id int — Team scope: 0 = account-wide; >0 = team.
+  --team-id int — Team scope: '0' = account-wide (account owner or admin only); '>0' = a team the caller belongs to. Ignored when 'source_template_name' is set — marketplace installs are always account-wide.
   --transport string (required) — Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. [stdio, sse, streamable-http]
   --url string — Server URL (sse / streamable-http transport).
-  env (object, via --data) — Environment variables (stdio transport).
-  headers (object, via --data) — HTTP headers (sse / streamable-http).
+  env (object, via --data) — Environment variables ('stdio' transport). Values under credential-looking names (containing 'KEY', 'SECRET', 'TOKEN', 'PASSWORD', …) are encrypted at rest and masked in responses.
+  headers (object, via --data) — HTTP headers ('sse' / 'streamable-http' transport). Values under credential-looking names (containing 'KEY', 'TOKEN', 'AUTHORIZATION', …) are encrypted at rest and masked in responses.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
-  - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
-  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - args (array<string>) — Command arguments (stdio transport). Omitted when 'can_edit' is 'false'.
+  - auth_mode (string) — Who supplies the credential; omitted when empty, which behaves like 'shared': - 'shared': one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds as stored; '0' means the 60-second default is used.
+  - can_edit (boolean) (required) — Whether the caller may update, enable, disable, or delete this server: 'true' for an account-scoped server only for the account owner or an admin, for a team server only for members of that team. Create and update responses always return 'true'.
   - command (string) — Executable command (stdio transport only).
-  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - connect_timeout (integer) (required) — Connection timeout in seconds as stored; '0' means the 10-second default is used.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
-  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - env (object) — Environment variables ('stdio' transport). Values under credential-looking names, or encrypted at rest, are masked as '****'. Omitted when empty.
   - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
-  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - headers (object) — HTTP headers ('sse' / 'streamable-http' transport), masked by the same rule as 'env'. Omitted when empty.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
-  - proxy_url (string) — Outbound proxy URL used to reach the server.
+  - proxy_url (string) — Outbound proxy URL used to reach the server. Not settable through the public API; omitted when empty. When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
-  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
-  - status (string) (required) — Server status. [enabled, disabled]
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team).
+  - source_template_name (string) — Marketplace template this server was installed from; omitted for servers created by hand.
+  - status (string) (required) — Whether the server's tools are offered to AI SRE sessions: - 'enabled': available (default on create). - 'disabled': kept but not offered; re-enable with 'POST /safari/mcp/server/enable'. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - test_error (string) — Error message from the last connection test; omitted when the last test succeeded or the server was never tested.
+  - tested_at (string) — Time of the last connection test, Unix timestamp in milliseconds; omitted if the server was never tested. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - url (string) — Server URL (sse / streamable-http transport).
+  - url (string) — Server URL (sse / streamable-http transport). When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
 `,
-		Example: `  flashduty safari mcp-server-create --data '{"description":"Query Prometheus metrics and alerts.","server_name":"prometheus","status":"enabled","transport":"streamable-http","url":"https://mcp.example.com/prometheus"}'`,
+		Example: `  flashduty safari mcp-server-create --data '{"description":"Query Prometheus metrics and alerts.","headers":{"Authorization":"Bearer example-token-f2c1"},"server_name":"prometheus","status":"enabled","transport":"streamable-http","url":"https://mcp.example.com/prometheus"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -349,18 +355,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow this server's OAuth token exchange over plaintext HTTP. Testing use only; defaults to false.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification when connecting to this server. Testing use only; defaults to false.")
 	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments (stdio transport).")
-	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
-	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
+	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Who supplies the credential: - 'shared' (default; an empty value behaves the same): one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. 'per_user_secret' requires 'secret_schema' with a non-empty 'header_name'; any other value returns 'InvalidParameter'. [shared, per_user_secret, per_user_oauth]")
+	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. Omitted or '0' is stored as '0' and means the 60-second default.")
 	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
-	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
+	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. Omitted or '0' is stored as '0' and means the 10-second default.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Server description. (required) (1-1024 chars)")
 	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omitted or empty means all environments.")
 	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
 	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
-	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team), case-insensitive. (required) (1-255 chars)")
-	cmd.Flags().StringVar(&fSourceTemplateName, "source-template-name", "", "Marketplace template name when created from a connector template.")
+	cmd.Flags().StringVar(&fServerName, "server-name", "", "MCP server name: must start with a letter and contain only letters, digits, '-', or '_' ('@' is reserved); unique within its scope (account-wide or one team). (required) (1-255 chars)")
+	cmd.Flags().StringVar(&fSourceTemplateName, "source-template-name", "", "Name of the marketplace template to install. When set, the template must exist, the server is created at account scope, and the connection fields must match the template except for its declared parameter values. Cannot be changed later.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status: 'enabled' (default) or 'disabled' (created but kept off). [enabled, disabled]")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope: 0 = account-wide; >0 = team.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope: '0' = account-wide (account owner or admin only); '>0' = a team the caller belongs to. Ignored when 'source_template_name' is set — marketplace installs are always account-wide.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol: 'stdio' launches a local process via 'command'/'args'/'env', 'sse' / 'streamable-http' connects to a remote service via 'url'/'headers'. (required) [stdio, sse, streamable-http]")
 	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -542,20 +548,20 @@ Request fields:
   --allow-insecure-oauth-http bool — Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.
   --allow-insecure-tls-skip-verify bool — Skip TLS certificate verification. Omit to leave unchanged.
   --args []string — Command arguments ('stdio' transport); replaces the whole list — pass '[]' to clear, omit to leave unchanged.
-  --auth-mode string — Authentication mode: shared (default), per_user_secret, or per_user_oauth.
-  --call-timeout int — Tool-call timeout in seconds. 0 = default (60s).
-  --command string — Executable command (stdio transport).
-  --connect-timeout int — Connection timeout in seconds. 0 = default (10s).
+  --auth-mode string — New auth mode; omitted or empty leaves it unchanged. Who supplies the credential: - 'shared' (default; an empty value behaves the same): one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. 'per_user_secret' requires 'secret_schema' with a non-empty 'header_name'; any other value returns 'InvalidParameter'. [shared, per_user_secret, per_user_oauth]
+  --call-timeout int — New tool-call timeout in seconds; omitted or '0' leaves it unchanged (a stored '0' means the 60-second default).
+  --command string — New executable command ('stdio' transport); omitted or empty leaves it unchanged.
+  --connect-timeout int — New connection timeout in seconds; omitted or '0' leaves it unchanged (a stored '0' means the 10-second default).
   --description string — New description; omitted or empty leaves it unchanged. (1-1024 chars)
   --environments []string — Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.
-  --oauth-metadata string — JSON OAuth metadata; reserved for per_user_oauth.
-  --secret-schema string — JSON secret schema; required when auth_mode=per_user_secret.
+  --oauth-metadata string — New JSON OAuth metadata. A non-empty value is stored as sent. When omitted or empty, the stored value is kept unless 'auth_mode' or 'url' changes, in which case it is cleared.
+  --secret-schema string — New JSON secret schema, e.g. '{"header_name":"X-Api-Key"}'. Applied only together with a non-empty 'auth_mode'; sent alone it is ignored.
   --server-id string (required) — Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'.
   --server-name string — New name; omitted or empty leaves it unchanged. (1-255 chars)
-  --team-id int — Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.
+  --team-id int — Reassign team scope: '0' = account-wide (account owner or admin only); '>0' = a team the caller belongs to. Servers installed from the marketplace can only move to '0'. Omit to leave unchanged.
   --transport string — Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. [stdio, sse, streamable-http]
-  --url string — Server URL (sse / streamable-http transport).
-  env (object, via --data) — Environment variables ('stdio' transport); replaces the whole map, but a sensitive key sent back masked or as an empty string keeps its stored value; omit to leave unchanged.
+  --url string — New server URL ('sse' / 'streamable-http' transport); omitted or empty leaves it unchanged. A real change also clears 'oauth_metadata' unless a new one is sent.
+  env (object, via --data) — Environment variables ('stdio' transport); replaces the whole map, so keys left out are removed. For a protected key (see the masking rule on get), sending the masked value or an empty string keeps the stored value. Omit to leave unchanged.
   headers (object, via --data) — HTTP headers ('sse' / 'streamable-http' transport); replaces the whole map, with the same masked/empty-value preservation as 'env'; omit to leave unchanged.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -563,29 +569,31 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - ai_description (string) — LLM-generated description, preferred over 'description' when present. Omitted when not yet generated.
   - allow_insecure_oauth_http (boolean) — Allow this server's OAuth token exchange over plaintext HTTP; testing use only. Omitted when false.
   - allow_insecure_tls_skip_verify (boolean) — Skip TLS certificate verification when connecting to this server; testing use only. Omitted when false.
-  - args (array<string>) — Command arguments (stdio transport).
-  - auth_mode (string) — Authentication mode. One of: 'shared' (a single static credential saved on the resource and shared by all callers in the account; the default — an empty value behaves the same), 'per_user_secret' (each user stores their own secret per 'secret_schema', injected per user at runtime), 'per_user_oauth' (each user completes their own OAuth grant; discovery and registration run lazily on first use). [shared, per_user_secret, per_user_oauth]
-  - call_timeout (integer) (required) — Tool-call timeout in seconds (0 = server default, 60s).
-  - can_edit (boolean) (required) — Whether the caller may edit this server.
+  - args (array<string>) — Command arguments (stdio transport). Omitted when 'can_edit' is 'false'.
+  - auth_mode (string) — Who supplies the credential; omitted when empty, which behaves like 'shared': - 'shared': one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. [shared, per_user_secret, per_user_oauth]
+  - call_timeout (integer) (required) — Tool-call timeout in seconds as stored; '0' means the 60-second default is used.
+  - can_edit (boolean) (required) — Whether the caller may update, enable, disable, or delete this server: 'true' for an account-scoped server only for the account owner or an admin, for a team server only for members of that team. Create and update responses always return 'true'.
   - command (string) — Executable command (stdio transport only).
-  - connect_timeout (integer) (required) — Connection timeout in seconds (0 = server default, 10s).
+  - connect_timeout (integer) (required) — Connection timeout in seconds as stored; '0' means the 10-second default is used.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the server.
   - description (string) (required) — Server description.
-  - env (object) — Environment variables (stdio transport). Secret values are masked.
+  - env (object) — Environment variables ('stdio' transport). Values under credential-looking names, or encrypted at rest, are masked as '****'. Omitted when empty.
   - environments (array<string>) (required) — Execution environments this server is callable from ('cloud' and/or BYOC runner environment IDs). Always present; '[]' means all environments (also the value on legacy rows created before this field).
-  - headers (object) — HTTP headers (sse / streamable-http). Secret values are masked.
+  - headers (object) — HTTP headers ('sse' / 'streamable-http' transport), masked by the same rule as 'env'. Omitted when empty.
   - oauth_metadata (string) — JSON-encoded OAuth metadata (per_user_oauth mode).
-  - proxy_url (string) — Outbound proxy URL used to reach the server.
+  - proxy_url (string) — Outbound proxy URL used to reach the server. Not settable through the public API; omitted when empty. When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
   - secret_schema (string) — JSON-encoded secret schema (per_user_secret mode).
   - server_id (string) (required) — Unique MCP server ID (prefix 'mcp_').
-  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team), case-insensitive.
-  - source_template_name (string) — Marketplace template this connector was installed from; empty for user-authored.
-  - status (string) (required) — Server status. [enabled, disabled]
+  - server_name (string) (required) — MCP server name, unique within its scope (account-wide or one team).
+  - source_template_name (string) — Marketplace template this server was installed from; omitted for servers created by hand.
+  - status (string) (required) — Whether the server's tools are offered to AI SRE sessions: - 'enabled': available (default on create). - 'disabled': kept but not offered; re-enable with 'POST /safari/mcp/server/enable'. [enabled, disabled]
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
+  - test_error (string) — Error message from the last connection test; omitted when the last test succeeded or the server was never tested.
+  - tested_at (string) — Time of the last connection test, Unix timestamp in milliseconds; omitted if the server was never tested. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - transport (string) (required) — Transport protocol. One of: 'stdio' (standard I/O to a local subprocess), 'sse' (standalone SSE, the legacy MCP transport), 'streamable-http' (the newer HTTP streaming transport). [stdio, sse, streamable-http]
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - url (string) — Server URL (sse / streamable-http transport).
+  - url (string) — Server URL (sse / streamable-http transport). When 'can_edit' is 'false', credentials in the URL are removed and every query value is replaced with '****'.
 `,
 		Args:    requireBodyFieldOrExactArg("server_id", "server-id"),
 		Example: `  flashduty safari mcp-server-update --data '{"description":"Query Prometheus metrics, alerts, and rules.","server_id":"mcp_4kP9wQ2nLceRtY7uVb3xA1"}'`,
@@ -663,19 +671,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().BoolVar(&fAllowInsecureOauthHTTP, "allow-insecure-oauth-http", false, "Allow OAuth token exchange over plaintext HTTP. Omit to leave unchanged.")
 	cmd.Flags().BoolVar(&fAllowInsecureTlsSkipVerify, "allow-insecure-tls-skip-verify", false, "Skip TLS certificate verification. Omit to leave unchanged.")
 	cmd.Flags().StringSliceVar(&fArgs, "args", nil, "Command arguments ('stdio' transport); replaces the whole list — pass '[]' to clear, omit to leave unchanged.")
-	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "Authentication mode: shared (default), per_user_secret, or per_user_oauth.")
-	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "Tool-call timeout in seconds. 0 = default (60s).")
-	cmd.Flags().StringVar(&fCommand, "command", "", "Executable command (stdio transport).")
-	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "Connection timeout in seconds. 0 = default (10s).")
+	cmd.Flags().StringVar(&fAuthMode, "auth-mode", "", "New auth mode; omitted or empty leaves it unchanged. Who supplies the credential: - 'shared' (default; an empty value behaves the same): one credential stored on the server ('env' / 'headers') is used for every caller. - 'per_user_secret': each user stores their own secret, sent in the header named by 'secret_schema.header_name'. - 'per_user_oauth': each user completes their own OAuth authorization; discovery and client registration run on first use. 'per_user_secret' requires 'secret_schema' with a non-empty 'header_name'; any other value returns 'InvalidParameter'. [shared, per_user_secret, per_user_oauth]")
+	cmd.Flags().Int64Var(&fCallTimeout, "call-timeout", 0, "New tool-call timeout in seconds; omitted or '0' leaves it unchanged (a stored '0' means the 60-second default).")
+	cmd.Flags().StringVar(&fCommand, "command", "", "New executable command ('stdio' transport); omitted or empty leaves it unchanged.")
+	cmd.Flags().Int64Var(&fConnectTimeout, "connect-timeout", 0, "New connection timeout in seconds; omitted or '0' leaves it unchanged (a stored '0' means the 10-second default).")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description; omitted or empty leaves it unchanged. (1-1024 chars)")
 	cmd.Flags().StringSliceVar(&fEnvironments, "environments", nil, "Execution environments this server is callable from: 'cloud' and/or BYOC runner environment IDs. Omit (null) to leave unchanged; send a list to set it — an empty list clears the restriction back to all environments.")
-	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "JSON OAuth metadata; reserved for per_user_oauth.")
-	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "JSON secret schema; required when auth_mode=per_user_secret.")
+	cmd.Flags().StringVar(&fOauthMetadata, "oauth-metadata", "", "New JSON OAuth metadata. A non-empty value is stored as sent. When omitted or empty, the stored value is kept unless 'auth_mode' or 'url' changes, in which case it is cleared.")
+	cmd.Flags().StringVar(&fSecretSchema, "secret-schema", "", "New JSON secret schema, e.g. '{\"header_name\":\"X-Api-Key\"}'. Applied only together with a non-empty 'auth_mode'; sent alone it is ignored.")
 	cmd.Flags().StringVar(&fServerID, "server-id", "", "Target MCP server ID, from the list returned by 'POST /safari/mcp/server/list'. (required)")
 	cmd.Flags().StringVar(&fServerName, "server-name", "", "New name; omitted or empty leaves it unchanged. (1-255 chars)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: 0 = account-wide; >0 = team. Omit to leave unchanged.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Reassign team scope: '0' = account-wide (account owner or admin only); '>0' = a team the caller belongs to. Servers installed from the marketplace can only move to '0'. Omit to leave unchanged.")
 	cmd.Flags().StringVar(&fTransport, "transport", "", "Transport protocol; when switching, also supply the matching fields ('command'/'args'/'env' for 'stdio', 'url'/'headers' for 'sse' / 'streamable-http'); omitted or empty leaves it unchanged. [stdio, sse, streamable-http]")
-	cmd.Flags().StringVar(&fURL, "url", "", "Server URL (sse / streamable-http transport).")
+	cmd.Flags().StringVar(&fURL, "url", "", "New server URL ('sse' / 'streamable-http' transport); omitted or empty leaves it unchanged. A real change also clears 'oauth_metadata' unless a new one is sent.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

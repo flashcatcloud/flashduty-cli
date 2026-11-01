@@ -28,7 +28,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator_id (integer) (required) — Member ID of the creator.
   - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - description (string) (required) — Free-form description.
+  - description (string) (required) — Free-form description (up to 500 characters); empty string when none was given.
   - dingtalk (string) (required) — DingTalk robot message template source.
   - dingtalk_app (string) (required) — DingTalk app message template source.
   - dingtalk_app_war_room_enabled (boolean) (required) — Whether DingTalk app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
@@ -36,19 +36,19 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - feishu (string) (required) — Feishu robot message template source.
   - feishu_app (string) (required) — Feishu app message template source.
   - feishu_app_card_v2_preserve_blank_lines (boolean) (required) — Whether Feishu app card v2 messages keep blank lines in the body.
-  - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+  - feishu_app_card_v2_table_enabled (boolean) (required) — Whether Markdown tables in the 'feishu_app' content are rendered as native Feishu card tables.
   - feishu_app_war_room_enabled (boolean) (required) — Whether Feishu app cards show the Create War Room button. Hidden when the incident has no responders.
-  - incident_card_closed_action_apps (array<string>) (required) — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
+  - incident_card_closed_action_apps (array<string>) (required) — IM apps whose cards for closed incidents keep the custom action buttons (open incidents always show them). Values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Empty or 'null' hides the buttons on closed-incident cards in every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
   - slack (string) (required) — Slack robot message template source.
   - slack_app (string) (required) — Slack app message template source.
   - slack_app_war_room_enabled (boolean) (required) — Whether Slack app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
   - sms (string) (required) — SMS template source (Go 'text/template' syntax).
-  - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
+  - status (string) (required) — Template status. - 'enabled': usable by escalation rules. - 'disabled': not used for new notifications; cannot be set through this API. - 'deleted': soft-deleted by '/template/delete'; excluded from '/template/list' but still returned by '/template/info'. [enabled, disabled, deleted]
   - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
   - teams_app (string) (required) — Microsoft Teams app message template source.
   - telegram (string) (required) — Telegram bot message template source.
-  - template_id (string) (required) — Template ID.
+  - template_id (string) (required) — Template ID (24-character hex). The built-in preset template always has the ID '6321aad26c12104586a88916'.
   - template_name (string) (required) — Unique template name within the account.
   - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Member ID of the last editor.
@@ -115,12 +115,12 @@ Request fields:
   --page int — Page number, starting at 1. (min 1)
   --limit int — Page size. Capped at 100. (1-100)
   --search-after-ctx string
-  --asc bool — Ascending sort order.
+  --asc bool — Sort ascending when 'true'; defaults to newest first.
   --creator-id int — Filter by creator member ID; obtain member IDs from 'POST /member/list'.
-  --is-my-team bool — When true, only return templates scoped to teams the caller belongs to.
-  --orderby string — Sort field. [created_at, updated_at]
-  --query string — Regex or substring match on template_name.
-  --team-ids []int — Filter by specific team IDs.
+  --is-my-team bool — When 'true', only templates of teams the caller belongs to are returned. If 'team_ids' is also sent, only teams in both lists are kept. When they share no team, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field: 'created_at' (default, creation time) or 'updated_at' (last update time). [created_at, updated_at]
+  --query string — Case-insensitive regular expression matched against 'template_name'; an invalid expression is matched as literal text.
+  --team-ids []int — Return only templates of these team IDs (from 'POST /team/list'); '0' selects account-wide templates. Empty or omitted applies no team filter. See 'is_my_team' for how the two combine.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True if another page exists after the returned one.
@@ -129,7 +129,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_at (string) (required) — Unix epoch seconds the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator.
     - deleted_at (string) — Unix epoch seconds the template was soft-deleted. Absent (omitempty) when the template is live. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - description (string) (required) — Free-form description.
+    - description (string) (required) — Free-form description (up to 500 characters); empty string when none was given.
     - dingtalk (string) (required) — DingTalk robot message template source.
     - dingtalk_app (string) (required) — DingTalk app message template source.
     - dingtalk_app_war_room_enabled (boolean) (required) — Whether DingTalk app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
@@ -137,19 +137,19 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - feishu (string) (required) — Feishu robot message template source.
     - feishu_app (string) (required) — Feishu app message template source.
     - feishu_app_card_v2_preserve_blank_lines (boolean) (required) — Whether Feishu app card v2 messages keep blank lines in the body.
-    - feishu_app_card_v2_table_enabled (boolean) (required) — Whether alert labels use table rendering in Feishu app cards.
+    - feishu_app_card_v2_table_enabled (boolean) (required) — Whether Markdown tables in the 'feishu_app' content are rendered as native Feishu card tables.
     - feishu_app_war_room_enabled (boolean) (required) — Whether Feishu app cards show the Create War Room button. Hidden when the incident has no responders.
-    - incident_card_closed_action_apps (array<string>) (required) — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
+    - incident_card_closed_action_apps (array<string>) (required) — IM apps whose cards for closed incidents keep the custom action buttons (open incidents always show them). Values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Empty or 'null' hides the buttons on closed-incident cards in every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
     - incident_card_hidden_fields (object) (required) — Incident card fields hidden per IM app type; an empty object when none are configured.
     - slack (string) (required) — Slack robot message template source.
     - slack_app (string) (required) — Slack app message template source.
     - slack_app_war_room_enabled (boolean) (required) — Whether Slack app cards show the Create War Room button. Hidden for closed incidents and when the incident has no responders.
     - sms (string) (required) — SMS template source (Go 'text/template' syntax).
-    - status (string) (required) — Template lifecycle status. 'enabled' templates can be referenced by escalation policies for notifications; 'disabled' templates are no longer used for new notifications; 'deleted' templates are never returned by list endpoints. [enabled, disabled, deleted]
+    - status (string) (required) — Template status. - 'enabled': usable by escalation rules. - 'disabled': not used for new notifications; cannot be set through this API. - 'deleted': soft-deleted by '/template/delete'; excluded from '/template/list' but still returned by '/template/info'. [enabled, disabled, deleted]
     - team_id (integer) (required) — ID of the team this template is scoped to, or 0 for account-wide.
     - teams_app (string) (required) — Microsoft Teams app message template source.
     - telegram (string) (required) — Telegram bot message template source.
-    - template_id (string) (required) — Template ID.
+    - template_id (string) (required) — Template ID (24-character hex). The built-in preset template always has the ID '6321aad26c12104586a88916'.
     - template_name (string) (required) — Unique template name within the account.
     - updated_at (string) (required) — Unix epoch seconds the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last editor.
@@ -211,12 +211,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Capped at 100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending sort order.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'; defaults to newest first.")
 	cmd.Flags().Int64Var(&fCreatorID, "creator-id", 0, "Filter by creator member ID; obtain member IDs from 'POST /member/list'.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, only return templates scoped to teams the caller belongs to.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Regex or substring match on template_name.")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by specific team IDs.")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When 'true', only templates of teams the caller belongs to are returned. If 'team_ids' is also sent, only teams in both lists are kept. When they share no team, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'created_at' (default, creation time) or 'updated_at' (last update time). [created_at, updated_at]")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive regular expression matched against 'template_name'; an invalid expression is matched as literal text.")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Return only templates of these team IDs (from 'POST /team/list'); '0' selects account-wide templates. Empty or omitted applies no team filter. See 'is_my_team' for how the two combine.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -224,53 +224,75 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genNotificationTemplatesReadPreviewCmd() *cobra.Command {
 	var dataJSON string
 	var fContent string
-	var fFeishuAppCardV2Enabled bool
 	var fFeishuAppCardV2PreserveBlankLines bool
+	var fFeishuAppCardV2TableEnabled bool
 	var fIncidentID string
 	var fType string
+	var fWecomMarkdownV2Enabled bool
 	cmd := &cobra.Command{
 		Use:   "preview",
 		Short: "Preview template",
 		Long: `Preview template.
 
-Render a notification template against incident data or mock data and return the output.
+Render a template source against an incident or mock data and return what the channel would send.
 
 API: POST /template/preview (template-read-preview)
 
 Request fields:
-  --content string (required) — Template content to render.
-  --feishu-app-card-v2-enabled bool — Render the preview as a Feishu app card v2 message.
+  --content string — Template source to render for the channel 'type'. Empty or omitted previews the channel's built-in preset content. Ignored for 'push'.
   --feishu-app-card-v2-preserve-blank-lines bool — Keep blank lines in the body of the Feishu app card v2 preview.
-  --incident-id string — Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.
-  --type string (required) — Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'.
+  --feishu-app-card-v2-table-enabled bool — Render Markdown tables in 'feishu_app' content as native Feishu card tables, as the template setting of the same name does.
+  --incident-id string — Incident whose data is rendered (24-character hex ID from '/incident/list'); must exist in the account, otherwise 'InvalidParameter'. When omitted a mock incident is used.
+  --type string (required) — Channel to preview; other values return 'InvalidParameter'. - 'email': email body (HTML template). - 'sms', 'voice': SMS text and voice call script. - 'push': mobile app push (fixed content; 'content' is ignored). - 'dingtalk', 'wecom', 'feishu', 'zoom', 'telegram', 'slack': robot (webhook) messages. - 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app': IM app cards. [email, sms, voice, push, dingtalk, wecom, feishu, zoom, telegram, slack, feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
+  --wecom-markdown-v2-enabled bool — Preview 'wecom' content as a 'markdown_v2' message, as the template setting of the same name does (size limit 4,096 bytes).
   incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app when previewing.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - content (string) (required) — Rendered template output, present when success is true.
-  - fixed_fields (array<object>) — Fixed incident-card fields returned for supported IM previews after the requested hiding rules are applied.
-    - field (string) (required) — Incident-card field name. | Value | Meaning | |---|---| | 'channel' | Name of the alert channel that produced the incident; returned only when non-empty. | | 'snoozed_before' | Snooze-until timestamp formatted as 'YYYY-MM-DD HH:MM:SS'; returned only while the incident is snoozed. | | 'severity' | Incident severity label; returned only when non-empty. | | 'responders' | Names of the current responders, separated by spaces; returned only when the incident has responders. | | 'aggregate_alert_count' | Number of alerts aggregated into the incident; returned only when greater than 1. | [channel, snoozed_before, severity, responders, aggregate_alert_count]
-    - value (string) (required) — Rendered display value for the fixed field.
-  - message (string) (required) — Error message describing why rendering failed, present when success is false.
+  - blocks (array<object>) — How the recipient's client shows 'content', split into blocks. Omitted for channels that show the text as is.
+    - columns (array<string>) — Column headers of a 'table' block.
+    - content (string) — Text of a 'markdown' block.
+    - native (boolean) — 'true' when a 'table' block is shown as a native card table; omitted otherwise.
+    - page_size (integer) — Rows shown per page in a native table; omitted when not set.
+    - rows (array<array<string>>) — Cell values of a 'table' block, one array per row.
+    - type (string) (required) — Block kind: 'markdown' (text in 'content') or 'table' (a table in 'columns'/'rows'). [markdown, table]
+  - card (object) — Message frame around the rendered template, in the account language. Returned for 'email', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app' and 'teams_app'; omitted otherwise.
+    - elements (array<object>) (required) — Card elements in display order.
+      - actions (array<object>) — Buttons of an 'actions' element; omitted for other kinds.
+        - style (string) — Button style: 'primary' (highlighted), 'danger' (destructive), 'select' (a drop-down menu). Omitted for a plain button. [primary, danger, select]
+        - text (string) (required) — Button label.
+      - content (string) — Markdown text of a 'markdown' element; omitted for other kinds.
+      - type (string) (required) — Element kind. - 'template': where the rendered template ('content') appears. - 'markdown': fixed text in the channel's Markdown, in 'content'. - 'divider': a horizontal rule. - 'actions': a row of buttons, in 'actions'. [template, markdown, divider, actions]
+    - title (string) (required) — Email subject or card title.
+  - content (string) (required) — Rendered template output; an empty string when 'success' is 'false'.
+  - message (string) (required) — Why rendering failed, in the caller's language; an empty string when 'success' is 'true'.
+  - notices (array<object>) — Warnings about how the content will be delivered. Omitted when there are none.
+    - code (string) (required) — Warning kind. - 'table_not_rendered': the channel cannot show Markdown tables; they are sent as text. - 'markdown_table_limit': one Markdown block of a 'feishu_app' card holds more than 4 tables. - 'native_table_fallback': a table cannot be a native card table and is sent as Markdown; 'reason' says why ('too_many_tables', 'too_many_columns', 'too_many_rows', 'cell_too_long', 'unsupported_cell', 'card_too_large'). - 'content_too_large': the content exceeds 'size_limit_bytes'; 'reason' is 'truncated' (cut to fit), 'compact_fallback' (sent in a compact form) or 'rejected' (the channel will refuse it). [table_not_rendered, markdown_table_limit, native_table_fallback, content_too_large]
+    - reason (string) — Detail for 'code', as listed there; omitted for 'table_not_rendered'.
+  - size_bytes (integer) (required) — Size of the rendered content in bytes, measured before any truncation.
+  - size_limit_bytes (integer) (required) — Size limit the channel applies in bytes: 4,000 for the 'dingtalk', 'telegram' and 'slack' robots (and 'wecom' without 'markdown_v2'), 4,096 for 'wecom' with 'markdown_v2', 15,000 for 'slack_app', 30,720 for 'feishu_app'; '0' when the channel has no limit.
   - success (boolean) (required) — Whether the template rendered without errors.
 `,
-		Example: `  flashduty template preview --data '{"content":"Incident {{.Title}} is {{.Status}}","incident_card_hidden_fields":{"feishu_app":["responders"]},"incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
+		Example: `  flashduty template preview --data '{"content":"**{{.Title}}** is {{.IncidentSeverity}}","incident_card_hidden_fields":{"feishu_app":["responders"]},"incident_id":"664a1b2c3d4e5f6a7b8c9d0e","type":"feishu_app"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("content") {
 						body["content"] = fContent
 					}
-					if cmd.Flags().Changed("feishu-app-card-v2-enabled") {
-						body["feishu_app_card_v2_enabled"] = fFeishuAppCardV2Enabled
-					}
 					if cmd.Flags().Changed("feishu-app-card-v2-preserve-blank-lines") {
 						body["feishu_app_card_v2_preserve_blank_lines"] = fFeishuAppCardV2PreserveBlankLines
+					}
+					if cmd.Flags().Changed("feishu-app-card-v2-table-enabled") {
+						body["feishu_app_card_v2_table_enabled"] = fFeishuAppCardV2TableEnabled
 					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID
 					}
 					if cmd.Flags().Changed("type") {
 						body["type"] = fType
+					}
+					if cmd.Flags().Changed("wecom-markdown-v2-enabled") {
+						body["wecom_markdown_v2_enabled"] = fWecomMarkdownV2Enabled
 					}
 					return nil
 				})
@@ -289,11 +311,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fContent, "content", "", "Template content to render. (required)")
-	cmd.Flags().BoolVar(&fFeishuAppCardV2Enabled, "feishu-app-card-v2-enabled", false, "Render the preview as a Feishu app card v2 message.")
+	cmd.Flags().StringVar(&fContent, "content", "", "Template source to render for the channel 'type'. Empty or omitted previews the channel's built-in preset content. Ignored for 'push'.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "Keep blank lines in the body of the Feishu app card v2 preview.")
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID whose data is used to render the template; mock data is used when omitted. A MongoDB ObjectID hex string.")
-	cmd.Flags().StringVar(&fType, "type", "", "Template channel type that selects the rendering engine. 'email' renders as Go html/template; other channels render as text/template. Values match the template channel fields, for example 'email', 'sms', 'voice', 'dingtalk', 'wecom', 'feishu', 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app', 'telegram', 'slack', 'zoom'. (required)")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "Render Markdown tables in 'feishu_app' content as native Feishu card tables, as the template setting of the same name does.")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident whose data is rendered (24-character hex ID from '/incident/list'); must exist in the account, otherwise 'InvalidParameter'. When omitted a mock incident is used.")
+	cmd.Flags().StringVar(&fType, "type", "", "Channel to preview; other values return 'InvalidParameter'. - 'email': email body (HTML template). - 'sms', 'voice': SMS text and voice call script. - 'push': mobile app push (fixed content; 'content' is ignored). - 'dingtalk', 'wecom', 'feishu', 'zoom', 'telegram', 'slack': robot (webhook) messages. - 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app': IM app cards. (required) [email, sms, voice, push, dingtalk, wecom, feishu, zoom, telegram, slack, feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
+	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "Preview 'wecom' content as a 'markdown_v2' message, as the template setting of the same name does (size limit 4,096 bytes).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -329,7 +352,7 @@ func genNotificationTemplatesWriteCreateCmd() *cobra.Command {
 		Short: "Create a template",
 		Long: `Create a template.
 
-Create a new notification template.
+Create a notification template with per-channel message sources.
 
 API: POST /template/create (template-write-create)
 
@@ -342,29 +365,29 @@ Request fields:
   --feishu string — Feishu robot message template source.
   --feishu-app string — Feishu app message template source.
   --feishu-app-card-v2-preserve-blank-lines bool — Keep blank lines in the body of Feishu app card v2 messages.
-  --feishu-app-card-v2-table-enabled bool — Render alert labels as a table in Feishu app cards.
+  --feishu-app-card-v2-table-enabled bool — Render Markdown tables in the 'feishu_app' content as native Feishu card tables.
   --feishu-app-war-room-enabled bool — Show the Create War Room button on Feishu app cards.
   --incident-card-closed-action-apps []string — IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source.
   --slack-app string — Slack app message template source.
   --slack-app-war-room-enabled bool — Show the Create War Room button on Slack app cards.
   --sms string — SMS template source (Go 'text/template' syntax).
-  --team-id int — Team scope. 0 for account-wide.
+  --team-id int — Owning team ID from 'POST /team/list'; '0' (default) means account-wide. A non-zero ID must be an existing team.
   --teams-app string — Microsoft Teams app message template source.
   --telegram string — Telegram bot message template source.
-  --template-name string (required) — Template name, unique per account. 1–39 characters. (1-39 chars)
+  --template-name string (required) — Template name, 1–39 characters, unique among the account's non-deleted templates and different from the built-in preset template's name in every supported language. (1-39 chars)
   --voice string — Voice call script template source.
   --wecom string — WeCom robot message template source.
   --wecom-app string — WeCom app message template source.
-  --wecom-markdown-v2-enabled bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.
+  --wecom-markdown-v2-enabled bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes.
   --zoom string — Zoom bot message template source.
-  incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
+  incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app type.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - template_id (string) (required) — Newly created template ID.
   - template_name (string) (required) — Template name echoed from the request.
 `,
-		Example: `  flashduty template create --data '{"description":"Default template for production incidents.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","team_id":0,"template_name":"Prod incident default"}'`,
+		Example: `  flashduty template create --data '{"description":"Default template for production incidents.","email":"Incident {{.Title}} is {{.IncidentSeverity}}","sms":"[Flashduty] {{.Title}} - {{.IncidentSeverity}}","team_id":0,"template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -465,21 +488,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "Keep blank lines in the body of Feishu app card v2 messages.")
-	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "Render alert labels as a table in Feishu app cards.")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "Render Markdown tables in the 'feishu_app' content as native Feishu card tables.")
 	cmd.Flags().BoolVar(&fFeishuAppWarRoomEnabled, "feishu-app-war-room-enabled", false, "Show the Create War Room button on Feishu app cards.")
 	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "IM apps whose closed-incident cards keep the custom action buttons. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. An empty list hides the buttons on every app. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source.")
 	cmd.Flags().StringVar(&fSlackApp, "slack-app", "", "Slack app message template source.")
 	cmd.Flags().BoolVar(&fSlackAppWarRoomEnabled, "slack-app-war-room-enabled", false, "Show the Create War Room button on Slack app cards.")
 	cmd.Flags().StringVar(&fSMS, "sms", "", "SMS template source (Go 'text/template' syntax).")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team scope. 0 for account-wide.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID from 'POST /team/list'; '0' (default) means account-wide. A non-zero ID must be an existing team.")
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source.")
 	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source.")
-	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name, unique per account. 1–39 characters. (required) (1-39 chars)")
+	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name, 1–39 characters, unique among the account's non-deleted templates and different from the built-in preset template's name in every supported language. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source.")
-	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown.")
+	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -493,7 +516,7 @@ func genNotificationTemplatesWriteDeleteCmd() *cobra.Command {
 		Short: "Delete a template",
 		Long: `Delete a template.
 
-Soft-delete a template by ID.
+Soft-delete a notification template by ID.
 
 API: POST /template/delete (template-write-delete)
 
@@ -569,7 +592,7 @@ func genNotificationTemplatesWriteUpdateCmd() *cobra.Command {
 		Short: "Update a template",
 		Long: `Update a template.
 
-Update an existing template. Only the fields present in the request are written: a channel you omit keeps its current content, and an explicit empty string clears it.
+Update a notification template; only the fields present in the request are written.
 
 API: POST /template/update (template-write-update)
 
@@ -582,7 +605,7 @@ Request fields:
   --feishu string — Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.
   --feishu-app string — Feishu app message template source. Omit to keep the current content; send an empty string to clear it.
   --feishu-app-card-v2-preserve-blank-lines bool — When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.
-  --feishu-app-card-v2-table-enabled bool — When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.
+  --feishu-app-card-v2-table-enabled bool — Render Markdown tables in the 'feishu_app' content as native Feishu card tables. Omit to keep the current setting.
   --feishu-app-war-room-enabled bool — When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.
   --incident-card-closed-action-apps []string — Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
   --slack string — Slack robot message template source. Omit to keep the current content; send an empty string to clear it.
@@ -593,16 +616,16 @@ Request fields:
   --teams-app string — Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.
   --telegram string — Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.
   --template-id string (required) — Target template ID; obtain it from 'POST /template/list'.
-  --template-name string (required) — Template name. 1–39 characters. (1-39 chars)
+  --template-name string (required) — Template name, 1–39 characters. Required and written on every call; must not be used by another template. (1-39 chars)
   --voice string — Voice call script template source. Omit to keep the current content; send an empty string to clear it.
   --wecom string — WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.
   --wecom-app string — WeCom app message template source. Omit to keep the current content; send an empty string to clear it.
-  --wecom-markdown-v2-enabled bool — When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.
+  --wecom-markdown-v2-enabled bool — Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes. Omit to keep the current setting.
   --zoom string — Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.
-  incident_card_hidden_fields (object, via --data) — Incident card fields hidden per IM app type.
+  incident_card_hidden_fields (object, via --data) — Incident card fields to hide per IM app type. When sent, replaces the stored value as a whole; omit to keep.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
-		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{ .IncidentName }} on {{ .Severity }}","sms":"[Flashduty] {{ .IncidentName }} — {{ .Severity }}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
+		Example: `  flashduty template update --data '{"description":"Updated description.","email":"Incident {{.Title}} is {{.IncidentSeverity}}","sms":"[Flashduty] {{.Title}} - {{.IncidentSeverity}}","template_id":"6605a1b2c3d4e5f6a7b8c9d0","template_name":"Prod incident default"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -713,7 +736,7 @@ Request fields:
 	cmd.Flags().StringVar(&fFeishu, "feishu", "", "Feishu robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fFeishuApp, "feishu-app", "", "Feishu app message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().BoolVar(&fFeishuAppCardV2PreserveBlankLines, "feishu-app-card-v2-preserve-blank-lines", false, "When set, keep or drop blank lines in the body of Feishu app card v2 messages. Omit to keep the existing setting.")
-	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "When set, enable or disable table rendering for alert labels in Feishu app cards. Omit to keep the existing setting.")
+	cmd.Flags().BoolVar(&fFeishuAppCardV2TableEnabled, "feishu-app-card-v2-table-enabled", false, "Render Markdown tables in the 'feishu_app' content as native Feishu card tables. Omit to keep the current setting.")
 	cmd.Flags().BoolVar(&fFeishuAppWarRoomEnabled, "feishu-app-war-room-enabled", false, "When set, show or hide the Create War Room button on Feishu app cards. Omit to keep the existing setting.")
 	cmd.Flags().StringSliceVar(&fIncidentCardClosedActionApps, "incident-card-closed-action-apps", nil, "Replaces the retained-app list when sent. Supported values: 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', 'teams_app'. Omit the field to leave it unchanged. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]")
 	cmd.Flags().StringVar(&fSlack, "slack", "", "Slack robot message template source. Omit to keep the current content; send an empty string to clear it.")
@@ -724,11 +747,11 @@ Request fields:
 	cmd.Flags().StringVar(&fTeamsApp, "teams-app", "", "Microsoft Teams app message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fTelegram, "telegram", "", "Telegram bot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Target template ID; obtain it from 'POST /template/list'. (required)")
-	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name. 1–39 characters. (required) (1-39 chars)")
+	cmd.Flags().StringVar(&fTemplateName, "template-name", "", "Template name, 1–39 characters. Required and written on every call; must not be used by another template. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fVoice, "voice", "", "Voice call script template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fWecom, "wecom", "", "WeCom robot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&fWecomApp, "wecom-app", "", "WeCom app message template source. Omit to keep the current content; send an empty string to clear it.")
-	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "When set, switch WeCom robot notifications between 'markdown_v2' and plain markdown. Omit to keep the existing setting.")
+	cmd.Flags().BoolVar(&fWecomMarkdownV2Enabled, "wecom-markdown-v2-enabled", false, "Send WeCom robot notifications as 'markdown_v2' messages instead of plain markdown. While enabled, the rendered 'wecom' content must be at most 4,096 bytes. Omit to keep the current setting.")
 	cmd.Flags().StringVar(&fZoom, "zoom", "", "Zoom bot message template source. Omit to keep the current content; send an empty string to clear it.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

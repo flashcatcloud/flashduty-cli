@@ -84,13 +84,13 @@ List enrichment rules
 
 ### mapping-api-create
 Create mapping API
-- `--api-name` string (required) — Unique API name (max 199 chars). (≤199 chars)
+- `--api-name` string (required) — Name of the mapping API, unique among non-deleted mapping APIs (max 199 characters). (≤199 chars)
 - `--description` string — Optional description. Values longer than 500 characters are silently truncated.
 - `--insecure-skip-verify` bool — Skip TLS certificate verification. Default 'false'.
-- `--retry-count` int64 — Number of retries on failure (0–1). Default 0. (0-1)
-- `--team-id` int64 — Owning team ID; obtain it from 'POST /team/list'.
-- `--timeout` int64 — Request timeout in seconds (1–3). Default 2. (1-3)
-- `--url` string (required) — HTTP/HTTPS endpoint URL (max 500 chars). (≤500 chars)
+- `--retry-count` int64 — Number of retries after a failed call (0–1). Defaults to 0. (0-1)
+- `--team-id` int64 — Owning team ID; obtain it from 'POST /team/list'. '0' or omitted means no team. A non-zero ID must be an existing team.
+- `--timeout` int64 — Timeout of the whole request in seconds (1–3). Defaults to 2 when omitted or 0. (1-3)
+- `--url` string (required) — Endpoint called with 'POST'. Must be an 'http' or 'https' URL of at most 500 characters; in SaaS the host must not resolve to an internal IP address. (≤500 chars)
 - body-only (`--data`): headers (object)
 - response: single object (`data` unwrapped to the top level) — fields: api_id (string); api_name (string)
 
@@ -110,18 +110,18 @@ List mapping APIs
 ### mapping-api-update <api-id>
 Update mapping API
 - `<api-id>` (positional, required) string — Mapping API ID (MongoDB ObjectID hex).
-- `--api-name` string — New API name (max 199 chars). (≤199 chars)
-- `--description` string — New description.
-- `--insecure-skip-verify` bool — New TLS skip-verify setting.
-- `--retry-count` int64 — New retry count. (0-1)
-- `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'.
-- `--timeout` int64 — New timeout in seconds. (1-3)
-- `--url` string — New endpoint URL (max 500 chars). (≤500 chars)
+- `--api-name` string — New name, unique among non-deleted mapping APIs (max 199 characters). Omit to keep. (≤199 chars)
+- `--description` string — New description; longer than 500 characters is truncated. Omit to keep, send '""' to clear.
+- `--insecure-skip-verify` bool — New TLS skip-verify setting. Omit to keep.
+- `--retry-count` int64 — New retry count (0–1). Omit to keep. (0-1)
+- `--team-id` int64 — New owning team ID from 'POST /team/list'; '0' removes the team. Omit to keep.
+- `--timeout` int64 — New whole-request timeout in seconds (1–3). Omit to keep. (1-3)
+- `--url` string — New 'http'/'https' endpoint (max 500 characters); in SaaS the host must not resolve to an internal IP. Omit to keep. (≤500 chars)
 - body-only (`--data`): headers (object)
 
 ### mapping-data-delete <schema-id>
 Delete mapping data rows
-- `--keys` stringSlice (required) — Keys of rows to delete.
+- `--keys` stringSlice (required) — Row keys to delete (at most 100), as returned in 'key' by '/enrichment/mapping/data/list' or in 'keys' by '/enrichment/mapping/data/upsert'. Keys that match no row are ignored.
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
 
 ### mapping-data-download <schema-id>
@@ -130,14 +130,14 @@ Download mapping data as CSV
 
 ### mapping-data-list <schema-id>
 List mapping data
-- `--asc` bool — Sort ascending when 'true'.
+- `--asc` bool — Sort ascending when 'true'; defaults to 'false' (newest first).
 - `--limit` int64 — Page size (0–100); defaults to 20 when omitted, 'null', or 0. (0-100)
 - `--orderby` string — Sort field. Defaults to 'updated_at'. · enum: created_at | updated_at
 - `--page` int64 — Page number (1-based) for offset pagination; defaults to 1 when omitted, 'null', or 0. Ignored when 'search_after_ctx' is set. Page-based navigation can reach at most 10,000 rows ('p * limit <= 10000'). (min 0)
 - `<schema-id>` (positional, required) string — Mapping schema ID (MongoDB ObjectID hex).
 - `--search-after-ctx` string — Opaque cursor for cursor-based pagination — pass the 'search_after_ctx' value from the previous response. Must be a MongoDB ObjectID hex string; when set, 'p' is ignored.
 - body-only (`--data`): query (object)
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); fields (object); key (string); updated_at (string)
+- response: `{items: [...], has_next_page, search_after_ctx, total, used_cnt}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); fields (object); key (string); updated_at (string)
 
 ### mapping-data-truncate <schema-id>
 Truncate mapping data
@@ -159,9 +159,9 @@ Upsert mapping data rows
 Create mapping schema
 - `--description` string — Optional description (max 500 chars). (≤500 chars)
 - `--result-labels` stringSlice (required) — Output label names written on a match (1–10). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'source_labels'.
-- `--schema-name` string (required) — Unique schema name (max 39 chars). (≤39 chars)
+- `--schema-name` string (required) — Schema name, unique among the account's non-deleted schemas (max 39 characters). (≤39 chars)
 - `--source-labels` stringSlice (required) — Lookup key label names (1–3). Each must match '^[a-zA-Z_][a-zA-Z0-9_]*$'; entries must be unique and must not overlap with 'result_labels'.
-- `--team-id` int64 — Owning team ID. '0' means no team.
+- `--team-id` int64 — Owning team ID from 'POST /team/list'. '0' or omitted means no team; a non-zero ID must be an existing team.
 - response: single object (`data` unwrapped to the top level) — fields: schema_id (string); schema_name (string)
 
 ### mapping-schema-delete <schema-id>
@@ -179,10 +179,21 @@ List mapping schemas
 
 ### mapping-schema-update <schema-id>
 Update mapping schema
-- `--description` string — New description (max 500 chars). (≤500 chars)
+- `--description` string — New description (max 500 characters). Omit to keep, send '""' to clear. (≤500 chars)
 - `<schema-id>` (positional, required) string — Schema ID (MongoDB ObjectID hex).
-- `--schema-name` string — New schema name (max 39 chars). (≤39 chars)
-- `--team-id` int64 — New owning team ID. '0' removes the team association.
+- `--schema-name` string — New name, unique among non-deleted schemas (max 39 characters). Omit to keep. (≤39 chars)
+- `--team-id` int64 — New owning team ID from 'POST /team/list'; '0' removes the team. Omit to keep.
+
+### preview <integration-id>
+Preview enrichment rule results
+- `<integration-id>` (positional, required) int64 — Integration whose context the preview runs in. The rules you send are not saved. (min 1)
+- body-only (`--data`): event (object) (required); rules (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: after (object); before (object); steps (array<object>)
+
+### sample-list <integration-id>
+List recent event samples
+- `<integration-id>` (positional, required) int64 — Integration whose recent raw events to list. (min 1)
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: description_truncated (boolean); dropped (boolean); event (object); received_at (string)
 
 ### upsert <integration-id>
 Upsert enrichment rules

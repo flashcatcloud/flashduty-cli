@@ -53,6 +53,12 @@ flashduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comm
 
 <!-- GENERATED:alert START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
+### email-preview
+Preview email-to-alert conversion
+- `--integration-id` int64 — Email integration whose saved settings seed the preview. '0' or omitted is what the console sends on the create page, before the integration exists.
+- body-only (`--data`): email (object) (required); settings (object) (required)
+- response: single object (`data` unwrapped to the top level) — fields: alert_key (string); email (object); event (any); key_fallback (boolean); key_source (string); matched_rule (integer); result (string)
+
 ### event-list <alert-id>
 List events for an alert
 - `<alert-id>` (positional, required) string — Alert ID (MongoDB ObjectID).
@@ -108,7 +114,7 @@ List alerts
 
 ### list-by-ids <alert-id> [<id2>...]
 List alerts by IDs
-- `<alert-ids>` (positional, required) stringSlice — Alert IDs (ObjectID hex strings) to fetch.
+- `<alert-ids>` (positional, required) stringSlice — Alert IDs (ObjectID hex strings) to fetch. A malformed ID fails the request; IDs not found in the account are left out of the result.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); alert_id (string); alert_key (string); alert_severity (string); alert_status (string); channel_id (integer); channel_name (string); channel_status (string); created_at (string); data_source_id (integer); data_source_name (string); data_source_ref_id (string); data_source_type (string); deleted_at (string); description (string); detail_url (string); end_time (string); event_cnt (integer); events (array<object>); ever_muted (boolean); images (array<object>); incident (object); integration_id (integer); integration_name (string); integration_ref_id (string); integration_type (string); labels (object); last_time (string); responder_email (string); responder_name (string); start_time (string); title (string); title_rule (string); updated_at (string)
 
 ### merge <alert-id> [<id2>...]
@@ -129,9 +135,15 @@ List alert pipelines
 - `<integration-ids>` (positional, required) intSlice — Integration IDs. At least one entry is required.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); creator_id (integer); deleted_at (string); integration_id (integer); rules (array<object>); status (string); updated_at (string); updated_by (integer)
 
+### pipeline-preview <integration-id>
+Preview alert pipeline processing
+- `<integration-id>` (positional, required) int64 — Integration whose saved enrichment runs first and whose pipeline context the preview uses. (min 1)
+- body-only (`--data`): event (object) (required); rules (array<object>)
+- response: single object (`data` unwrapped to the top level) — fields: after (object); before (object); dropped (boolean); inhibited (boolean); is_recovery (boolean); steps (array<object>)
+
 ### pipeline-upsert <integration-id>
 Create or update alert pipeline
-- `<integration-id>` (positional, required) int64 — Integration ID to configure.
+- `<integration-id>` (positional, required) int64 — ID of the integration to configure; account-level and channel-owned integrations are both accepted.
 - body-only (`--data`): rules (array<object>) (required)
 
 ### timeline <alert_id>

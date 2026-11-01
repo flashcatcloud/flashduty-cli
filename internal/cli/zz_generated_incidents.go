@@ -39,7 +39,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - revision (integer) (required) — New content revision after the reset.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
-		Example: `  flashduty incident post-mortem-content-reset --data '{"expected_revision":11,"idempotency_key":"postmortem-reset-8104935102-11","markdown":"# Database saturation incident\n\nThe database pool was exhausted; added saturation alert.","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		Example: `  flashduty incident post-mortem-content-reset --data '{"expected_revision":11,"idempotency_key":"postmortem-reset-d3c9a7f2-11","markdown":"# Database saturation incident\n\nThe database pool was exhausted; added saturation alert.","post_mortem_id":"d3c9a7f2e5b14c8a9f0e6b2d4a1c7e35"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -91,28 +91,28 @@ func genIncidentsReadGetWarRoomDefaultObserversCmd() *cobra.Command {
 		Short: "Get war-room default observers",
 		Long: `Get war-room default observers.
 
-Return historical responders suggested as default observers when opening a war room.
+Return people assigned to an incident earlier who are no longer responders, as suggested war-room observers.
 
 API: POST /incident/war-room/default-observers (incident-read-get-war-room-default-observers)
 
 Request fields:
-  --incident-id string (required) — Incident ID, a MongoDB ObjectID hex string.
+  --incident-id string (required) — Incident ID (MongoDB ObjectID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - observers (array<object>) — Historical responders suggested as default war-room observers.
+  - observers (array<object>) (required) — Suggested observers, in timeline order. Empty array when there are none.
     - account_id (integer) (required) — Account this person belongs to.
-    - as (string) — Role the person holds in the related context.
+    - as (string) — Identity type of the person. - 'account': the account owner. - 'member': a regular member of the account. [account, member]
     - avatar (string) — URL of the person's avatar image.
-    - email (string) — Email address of the person.
-    - locale (string) — Preferred language locale of the person.
-    - person_id (integer) (required) — Person ID.
+    - email (string) — Email address; omitted when the member has not verified it.
+    - locale (string) — Preferred language, e.g. 'zh-CN' or 'en-US'.
+    - person_id (integer) (required) — Person ID: a member ID, or the account ID when the person is the account owner ('as' = 'account').
     - person_name (string) — Display name of the person.
-    - phone (string) — Phone number of the person.
-    - status (string) — Current status of the person.
-    - time_zone (string) — Time zone of the person.
+    - phone (string) — Phone number; omitted when the member has not verified it.
+    - status (string) — Membership status. - 'enabled': active. - 'pending': invited but has not joined yet. - 'deleted': removed from the account. [enabled, pending, deleted]
+    - time_zone (string) — IANA time zone name, e.g. 'Asia/Shanghai'.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
-		Example: `  flashduty incident war-room-default-observers --data '{"incident_id":"664a1b2c3d4e5f6a7b8c9d0e"}'`,
+		Example: `  flashduty incident war-room-default-observers --data '{"incident_id":"69bb9233331067560c718ecd"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -139,7 +139,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID, a MongoDB ObjectID hex string. (required)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -169,8 +169,8 @@ List synchronization mappings between ServiceDeskPlus requests and Flashduty inc
 API: POST /incident/sdp/request/list (incident-service-desk-plus-request-read-list)
 
 Request fields:
-  --page int — Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)
-  --limit int — Page size. Defaults to 20; maximum 100. (0-100)
+  --page int — Not supported; pagination uses only 'search_after_ctx', so this value is ignored. (min 0)
+  --limit int — Page size. Defaults to 20; maximum 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)
   --search-after-ctx string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
   --asc bool — When 'true', sort by internal record ID ascending; otherwise descending.
   --channel-ids []int — Channel IDs to filter by.
@@ -260,8 +260,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. Ignored when 'search_after_ctx' is set. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20; maximum 100. (0-100)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Not supported; pagination uses only 'search_after_ctx', so this value is ignored. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20; maximum 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "When 'true', sort by internal record ID ascending; otherwise descending.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by.")
@@ -287,17 +287,17 @@ func genIncidentsWriteAddWarRoomMemberCmd() *cobra.Command {
 		Short: "Add war-room member",
 		Long: `Add war-room member.
 
-Add one or more members to the IM war room bound to an incident integration.
+Add members to an existing incident war room on Feishu (Lark), DingTalk, WeCom, or Slack.
 
 API: POST /incident/war-room/add-member (incident-write-add-war-room-member)
 
 Request fields:
-  --chat-id string (required) — Chat ID of the war room within the IM platform.
+  --chat-id string (required) — Chat ID of the war-room group on the IM platform, as returned for the war room by 'POST /incident/war-room/list'.
   --integration-id int (required) — ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'.
-  --member-ids []int (required) — Person IDs to add to the war room.
+  --member-ids []int (required) — Person IDs (member IDs, or the account ID for the owner) to add. Must not be empty.
 `,
 		Args:    requireBodyFieldOrExactArg("chat_id", "chat-id"),
-		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":362,"member_ids":[20001,20002]}'`,
+		Example: `  flashduty incident war-room-add-member --data '{"chat_id":"oc_5ce6d572455d361153b7cb51da133945","integration_id":2551105804131,"member_ids":[3790925372131,5068740052131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -330,9 +330,9 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room within the IM platform. (required)")
+	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war-room group on the IM platform, as returned for the war room by 'POST /incident/war-room/list'. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of the IM integration hosting the war room; obtain it from 'POST /datasource/im/war-room-enabled/list'. (required)")
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs to add to the war room. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Person IDs (member IDs, or the account ID for the owner) to add. Must not be empty. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -426,27 +426,27 @@ Request fields:
   --is-active bool — When true return only active alerts (Critical/Warning/Info); when false return only recovered alerts (Ok). Omit to include all.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — Alert list.
-    - account_id (integer) (required) — Account ID.
+  - items (array<object>) (required) — Alerts on the requested page; an empty array when no alert matches.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
     - alert_key (string) (required) — Deduplication key used to merge events into the alert.
     - alert_severity (string) (required) — Current severity. [Critical, Warning, Info, Ok]
     - alert_status (string) (required) — Current status. [Critical, Warning, Info, Ok]
-    - channel_id (integer) (required) — Channel ID.
+    - channel_id (integer) (required) — ID of the channel the alert was routed to; its name is in 'channel_name'.
     - channel_name (string) (required) — Channel display name.
-    - channel_status (string) (required) — Channel status.
+    - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
     - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
     - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
-    - data_source_type (string) — Deprecated. Use 'integration_type'.
+    - data_source_type (string) — Deprecated; same value as 'integration_type'.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Alert description.
     - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
-      - account_id (integer) — Account ID.
+      - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
@@ -459,32 +459,32 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
-        - alt (string) — Alt text.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link URL when the image is clicked.
         - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
       - integration_id (integer) — Integration that produced this event.
-      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
       - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
-    - images (array<object>) (required) — Attached images.
-      - alt (string) — Alt text.
+    - images (array<object>) (required) — Images attached to the alert; 'null' when there are none.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+      - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
       - title (string) — Incident title.
     - integration_id (integer) (required) — Integration ID that produced the alert.
     - integration_name (string) (required) — Integration display name.
     - integration_ref_id (string) (required) — Integration reference ID.
-    - integration_type (string) (required) — Integration type string.
+    - integration_type (string) (required) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
     - labels (object) (required) — Alert labels.
     - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - responder_email (string) (required) — Primary responder email, if any.
-    - responder_name (string) (required) — Primary responder name, if any.
+    - responder_email (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
+    - responder_name (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
     - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
@@ -553,26 +553,27 @@ func genIncidentsAssignCmd() *cobra.Command {
 		Short: "Assign incident",
 		Long: `Assign incident.
 
-Dispatch an incident to a specific escalation level or responder.
+Reassign incidents to members or an escalation rule, replacing the current responders.
 
 API: POST /incident/assign (incidentAssign)
 
 Request fields:
   --incident-id string — Single incident ID. Ignored when 'incident_ids' is also provided.
   --incident-ids []string — Incident IDs to assign in bulk; obtain them from 'POST /incident/list'.
-  assigned_to (object, via --data) (required) — Assign target; at least one of 'person_ids' and 'escalate_rule_id' must be set.
-    - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
-    - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+  assigned_to (object, via --data) (required) — Assignment target. Set 'person_ids', 'escalate_rule_id', or 'emails'; when none is set, the server re-runs the channel's escalation rule matching.
+    - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
+    - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+    - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-    - escalate_rule_name (string) — Escalation rule display name, filled by the server.
-    - id (string) — Opaque assignment ID generated by the server.
-    - layer_idx (integer) — Current level index within the escalation rule.
+    - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
+    - id (string) — Assignment ID generated by the server for each assignment; set by the server.
+    - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
     - notify (object) — Override the notification channels used for this assignment.
-      - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-      - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+      - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+      - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
       - template_id (string) — Notification template ID (MongoDB ObjectID).
     - person_ids (array<integer>) — Member IDs to assign directly.
-    - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+    - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
 `,
 		Example: `  flashduty incident assign --data '{"assigned_to":{"person_ids":[2476444212131],"type":"assign"},"incident_id":"69da451ef77b1b51f40e83ee"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -696,7 +697,7 @@ API: POST /incident/comment-type/create (incidentCommentTypeCreate)
 
 Request fields:
   --color string (required) — Label color as a hex value in #RRGGBB format. Normalized to uppercase.
-  --name string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+  --name string (required) — Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (≤40 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - comment_type_id (string) (required) — ID of the created comment type (24-character hex ObjectID).
@@ -739,7 +740,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fColor, "color", "", "Label color as a hex value in #RRGGBB format. Normalized to uppercase. (required)")
-	cmd.Flags().StringVar(&fName, "name", "", "Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (required) (≤40 chars)")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (required) (≤40 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -752,7 +753,7 @@ func genIncidentsCommentTypeDeleteCmd() *cobra.Command {
 		Short: "Delete a comment type",
 		Long: `Delete a comment type.
 
-Delete a comment type. Comments that used it keep their text but lose the type label.
+Permanently delete a comment type; comments that used it keep their text but lose the label.
 
 API: POST /incident/comment-type/delete (incidentCommentTypeDelete)
 
@@ -808,7 +809,7 @@ Retrieve all comment types of the account, ordered by their display position.
 API: POST /incident/comment-type/list (incidentCommentTypeList)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — All comment types of the account, ordered by position.
+  - items (array<object>) (required) — All comment types of the account, ordered by position.
     - account_id (integer) (required) — Account ID that owns the comment type.
     - color (string) (required) — Label color as a hex value in #RRGGBB format (stored uppercase).
     - comment_type_id (string) (required) — Comment type ID (24-character hex ObjectID).
@@ -910,7 +911,7 @@ API: POST /incident/comment-type/update (incidentCommentTypeUpdate)
 Request fields:
   --color string — New label color as a hex value in #RRGGBB format. Normalized to uppercase.
   --comment-type-id string (required) — ID of the comment type to update (24-character hex ObjectID).
-  --name string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)
+  --name string — New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (≤40 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("comment_type_id", "comment-type-id"),
 		Example: `  flashduty incident comment-type-update --data '{"color":"#B7791F","comment_type_id":"6a5895b572a064bc2d3ddfc0"}'`,
@@ -952,7 +953,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fColor, "color", "", "New label color as a hex value in #RRGGBB format. Normalized to uppercase.")
 	cmd.Flags().StringVar(&fCommentTypeID, "comment-type-id", "", "ID of the comment type to update (24-character hex ObjectID). (required)")
-	cmd.Flags().StringVar(&fName, "name", "", "New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. (≤40 chars)")
+	cmd.Flags().StringVar(&fName, "name", "", "New display name. Trimmed before storing; must be unique within the account (case-insensitive). At most 40 characters. Must not contain control or text-direction characters. (≤40 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -973,27 +974,28 @@ Manually create a new incident and assign responders.
 API: POST /incident/create (incidentCreate)
 
 Request fields:
-  --channel-id int — Channel to file the incident into. Optional; leave unset for a standalone incident.
+  --channel-id int — Channel to file the incident into; must exist in the account. Optional unless the account has a create form; leave it unset for a standalone incident.
   --description string — Incident description, up to 1024 characters. (≤1024 chars)
   --incident-severity string (required) — Incident severity: 'Info', 'Warning' or 'Critical' (most severe). [Info, Warning, Critical]
-  --title string — Incident title, up to 512 characters. (≤512 chars)
-  assigned_to (object, via --data) — Incident assignment target. May be omitted entirely: when unset or empty, the channel's default assignment applies; required when the account's create form is in effect. 'person_ids', 'escalate_rule_id', and 'emails' can be combined — responders are the union.
+  --title string — Incident title, up to 512 characters. Required (non-blank) when the account has a create form. (≤512 chars)
+  assigned_to (object, via --data) — Who to assign. When omitted or empty, the channel's escalation rules decide (a standalone incident gets no responders); required when the account has a create form. 'person_ids', 'escalate_rule_id' and 'emails' can be combined — responders are the union. Assignment runs after creation, and its failure does not undo the incident.
     - emails (array<string>) — Recipients to assign by email (1–100): resolved to account members and merged into 'person_ids'; emails with no matching member are ignored.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID); assigns the people at the rule's 'layer_idx' layer.
-    - layer_idx (integer) — Zero-based starting layer index of the escalation rule (default 0, the first layer); an out-of-range value returns an error. Only takes effect with 'escalate_rule_id'.
+    - layer_idx (integer) — Zero-based escalation-rule layer to assign (default 0, the first layer). Used only with 'escalate_rule_id'; an out-of-range value leaves the incident without responders instead of failing the request.
     - notify (object) — Override the notification channels used for this assignment.
       - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-      - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+      - personal_channels (array<string>) — Channels to use when 'follow_preference' is false: 'sms', 'voice', 'email', 'push', or an IM app channel prefixed 'feishu_app:', 'dingtalk_app:', 'wecom_app:', 'slack_app:' or 'teams_app:'.
       - template_id (string) — Notification template ID (MongoDB ObjectID).
     - person_ids (array<integer>) — Member IDs to assign directly (1–100). Can be combined with 'escalate_rule_id'.
-    - type (string) — Assignment type, derived server-side — callers do not set it: 'assign' for manual creation, 'reassign' for re-assignment, 'escalate' for escalation-driven assignment. | Value | Meaning | |---|---| | 'assign' | Initial assignment when the incident is created manually. | | 'reassign' | Re-assignment of an existing incident. | | 'escalate' | Assignment triggered by escalation policy advancement. | | 'reopen' | Assignment restarted from the first layer after the incident is reopened. | [assign, reassign, escalate, reopen]
+    - type (string) — Assignment type. Normally omitted: the server then sets 'assign', because a manual create is always a first assignment. A value you send is stored as-is. - 'assign': first assignment of the incident. - 'reassign': assignment replacing an earlier one. - 'escalate': assignment triggered by escalation to the next layer. - 'reopen': assignment restarted from the first layer after the incident is reopened. [assign, reassign, escalate, reopen]
   fields (object, via --data) — Custom field values keyed by field name. When a create form applies, only its visible fields are accepted.
+  labels (object, via --data) — Labels to store on the created incident, up to 50 entries. Blank values are dropped. Spaces and selected punctuation in keys become '_'; keys and values are trimmed, and values are truncated at 8 KiB.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - incident_id (string) (required) — Newly created incident ID (MongoDB ObjectID).
-  - title (string) (required) — Echoes the incident title from the request.
+  - title (string) (required) — Incident title as sent in the request; empty when the request had no title.
 `,
-		Example: `  flashduty incident create --data '{"assigned_to":{"person_ids":[2476444212131]},"channel_id":2551105804131,"incident_severity":"Critical","title":"Database connection timeout on prod-db-01"}'`,
+		Example: `  flashduty incident create --data '{"assigned_to":{"person_ids":[2476444212131]},"channel_id":2551105804131,"incident_severity":"Critical","labels":{"env":"production","region":"cn-hangzhou","service":"order-api"},"title":"Database connection timeout on prod-db-01"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -1026,10 +1028,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to file the incident into. Optional; leave unset for a standalone incident.")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to file the incident into; must exist in the account. Optional unless the account has a create form; leave it unset for a standalone incident.")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Incident description, up to 1024 characters. (≤1024 chars)")
 	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Incident severity: 'Info', 'Warning' or 'Critical' (most severe). (required) [Info, Warning, Critical]")
-	cmd.Flags().StringVar(&fTitle, "title", "", "Incident title, up to 512 characters. (≤512 chars)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Incident title, up to 512 characters. Required (non-blank) when the account has a create form. (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1052,7 +1054,7 @@ Request fields:
   --integration-id int (required) — Custom action integration ID. Must be enabled and associated with the incident's channel.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - message (string) — Error message if the action's HTTP call failed; omitted on success.
+  - message (string) — Error returned by the HTTP request to the action's URL (for example, a timeout after 2 seconds).
 `,
 		Example: `  flashduty incident custom-action-do --data '{"incident_id":"69da451ef77b1b51f40e83ee","integration_id":2490562293131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1095,7 +1097,7 @@ func genIncidentsDisableMergeCmd() *cobra.Command {
 		Short: "Disable incident merge",
 		Long: `Disable incident merge.
 
-Disable automatic merging for a specific incident.
+Stop new alerts and events from being merged into the given incidents.
 
 API: POST /incident/disable-merge (incidentDisableMerge)
 
@@ -1152,7 +1154,7 @@ func genIncidentsFeedCmd() *cobra.Command {
 		Short: "Get incident timeline",
 		Long: `Get incident timeline.
 
-Retrieve the timeline feed for a specific incident, including state changes, comments and system events.
+List an incident's timeline entries, such as state changes, assignments, notifications, comments, and work item events.
 
 API: POST /incident/feed (incidentFeed)
 
@@ -1162,12 +1164,13 @@ Request fields:
   --search-after-ctx string
   --asc bool — Ascending chronological order when true.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --types []string — Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]
+  --types []string — Return only entries of these types; omit to return all types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, i_wi_auto_converted, a_merge]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more entries are available.
   - items (array<object>) (required) — Timeline entries for the current page.
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
+    - agent_session_id (string) — ID of the AI SRE session that performed the action; present only when 'via' is 'ai_sre' and a session was recorded.
     - created_at (string) (required) — Creation timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — User ID of the actor. '0' means system-generated.
     - deleted_at (string) — Soft-delete timestamp in milliseconds. Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -1176,7 +1179,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - added_assignees (array<object>) — Assignees added by this change, in submitted order. 'added_assignee_ids' is the person-only subset. Omitted when nothing was added.
         - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
         - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
-      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
       - assignee_ids (array<integer>) — Assignee member IDs.
       - assignees (array<object>) — Assignees of the work item. Each entry is '{type, id?}'; an 'ai_sre' entry omits 'id'. Omitted when there is no assignee.
         - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
@@ -1188,54 +1191,56 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - chat_id (string) — Chat group identifier.
         - chat_name (string) — Chat group display name.
         - data_source_id (integer) — Integration data source ID used to send the notification.
-        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - failed_reason (string) — Localized, human-readable reason the delivery failed, as reported by the delivery channel; omitted when delivery succeeded or no failure was reported. The text is not a fixed code set.
       - comment (string) — Form summary recorded as a timeline comment. Omitted when no acknowledgement form summary was submitted.
-      - comment_type (object) — Resolved display of an account-level comment type, populated at read time from the current type definition.
+      - comment_type (object) — Name and color of the attached comment type, resolved at read time; omitted when no comment type is attached or it no longer exists.
         - color (string) (required) — Badge color in #RRGGBB format.
         - id (string) (required) — Comment type ID (MongoDB ObjectID).
         - name (string) (required) — Display name of the comment type. (≤40 chars)
       - comment_type_id (string) — ObjectID of the account-level comment type attached to the comment.
-      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+      - count (integer) — Number of action items converted.
+      - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+      - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
+      - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
       - field_name (string) — Name of the custom field that was updated.
       - fire_type (string) — Whether this is the first fire or a refire. 'fire': the first notification for this escalation layer; 'refire': a repeat notification to the same layer when the incident remains unhandled, sent at the layer's notify interval and capped by the layer's maximum refire count. [fire, refire]
       - from (string) — Source that triggered the resolve. | Value | Meaning | |---|---| | 'voice' | Phone-call (voice DTMF) action. | | 'console' | Console (Web UI) action. | | 'card' | IM notification card button (DingTalk/Feishu/Slack/Teams). | | 'wcard' | WeCom notification card button. | | 'event' | Event-driven: auto-close when all related alerts recover to Ok, or a close synced from an external ITSM system. | | 'autorslv' | Auto-resolve: closed by the system after no new alerts within the channel's auto-resolve timeout. | | 'autorefresh' | Card auto-refresh (reserved; never appears on resolve feeds). | | 'escalation' | Escalation flow (reserved; never appears on resolve feeds). | [voice, console, card, wcard, event, autorslv, autorefresh, escalation]
       - from_description (string) — Description before the update.
-      - from_priority (string) — Priority label before the update.
-      - from_status (string) — Status label before the update.
+      - from_priority (string) — Priority before the update. Free-text priority label defined by the client (up to 64 characters); present only when the priority changed.
+      - from_status (string) — Status before the update; present only when the status changed. Usually one of 'open', 'in_progress', 'done', 'cancelled'; items created before these statuses existed may carry other text.
       - from_title (string) — Title before the update.
       - from_type (string) — Work item type before the conversion. 'action': an action item anchored to the incident itself; 'follow_up': an improvement item anchored to a post-mortem. Conversion currently only supports 'action' → 'follow_up', so 'from_type' is always 'action' in this event. [action, follow_up]
-      - id (string) — Opaque assignment ID generated by the server.
+      - id (string) — Assignment ID generated by the server for each assignment; set by the server.
       - images (array<object>) — Images from the acknowledgement form, recorded on the timeline entry only. Omitted when none were submitted.
-        - alt (string) — Alt text.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - in_mins (integer) — Window length in minutes.
       - integration_id (integer) — Integration ID that executed the action.
       - integration_name (string) — Integration display name.
       - item_type (string) — Work item type. 'action': an action item anchored to the incident itself, convertible to 'follow_up' later; 'follow_up': an improvement item anchored to a post-mortem, requiring the incident to be linked to that post-mortem at creation. [action, follow_up]
-      - layer_idx (integer) — Current level index within the escalation rule.
+      - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
       - max_changes (integer) — Maximum state changes allowed within the window.
       - minutes (integer) — Snooze duration in minutes.
       - msg_id (string) — Upstream message ID returned by the delivery channel.
       - mute_mins (integer) — Mute duration in minutes once flapping is detected.
       - mute_reply (boolean) — Whether replies to this comment are muted.
       - notify (object) — Override the notification channels used for this assignment.
-        - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-        - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+        - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+        - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
         - template_id (string) — Notification template ID (MongoDB ObjectID).
-      - owner_id (integer) — Member ID that performed the merge.
+      - owner_id (integer) — Not set by incident merges, which never change the owner; present only on older entries.
       - person_ids (array<integer>) — Member IDs to assign directly.
       - persons (array<object>) — Per-person delivery records.
-        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - failed_reason (string) — Localized, human-readable reason the delivery failed, as reported by the delivery channel; omitted when delivery succeeded or no failure was reported. The text is not a fixed code set.
         - person_id (integer) — Recipient member ID.
         - sms_content (string) — SMS text delivered to the recipient; present on SMS deliveries.
-      - plugin_type (string) — Chat integration plugin type.
+      - plugin_type (string) — Plugin type of the IM integration: 'feishu_app' (Feishu), 'dingtalk_app' (DingTalk), 'wecom_app' (WeCom), or 'slack_app' (Slack). [feishu_app, dingtalk_app, wecom_app, slack_app]
       - post_mortem_id (string) — ID of the post-mortem the work item is bound to.
-      - progress (string) — Progress note entered at acknowledgement.
-      - reason (string) — Reason why the incident was reopened.
-      - remove_source_incidents (boolean) — True if the source incidents were removed after merging.
+      - progress (string) — 'Processing' when this acknowledgement moved the incident from 'Triggered' to 'Processing'; omitted when the incident was already 'Processing'. [Processing, Triggered]
+      - reason (string) — Free-text reason passed as 'reason' to 'POST /incident/reopen'; omitted when none was given.
+      - remove_source_incidents (boolean) — 'true' when the source incidents were permanently deleted after the merge.
       - removed_assignee_ids (array<integer>) — Member IDs removed from assignees.
       - removed_assignees (array<object>) — Assignees removed by this change. 'removed_assignee_ids' is the person-only subset. Omitted when nothing was removed.
         - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
@@ -1244,36 +1249,40 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - rid (string) — Notification record ID.
       - robots (array<object>) — Per-robot delivery records.
         - alias (string) — Robot alias.
-        - failed_reason (string) — Failure reason if delivery did not succeed.
+        - failed_reason (string) — Localized, human-readable reason the delivery failed, as reported by the delivery channel; omitted when delivery succeeded or no failure was reported. The text is not a fixed code set.
         - token (string) — Robot token or identifier.
-      - severity (string) — Severity level. [Ok, Critical, Warning, Info]
+      - severity (string) — Severity of the incident when it was created. [Ok, Critical, Warning, Info]
       - share_link (string) — Shareable join link for the war room.
-      - snoozedBefore (integer) — Unix timestamp at which the prior snooze was scheduled to end.
+      - snoozedBefore (integer) — Unix timestamp (seconds) at which the cancelled snooze would have ended.
       - source_alerts (array<object>) — Source alerts merged into the target incident. Omitted when empty.
         - alert_id (string) — Alert ID (ObjectID hex string).
         - title (string) — Alert title, resolved at read time. Omitted when empty.
-      - source_incidents (array<object>) — Source incidents that were merged.
+      - source_incidents (array<object>) — Incidents merged into the target; present on the target incident's entry.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
-      - source_responders (array<integer>) — Responder member IDs carried over from the source incidents.
-      - status (string) — Work item status label (e.g. 'open', 'done').
-      - target_incident (object) — Brief incident reference embedded in an alert.
+      - source_responders (array<integer>) — Member IDs that were responders on the source incidents, for reference; they are not added to the target's responders.
+      - status (string) — Work item status at creation: 'open' not started; 'in_progress' being worked on; 'done' completed; 'cancelled' no longer needed. [open, in_progress, done, cancelled]
+      - target_incident (object) — Incident this incident was merged into; present on each source incident's entry.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
       - threshold (integer) — Storm threshold that was reached.
       - title (string) — Initial incident title.
+      - titles (array<string>) — Titles of the converted work items.
       - to (array<integer>) — Member IDs that received the assignment.
       - to_description (string) — Description after the update.
-      - to_priority (string) — Priority label after the update.
-      - to_status (string) — Status label after the update.
+      - to_priority (string) — Priority after the update. Free-text priority label defined by the client (up to 64 characters); present only when the priority changed.
+      - to_status (string) — Status after the update; present only when the status changed. 'open' not started; 'in_progress' being worked on; 'done' completed; 'cancelled' no longer needed. [open, in_progress, done, cancelled]
       - to_type (string) — Work item type after the conversion. 'action': an action item anchored to the incident itself; 'follow_up': an improvement item anchored to a post-mortem. Conversion currently only supports 'action' → 'follow_up', so 'to_type' is always 'follow_up' in this event, and a successful conversion immediately tries to bind the incident's post-mortem. [action, follow_up]
-      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
-      - work_item_id (string) — Work item ID.
-    - ref_id (string) (required) — ObjectID of the source alert or incident this entry references.
-    - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'i_wi_created' | Work Item Created: An Action or Follow-up was created. | | 'i_wi_updated' | Work Item Updated: Title, description, status, or priority was changed. | | 'i_wi_assignees' | Work Item Assignees Changed: Assignees were updated. | | 'i_wi_completed' | Work Item Completed: An assignee marked the work item complete. | | 'i_wi_converted' | Work Item Converted: An Action was converted to a Follow-up. | | 'i_wi_bound' | Work Item Bound: A converted Follow-up was bound to a post-mortem. | | 'i_wi_deleted' | Work Item Deleted: An Action or Follow-up was soft-deleted. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]
+      - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
+      - unlink_only (boolean) — 'true' when the war room was only unlinked from the incident ('unlink_only' request) and the group was not dissolved. Omitted otherwise.
+      - work_item_id (string) — Work item ID ('wi_' followed by a random string); use it with the '/incident/work-item/*' endpoints.
+      - work_item_ids (array<string>) — IDs of the converted work items.
+    - ref_id (string) (required) — ID of the incident the entry belongs to; equals the requested 'incident_id'.
+    - type (string) (required) — Incident timeline entry type. Each value identifies one lifecycle event; the matching 'detail' payload shape is determined by this field. Incident types are prefixed with 'i_'. | Type | Meaning | |---|---| | 'i_new' | Incident Created: A new incident was created automatically or manually. | | 'i_assign' | Assigned: Incident was assigned to responders. | | 'i_a_rspd' | Responder Added: Additional responders joined the incident. | | 'i_notify' | Notification dispatched through a channel at a specific escalation level. | | 'i_storm' | Alert storm threshold reached on the incident. | | 'i_snooze' | Notifications snoozed for a given duration. | | 'i_wake' | Snooze cancelled and notifications resumed. | | 'i_ack' | Acknowledged: Responder confirmed they are working on the incident. | | 'i_unack' | Acknowledgement removed. | | 'i_comm' | Comment: Responder logged progress or key information. | | 'i_rslv' | Resolved: Incident was marked as resolved. | | 'i_reopen' | Reopened: Resolved incident was reopened, possibly due to recurrence. | | 'i_merge' | Merged: Multiple related incidents were merged into one. | | 'i_r_title' | Title updated. | | 'i_r_desc' | Description updated. | | 'i_r_impact' | Impact updated. | | 'i_r_rc' | Root cause updated. | | 'i_r_rsltn' | Resolution updated. | | 'i_r_severity' | Severity Changed: Incident severity level was adjusted. | | 'i_r_field' | Custom field value updated. | | 'i_m_flapping' | Incident muted by flapping detection. | | 'i_m_reply' | Mute reply marker on a comment. | | 'i_custom' | Action: Automated action or script was triggered. | | 'i_wr_create' | War Room Created: Chat group was created for collaborative response. | | 'i_wr_delete' | War room chat group deleted. | | 'i_auto_refresh' | Card auto-refresh event posted back to the timeline. | | 'i_wi_created' | Work Item Created: An Action or Follow-up was created. | | 'i_wi_updated' | Work Item Updated: Title, description, status, or priority was changed. | | 'i_wi_assignees' | Work Item Assignees Changed: Assignees were updated. | | 'i_wi_completed' | Work Item Completed: An assignee marked the work item complete. | | 'i_wi_converted' | Work Item Converted: An Action was converted to a Follow-up. | | 'i_wi_bound' | Work Item Bound: A converted Follow-up was bound to a post-mortem. | | 'i_wi_deleted' | Work Item Deleted: An Action or Follow-up was soft-deleted. | | 'i_wi_auto_converted' | Work Items Auto-converted: Closing the incident converted its unfinished action items to follow-ups. | | 'a_merge' | Alert Merged: An alert was merged into an existing incident. | [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, i_wi_auto_converted, a_merge]
     - updated_at (string) (required) — Last update timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - via (string) — 'ai_sre' when AI SRE performed the action on behalf of 'creator_id'; omitted for direct actions. [ai_sre]
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident feed --data '{"incident_id":"69da451ef77b1b51f40e83ee","limit":20,"p":1}'`,
@@ -1323,7 +1332,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending chronological order when true.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Optional filter restricting the returned entries to specific types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, a_merge]")
+	cmd.Flags().StringSliceVar(&fTypes, "types", nil, "Return only entries of these types; omit to return all types. [i_new, i_assign, i_a_rspd, i_notify, i_storm, i_snooze, i_wake, i_ack, i_unack, i_comm, i_rslv, i_reopen, i_merge, i_r_title, i_r_desc, i_r_impact, i_r_rc, i_r_rsltn, i_r_severity, i_r_field, i_m_flapping, i_m_reply, i_custom, i_wr_create, i_wr_delete, i_auto_refresh, i_wi_created, i_wi_updated, i_wi_assignees, i_wi_completed, i_wi_converted, i_wi_bound, i_wi_deleted, i_wi_auto_converted, a_merge]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1342,9 +1351,9 @@ Update a custom field value on an incident.
 API: POST /incident/field/reset (incidentFieldReset)
 
 Request fields:
-  --field-name string (required) — Custom field name; must match a field defined on the account.
+  --field-name string (required) — Custom field name (the field's 'field_name', not its display name). The field must exist and be enabled; list fields with 'POST /field/list'.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  field_value (any, via --data) — New field value. Type must match the field definition.
+  field_value (any, via --data) — New value. Its type must match the field: 'checkbox' takes a boolean, 'single_select' one of the options, 'multi_select' an array of options, 'text' a string. Omit it or send 'null' to clear the field.
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident field-reset --data '{"field_name":"affected_service","field_value":"payment-service","incident_id":"69da451ef77b1b51f40e83ee"}'`,
@@ -1381,7 +1390,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Custom field name; must match a field defined on the account. (required)")
+	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Custom field name (the field's 'field_name', not its display name). The field must exist and be enabled; list fields with 'POST /field/list'. (required)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1396,7 +1405,7 @@ func genIncidentsInfoCmd() *cobra.Command {
 		Short: "Get incident detail",
 		Long: `Get incident detail.
 
-Retrieve detailed information for a single incident including timeline, alerts, responders and custom fields.
+Get one incident by ID or short number, with responders, assignment, custom fields, and alert counts.
 
 API: POST /incident/info (incidentInfo)
 
@@ -1406,35 +1415,35 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account ID that owns the incident.
-  - account_locale (string) (required) — Account locale.
-  - account_name (string) (required) — Account name.
-  - account_time_zone (string) (required) — Account time zone.
+  - account_locale (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+  - account_name (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+  - account_time_zone (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
   - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
-  - ai_summary (string) (required) — AI-generated summary of the incident.
+  - ai_summary (string) (required) — Reserved; always an empty string.
   - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
   - alert_event_cnt (integer) (required) — Total raw alert event count across all merged alerts.
-  - alerts (array<object>) — Embedded alerts, only populated for notification templates and custom actions.
-    - account_id (integer) (required) — Account ID.
+  - alerts (array<object>) — Not returned by the incident endpoints; present only in notification template and custom action payloads.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
     - alert_key (string) (required) — Deduplication key used to merge events into the alert.
     - alert_severity (string) (required) — Current severity. [Critical, Warning, Info, Ok]
     - alert_status (string) (required) — Current status. [Critical, Warning, Info, Ok]
-    - channel_id (integer) (required) — Channel ID.
+    - channel_id (integer) (required) — ID of the channel the alert was routed to; its name is in 'channel_name'.
     - channel_name (string) (required) — Channel display name.
-    - channel_status (string) (required) — Channel status.
+    - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
     - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
     - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
-    - data_source_type (string) — Deprecated. Use 'integration_type'.
+    - data_source_type (string) — Deprecated; same value as 'integration_type'.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Alert description.
     - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
     - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - event_cnt (integer) (required) — Total number of raw events merged into this alert.
     - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
-      - account_id (integer) — Account ID.
+      - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) — Parent alert ID (MongoDB ObjectID).
       - alert_key (string) — Deduplication key used to merge events into an alert.
       - channel_id (integer) — Channel ID the event is routed to.
@@ -1447,69 +1456,70 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - event_status (string) — Status carried by this event: 'Critical'/'Warning'/'Info' for a firing event, 'Ok' for a recovery event. [Critical, Warning, Info, Ok]
       - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - images (array<object>) — Images attached to the event.
-        - alt (string) — Alt text.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link URL when the image is clicked.
         - src (string) (required) — Image source URL or internal image reference (starts with 'img_' or 'http').
       - integration_id (integer) — Integration that produced this event.
-      - integration_type (string) — Type/plugin key of the integration that produced this event.
+      - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) — Label key-value pairs.
       - title (string) — Event title.
       - title_rule (string) — Title template used to derive 'title' from labels.
       - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
-    - images (array<object>) (required) — Attached images.
-      - alt (string) — Alt text.
+    - images (array<object>) (required) — Images attached to the alert; 'null' when there are none.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - incident (object) — Parent incident reference, if the alert has been merged into one.
       - incident_id (string) — Incident ID (ObjectID hex string).
-      - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+      - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
       - title (string) — Incident title.
     - integration_id (integer) (required) — Integration ID that produced the alert.
     - integration_name (string) (required) — Integration display name.
     - integration_ref_id (string) (required) — Integration reference ID.
-    - integration_type (string) (required) — Integration type string.
+    - integration_type (string) (required) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
     - labels (object) (required) — Alert labels.
     - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - responder_email (string) (required) — Primary responder email, if any.
-    - responder_name (string) (required) — Primary responder name, if any.
+    - responder_email (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
+    - responder_name (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
     - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) (required) — Alert title.
     - title_rule (string) (required) — Title rendering rule.
     - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - assigned_to (object) (required) — Current assignment target for the incident.
-    - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
-    - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+  - assigned_to (object) (required) — Current assignment target. Always present; for an incident that was never assigned, 'type' and 'id' are empty and 'assigned_at' is '0'.
+    - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
+    - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+    - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
     - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-    - escalate_rule_name (string) — Escalation rule display name, filled by the server.
-    - id (string) — Opaque assignment ID generated by the server.
-    - layer_idx (integer) — Current level index within the escalation rule.
+    - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
+    - id (string) — Assignment ID generated by the server for each assignment; set by the server.
+    - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
     - notify (object) — Override the notification channels used for this assignment.
-      - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-      - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+      - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+      - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
       - template_id (string) — Notification template ID (MongoDB ObjectID).
     - person_ids (array<integer>) — Member IDs to assign directly.
-    - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+    - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
   - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
   - channel_name (string) (required) — Channel display name.
-  - channel_status (string) (required) — Channel status.
+  - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
   - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - closer (object) — Closer member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
-    - person_id (integer) — Member ID.
+    - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
     - person_name (string) — Member display name.
   - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
   - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - creator (object) — Creator member info.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
-    - person_id (integer) — Member ID.
+    - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
     - person_name (string) — Member display name.
   - creator_id (integer) (required) — Member ID that created the incident. 0 if auto-created by the system.
   - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
   - data_source_ids (array<integer>) — Deprecated. Use 'integration_ids' instead.
-  - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+  - data_source_type (string) — Deprecated; same value as 'integration_type'.
   - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
   - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
   - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -1521,8 +1531,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - fields (object) (required) — Custom field values keyed by field name.
   - frequency (string) — Frequency bucket for recurrence analysis: 'frequent' or 'rare'. [frequent, rare]
   - group_method (string) (required) — Alert grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
-  - images (array<object>) (required) — Attached images.
-    - alt (string) — Alt text.
+  - has_unfinished_work_item (boolean) (required) — 'true' when the incident still has at least one action item or follow-up that is neither 'done' nor 'cancelled'.
+  - images (array<object>) (required) — Images attached to the incident; 'null' when there are none. Tokens starting with 'img_' are returned as download URLs.
+    - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
     - href (string) — Optional link the image points to.
     - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
   - impact (string) (required) — Impact description.
@@ -1530,21 +1541,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - incident_severity (string) (required) — Configured incident severity. [Critical, Warning, Info, Ok]
   - incident_status (string) (required) — Current incident status, derived from alert statuses. [Critical, Warning, Info, Ok]
   - integration_id (integer) (required) — First integration associated with the incident.
-  - integration_ids (array<integer>) (required) — All integration IDs contributing alerts to this incident.
-  - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
-  - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
-  - labels (object) (required) — Labels propagated from alerts.
+  - integration_ids (array<integer>) (required) — IDs of all integrations contributing alerts to this incident; 'null' for incidents without integrations, such as manually created ones.
+  - integration_type (string) — Plugin type of the incident's first integration (see 'integration_types' for all). Open set, for example 'prometheus.alert' or 'monit.alert'; 'POST /integration/type/list' returns the full list. Omitted when the incident has no integration or the endpoint does not fill it.
+  - integration_types (array<string>) (required) — Plugin types of all contributing integrations (see 'integration_type'); 'null' when there are none.
+  - labels (object) (required) — Labels on the incident, propagated from alerts or set at creation.
   - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - links (array<object>) — Channel-level link integrations rendered for this incident.
     - endpoint (string) (required) — Rendered URL for the link.
     - name (string) (required) — Display name of the link.
     - open_type (string) (required) — How the link opens. 'popup' opens it in a popup within the incident detail page; 'tab' opens it in a new browser tab. [popup, tab]
-  - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
+  - manual_overrides (array<string>) (required) — Fields edited manually and therefore no longer overwritten by merged alerts: 'title', 'description', 'incident_severity'. 'null' when none. [title, description, incident_severity]
   - num (string) (required) — Short display identifier; not guaranteed unique.
   - owner (object) — Owner member info. May be deprecated.
     - as (string) — Role label for this member in the context of the current object.
     - email (string) — Member email address.
-    - person_id (integer) — Member ID.
+    - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
     - person_name (string) — Member display name.
   - owner_id (integer) (required) — Primary owner member ID. 0 if none.
   - post_mortem_id (string) (required) — Associated post-mortem ID, if any. One incident can only link to a single post-mortem.
@@ -1616,6 +1627,7 @@ func genIncidentsListCmd() *cobra.Command {
 	var fEndTime string
 	var fUntil string
 	var fEverMuted bool
+	var fHasUnfinishedWorkItem bool
 	var fIncidentIDs []string
 	var fIncidentSeverity string
 	var fIsMyChannel bool
@@ -1640,8 +1652,8 @@ API: POST /incident/list (incidentList)
 
 Request fields:
   --page int — Page number starting at 1. (min 0)
-  --limit int — Page size, at most 100. (0-100)
-  --search-after-ctx string — Cursor from a previous response for forward pagination.
+  --limit int — Page size, at most 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)
+  --search-after-ctx string — Cursor from the previous response's 'search_after_ctx'; when set, 'p' is ignored.
   --acker-ids []int — Filter by acker member IDs; obtain member IDs from 'POST /member/list'.
   --asc bool — Ascending order when true.
   --channel-ids []int — Channel IDs to filter by. Use 0 for standalone (global) incidents.
@@ -1649,52 +1661,53 @@ Request fields:
   --creator-ids []int — Creator member IDs. Use 0 for automatically created incidents.
   --end-time string (required) — Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --ever-muted bool — When true, include only incidents that were ever silenced.
+  --has-unfinished-work-item bool — When true, include only incidents that still have an action item or follow-up that is neither 'done' nor 'cancelled'. 'false' applies no filter.
   --incident-ids []string — Restrict to the given incident IDs.
-  --incident-severity string — Comma-separated list of severities ('Critical,Warning,Info').
+  --incident-severity string — Comma-separated severities to match, for example 'Critical,Warning'. Values: 'Critical' most severe, 'Warning', 'Info' least severe.
   --is-my-channel bool — When true, restrict to incidents in channels the user personally owns.
   --is-my-team bool — When true, restrict to incidents in channels owned by the user's teams.
   --is-rare bool — When true, include only outlier (rare) incidents.
   --is-snoozed bool — When true, include only snoozed incidents.
   --nums []string — Filter by incident short numbers (the numbers shown before incident titles in the console).
-  --progress string — Comma-separated list of progress states to match (e.g. 'Triggered,Processing').
+  --progress string — Comma-separated progress states to match, for example 'Triggered,Processing'. Values: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. Omit to match every state.
   --query string — Full-text search query.
   --responder-ids []int — Filter by responder member IDs; obtain member IDs from 'POST /member/list'.
   --start-time string (required) — Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Team IDs; resolved to channels via channel ownership.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) (required) — True when more results are available beyond this page.
+  - has_next_page (boolean) (required) — Whether another page exists. Reflects the real data with both 'p'/'limit' and 'search_after_ctx' paging, including past the 1,000 cap of 'total'. Always 'false' for 'POST /incident/list-by-ids'.
   - items (array<object>) (required) — Incident list for the current page.
     - account_id (integer) (required) — Account ID that owns the incident.
-    - account_locale (string) (required) — Account locale.
-    - account_name (string) (required) — Account name.
-    - account_time_zone (string) (required) — Account time zone.
+    - account_locale (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_name (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_time_zone (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
     - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
-    - ai_summary (string) (required) — AI-generated summary of the incident.
+    - ai_summary (string) (required) — Reserved; always an empty string.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
     - alert_event_cnt (integer) (required) — Total raw alert event count across all merged alerts.
-    - alerts (array<object>) — Embedded alerts, only populated for notification templates and custom actions.
-      - account_id (integer) (required) — Account ID.
+    - alerts (array<object>) — Not returned by the incident endpoints; present only in notification template and custom action payloads.
+      - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
       - alert_key (string) (required) — Deduplication key used to merge events into the alert.
       - alert_severity (string) (required) — Current severity. [Critical, Warning, Info, Ok]
       - alert_status (string) (required) — Current status. [Critical, Warning, Info, Ok]
-      - channel_id (integer) (required) — Channel ID.
+      - channel_id (integer) (required) — ID of the channel the alert was routed to; its name is in 'channel_name'.
       - channel_name (string) (required) — Channel display name.
-      - channel_status (string) (required) — Channel status.
+      - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
       - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
-      - data_source_type (string) — Deprecated. Use 'integration_type'.
+      - data_source_type (string) — Deprecated; same value as 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
       - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
-        - account_id (integer) — Account ID.
+        - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
@@ -1708,65 +1721,66 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
-        - integration_type (string) — Type/plugin key of the integration that produced this event.
+        - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
         - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
-      - images (array<object>) (required) — Attached images.
-        - alt (string) — Alt text.
+      - images (array<object>) (required) — Images attached to the alert; 'null' when there are none.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
       - integration_ref_id (string) (required) — Integration reference ID.
-      - integration_type (string) (required) — Integration type string.
+      - integration_type (string) (required) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) (required) — Alert labels.
       - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - responder_email (string) (required) — Primary responder email, if any.
-      - responder_name (string) (required) — Primary responder name, if any.
+      - responder_email (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
+      - responder_name (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
       - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - assigned_to (object) (required) — Current assignment target for the incident.
-      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
-      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+    - assigned_to (object) (required) — Current assignment target. Always present; for an incident that was never assigned, 'type' and 'id' are empty and 'assigned_at' is '0'.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
+      - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+      - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
-      - id (string) — Opaque assignment ID generated by the server.
-      - layer_idx (integer) — Current level index within the escalation rule.
+      - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
+      - id (string) — Assignment ID generated by the server for each assignment; set by the server.
+      - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
       - notify (object) — Override the notification channels used for this assignment.
-        - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-        - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+        - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+        - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
         - template_id (string) — Notification template ID (MongoDB ObjectID).
       - person_ids (array<integer>) — Member IDs to assign directly.
-      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+      - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
-    - channel_status (string) (required) — Channel status.
+    - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
     - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - creator_id (integer) (required) — Member ID that created the incident. 0 if auto-created by the system.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
     - data_source_ids (array<integer>) — Deprecated. Use 'integration_ids' instead.
-    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - data_source_type (string) — Deprecated; same value as 'integration_type'.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -1778,8 +1792,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - fields (object) (required) — Custom field values keyed by field name.
     - frequency (string) — Frequency bucket for recurrence analysis: 'frequent' or 'rare'. [frequent, rare]
     - group_method (string) (required) — Alert grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
-    - images (array<object>) (required) — Attached images.
-      - alt (string) — Alt text.
+    - has_unfinished_work_item (boolean) (required) — 'true' when the incident still has at least one action item or follow-up that is neither 'done' nor 'cancelled'.
+    - images (array<object>) (required) — Images attached to the incident; 'null' when there are none. Tokens starting with 'img_' are returned as download URLs.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - impact (string) (required) — Impact description.
@@ -1787,21 +1802,21 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - incident_severity (string) (required) — Configured incident severity. [Critical, Warning, Info, Ok]
     - incident_status (string) (required) — Current incident status, derived from alert statuses. [Critical, Warning, Info, Ok]
     - integration_id (integer) (required) — First integration associated with the incident.
-    - integration_ids (array<integer>) (required) — All integration IDs contributing alerts to this incident.
-    - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
-    - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
-    - labels (object) (required) — Labels propagated from alerts.
+    - integration_ids (array<integer>) (required) — IDs of all integrations contributing alerts to this incident; 'null' for incidents without integrations, such as manually created ones.
+    - integration_type (string) — Plugin type of the incident's first integration (see 'integration_types' for all). Open set, for example 'prometheus.alert' or 'monit.alert'; 'POST /integration/type/list' returns the full list. Omitted when the incident has no integration or the endpoint does not fill it.
+    - integration_types (array<string>) (required) — Plugin types of all contributing integrations (see 'integration_type'); 'null' when there are none.
+    - labels (object) (required) — Labels on the incident, propagated from alerts or set at creation.
     - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
       - open_type (string) (required) — How the link opens. 'popup' opens it in a popup within the incident detail page; 'tab' opens it in a new browser tab. [popup, tab]
-    - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
+    - manual_overrides (array<string>) (required) — Fields edited manually and therefore no longer overwritten by merged alerts: 'title', 'description', 'incident_severity'. 'null' when none. [title, description, incident_severity]
     - num (string) (required) — Short display identifier; not guaranteed unique.
     - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - owner_id (integer) (required) — Primary owner member ID. 0 if none.
     - post_mortem_id (string) (required) — Associated post-mortem ID, if any. One incident can only link to a single post-mortem.
@@ -1822,8 +1837,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - team_id (integer) (required) — ID of the team that owns the incident's channel. 0 when the channel has no team.
     - title (string) (required) — Incident title.
     - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
-  - total (integer) (required) — Total number of matching incidents.
+  - search_after_ctx (string) — Cursor pointing at the last item of this page; pass it as 'search_after_ctx' on the next request to continue past the 1,000-item page limit. Returned for every non-empty page in 'p'/'limit' mode, and in cursor mode only when 'has_next_page' is 'true'. Omitted by 'POST /incident/list-by-ids'.
+  - total (integer) (required) — Number of matching incidents, capped at 1,000. For 'POST /incident/list-by-ids', the number of incidents found.
 `,
 		Example: `  flashduty incident list --data '{"channel_ids":[2551105804131],"end_time":1712000000,"incident_severity":"Critical,Warning","limit":20,"p":1,"progress":"Triggered,Processing","start_time":1711900800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1867,6 +1882,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("ever-muted") {
 						body["ever_muted"] = fEverMuted
+					}
+					if cmd.Flags().Changed("has-unfinished-work-item") {
+						body["has_unfinished_work_item"] = fHasUnfinishedWorkItem
 					}
 					if cmd.Flags().Changed("incident-ids") {
 						body["incident_ids"] = fIncidentIDs
@@ -1922,8 +1940,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from the previous response's 'search_after_ctx'; when set, 'p' is ignored.")
 	cmd.Flags().IntSliceVar(&fAckerIDs, "acker-ids", nil, "Filter by acker member IDs; obtain member IDs from 'POST /member/list'.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by. Use 0 for standalone (global) incidents.")
@@ -1932,14 +1950,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "When true, include only incidents that were ever silenced.")
+	cmd.Flags().BoolVar(&fHasUnfinishedWorkItem, "has-unfinished-work-item", false, "When true, include only incidents that still have an action item or follow-up that is neither 'done' nor 'cancelled'. 'false' applies no filter.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Restrict to the given incident IDs.")
-	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Comma-separated list of severities ('Critical,Warning,Info').")
+	cmd.Flags().StringVar(&fIncidentSeverity, "incident-severity", "", "Comma-separated severities to match, for example 'Critical,Warning'. Values: 'Critical' most severe, 'Warning', 'Info' least severe.")
 	cmd.Flags().BoolVar(&fIsMyChannel, "is-my-channel", false, "When true, restrict to incidents in channels the user personally owns.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "When true, restrict to incidents in channels owned by the user's teams.")
 	cmd.Flags().BoolVar(&fIsRare, "is-rare", false, "When true, include only outlier (rare) incidents.")
 	cmd.Flags().BoolVar(&fIsSnoozed, "is-snoozed", false, "When true, include only snoozed incidents.")
 	cmd.Flags().StringSliceVar(&fNums, "nums", nil, "Filter by incident short numbers (the numbers shown before incident titles in the console).")
-	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated list of progress states to match (e.g. 'Triggered,Processing').")
+	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated progress states to match, for example 'Triggered,Processing'. Values: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. Omit to match every state.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text search query.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs; obtain member IDs from 'POST /member/list'.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
@@ -1965,38 +1984,38 @@ Request fields:
   --incident-ids []string (required) — Incident IDs to query; obtain them from 'POST /incident/list'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - has_next_page (boolean) (required) — True when more results are available beyond this page.
+  - has_next_page (boolean) (required) — Whether another page exists. Reflects the real data with both 'p'/'limit' and 'search_after_ctx' paging, including past the 1,000 cap of 'total'. Always 'false' for 'POST /incident/list-by-ids'.
   - items (array<object>) (required) — Incident list for the current page.
     - account_id (integer) (required) — Account ID that owns the incident.
-    - account_locale (string) (required) — Account locale.
-    - account_name (string) (required) — Account name.
-    - account_time_zone (string) (required) — Account time zone.
+    - account_locale (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_name (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_time_zone (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
     - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
-    - ai_summary (string) (required) — AI-generated summary of the incident.
+    - ai_summary (string) (required) — Reserved; always an empty string.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
     - alert_event_cnt (integer) (required) — Total raw alert event count across all merged alerts.
-    - alerts (array<object>) — Embedded alerts, only populated for notification templates and custom actions.
-      - account_id (integer) (required) — Account ID.
+    - alerts (array<object>) — Not returned by the incident endpoints; present only in notification template and custom action payloads.
+      - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
       - alert_key (string) (required) — Deduplication key used to merge events into the alert.
       - alert_severity (string) (required) — Current severity. [Critical, Warning, Info, Ok]
       - alert_status (string) (required) — Current status. [Critical, Warning, Info, Ok]
-      - channel_id (integer) (required) — Channel ID.
+      - channel_id (integer) (required) — ID of the channel the alert was routed to; its name is in 'channel_name'.
       - channel_name (string) (required) — Channel display name.
-      - channel_status (string) (required) — Channel status.
+      - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
       - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
-      - data_source_type (string) — Deprecated. Use 'integration_type'.
+      - data_source_type (string) — Deprecated; same value as 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
       - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
-        - account_id (integer) — Account ID.
+        - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
@@ -2010,65 +2029,66 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
-        - integration_type (string) — Type/plugin key of the integration that produced this event.
+        - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
         - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
-      - images (array<object>) (required) — Attached images.
-        - alt (string) — Alt text.
+      - images (array<object>) (required) — Images attached to the alert; 'null' when there are none.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
       - integration_ref_id (string) (required) — Integration reference ID.
-      - integration_type (string) (required) — Integration type string.
+      - integration_type (string) (required) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) (required) — Alert labels.
       - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - responder_email (string) (required) — Primary responder email, if any.
-      - responder_name (string) (required) — Primary responder name, if any.
+      - responder_email (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
+      - responder_name (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
       - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - assigned_to (object) (required) — Current assignment target for the incident.
-      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
-      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+    - assigned_to (object) (required) — Current assignment target. Always present; for an incident that was never assigned, 'type' and 'id' are empty and 'assigned_at' is '0'.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
+      - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+      - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
-      - id (string) — Opaque assignment ID generated by the server.
-      - layer_idx (integer) — Current level index within the escalation rule.
+      - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
+      - id (string) — Assignment ID generated by the server for each assignment; set by the server.
+      - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
       - notify (object) — Override the notification channels used for this assignment.
-        - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-        - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+        - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+        - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
         - template_id (string) — Notification template ID (MongoDB ObjectID).
       - person_ids (array<integer>) — Member IDs to assign directly.
-      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+      - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
-    - channel_status (string) (required) — Channel status.
+    - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
     - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - creator_id (integer) (required) — Member ID that created the incident. 0 if auto-created by the system.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
     - data_source_ids (array<integer>) — Deprecated. Use 'integration_ids' instead.
-    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - data_source_type (string) — Deprecated; same value as 'integration_type'.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -2080,8 +2100,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - fields (object) (required) — Custom field values keyed by field name.
     - frequency (string) — Frequency bucket for recurrence analysis: 'frequent' or 'rare'. [frequent, rare]
     - group_method (string) (required) — Alert grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
-    - images (array<object>) (required) — Attached images.
-      - alt (string) — Alt text.
+    - has_unfinished_work_item (boolean) (required) — 'true' when the incident still has at least one action item or follow-up that is neither 'done' nor 'cancelled'.
+    - images (array<object>) (required) — Images attached to the incident; 'null' when there are none. Tokens starting with 'img_' are returned as download URLs.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - impact (string) (required) — Impact description.
@@ -2089,21 +2110,21 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - incident_severity (string) (required) — Configured incident severity. [Critical, Warning, Info, Ok]
     - incident_status (string) (required) — Current incident status, derived from alert statuses. [Critical, Warning, Info, Ok]
     - integration_id (integer) (required) — First integration associated with the incident.
-    - integration_ids (array<integer>) (required) — All integration IDs contributing alerts to this incident.
-    - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
-    - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
-    - labels (object) (required) — Labels propagated from alerts.
+    - integration_ids (array<integer>) (required) — IDs of all integrations contributing alerts to this incident; 'null' for incidents without integrations, such as manually created ones.
+    - integration_type (string) — Plugin type of the incident's first integration (see 'integration_types' for all). Open set, for example 'prometheus.alert' or 'monit.alert'; 'POST /integration/type/list' returns the full list. Omitted when the incident has no integration or the endpoint does not fill it.
+    - integration_types (array<string>) (required) — Plugin types of all contributing integrations (see 'integration_type'); 'null' when there are none.
+    - labels (object) (required) — Labels on the incident, propagated from alerts or set at creation.
     - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
       - open_type (string) (required) — How the link opens. 'popup' opens it in a popup within the incident detail page; 'tab' opens it in a new browser tab. [popup, tab]
-    - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
+    - manual_overrides (array<string>) (required) — Fields edited manually and therefore no longer overwritten by merged alerts: 'title', 'description', 'incident_severity'. 'null' when none. [title, description, incident_severity]
     - num (string) (required) — Short display identifier; not guaranteed unique.
     - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - owner_id (integer) (required) — Primary owner member ID. 0 if none.
     - post_mortem_id (string) (required) — Associated post-mortem ID, if any. One incident can only link to a single post-mortem.
@@ -2124,8 +2145,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - team_id (integer) (required) — ID of the team that owns the incident's channel. 0 when the channel has no team.
     - title (string) (required) — Incident title.
     - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Opaque cursor to pass as 'search_after_ctx' on the next request.
-  - total (integer) (required) — Total number of matching incidents.
+  - search_after_ctx (string) — Cursor pointing at the last item of this page; pass it as 'search_after_ctx' on the next request to continue past the 1,000-item page limit. Returned for every non-empty page in 'p'/'limit' mode, and in cursor mode only when 'has_next_page' is 'true'. Omitted by 'POST /incident/list-by-ids'.
+  - total (integer) (required) — Number of matching incidents, capped at 1,000. For 'POST /incident/list-by-ids', the number of incidents found.
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident list-by-ids --data '{"incident_ids":["69da451ef77b1b51f40e83ee","69da451ef77b1b51f40e83ef"]}'`,
@@ -2180,7 +2201,7 @@ API: POST /incident/merge (incidentMerge)
 Request fields:
   --comment string — Optional comment recorded on the merge timeline entry. (≤1024 chars)
   --owner-id int — Accepted for compatibility but currently ignored by the server; the merge does not change the target incident owner.
-  --remove-source-incidents bool — When true, soft-delete the source incidents after merging instead of closing them.
+  --remove-source-incidents bool — When true, permanently delete the source incidents after their alerts move to the target. When false, the sources are closed and kept.
   --source-incident-ids []string (required) — Source incident IDs. The target incident is removed from this set automatically.
   --target-incident-id string (required) — Target incident ID of the merge; obtain it from 'POST /incident/list'.
   --title string — Optional new title for the target incident. (≤512 chars)
@@ -2234,7 +2255,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fComment, "comment", "", "Optional comment recorded on the merge timeline entry. (≤1024 chars)")
 	cmd.Flags().Int64Var(&fOwnerID, "owner-id", 0, "Accepted for compatibility but currently ignored by the server; the merge does not change the target incident owner.")
-	cmd.Flags().BoolVar(&fRemoveSourceIncidents, "remove-source-incidents", false, "When true, soft-delete the source incidents after merging instead of closing them.")
+	cmd.Flags().BoolVar(&fRemoveSourceIncidents, "remove-source-incidents", false, "When true, permanently delete the source incidents after their alerts move to the target. When false, the sources are closed and kept.")
 	cmd.Flags().StringSliceVar(&fSourceIncidentIDs, "source-incident-ids", nil, "Source incident IDs. The target incident is removed from this set automatically. (required)")
 	cmd.Flags().StringVar(&fTargetIncidentID, "target-incident-id", "", "Target incident ID of the merge; obtain it from 'POST /incident/list'. (required)")
 	cmd.Flags().StringVar(&fTitle, "title", "", "Optional new title for the target incident. (≤512 chars)")
@@ -2251,7 +2272,7 @@ func genIncidentsPastListCmd() *cobra.Command {
 		Short: "List past incidents",
 		Long: `List past incidents.
 
-List historical incidents related to the current incident for reference during triage.
+List closed incidents in the same channel that resemble a given incident, to reuse past root causes and resolutions.
 
 API: POST /incident/past/list (incidentPastList)
 
@@ -2262,35 +2283,35 @@ Request fields:
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Similar past incidents with similarity scores.
     - account_id (integer) (required) — Account ID that owns the incident.
-    - account_locale (string) (required) — Account locale.
-    - account_name (string) (required) — Account name.
-    - account_time_zone (string) (required) — Account time zone.
+    - account_locale (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_name (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
+    - account_time_zone (string) (required) — Always an empty string in API responses; filled only when the incident is rendered for notifications.
     - ack_time (string) (required) — Unix timestamp (seconds) when the incident was first acknowledged. 0 if unacknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - active_alert_cnt (integer) (required) — Count of alerts currently in Critical/Warning/Info state.
-    - ai_summary (string) (required) — AI-generated summary of the incident.
+    - ai_summary (string) (required) — Reserved; always an empty string.
     - alert_cnt (integer) (required) — Total count of alerts merged into this incident.
     - alert_event_cnt (integer) (required) — Total raw alert event count across all merged alerts.
-    - alerts (array<object>) — Embedded alerts, only populated for notification templates and custom actions.
-      - account_id (integer) (required) — Account ID.
+    - alerts (array<object>) — Not returned by the incident endpoints; present only in notification template and custom action payloads.
+      - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
       - alert_id (string) (required) — Alert ID (MongoDB ObjectID).
       - alert_key (string) (required) — Deduplication key used to merge events into the alert.
       - alert_severity (string) (required) — Current severity. [Critical, Warning, Info, Ok]
       - alert_status (string) (required) — Current status. [Critical, Warning, Info, Ok]
-      - channel_id (integer) (required) — Channel ID.
+      - channel_id (integer) (required) — ID of the channel the alert was routed to; its name is in 'channel_name'.
       - channel_name (string) (required) — Channel display name.
-      - channel_status (string) (required) — Channel status.
+      - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
       - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - data_source_id (integer) (required) — Deprecated. Use 'integration_id' instead.
       - data_source_name (string) (required) — Deprecated. Use 'integration_name'.
       - data_source_ref_id (string) (required) — Deprecated. Use 'integration_ref_id'.
-      - data_source_type (string) — Deprecated. Use 'integration_type'.
+      - data_source_type (string) — Deprecated; same value as 'integration_type'.
       - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Alert description.
       - detail_url (string) — Console URL of this alert ('{console}/alert/detail/{alert_id}'). Empty when the deployment has no console base configured.
       - end_time (string) (required) — Unix timestamp (seconds) when the alert recovered. 0 if still active. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - event_cnt (integer) (required) — Total number of raw events merged into this alert.
       - events (array<object>) — Raw alert event preview, populated only when requested. Capped at the 20 newest events per alert.
-        - account_id (integer) — Account ID.
+        - account_id (integer) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
         - alert_id (string) — Parent alert ID (MongoDB ObjectID).
         - alert_key (string) — Deduplication key used to merge events into an alert.
         - channel_id (integer) — Channel ID the event is routed to.
@@ -2304,65 +2325,66 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
         - event_time (string) — Event timestamp, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
         - images (array<object>) — Images attached to the event.
         - integration_id (integer) — Integration that produced this event.
-        - integration_type (string) — Type/plugin key of the integration that produced this event.
+        - integration_type (string) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
         - labels (object) — Label key-value pairs.
         - title (string) — Event title.
         - title_rule (string) — Title template used to derive 'title' from labels.
         - updated_at (string) — Record update time, Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - ever_muted (boolean) (required) — Whether this alert has ever been silenced.
-      - images (array<object>) (required) — Attached images.
-        - alt (string) — Alt text.
+      - images (array<object>) (required) — Images attached to the alert; 'null' when there are none.
+        - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
         - href (string) — Optional link the image points to.
         - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
       - incident (object) — Parent incident reference, if the alert has been merged into one.
         - incident_id (string) — Incident ID (ObjectID hex string).
-        - progress (string) — Incident progress — one of 'Triggered', 'Processing', 'Closed'.
+        - progress (string) — Incident progress: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. [Triggered, Processing, Closed]
         - title (string) — Incident title.
       - integration_id (integer) (required) — Integration ID that produced the alert.
       - integration_name (string) (required) — Integration display name.
       - integration_ref_id (string) (required) — Integration reference ID.
-      - integration_type (string) (required) — Integration type string.
+      - integration_type (string) (required) — Plugin type of the integration, such as 'prometheus.alert', 'grafana.alert', 'zabbix.alert', 'monit.alert', or 'email.alert'. The set is open and grows with new integrations; 'POST /integration/type/list' returns the full list.
       - labels (object) (required) — Alert labels.
       - last_time (string) (required) — Unix timestamp (seconds) of the most recent event. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-      - responder_email (string) (required) — Primary responder email, if any.
-      - responder_name (string) (required) — Primary responder name, if any.
+      - responder_email (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
+      - responder_name (string) (required) — Always an empty string in API responses; filled only when the alert is rendered for notifications.
       - start_time (string) (required) — Unix timestamp (seconds) when the alert first fired. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - title (string) (required) — Alert title.
       - title_rule (string) (required) — Title rendering rule.
       - updated_at (string) (required) — Last update timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - assigned_to (object) (required) — Current assignment target for the incident.
-      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made.
-      - emails (array<string>) — Email recipients, used by integrations such as ServiceNow.
+    - assigned_to (object) (required) — Current assignment target. Always present; for an incident that was never assigned, 'type' and 'id' are empty and 'assigned_at' is '0'.
+      - assigned_at (integer) — Unix timestamp (seconds) when the assignment was made; set by the server.
+      - effective_person_ids (array<integer>) — Member IDs that actually received the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
+      - emails (array<string>) — Member emails; each is resolved to a member ID and merged into 'person_ids'. Emails without a matching member are ignored.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) to drive assignment.
-      - escalate_rule_name (string) — Escalation rule display name, filled by the server.
-      - id (string) — Opaque assignment ID generated by the server.
-      - layer_idx (integer) — Current level index within the escalation rule.
+      - escalate_rule_name (string) — Escalation rule name, filled by the server in responses; ignored in requests.
+      - id (string) — Assignment ID generated by the server for each assignment; set by the server.
+      - layer_idx (integer) — Zero-based escalation level within 'escalate_rule_id' ('0' = first level). Responders are taken from this level.
       - notify (object) — Override the notification channels used for this assignment.
-        - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-        - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
+        - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+        - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
         - template_id (string) — Notification template ID (MongoDB ObjectID).
       - person_ids (array<integer>) — Member IDs to assign directly.
-      - type (string) — Assignment type: 'assign' direct assignment, 'reassign' reassignment, 'escalate' escalation-rule driven, 'reopen' automatic reassignment on reopen. [assign, reassign, escalate, reopen]
+      - type (string) — How the assignment happened: 'assign' first assignment; 'reassign' reassignment of an already assigned incident; 'escalate' moved by the escalation flow; 'reopen' reassignment after the incident was reopened; empty string in responses when the incident was never assigned. Omit it in requests and the server derives it. [assign, reassign, escalate, reopen]
     - channel_id (integer) (required) — Channel ID. 0 for standalone incidents.
     - channel_name (string) (required) — Channel display name.
-    - channel_status (string) (required) — Channel status.
+    - channel_status (string) (required) — Status of the channel: 'enabled', 'disabled', or 'deleted'. Empty string when the record has no channel or the channel no longer exists. [enabled, disabled, deleted]
     - close_time (string) (required) — Unix timestamp (seconds) when the incident was closed. 0 if still open. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - closer (object) — Closer member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - closer_id (integer) (required) — Member ID that closed the incident. 0 if auto-closed.
     - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator (object) — Creator member info.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - creator_id (integer) (required) — Member ID that created the incident. 0 if auto-created by the system.
     - data_source_id (integer) — Deprecated. Use 'integration_id' instead.
     - data_source_ids (array<integer>) — Deprecated. Use 'integration_ids' instead.
-    - data_source_type (string) — Deprecated. Use 'integration_type' instead.
+    - data_source_type (string) — Deprecated; same value as 'integration_type'.
     - data_source_types (array<string>) — Deprecated. Use 'integration_types' instead.
     - dedup_key (string) (required) — Deduplication key used to coalesce alerts.
     - deleted_at (string) — Soft-delete timestamp (seconds). Zero if not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -2374,8 +2396,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - fields (object) (required) — Custom field values keyed by field name.
     - frequency (string) — Frequency bucket for recurrence analysis: 'frequent' or 'rare'. [frequent, rare]
     - group_method (string) (required) — Alert grouping method: 'i' intelligent, 'p' pattern, 'n' none. [i, p, n]
-    - images (array<object>) (required) — Attached images.
-      - alt (string) — Alt text.
+    - has_unfinished_work_item (boolean) (required) — 'true' when the incident still has at least one action item or follow-up that is neither 'done' nor 'cancelled'.
+    - images (array<object>) (required) — Images attached to the incident; 'null' when there are none. Tokens starting with 'img_' are returned as download URLs.
+      - alt (string) — Alternative text shown when the image cannot be displayed; empty when not set.
       - href (string) — Optional link the image points to.
       - src (string) (required) — Image source. Either an 'img_' upload token or an 'http(s)' URL.
     - impact (string) (required) — Impact description.
@@ -2383,21 +2406,21 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - incident_severity (string) (required) — Configured incident severity. [Critical, Warning, Info, Ok]
     - incident_status (string) (required) — Current incident status, derived from alert statuses. [Critical, Warning, Info, Ok]
     - integration_id (integer) (required) — First integration associated with the incident.
-    - integration_ids (array<integer>) (required) — All integration IDs contributing alerts to this incident.
-    - integration_type (string) — First alert's integration type string, used by the detail page for label mappings.
-    - integration_types (array<string>) (required) — Integration type strings for all contributing integrations.
-    - labels (object) (required) — Labels propagated from alerts.
+    - integration_ids (array<integer>) (required) — IDs of all integrations contributing alerts to this incident; 'null' for incidents without integrations, such as manually created ones.
+    - integration_type (string) — Plugin type of the incident's first integration (see 'integration_types' for all). Open set, for example 'prometheus.alert' or 'monit.alert'; 'POST /integration/type/list' returns the full list. Omitted when the incident has no integration or the endpoint does not fill it.
+    - integration_types (array<string>) (required) — Plugin types of all contributing integrations (see 'integration_type'); 'null' when there are none.
+    - labels (object) (required) — Labels on the incident, propagated from alerts or set at creation.
     - last_time (string) (required) — Unix timestamp (seconds) of the most recent update. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - links (array<object>) — Channel-level link integrations rendered for this incident.
       - endpoint (string) (required) — Rendered URL for the link.
       - name (string) (required) — Display name of the link.
       - open_type (string) (required) — How the link opens. 'popup' opens it in a popup within the incident detail page; 'tab' opens it in a new browser tab. [popup, tab]
-    - manual_overrides (array<string>) (required) — Fields that were manually overridden after auto-population.
+    - manual_overrides (array<string>) (required) — Fields edited manually and therefore no longer overwritten by merged alerts: 'title', 'description', 'incident_severity'. 'null' when none. [title, description, incident_severity]
     - num (string) (required) — Short display identifier; not guaranteed unique.
     - owner (object) — Owner member info. May be deprecated.
       - as (string) — Role label for this member in the context of the current object.
       - email (string) — Member email address.
-      - person_id (integer) — Member ID.
+      - person_id (integer) — Member ID; the same ID that 'POST /member/list' returns.
       - person_name (string) — Member display name.
     - owner_id (integer) (required) — Primary owner member ID. 0 if none.
     - post_mortem_id (string) (required) — Associated post-mortem ID, if any. One incident can only link to a single post-mortem.
@@ -2465,7 +2488,7 @@ func genIncidentsPostMortemDeleteCmd() *cobra.Command {
 		Short: "Delete post-mortem",
 		Long: `Delete post-mortem.
 
-Delete a post-mortem report.
+Permanently delete a post-mortem report together with its uploaded media.
 
 API: POST /incident/post-mortem/delete (incidentPostMortemDelete)
 
@@ -2517,19 +2540,19 @@ func genIncidentsPostMortemInfoCmd() *cobra.Command {
 		Short: "Get post-mortem",
 		Long: `Get post-mortem.
 
-Retrieve a post-mortem report by its 'post_mortem_id'. List reports via '/incident/post-mortem/list' first — each row carries the incident it covers — then fetch the full report here by that id.
+Get the full content and auto-aggregated basics of a post-mortem report by its ID.
 
 API: GET /incident/post-mortem/info (incidentPostMortemInfo)
 
 Request fields:
-  --post-mortem-id string (required) — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
+  --post-mortem-id string (required) — Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - basics (object) (required) — Basics aggregated automatically from the linked incidents: highest severity, earliest start / latest close time, total duration, and responders.
-    - incidents_earliest_start_seconds (integer) (required) — Earliest start time among linked incidents (seconds).
-    - incidents_highest_severity (string) (required) — Highest severity among linked incidents.
-    - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
-    - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
+    - incidents_earliest_start_seconds (string) (required) — Earliest start time among linked incidents (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - incidents_highest_severity (string) (required) — Highest severity among linked incidents: 'Critical', 'Warning', or 'Info'; 'Ok' only when it was set manually. [Critical, Warning, Info, Ok]
+    - incidents_latest_close_seconds (string) (required) — Latest close time among linked incidents (Unix seconds); an incident not yet closed contributes its 'end_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - incidents_total_duration_seconds (integer) (required) — Seconds from the earliest start to the latest close among linked incidents (not the sum of each incident's duration).
     - responders (array<object>) (required) — Responders involved in the incident(s).
       - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - as (string) — Role label of this responder.
@@ -2540,8 +2563,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - content (object) (required) — Post-mortem body; the object holds a single 'content' field whose value is a BlockNote JSON string.
     - content (string) (required) — Report body content (BlockNote JSON).
   - follow_ups (string) (required) — Follow-up action items rendered as a single string.
+  - has_active_incident (boolean) (required) — 'true' when at least one linked incident is not closed yet; follow-ups stay locked until all are closed. Computed per request.
   - meta (object) (required) — Post-mortem metadata (lightweight shape used in lists).
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
@@ -2550,7 +2574,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
-    - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - post_mortem_id (string) (required) — Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs.
     - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Post-mortem status. 'drafting' means still being edited; 'published' means published. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
@@ -2585,7 +2609,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs. (required)")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2607,26 +2631,26 @@ func genIncidentsPostMortemListCmd() *cobra.Command {
 		Short: "List post-mortems",
 		Long: `List post-mortems.
 
-List post-mortem reports with optional filters.
+List post-mortem reports, optionally filtered by status, team, channel, and creation time.
 
 API: POST /incident/post-mortem/list (incidentPostMortemList)
 
 Request fields:
   --page int — Page number starting at 1. (min 0)
-  --limit int — Page size, at most 100. (0-100)
+  --limit int — Page size, at most 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)
   --search-after-ctx string — Cursor from a previous response for forward pagination.
   --asc bool — Ascending order when true.
   --channel-ids []int — Channel IDs to restrict the query to.
   --created-at-end-seconds string — Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --created-at-start-seconds string — Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --order-by string — Field used to order results. [created_at_seconds, updated_at_seconds]
+  --order-by string — Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. [created_at_seconds, updated_at_seconds]
   --status string — Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. [drafting, published]
   --team-ids []int — Team IDs to restrict the query to.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
   - items (array<object>) (required) — Post-mortem metadata for the current page.
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
@@ -2635,7 +2659,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
-    - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - post_mortem_id (string) (required) — Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs.
     - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Post-mortem status. 'drafting' means still being edited; 'published' means published. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
@@ -2705,13 +2729,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to restrict the query to.")
 	cmd.Flags().StringVar(&fCreatedAtEndSeconds, "created-at-end-seconds", "", "Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fCreatedAtStartSeconds, "created-at-start-seconds", "", "Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds, updated_at_seconds]")
+	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. [created_at_seconds, updated_at_seconds]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. [drafting, published]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs to restrict the query to.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -2726,7 +2750,7 @@ func genIncidentsRemoveCmd() *cobra.Command {
 		Short: "Delete an incident",
 		Long: `Delete an incident.
 
-Permanently delete an incident and all associated data.
+Permanently delete incidents together with their alerts, raw events, and timelines.
 
 API: POST /incident/remove (incidentRemove)
 
@@ -2779,13 +2803,13 @@ func genIncidentsReopenCmd() *cobra.Command {
 		Short: "Reopen incident",
 		Long: `Reopen incident.
 
-Reopen a previously resolved incident.
+Reopen closed incidents and dispatch them again from the first escalation level.
 
 API: POST /incident/reopen (incidentReopen)
 
 Request fields:
   --incident-ids []string (required) — Incident IDs to reopen. At most 100 per call.
-  --reason string — Optional reason recorded on the timeline. (≤1024 chars)
+  --reason string — Optional free-text reason, recorded on the 'i_reopen' timeline entry. At most 1,024 characters. (≤1024 chars)
 `,
 		Args:    requireBodyFieldOrArgs("incident_ids", "incident-ids"),
 		Example: `  flashduty incident reopen --data '{"incident_ids":["69da451ef77b1b51f40e83ee"],"reason":"Monitoring detected the issue recurred after the initial fix."}'`,
@@ -2823,7 +2847,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to reopen. At most 100 per call. (required)")
-	cmd.Flags().StringVar(&fReason, "reason", "", "Optional reason recorded on the timeline. (≤1024 chars)")
+	cmd.Flags().StringVar(&fReason, "reason", "", "Optional free-text reason, recorded on the 'i_reopen' timeline entry. At most 1,024 characters. (≤1024 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2842,7 +2866,7 @@ func genIncidentsResetCmd() *cobra.Command {
 		Short: "Update incident fields",
 		Long: `Update incident fields.
 
-Update one or more editable fields of an incident in a single call, including title, description, impact, root cause, resolution, and severity. At least one field must be provided.
+Update an incident's title, description, impact, root cause, resolution, or severity in one call.
 
 API: POST /incident/reset (incidentReset)
 
@@ -2928,7 +2952,7 @@ func genIncidentsResolveCmd() *cobra.Command {
 		Short: "Resolve incident",
 		Long: `Resolve incident.
 
-Mark an incident as resolved.
+Close one or more incidents, optionally recording root cause, resolution, and resolution form values.
 
 API: POST /incident/resolve (incidentResolve)
 
@@ -3006,17 +3030,17 @@ func genIncidentsResponderAddCmd() *cobra.Command {
 		Short: "Add incident responder",
 		Long: `Add incident responder.
 
-Add a responder to an existing incident.
+Add members as responders to an open incident and notify them.
 
 API: POST /incident/responder/add (incidentResponderAdd)
 
 Request fields:
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --person-ids []int (required) — Member IDs to add as responders.
-  notify (object, via --data) — Optional notification override. Defaults to following each person's personal preference.
-    - follow_preference (boolean) — When false, use 'personal_channels'; when true or omitted, use each responder's personal preference.
-    - personal_channels (array<string>) — Channels to use (e.g. 'voice', 'sms', 'email').
-    - template_id (string) — Notification template ID (MongoDB ObjectID).
+  --person-ids []int (required) — Member IDs to add as responders. IDs that are already responders, or that do not exist in the account, are skipped.
+  notify (object, via --data) — Notification settings for the newly added responders. Defaults to '{"follow_preference": true}'.
+    - follow_preference (boolean) — 'true': notify each person through their personal notification preference. 'false': use 'personal_channels', which must then be non-empty. When omitted, 'personal_channels' must be set.
+    - personal_channels (array<string>) — Channels used when 'follow_preference' is 'false': 'sms', 'voice', 'email', 'push' (mobile app push), or an IM app channel written as 'feishu_app:<integration_id>', 'dingtalk_app:<integration_id>', 'wecom_app:<integration_id>', 'slack_app:<integration_id>', or 'teams_app:<integration_id>'. Ignored when 'follow_preference' is 'true'.
+    - template_id (string) — Notification template ID, as returned by the notification template endpoints. Must exist in the account; otherwise the call fails with 'InvalidParameter'.
 `,
 		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty incident responder-add --data '{"incident_id":"69da451ef77b1b51f40e83ee","person_ids":[2476444212131,2476444212132]}'`,
@@ -3054,7 +3078,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to add as responders. (required)")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to add as responders. IDs that are already responders, or that do not exist in the account, are skipped. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3068,7 +3092,7 @@ func genIncidentsSnoozeCmd() *cobra.Command {
 		Short: "Snooze incident",
 		Long: `Snooze incident.
 
-Temporarily snooze notifications for an incident until a specified time.
+Pause notifications for acknowledged incidents for a given number of minutes.
 
 API: POST /incident/snooze (incidentSnooze)
 
@@ -3125,7 +3149,7 @@ func genIncidentsUnackCmd() *cobra.Command {
 		Short: "Unacknowledge incident",
 		Long: `Unacknowledge incident.
 
-Remove the acknowledge status from an incident.
+Withdraw the calling member's acknowledgement of one or more incidents.
 
 API: POST /incident/unack (incidentUnack)
 
@@ -3177,7 +3201,7 @@ func genIncidentsWakeCmd() *cobra.Command {
 		Short: "Wake incident",
 		Long: `Wake incident.
 
-Cancel the snooze on an incident and resume notifications.
+End the snooze on incidents so that their notifications resume immediately.
 
 API: POST /incident/wake (incidentWake)
 
@@ -3232,15 +3256,15 @@ func genIncidentsWarRoomCreateCmd() *cobra.Command {
 		Short: "Create war room",
 		Long: `Create war room.
 
-Create a war room channel for collaborative incident response.
+Create an IM group chat as the war room for an incident and invite members into it.
 
 API: POST /incident/war-room/create (incidentWarRoomCreate)
 
 Request fields:
-  --add-observers bool — When true, also add historical responders of the incident as observers.
+  --add-observers bool — When true, also invite members who were assigned or added as responders earlier but are no longer current responders.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
-  --integration-id int (required) — IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported.
-  --member-ids []int — Additional member IDs to add to the war room.
+  --integration-id int (required) — IM integration ID with war room enabled; obtain it from 'POST /datasource/im/war-room-enabled/list'. Feishu, DingTalk, WeCom (self-built app only), and Slack are supported.
+  --member-ids []int — Member IDs to invite into the group; every ID must be a valid member of the account.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - chat_id (string) (required) — Chat/group ID on the IM side.
@@ -3280,40 +3304,50 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&fAddObservers, "add-observers", false, "When true, also add historical responders of the incident as observers.")
+	cmd.Flags().BoolVar(&fAddObservers, "add-observers", false, "When true, also invite members who were assigned or added as responders earlier but are no longer current responders.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID. Must have war room enabled; Feishu, DingTalk, WeCom (self-built), Slack and Teams are supported. (required)")
-	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Additional member IDs to add to the war room.")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID with war room enabled; obtain it from 'POST /datasource/im/war-room-enabled/list'. Feishu, DingTalk, WeCom (self-built app only), and Slack are supported. (required)")
+	cmd.Flags().IntSliceVar(&fMemberIDs, "member-ids", nil, "Member IDs to invite into the group; every ID must be a valid member of the account.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
 
 func genIncidentsWarRoomDeleteCmd() *cobra.Command {
 	var dataJSON string
+	var fChatID string
 	var fIncidentID string
 	var fIntegrationID int64
+	var fUnlinkOnly bool
 	cmd := &cobra.Command{
 		Use:   "war-room-delete",
 		Short: "Delete war room",
 		Long: `Delete war room.
 
-Delete an incident war room.
+Dissolve an incident's war room group on the IM platform and unlink it from the incident.
 
 API: POST /incident/war-room/delete (incidentWarRoomDelete)
 
 Request fields:
+  --chat-id string — Chat ID of the war room to unlink, from 'POST /incident/war-room/list'. Required when 'unlink_only' is 'true' and must match the current war room; ignored otherwise.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   --integration-id int (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
+  --unlink-only bool — When true, only remove the link between the incident and the war room without dissolving the group. Allowed only for account owners and admins, only when the IM integration is disabled or deleted, and requires 'chat_id'.
 `,
 		Example: `  flashduty incident war-room-delete --data '{"incident_id":"69da451ef77b1b51f40e83ee","integration_id":2490562293131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("chat-id") {
+						body["chat_id"] = fChatID
+					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID
 					}
 					if cmd.Flags().Changed("integration-id") {
 						body["integration_id"] = fIntegrationID
+					}
+					if cmd.Flags().Changed("unlink-only") {
+						body["unlink_only"] = fUnlinkOnly
 					}
 					return nil
 				})
@@ -3336,8 +3370,10 @@ Request fields:
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fChatID, "chat-id", "", "Chat ID of the war room to unlink, from 'POST /incident/war-room/list'. Required when 'unlink_only' is 'true' and must match the current war room; ignored otherwise.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. (required)")
+	cmd.Flags().BoolVar(&fUnlinkOnly, "unlink-only", false, "When true, only remove the link between the incident and the war room without dissolving the group. Allowed only for account owners and admins, only when the IM integration is disabled or deleted, and requires 'chat_id'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3351,7 +3387,7 @@ func genIncidentsWarRoomDetailCmd() *cobra.Command {
 		Short: "Get war room detail",
 		Long: `Get war room detail.
 
-Retrieve the war room configuration and members for an incident.
+Fetch the current name and join link of a war room group from the IM platform.
 
 API: POST /incident/war-room/detail (incidentWarRoomDetail)
 
@@ -3403,6 +3439,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func genIncidentsWarRoomListCmd() *cobra.Command {
 	var dataJSON string
+	var fForCreate bool
 	var fIncidentID string
 	var fIntegrationID int64
 	cmd := &cobra.Command{
@@ -3410,26 +3447,28 @@ func genIncidentsWarRoomListCmd() *cobra.Command {
 		Short: "List war rooms",
 		Long: `List war rooms.
 
-List all war rooms associated with an incident.
+List the IM war room groups linked to an incident.
 
 API: POST /incident/war-room/list (incidentWarRoomList)
 
 Request fields:
+  --for-create bool — When 'true', return only 'exists' instead of 'items': whether the incident has any war room, on any integration and including ones whose integration is unavailable. 'integration_id' is ignored.
   --incident-id string (required) — Incident ID (MongoDB ObjectID).
   --integration-id int — Optional filter: only return war rooms for this IM integration.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — War room records.
-    - account_id (integer) (required) — Account ID.
+  - exists (boolean) — Whether the incident has a war room. Returned only when 'for_create' is 'true'.
+  - items (array<object>) — War room records. Omitted when 'for_create' is 'true'.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - chat_id (string) (required) — Chat/group ID on the IM side.
     - chat_name (string) (required) — Display name of the group chat on the IM side.
-    - created_at (string) (required) — Creation timestamp (seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at (string) (required) — Unix timestamp (seconds) when the war room was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the war room.
     - incident_id (string) (required) — Associated incident ID (MongoDB ObjectID).
     - integration_id (integer) (required) — IM integration ID.
     - integration_unavailable (boolean) — True when the IM integration behind this war room is disabled or no longer exists.
-    - plugin_type (string) (required) — IM plugin type (e.g. 'feishu', 'dingtalk', 'wecom', 'slack').
-    - status (string) (required) — War room record status: 'enabled' active, 'deleted' disbanded. [enabled, deleted]
+    - plugin_type (string) (required) — Plugin type of the IM integration: 'feishu_app' (Feishu), 'dingtalk_app' (DingTalk), 'wecom_app' (WeCom), or 'slack_app' (Slack). Empty string when the integration no longer exists. [feishu_app, dingtalk_app, wecom_app, slack_app]
+    - status (string) (required) — Record status. Always 'enabled' in this list, because deleted war rooms are not returned. [enabled]
 `,
 		Args:    requireBodyFieldOrExactArg("incident_id", "incident-id"),
 		Example: `  flashduty incident war-room-list --data '{"incident_id":"69da451ef77b1b51f40e83ee"}'`,
@@ -3438,6 +3477,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if err := genFoldPositional(args, body, "incident_id", "string"); err != nil {
 						return err
+					}
+					if cmd.Flags().Changed("for-create") {
+						body["for_create"] = fForCreate
 					}
 					if cmd.Flags().Changed("incident-id") {
 						body["incident_id"] = fIncidentID
@@ -3462,6 +3504,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&fForCreate, "for-create", false, "When 'true', return only 'exists' instead of 'items': whether the incident has any war room, on any integration and including ones whose integration is unavailable. 'integration_id' is ignored.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Optional filter: only return war rooms for this IM integration.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -3484,7 +3527,7 @@ API: POST /incident/work-item/post-mortem/bind (incidentWorkItemBindPostMortem)
 
 Request fields:
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-  --incident-id string (required) — Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound.
+  --incident-id string (required) — Incident ID (MongoDB ObjectID) whose converted, unbound items are bound. It must be linked to 'post_mortem_id'.
   --post-mortem-id string (required) — Post-mortem ID (32-character hex string) to bind the follow-ups to.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -3503,12 +3546,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
@@ -3547,7 +3590,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		},
 	}
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
-	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) whose converted-but-unbound follow-ups are bound. (required)")
+	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) whose converted, unbound items are bound. It must be linked to 'post_mortem_id'. (required)")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string) to bind the follow-ups to. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -3564,7 +3607,7 @@ func genIncidentsWorkItemCompleteCmd() *cobra.Command {
 		Short: "Complete a work item",
 		Long: `Complete a work item.
 
-Mark a work item as completed by setting a client-defined target status.
+Mark a work item as done; only its current assignees can do this.
 
 API: POST /incident/work-item/complete (incidentWorkItemComplete)
 
@@ -3575,7 +3618,7 @@ Request fields:
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -3590,18 +3633,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
-  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+  - removed_assignee_ids (array<integer>) — Member IDs of the person assignees removed by this call (never notified). Omitted when none.
 `,
 		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
 		Example: `  flashduty incident work-item-complete --data '{"idempotency_key":"complete-wi-20260731-0001","target_status":"done","version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
@@ -3665,12 +3708,12 @@ API: POST /incident/work-item/convert (incidentWorkItemConvert)
 
 Request fields:
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
-  --target-status string — Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)
-  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --target-status string — Optional status to set on the converted follow-up; omitted or 'null' keeps the current status. Values: 'open' (not started), 'in_progress' (being worked on), 'done' (finished), 'cancelled' (no longer needed). [open, in_progress, done, cancelled] (≤64 chars)
+  --version int (required) — The item's current 'version' (≥ 1) for optimistic locking.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -3685,18 +3728,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
-  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+  - removed_assignee_ids (array<integer>) — Member IDs of the person assignees removed by this call (never notified). Omitted when none.
 `,
 		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
 		Example: `  flashduty incident work-item-convert --data '{"idempotency_key":"convert-wi-20260731-0001","target_status":"open","version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
@@ -3736,8 +3779,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
-	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Optional status to set on the converted follow-up. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fTargetStatus, "target-status", "", "Optional status to set on the converted follow-up; omitted or 'null' keeps the current status. Values: 'open' (not started), 'in_progress' (being worked on), 'done' (finished), 'cancelled' (no longer needed). [open, in_progress, done, cancelled] (≤64 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "The item's current 'version' (≥ 1) for optimistic locking. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -3759,7 +3802,7 @@ func genIncidentsWorkItemCreateCmd() *cobra.Command {
 		Short: "Create a work item",
 		Long: `Create a work item.
 
-Create an action on an active incident or a follow-up on one of its post-mortems.
+Create an action on an open incident, or a follow-up on a closed incident.
 
 API: POST /incident/work-item/create (incidentWorkItemCreate)
 
@@ -3768,17 +3811,17 @@ Request fields:
   --description string — Optional longer description (max 65,535 characters). (≤65535 chars)
   --idempotency-key string (required) — Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (≤128 chars)
   --incident-id string (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-  --item-type string (required) — 'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. [action, follow_up]
-  --post-mortem-id string — Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.
-  --priority string — Optional client-defined priority (max 64 characters). (≤64 chars)
+  --item-type string (required) — Work item type. - 'action': a to-do on an incident that is not closed yet; must not set 'post_mortem_id'. - 'follow_up': a post-mortem follow-up on a closed incident; 'post_mortem_id' is optional. [action, follow_up]
+  --post-mortem-id string — Post-mortem ID (32-character hex string). Forbidden for 'action'. Optional for 'follow_up': when set, the incident must be linked to that report; when omitted, the incident's post-mortem is used if it exists.
+  --priority string — Optional free-form priority, at most 64 characters. The console uses 'high', 'medium' and 'low'; any other string is stored as-is. (≤64 chars)
   --status string — Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. [open, in_progress, done, cancelled] (≤64 chars)
-  --title string (required) — Item title (max 512 characters). (≤512 chars)
+  --title string (required) — Item title, at most 512 characters; leading and trailing spaces are trimmed and it must not be blank. (≤512 chars)
   assignees (array<object>, via --data) — Initial assignees. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Mutually exclusive with 'assignee_ids': sending both returns an error. 'assignee_ids' is the legacy alias and is equivalent to an all-'person' list. At most 20 entries. Person assignees must be active members who can already read the anchor; assignment never grants access.
     - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
     - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key and no new item was created.
   - item (object) (required) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -3793,12 +3836,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
@@ -3861,11 +3904,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional longer description (max 65,535 characters). (≤65535 chars)")
 	cmd.Flags().StringVar(&fIdempotencyKey, "idempotency-key", "", "Client-generated idempotency key (max 128 characters; letters, digits, '_', '-', '.', ':' only). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID) the item is anchored to. (required)")
-	cmd.Flags().StringVar(&fItemType, "item-type", "", "'action' anchors to an active incident and must not set 'post_mortem_id'; 'follow_up' requires 'post_mortem_id'. (required) [action, follow_up]")
-	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Required for 'follow_up', forbidden for 'action'. The post-mortem must be linked to 'incident_id'.")
-	cmd.Flags().StringVar(&fPriority, "priority", "", "Optional client-defined priority (max 64 characters). (≤64 chars)")
+	cmd.Flags().StringVar(&fItemType, "item-type", "", "Work item type. - 'action': a to-do on an incident that is not closed yet; must not set 'post_mortem_id'. - 'follow_up': a post-mortem follow-up on a closed incident; 'post_mortem_id' is optional. (required) [action, follow_up]")
+	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Forbidden for 'action'. Optional for 'follow_up': when set, the incident must be linked to that report; when omitted, the incident's post-mortem is used if it exists.")
+	cmd.Flags().StringVar(&fPriority, "priority", "", "Optional free-form priority, at most 64 characters. The console uses 'high', 'medium' and 'low'; any other string is stored as-is. (≤64 chars)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Initial status. One of 'open', 'in_progress', 'done', 'cancelled'; defaults to 'open' when omitted or blank. [open, in_progress, done, cancelled] (≤64 chars)")
-	cmd.Flags().StringVar(&fTitle, "title", "", "Item title (max 512 characters). (required) (≤512 chars)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Item title, at most 512 characters; leading and trailing spaces are trimmed and it must not be blank. (required) (≤512 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -3879,16 +3922,16 @@ func genIncidentsWorkItemDeleteCmd() *cobra.Command {
 		Short: "Delete a work item",
 		Long: `Delete a work item.
 
-Soft-delete a work item.
+Soft-delete a work item so it no longer appears in work item lists.
 
 API: POST /incident/work-item/delete (incidentWorkItemDelete)
 
 Request fields:
-  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --version int (required) — The item's current 'version' (≥ 1) for optimistic locking.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -3903,21 +3946,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
-  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+  - removed_assignee_ids (array<integer>) — Member IDs of the person assignees removed by this call (never notified). Omitted when none.
 `,
 		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
-		Example: `  flashduty incident work-item-delete --data '{"version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
+		Example: `  flashduty incident work-item-delete --data '{"version":3,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -3947,7 +3990,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "The item's current 'version' (≥ 1) for optimistic locking. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -3972,12 +4015,12 @@ List incident work items (actions and post-mortem follow-ups) with cursor pagina
 API: POST /incident/work-item/list (incidentWorkItemList)
 
 Request fields:
-  --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.
+  --assignee-id int — Restrict results to items assigned to this member ID. Listing by assignee alone requires being that member or an account owner or admin. Ignored when 'assignee_type' is 'ai_sre'.
   --assignee-type string — Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. [person, ai_sre]
-  --cursor string — Pagination cursor from a previous response's 'next_cursor'.
+  --cursor string — Opaque cursor from a previous response's 'next_cursor'. An invalid cursor returns 'InvalidParameter'.
   --incident-id string — Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.
   --item-type string — Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]
-  --limit int — Page size, at most 200. Defaults to 50. (0-200)
+  --limit int — Page size. 0, negative or omitted means 50; values above 200 are treated as 200.
   --post-mortem-id string — Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -3996,12 +4039,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
@@ -4009,7 +4052,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
   - next_cursor (string) — Cursor for the next page. Pass it as 'cursor'; absent when there are no more results.
 `,
-		Example: `  flashduty incident work-item-list --data '{"incident_id":"6a5f1e28807515413b384bce","limit":50}'`,
+		Example: `  flashduty incident work-item-list --data '{"incident_id":"6a5f1e28807515413b384bce","limit":2}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4051,12 +4094,12 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that assignee or an account admin. Ignored when 'assignee_type' is 'ai_sre'.")
+	cmd.Flags().Int64Var(&fAssigneeID, "assignee-id", 0, "Restrict results to items assigned to this member ID. Listing by assignee alone requires being that member or an account owner or admin. Ignored when 'assignee_type' is 'ai_sre'.")
 	cmd.Flags().StringVar(&fAssigneeType, "assignee-type", "", "Filter by assignee type: 'person' or 'ai_sre'. 'ai_sre' returns items assigned to AI SRE (an AI caller uses this to list its own tasks) and does not require 'assignee_id'. 'person' together with 'assignee_id' restricts results to that member. Omitted with a positive 'assignee_id' means 'person'. [person, ai_sre]")
-	cmd.Flags().StringVar(&fCursor, "cursor", "", "Pagination cursor from a previous response's 'next_cursor'.")
+	cmd.Flags().StringVar(&fCursor, "cursor", "", "Opaque cursor from a previous response's 'next_cursor'. An invalid cursor returns 'InvalidParameter'.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Incident ID (MongoDB ObjectID). Also returns follow-ups anchored on the incident's post-mortem.")
 	cmd.Flags().StringVar(&fItemType, "item-type", "", "Filter by work item type: 'action' action item, 'follow_up' post-mortem follow-up. [action, follow_up]")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 200. Defaults to 50. (0-200)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. 0, negative or omitted means 50; values above 200 are treated as 200.")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID (32-character hex string). Returns follow-ups bound to this post-mortem.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4078,14 +4121,14 @@ API: POST /incident/work-item/assignees/reset (incidentWorkItemResetAssignees)
 
 Request fields:
   --assignee-ids []int — Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.
-  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --version int (required) — The item's current 'version' (≥ 1) for optimistic locking.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
   assignees (array<object>, via --data) — Replacement assignee set. Each entry is '{type, id?}'. 'type' is 'person' or 'ai_sre'; an 'ai_sre' entry omits 'id'. Mutually exclusive with 'assignee_ids': sending both returns an error. 'assignee_ids' is the legacy alias and is equivalent to an all-'person' list. At most 20 entries. An empty array clears all assignees.
     - id (integer) — Member ID. Required when 'type' is 'person'. Omitted when 'type' is 'ai_sre'.
     - type (string) (required) — Assignee kind: 'person' (a member) or 'ai_sre' (the account AI SRE). [person, ai_sre]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -4100,18 +4143,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
-  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+  - removed_assignee_ids (array<integer>) — Member IDs of the person assignees removed by this call (never notified). Omitted when none.
 `,
 		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
 		Example: `  flashduty incident work-item-assignees-reset --data '{"assignee_ids":[3790925372131,5068740052131],"version":2,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
@@ -4148,7 +4191,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().IntSliceVar(&fAssigneeIDs, "assignee-ids", nil, "Legacy alias for the replacement assignee set. Equivalent to 'assignees' with every entry 'type' 'person'. Mutually exclusive with 'assignees': sending both returns an error. An empty array clears all assignees.")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "The item's current 'version' (≥ 1) for optimistic locking. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4172,15 +4215,15 @@ Partially update a work item's title, description, status, or priority.
 API: POST /incident/work-item/update (incidentWorkItemUpdate)
 
 Request fields:
-  --description string — New description (max 65,535 characters). (≤65535 chars)
-  --priority string — New client-defined priority (max 64 characters). (≤64 chars)
-  --status string — New status. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)
-  --title string — New title (max 512 characters). (≤512 chars)
-  --version int (required) — Current item version for optimistic locking. Must match the stored version.
+  --description string — New description, at most 65,535 characters; '""' clears it. 'null' or omitted keeps the current value. (≤65535 chars)
+  --priority string — New free-form priority, at most 64 characters; '""' clears it. 'null' or omitted keeps the current value. (≤64 chars)
+  --status string — New status. 'null' or omitted keeps the current status. - 'open': not started. - 'in_progress': being worked on. - 'done': finished. - 'cancelled': no longer needed. [open, in_progress, done, cancelled]
+  --title string — New title, at most 512 characters; trimmed and must not be blank. 'null' or omitted keeps the current title. (≤512 chars)
+  --version int (required) — The item's current 'version' (≥ 1) for optimistic locking.
   --work-item-id string (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - added_assignee_ids (array<integer>) — Assignee member IDs that were newly added (and notified).
+  - added_assignee_ids (array<integer>) — Member IDs of the person assignees added by this call (and notified); AI SRE is not included. Omitted when none.
   - idempotent_replay (boolean) — True when the call replayed an earlier request with the same idempotency key.
   - item (object) — A structured incident work item (action or post-mortem follow-up) with its assignees.
     - agent_session_id (string) — ID of the AI SRE session executing this item. Omitted when no session is recorded.
@@ -4195,18 +4238,18 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - created_by (integer) (required) — Member ID of the creator.
     - description (string) — Optional longer description (max 65,535 characters). (≤65535 chars)
     - incident_id (string) (required) — Incident ID (MongoDB ObjectID) the item is anchored to.
-    - item_type (string) (required) — 'action' for an item anchored to an active incident; 'follow_up' for a post-mortem follow-up. [action, follow_up]
+    - item_type (string) (required) — Work item type. - 'action': a to-do on an incident that is not closed yet. - 'follow_up': a post-mortem follow-up, created on a closed incident or converted from an action. [action, follow_up]
     - legacy_source_id (string) — Original identifier of the legacy follow-up this item was migrated from. Present only when 'source_kind' is 'legacy_follow_up'.
-    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present on follow-up items once bound to a post-mortem.
-    - priority (string) — Optional client-defined priority (max 64 characters). (≤64 chars)
+    - post_mortem_id (string) — Post-mortem ID (32-character hex string). Present only on follow-ups bound to a report; omitted otherwise.
+    - priority (string) — Free-form priority, at most 64 characters; omitted when empty. The console uses 'high', 'medium' and 'low', but any string set through the API is returned as-is. (≤64 chars)
     - source_kind (string) (required) — 'native' for items created through this API; 'legacy_follow_up' for items migrated from legacy post-mortem follow-ups. [native, legacy_follow_up]
-    - status (string) (required) — Client-defined status (max 64 characters). There is no fixed state machine. (≤64 chars)
+    - status (string) (required) — Item status: 'open' (not started), 'in_progress' (being worked on), 'done' (finished) or 'cancelled' (no longer needed). 'done' and 'cancelled' count as finished. Older items may still hold other free text, which counts as unfinished. (≤64 chars)
     - title (string) (required) — Item title (max 512 characters). (≤512 chars)
     - updated_at_seconds (string) (required) — Last update time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last updater.
     - version (integer) (required) — Optimistic-locking version, incremented on every mutation.
     - work_item_id (string) (required) — Work item ID (opaque string, max 128 characters). (≤128 chars)
-  - removed_assignee_ids (array<integer>) — Assignee member IDs that were removed (never notified).
+  - removed_assignee_ids (array<integer>) — Member IDs of the person assignees removed by this call (never notified). Omitted when none.
 `,
 		Args:    requireBodyFieldOrExactArg("work_item_id", "work-item-id"),
 		Example: `  flashduty incident work-item-update --data '{"status":"in_progress","title":"Roll back the v2.14 deployment on web-server-01 and web-server-02","version":1,"work_item_id":"wi_9fK2mNqRtVwXyZaBcDeFgH"}'`,
@@ -4251,11 +4294,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fDescription, "description", "", "New description (max 65,535 characters). (≤65535 chars)")
-	cmd.Flags().StringVar(&fPriority, "priority", "", "New client-defined priority (max 64 characters). (≤64 chars)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "New status. One of 'open', 'in_progress', 'done', 'cancelled'. [open, in_progress, done, cancelled] (≤64 chars)")
-	cmd.Flags().StringVar(&fTitle, "title", "", "New title (max 512 characters). (≤512 chars)")
-	cmd.Flags().Int64Var(&fVersion, "version", 0, "Current item version for optimistic locking. Must match the stored version. (required)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "New description, at most 65,535 characters; '\"\"' clears it. 'null' or omitted keeps the current value. (≤65535 chars)")
+	cmd.Flags().StringVar(&fPriority, "priority", "", "New free-form priority, at most 64 characters; '\"\"' clears it. 'null' or omitted keeps the current value. (≤64 chars)")
+	cmd.Flags().StringVar(&fStatus, "status", "", "New status. 'null' or omitted keeps the current status. - 'open': not started. - 'in_progress': being worked on. - 'done': finished. - 'cancelled': no longer needed. [open, in_progress, done, cancelled]")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New title, at most 512 characters; trimmed and must not be blank. 'null' or omitted keeps the current title. (≤512 chars)")
+	cmd.Flags().Int64Var(&fVersion, "version", 0, "The item's current 'version' (≥ 1) for optimistic locking. (required)")
 	cmd.Flags().StringVar(&fWorkItemID, "work-item-id", "", "Work item ID (opaque string, max 128 characters). (required) (≤128 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4273,31 +4316,30 @@ func genIncidentsPostmortemReadListTemplatesCmd() *cobra.Command {
 		Short: "List post-mortem templates",
 		Long: `List post-mortem templates.
 
-Return built-in and custom post-mortem templates for the account.
+Return the built-in post-mortem template followed by the account's custom templates.
 
 API: POST /incident/post-mortem/template/list (postmortem-read-list-templates)
 
 Request fields:
-  --page int — Page number starting at 1. (min 0)
-  --limit int — Page size, at most 100. (0-100)
-  --search-after-ctx string — Cursor from a previous response for forward pagination.
-  --asc bool — Ascending order when true.
-  --order-by string — Field used to order results. [created_at_seconds]
+  --page int — Page number starting at 1; 0 or omitted means 1. (min 0)
+  --limit int — Page size, 1–100; 0 or omitted means 20. (0-100)
+  --search-after-ctx string — Not supported by this operation; leave it unset and paginate with 'p'. If sent, it must be an integer string, and 'p' is then ignored (results start from the first page).
+  --asc bool — Sort custom templates in ascending order when true; default false (newest first).
+  --order-by string — Sort field for custom templates. Only 'created_at_seconds' is supported, which is also the default. [created_at_seconds]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when another page is available.
-  - items (array<object>) (required) — Templates in the current page.
-    - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
-    - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - items (array<object>) (required) — Templates on this page; the built-in template is first on page 1.
+    - account_id (integer) (required) — Account ID that owns the template; 0 for the built-in template.
+    - content (string) (required) — Template body as BlockNote editor JSON (an array of blocks), serialized as a string.
     - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-    - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - created_at_seconds (string) (required) — Creation time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Template description.
     - name (string) (required) — Template name shown in the console.
-    - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
-    - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-    - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - search_after_ctx (string) — Cursor for forward pagination.
-  - total (integer) (required) — Total matching templates.
+    - team_id (integer) (required) — Managing team ID; 0 for the built-in template.
+    - template_id (string) (required) — Template ID: 'post_mortem_default_tmpl_zh-cn' or 'post_mortem_default_tmpl_en-us' for the built-in templates, a server-generated ID for custom ones.
+    - updated_at_seconds (string) (required) — Last update time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - total (integer) (required) — Total number of templates, including the built-in one.
 `,
 		Example: `  flashduty incident post-mortem-template-list --data '{"asc":false,"limit":20,"order_by":"created_at_seconds","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -4335,11 +4377,11 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, at most 100. (0-100)")
-	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor from a previous response for forward pagination.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order when true.")
-	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Field used to order results. [created_at_seconds]")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number starting at 1; 0 or omitted means 1. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 1–100; 0 or omitted means 20. (0-100)")
+	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Not supported by this operation; leave it unset and paginate with 'p'. If sent, it must be an integer string, and 'p' is then ignored (results start from the first page).")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort custom templates in ascending order when true; default false (newest first).")
+	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Sort field for custom templates. Only 'created_at_seconds' is supported, which is also the default. [created_at_seconds]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4357,18 +4399,18 @@ Return one post-mortem template by ID.
 API: GET /incident/post-mortem/template/info (postmortem-read-template-info)
 
 Request fields:
-  --template-id string (required) — Template ID.
+  --template-id string (required) — Template ID: a built-in ID such as 'post_mortem_default_tmpl_en-us', or a custom template ID from 'POST /incident/post-mortem/template/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
-  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - account_id (integer) (required) — Account ID that owns the template; 0 for the built-in template.
+  - content (string) (required) — Template body as BlockNote editor JSON (an array of blocks), serialized as a string.
   - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-  - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at_seconds (string) (required) — Creation time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Template description.
   - name (string) (required) — Template name shown in the console.
-  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
-  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-  - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - team_id (integer) (required) — Managing team ID; 0 for the built-in template.
+  - template_id (string) (required) — Template ID: 'post_mortem_default_tmpl_zh-cn' or 'post_mortem_default_tmpl_en-us' for the built-in templates, a server-generated ID for custom ones.
+  - updated_at_seconds (string) (required) — Last update time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Args: requireBodyFieldOrExactArg("template_id", "template-id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -4397,7 +4439,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID: a built-in ID such as 'post_mortem_default_tmpl_en-us', or a custom template ID from 'POST /incident/post-mortem/template/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4415,10 +4457,10 @@ Delete a custom post-mortem template.
 API: POST /incident/post-mortem/template/delete (postmortem-write-delete-template)
 
 Request fields:
-  --template-id string (required) — Template ID; obtain it from 'POST /incident/post-mortem/template/list'.
+  --template-id string (required) — ID of the custom template to delete; obtain it from 'POST /incident/post-mortem/template/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("template_id", "template-id"),
-		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"post_mortem_custom_tmpl_01"}'`,
+		Example: `  flashduty incident post-mortem-template-delete --data '{"template_id":"kQ3vXn8pR2mT7wYbZc4dEf"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4449,7 +4491,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID; obtain it from 'POST /incident/post-mortem/template/list'. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "ID of the custom template to delete; obtain it from 'POST /incident/post-mortem/template/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4468,15 +4510,15 @@ Create a post-mortem draft from one or more incidents and a template.
 API: POST /incident/post-mortem/init (postmortem-write-init)
 
 Request fields:
-  --incident-ids []string (required) — Incident IDs to link to the report. 1-10 incidents.
-  --template-id string (required) — Template ID used to initialize the report.
+  --incident-ids []string (required) — Incident IDs (MongoDB ObjectIDs) to link to the report, 1–10. All must exist in the account. The same set always maps to the same report.
+  --template-id string (required) — Template ID from 'POST /incident/post-mortem/template/list', e.g. the built-in 'post_mortem_default_tmpl_en-us' or 'post_mortem_default_tmpl_zh-cn', or a custom template ID.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - basics (object) (required) — Basics aggregated automatically from the linked incidents: highest severity, earliest start / latest close time, total duration, and responders.
-    - incidents_earliest_start_seconds (integer) (required) — Earliest start time among linked incidents (seconds).
-    - incidents_highest_severity (string) (required) — Highest severity among linked incidents.
-    - incidents_latest_close_seconds (integer) (required) — Latest close time among linked incidents (seconds).
-    - incidents_total_duration_seconds (integer) (required) — Cumulative duration in seconds.
+    - incidents_earliest_start_seconds (string) (required) — Earliest start time among linked incidents (Unix seconds). CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - incidents_highest_severity (string) (required) — Highest severity among linked incidents: 'Critical', 'Warning', or 'Info'; 'Ok' only when it was set manually. [Critical, Warning, Info, Ok]
+    - incidents_latest_close_seconds (string) (required) — Latest close time among linked incidents (Unix seconds); an incident not yet closed contributes its 'end_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - incidents_total_duration_seconds (integer) (required) — Seconds from the earliest start to the latest close among linked incidents (not the sum of each incident's duration).
     - responders (array<object>) (required) — Responders involved in the incident(s).
       - acknowledged_at (string) (required) — Unix timestamp (seconds) when the member acknowledged. 0 if not yet acknowledged. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - as (string) — Role label of this responder.
@@ -4487,8 +4529,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - content (object) (required) — Post-mortem body; the object holds a single 'content' field whose value is a BlockNote JSON string.
     - content (string) (required) — Report body content (BlockNote JSON).
   - follow_ups (string) (required) — Follow-up action items rendered as a single string.
+  - has_active_incident (boolean) (required) — 'true' when at least one linked incident is not closed yet; follow-ups stay locked until all are closed. Computed per request.
   - meta (object) (required) — Post-mortem metadata (lightweight shape used in lists).
-    - account_id (integer) (required) — Account ID.
+    - account_id (integer) (required) — ID of the account that owns this record; the same for every record returned to one 'app_key'.
     - author_ids (array<integer>) (required) — Member IDs that contributed to the report.
     - channel_id (integer) (required) — Owning channel ID. 0 if none.
     - channel_name (string) (required) — Channel name, filled by the server.
@@ -4497,7 +4540,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - incident_ids (array<string>) (required) — Linked incident IDs.
     - is_private (boolean) (required) — When true, only team members and admins can view.
     - media_count (integer) (required) — Number of uploaded media files.
-    - post_mortem_id (string) (required) — Deterministic post-mortem ID derived from account and incident IDs.
+    - post_mortem_id (string) (required) — Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs.
     - revision (integer) (required) — Content revision for optimistic concurrency. Monotonically increases on collaborative saves and full content resets.
     - status (string) (required) — Post-mortem status. 'drafting' means still being edited; 'published' means published. [drafting, published]
     - team_id (integer) (required) — Owning team ID. 0 if none.
@@ -4536,8 +4579,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs to link to the report. 1-10 incidents. (required)")
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID used to initialize the report. (required)")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Incident IDs (MongoDB ObjectIDs) to link to the report, 1–10. All must exist in the account. The same set always maps to the same report. (required)")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID from 'POST /incident/post-mortem/template/list', e.g. the built-in 'post_mortem_default_tmpl_en-us' or 'post_mortem_default_tmpl_zh-cn', or a custom template ID. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4555,20 +4598,20 @@ func genIncidentsPostmortemWriteResetBasicsCmd() *cobra.Command {
 		Short: "Update post-mortem basics",
 		Long: `Update post-mortem basics.
 
-Replace the incident facts stored in a post-mortem report.
+Overwrite the incident facts (severity, times, responders) stored on a post-mortem report.
 
 API: POST /incident/post-mortem/basics/reset (postmortem-write-reset-basics)
 
 Request fields:
   --incidents-earliest-start-seconds string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --incidents-highest-severity string (required) — Highest severity among linked incidents: 'Critical', 'Warning', 'Info', or 'Ok'. [Critical, Warning, Info, Ok]
-  --incidents-latest-close-seconds string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-  --incidents-total-duration-seconds int — Total incident duration in seconds. (min 0)
+  --incidents-highest-severity string (required) — Highest severity among the linked incidents. - 'Critical': critical. - 'Warning': warning. - 'Info': informational. - 'Ok': recovered. [Critical, Warning, Info, Ok]
+  --incidents-latest-close-seconds string — Latest close time among the linked incidents, Unix timestamp in seconds. 0 (also when omitted) means still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --incidents-total-duration-seconds int — Total incident duration in seconds; 0 when omitted. (min 0)
   --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-  --responder-ids []int — Responder member IDs to store on the report.
+  --responder-ids []int — Member IDs to store as the report's responders. Replaces the stored list; omit or send '[]' to clear it. IDs that do not resolve to a person are dropped.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
-		Example: `  flashduty incident post-mortem-basics-reset --data '{"incidents_earliest_start_seconds":1761133512,"incidents_highest_severity":"Warning","incidents_latest_close_seconds":1761133632,"incidents_total_duration_seconds":120,"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","responder_ids":[3790925372131]}'`,
+		Example: `  flashduty incident post-mortem-basics-reset --data '{"incidents_earliest_start_seconds":1773890000,"incidents_highest_severity":"Critical","incidents_latest_close_seconds":1773897200,"incidents_total_duration_seconds":7200,"post_mortem_id":"d3c9a7f2e5b14c8a9f0e6b2d4a1c7e35","responder_ids":[3790925372131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				vIncidentsEarliestStartSeconds, okIncidentsEarliestStartSeconds, err := genParseTimeFlag(cmd, "incidents-earliest-start-seconds", fIncidentsEarliestStartSeconds)
@@ -4623,11 +4666,11 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fIncidentsEarliestStartSeconds, "incidents-earliest-start-seconds", "", "Unix timestamp in seconds for the earliest linked incident start time. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().StringVar(&fIncidentsHighestSeverity, "incidents-highest-severity", "", "Highest severity among linked incidents: 'Critical', 'Warning', 'Info', or 'Ok'. (required) [Critical, Warning, Info, Ok]")
-	cmd.Flags().StringVar(&fIncidentsLatestCloseSeconds, "incidents-latest-close-seconds", "", "Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
-	cmd.Flags().Int64Var(&fIncidentsTotalDurationSeconds, "incidents-total-duration-seconds", 0, "Total incident duration in seconds. (min 0)")
+	cmd.Flags().StringVar(&fIncidentsHighestSeverity, "incidents-highest-severity", "", "Highest severity among the linked incidents. - 'Critical': critical. - 'Warning': warning. - 'Info': informational. - 'Ok': recovered. (required) [Critical, Warning, Info, Ok]")
+	cmd.Flags().StringVar(&fIncidentsLatestCloseSeconds, "incidents-latest-close-seconds", "", "Latest close time among the linked incidents, Unix timestamp in seconds. 0 (also when omitted) means still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().Int64Var(&fIncidentsTotalDurationSeconds, "incidents-total-duration-seconds", 0, "Total incident duration in seconds; 0 when omitted. (min 0)")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Responder member IDs to store on the report.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Member IDs to store as the report's responders. Replaces the stored list; omit or send '[]' to clear it. IDs that do not resolve to a person are dropped.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4641,16 +4684,16 @@ func genIncidentsPostmortemWriteResetFollowUpsCmd() *cobra.Command {
 		Short: "Update post-mortem follow-ups",
 		Long: `Update post-mortem follow-ups.
 
-Replace the follow-up action items on a post-mortem report.
+Replace the free-text follow-ups string stored on a post-mortem report.
 
 API: POST /incident/post-mortem/follow-ups/reset (postmortem-write-reset-follow-ups)
 
 Request fields:
-  --follow-ups string — Follow-up action items as free text.
+  --follow-ups string — Follow-ups as free text, replacing the stored string. A JSON array in the console's follow-up format (objects with 'title', 'status', 'priority', 'assignee_ids', …) is also synced into structured follow-up work items.
   --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
-		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"8104935102bf89dc01ac638a5261fe7e"}'`,
+		Example: `  flashduty incident post-mortem-follow-ups-reset --data '{"follow_ups":"- Add database saturation alert\n- Review cache TTL rollout","post_mortem_id":"d3c9a7f2e5b14c8a9f0e6b2d4a1c7e35"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4684,7 +4727,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fFollowUps, "follow-ups", "", "Follow-up action items as free text.")
+	cmd.Flags().StringVar(&fFollowUps, "follow-ups", "", "Follow-ups as free text, replacing the stored string. A JSON array in the console's follow-up format (objects with 'title', 'status', 'priority', 'assignee_ids', …) is also synced into structured follow-up work items.")
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -4705,10 +4748,10 @@ API: POST /incident/post-mortem/status/reset (postmortem-write-reset-status)
 
 Request fields:
   --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-  --status string (required) — Target report status: 'drafting' draft, 'published' published. [drafting, published]
+  --status string (required) — Target report status. - 'drafting': being edited; the body can still be replaced with a content reset. - 'published': published; media files no longer referenced by the body are deleted. [drafting, published]
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
-		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","status":"published"}'`,
+		Example: `  flashduty incident post-mortem-status-reset --data '{"post_mortem_id":"d3c9a7f2e5b14c8a9f0e6b2d4a1c7e35","status":"published"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4743,7 +4786,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status: 'drafting' draft, 'published' published. (required) [drafting, published]")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Target report status. - 'drafting': being edited; the body can still be replaced with a content reset. - 'published': published; media files no longer referenced by the body are deleted. (required) [drafting, published]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4763,10 +4806,10 @@ API: POST /incident/post-mortem/title/reset (postmortem-write-reset-title)
 
 Request fields:
   --post-mortem-id string (required) — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-  --title string (required) — New report title.
+  --title string (required) — New report title, at most 256 characters. (≤256 chars)
 `,
 		Args:    requireBodyFieldOrExactArg("post_mortem_id", "post-mortem-id"),
-		Example: `  flashduty incident post-mortem-title-reset --data '{"post_mortem_id":"8104935102bf89dc01ac638a5261fe7e","title":"Production API latency incident"}'`,
+		Example: `  flashduty incident post-mortem-title-reset --data '{"post_mortem_id":"d3c9a7f2e5b14c8a9f0e6b2d4a1c7e35","title":"Production API latency incident"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4801,7 +4844,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fPostMortemID, "post-mortem-id", "", "Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'. (required)")
-	cmd.Flags().StringVar(&fTitle, "title", "", "New report title. (required)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "New report title, at most 256 characters. (required) (≤256 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -4819,30 +4862,30 @@ func genIncidentsPostmortemWriteUpsertTemplateCmd() *cobra.Command {
 		Short: "Create or update post-mortem template",
 		Long: `Create or update post-mortem template.
 
-Create a custom post-mortem template or update an existing one.
+Create a custom post-mortem template, or replace an existing one identified by 'template_id'.
 
 API: POST /incident/post-mortem/template/upsert (postmortem-write-upsert-template)
 
 Request fields:
-  --content string (required) — BlockNote JSON template content.
-  --content-markdown string — Markdown version of the template content.
-  --description string — Template description.
-  --name string (required) — Template name.
-  --team-id int — Managing team ID. Required when creating a custom template.
-  --template-id string — Template ID. Omit to create a new template; provide it to update an existing template.
+  --content string (required) — Template body as BlockNote editor JSON (an array of blocks), serialized as a string. New reports created from this template start from this body.
+  --content-markdown string — Markdown version of the body, used as the outline when AI generates a report. Empty when omitted.
+  --description string — Template description; empty when omitted.
+  --name string (required) — Template name shown in the console.
+  --team-id int — Managing team ID. Required when creating; the team must exist. On update, a different team ID moves the template; omit it or send 0 to keep the current team.
+  --template-id string — ID of the custom template to replace. Omit it to create a new template (the server generates the ID).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID that owns the template. 0 for built-in templates.
-  - content (string) (required) — BlockNote JSON content used to initialize the report body.
+  - account_id (integer) (required) — Account ID that owns the template; 0 for the built-in template.
+  - content (string) (required) — Template body as BlockNote editor JSON (an array of blocks), serialized as a string.
   - content_markdown (string) (required) — Markdown version of the template content, used by AI generation.
-  - created_at_seconds (string) (required) — Unix timestamp in seconds when the template was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_at_seconds (string) (required) — Creation time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Template description.
   - name (string) (required) — Template name shown in the console.
-  - team_id (integer) (required) — Managing team ID. Built-in templates use 0.
-  - template_id (string) (required) — Template ID. Built-in templates use a stable 'post_mortem_default_tmpl_*' ID.
-  - updated_at_seconds (string) (required) — Unix timestamp in seconds when the template was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - team_id (integer) (required) — Managing team ID; 0 for the built-in template.
+  - template_id (string) (required) — Template ID: 'post_mortem_default_tmpl_zh-cn' or 'post_mortem_default_tmpl_en-us' for the built-in templates, a server-generated ID for custom ones.
+  - updated_at_seconds (string) (required) — Last update time, Unix timestamp in seconds; 0 for the built-in template. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
-		Example: `  flashduty incident post-mortem-template-upsert --data '{"content":"[{\"type\":\"heading\",\"content\":\"Summary\"}]","content_markdown":"## Summary\nDescribe what happened.","description":"Template for production incident reviews.","name":"Production incident template","team_id":2477033058131}'`,
+		Example: `  flashduty incident post-mortem-template-upsert --data '{"content":"[{\"type\":\"heading\",\"props\":{\"level\":2},\"content\":\"Summary\"}]","content_markdown":"## Summary\nDescribe what happened.","description":"Template for production incident reviews.","name":"Production incident template","team_id":2477033058131}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -4881,12 +4924,12 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fContent, "content", "", "BlockNote JSON template content. (required)")
-	cmd.Flags().StringVar(&fContentMarkdown, "content-markdown", "", "Markdown version of the template content.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Template description.")
-	cmd.Flags().StringVar(&fName, "name", "", "Template name. (required)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Managing team ID. Required when creating a custom template.")
-	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "Template ID. Omit to create a new template; provide it to update an existing template.")
+	cmd.Flags().StringVar(&fContent, "content", "", "Template body as BlockNote editor JSON (an array of blocks), serialized as a string. New reports created from this template start from this body. (required)")
+	cmd.Flags().StringVar(&fContentMarkdown, "content-markdown", "", "Markdown version of the body, used as the outline when AI generates a report. Empty when omitted.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Template description; empty when omitted.")
+	cmd.Flags().StringVar(&fName, "name", "", "Template name shown in the console. (required)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Managing team ID. Required when creating; the team must exist. On update, a different team ID moves the template; omit it or send 0 to keep the current team.")
+	cmd.Flags().StringVar(&fTemplateID, "template-id", "", "ID of the custom template to replace. Omit it to create a new template (the server generates the ID).")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

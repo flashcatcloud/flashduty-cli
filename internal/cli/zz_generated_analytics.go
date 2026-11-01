@@ -38,37 +38,37 @@ func genAnalyticsByAccountCmd() *cobra.Command {
 		Short: "Get account-level insight",
 		Long: `Get account-level insight.
 
-Return aggregated incident insight metrics for the entire account.
+Return incident and alert metrics for the whole account, one row per time bucket.
 
 API: POST /insight/account (insightByAccount)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+  - items (array<object>) — Metric rows, newest bucket first. Buckets or dimension values without incidents produce no row; an empty array means no incidents matched.
     - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals and capped at 100; 0 when the bucket has no incidents.
     - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
     - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
@@ -78,7 +78,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - noise_reduction_pct (number) — Noise reduction ratio (%): 100 − incidents ÷ alert events × 100, rounded to two decimals; 0 when there is no alert-event data or alert events do not exceed incidents.
     - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
     - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
-    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_id (integer) — Team ID, returned only by '/insight/team'. Omitted on the row that aggregates incidents without a team.
     - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
     - total_alert_cnt (integer) — Total number of alerts.
     - total_alert_event_cnt (integer) — Total number of alert events.
@@ -87,7 +87,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
     - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
     - total_incidents_closed (integer) — Incidents that are closed.
-    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_escalated (integer) — Sum of 'total_incidents_manually_escalated' and 'total_incidents_timeout_escalated'; an incident escalated both ways counts twice.
     - total_incidents_manually_closed (integer) — Incidents closed manually.
     - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
     - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
@@ -97,7 +97,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer) — Total number of notifications sent.
     - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
     - total_seconds_to_close (integer) — Total time to close in seconds.
-    - ts (string) — Start of the aggregation bucket, Unix epoch seconds. Equals 'start_time' when no 'aggregate_unit' is given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ts (string) — Start of the time bucket, Unix seconds. Equals 'start_time' when 'aggregate_unit' is not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty insight account --data '{"aggregate_unit":"day","end_time":1712604800,"severities":["Critical","Warning"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -192,29 +192,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -249,37 +249,37 @@ func genAnalyticsByChannelCmd() *cobra.Command {
 		Short: "Get channel insight",
 		Long: `Get channel insight.
 
-Return insight metrics aggregated by channel.
+Return incident and alert metrics grouped by channel, one row per channel per time bucket.
 
 API: POST /insight/channel (insightByChannel)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+  - items (array<object>) — Metric rows, newest bucket first. Buckets or dimension values without incidents produce no row; an empty array means no incidents matched.
     - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals and capped at 100; 0 when the bucket has no incidents.
     - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
     - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
@@ -289,7 +289,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - noise_reduction_pct (number) — Noise reduction ratio (%): 100 − incidents ÷ alert events × 100, rounded to two decimals; 0 when there is no alert-event data or alert events do not exceed incidents.
     - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
     - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
-    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_id (integer) — Team ID, returned only by '/insight/team'. Omitted on the row that aggregates incidents without a team.
     - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
     - total_alert_cnt (integer) — Total number of alerts.
     - total_alert_event_cnt (integer) — Total number of alert events.
@@ -298,7 +298,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
     - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
     - total_incidents_closed (integer) — Incidents that are closed.
-    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_escalated (integer) — Sum of 'total_incidents_manually_escalated' and 'total_incidents_timeout_escalated'; an incident escalated both ways counts twice.
     - total_incidents_manually_closed (integer) — Incidents closed manually.
     - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
     - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
@@ -308,7 +308,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer) — Total number of notifications sent.
     - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
     - total_seconds_to_close (integer) — Total time to close in seconds.
-    - ts (string) — Start of the aggregation bucket, Unix epoch seconds. Equals 'start_time' when no 'aggregate_unit' is given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ts (string) — Start of the time bucket, Unix seconds. Equals 'start_time' when 'aggregate_unit' is not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty insight channel --data '{"aggregate_unit":"day","channel_ids":[4321322010131],"end_time":1712604800,"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -403,29 +403,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -460,37 +460,37 @@ func genAnalyticsByResponderCmd() *cobra.Command {
 		Short: "Get responder insight",
 		Long: `Get responder insight.
 
-Return insight metrics aggregated by responder.
+Return per-responder incident handling metrics, one row per responder per time bucket.
 
 API: POST /insight/responder (insightByResponder)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Incident response metric rows aggregated by responder; further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+  - items (array<object>) — Per-responder metric rows, newest bucket first. Responders without incidents in a bucket produce no row.
     - acknowledgement_pct (number) — This responder's acknowledgement rate (%): acknowledged incidents ÷ involved incidents × 100, rounded to two decimals and capped at 100; 0 when the responder has no incidents.
     - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
     - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
@@ -498,7 +498,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - mean_seconds_to_ack (number) — This responder's mean time to acknowledgement in seconds; 0 when the responder acknowledged nothing.
     - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
     - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
-    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_id (integer) — Team ID, returned only by '/insight/team'. Omitted on the row that aggregates incidents without a team.
     - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
     - total_engaged_seconds (integer) — This responder's total engaged time in seconds: each incident contributes close time minus their acknowledgement time.
     - total_incident_cnt (integer) — Incidents this responder was involved in.
@@ -510,7 +510,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_interruptions (integer) — Interruptions for this responder: notifications sent via app push, SMS, or voice call; consecutive notifications within 60 seconds count as one.
     - total_notifications (integer) — Total notifications sent to this responder.
     - total_seconds_to_ack (integer) — This responder's total time to acknowledgement in seconds: each incident contributes acknowledgement time minus assignment time.
-    - ts (string) — Start of the aggregation bucket, Unix epoch seconds. Equals 'start_time' when no 'aggregate_unit' is given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ts (string) — Start of the time bucket, Unix seconds. Equals 'start_time' when 'aggregate_unit' is not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty insight responder --data '{"aggregate_unit":"day","end_time":1712604800,"responder_ids":[3790925372131],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -605,29 +605,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -662,37 +662,37 @@ func genAnalyticsByTeamCmd() *cobra.Command {
 		Short: "Get team insight",
 		Long: `Get team insight.
 
-Return insight metrics aggregated by team.
+Return incident and alert metrics grouped by team, one row per team per time bucket.
 
 API: POST /insight/team (insightByTeam)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Insight metric rows aggregated by the endpoint's dimension (account/team/channel); further split by hour bucket or time bucket when 'split_hours' or 'aggregate_unit' is enabled.
+  - items (array<object>) — Metric rows, newest bucket first. Buckets or dimension values without incidents produce no row; an empty array means no incidents matched.
     - acknowledgement_pct (number) — Acknowledgement rate (%): acknowledged incidents ÷ total incidents × 100, rounded to two decimals and capped at 100; 0 when the bucket has no incidents.
     - channel_id (integer) — Channel ID, returned only when aggregating by channel ('/insight/channel').
     - channel_name (string) — Channel name, returned when aggregating by channel; omitted when the name cannot be resolved.
@@ -702,7 +702,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - noise_reduction_pct (number) — Noise reduction ratio (%): 100 − incidents ÷ alert events × 100, rounded to two decimals; 0 when there is no alert-event data or alert events do not exceed incidents.
     - responder_id (integer) — Responder (person) ID, returned only when aggregating by responder ('/insight/responder').
     - responder_name (string) — Responder name, returned when aggregating by responder; omitted when the name cannot be resolved.
-    - team_id (integer) — Team ID, returned only when aggregating by team ('/insight/team').
+    - team_id (integer) — Team ID, returned only by '/insight/team'. Omitted on the row that aggregates incidents without a team.
     - team_name (string) — Team name, returned when aggregating by team; omitted when the name cannot be resolved (e.g. team deleted).
     - total_alert_cnt (integer) — Total number of alerts.
     - total_alert_event_cnt (integer) — Total number of alert events.
@@ -711,7 +711,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_incidents_acknowledged (integer) — Incidents that were acknowledged at least once.
     - total_incidents_auto_closed (integer) — Incidents closed automatically because all alerts recovered.
     - total_incidents_closed (integer) — Incidents that are closed.
-    - total_incidents_escalated (integer) — Incidents that were escalated at least once.
+    - total_incidents_escalated (integer) — Sum of 'total_incidents_manually_escalated' and 'total_incidents_timeout_escalated'; an incident escalated both ways counts twice.
     - total_incidents_manually_closed (integer) — Incidents closed manually.
     - total_incidents_manually_escalated (integer) — Incidents escalated manually at least once.
     - total_incidents_reassigned (integer) — Incidents that were reassigned at least once.
@@ -721,7 +721,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - total_notifications (integer) — Total number of notifications sent.
     - total_seconds_to_ack (integer) — Total time to first acknowledgement in seconds.
     - total_seconds_to_close (integer) — Total time to close in seconds.
-    - ts (string) — Start of the aggregation bucket, Unix epoch seconds. Equals 'start_time' when no 'aggregate_unit' is given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - ts (string) — Start of the time bucket, Unix seconds. Equals 'start_time' when 'aggregate_unit' is not set. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty insight team --data '{"aggregate_unit":"day","end_time":1712604800,"start_time":1712000000,"team_ids":[4295771902131]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -816,29 +816,29 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -873,32 +873,32 @@ func genAnalyticsChannelExportCmd() *cobra.Command {
 		Short: "Export channel insight",
 		Long: `Export channel insight.
 
-Export channel insight metrics as a CSV file — one row per channel (and per time/hour bucket when 'aggregate_unit'/'split_hours' is used). The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope. 'time_zone' defaults to UTC. Rows without a valid channel ID are skipped. Valid 'export_fields' keys: channel_id, channel_name, total_incident_cnt, total_incidents_acknowledged, total_incidents_closed, total_incidents_auto_closed, total_incidents_manually_closed, total_incidents_timeout_closed, total_incidents_escalated, total_incidents_manually_escalated, total_incidents_timeout_escalated, total_incidents_reassigned, total_interruptions, total_notifications, total_engaged_seconds, mean_seconds_to_ack, mean_seconds_to_close, noise_reduction_pct, acknowledgement_pct, total_alert_cnt, total_alert_event_cnt, hours. The 'hours' column is included by default only when 'split_hours' is true. For compatibility, incident-export column keys are also accepted but produce empty columns.
+Export channel insight metrics as a CSV file with the same rows as '/insight/channel'.
 
 API: POST /insight/channel/export (insightChannelExport)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 `,
@@ -999,29 +999,29 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1052,7 +1052,7 @@ func genAnalyticsIncidentExportCmd() *cobra.Command {
 		Short: "Export insight incidents",
 		Long: `Export insight incidents.
 
-Export the filtered incident analytics list as a CSV file. The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope. CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. 'time_zone' defaults to the account time zone, then 'Asia/Shanghai'. Export stops after at most 100,000 rows. Valid 'export_fields' keys: incident_id, title, severity, progress, channel_id, channel_name, team_id, team_name, created_at, alert_cnt, active_alert_cnt, alert_event_cnt, seconds_to_ack, seconds_to_close, closed_by, owner_id, owner_name, creator_id, creator_name, closer_id, closer_name, engaged_seconds, hours, notifications, interruptions, acknowledgements, ackers, assignments, reassignments, escalations, manual_escalations, timeout_escalations, assigned_to, raw_assigned_to, escalate_rule_name, responders, raw_responders, snooze_status, snoozed_before, ever_muted, frequency, is_rare, description, labels, fields. When 'export_fields' is omitted, all columns are exported.
+Export the incidents matched by the analytics filters as a CSV file, one row per incident.
 
 API: POST /insight/incident/export (insightIncidentExport)
 
@@ -1223,37 +1223,38 @@ Request fields:
   --page int — Page number, starting at 1. Used when 'search_after_ctx' is not provided; 'p * limit' must stay within 10,000 records. (min 0)
   --limit int — Page size, max 100, default 20. (0-100)
   --search-after-ctx string — Cursor token returned by a previous page (the incident ID of its last row). Pass it back to fetch the next page.
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether another page of results is available.
-  - items (array<object>) — Incident items.
+  - items (array<object>) — Incidents on this page; an empty array when none match.
     - acknowledgements (integer) — Number of acknowledgements.
     - active_alert_cnt (integer) — Number of alerts still active (not recovered).
     - alert_cnt (integer) — Total number of alerts aggregated into the incident.
     - alert_event_cnt (integer) — Total number of alert events associated with the incident; each report of an alert counts as one event.
     - assigned_to (object) — Current assignment target for the incident; 'null' when the incident has no assignment record.
       - assigned_at (string) — Unix timestamp (seconds) when this assignment was made. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - effective_person_ids (array<integer>) — Member IDs that actually receive the assignment: 'person_ids' plus the members of the selected escalation level, deduplicated and sorted. Set by the server; omitted when empty.
       - escalate_rule_id (string) — Escalation rule ID (MongoDB ObjectID) driving the assignment.
       - escalate_rule_name (string) — Display name of the escalation rule.
       - id (string) — Internal assignment record ID.
@@ -1301,7 +1302,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - timeout_escalations (integer) — Escalations triggered by timeout.
     - title (string) — Incident title.
   - search_after_ctx (string) — Cursor token to fetch the next page — the incident ID of the last row on this page. Present only when 'has_next_page' is true.
-  - total (integer) — Total matching incidents.
+  - total (integer) — Number of matching incidents. When the request carried 'search_after_ctx', only incidents after the cursor are counted.
 `,
 		Example: `  flashduty insight incident-list --data '{"end_time":1712604800,"limit":20,"p":1,"severities":["Critical"],"start_time":1712000000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1402,27 +1403,27 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Used when 'search_after_ctx' is not provided; 'p * limit' must stay within 10,000 records. (min 0)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, max 100, default 20. (0-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Cursor token returned by a previous page (the incident ID of its last row). Pass it back to fetch the next page.")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1457,32 +1458,32 @@ func genAnalyticsResponderExportCmd() *cobra.Command {
 		Short: "Export responder insight",
 		Long: `Export responder insight.
 
-Export responder insight metrics as a CSV file — one row per responder (and per time/hour bucket when 'aggregate_unit'/'split_hours' is used). The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope. 'time_zone' defaults to UTC. Rows without a valid responder ID are skipped. Valid 'export_fields' keys: responder_id, responder_name, total_incident_cnt, total_incidents_acknowledged, total_incidents_reassigned, total_incidents_escalated, total_incidents_manually_escalated, total_incidents_timeout_escalated, total_interruptions, total_notifications, total_engaged_seconds, mean_seconds_to_ack, acknowledgement_pct, hours. The 'hours' column is included by default only when 'split_hours' is true. For compatibility, incident-export column keys are also accepted but produce empty columns.
+Export responder insight metrics as a CSV file with the same rows as '/insight/responder'.
 
 API: POST /insight/responder/export (insightResponderExport)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 `,
@@ -1583,29 +1584,29 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1640,32 +1641,32 @@ func genAnalyticsTeamExportCmd() *cobra.Command {
 		Short: "Export team insight",
 		Long: `Export team insight.
 
-Export team insight metrics as a CSV file — one row per team (and per time/hour bucket when 'aggregate_unit'/'split_hours' is used). The response is a CSV stream delivered with 'Content-Disposition: attachment' — it is not a JSON envelope. 'time_zone' defaults to UTC. Rows without a valid team ID are skipped. Valid 'export_fields' keys: team_id, team_name, total_incident_cnt, total_incidents_acknowledged, total_incidents_closed, total_incidents_auto_closed, total_incidents_manually_closed, total_incidents_timeout_closed, total_incidents_escalated, total_incidents_manually_escalated, total_incidents_timeout_escalated, total_incidents_reassigned, total_interruptions, total_notifications, total_engaged_seconds, mean_seconds_to_ack, mean_seconds_to_close, noise_reduction_pct, acknowledgement_pct, total_alert_cnt, total_alert_event_cnt, hours. The 'hours' column is included by default only when 'split_hours' is true. For compatibility, incident-export column keys are also accepted but produce empty columns.
+Export team insight metrics as a CSV file with the same rows as '/insight/team'.
 
 API: POST /insight/team/export (insightTeamExport)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
-  --asc bool — Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
+  --asc bool — Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --orderby string — Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 `,
@@ -1766,29 +1767,29 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
-	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise. Only used by '/insight/incident/list'.")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
+	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending (default) otherwise. Used by the incident list and export; '/insight/alert/topk-by-label' has its own 'asc'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time) is supported. Used by '/insight/incident/list' only. [created_at]")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field of the incident list; only 'created_at' (incident creation time, the default). Used by '/insight/incident/list' and '/insight/incident/export'. [created_at]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1830,29 +1831,29 @@ Return the top-K alert groups aggregated either by 'check' or by 'resource' labe
 API: POST /insight/alert/topk-by-label (insightTopkAlertsByLabel)
 
 Request fields:
-  --aggregate-unit string — Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]
+  --aggregate-unit string — Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]
   --asc bool — Sort ascending when 'true', descending otherwise.
   --channel-ids []int — Filter by channel IDs. At most 100 entries.
   --description-html-to-text bool — Strip HTML markup from the description column when exporting.
   --end-time string (required) — End time, Unix seconds. Must be greater than 'start_time'. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --export-fields []string — CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.
-  --incident-ids []string — Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.
+  --incident-ids []string — Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.
   --include-ever-muted bool — Include incidents that have ever been muted. By default, they are excluded.
-  --is-my-team bool — Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.
-  --k int — Number of top entries to return, between 1 and 100. Defaults to 20. (1-100)
+  --is-my-team bool — Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.
+  --k int — Number of label values to return, between 1 and 100 (default 20). With 'split_hours', applied per hour bucket. (1-100)
   --label string (required) — Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). [check, resource]
   --orderby string — Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count (default). [total_alert_cnt, total_alert_event_cnt]
   --query string — Substring match on the incident title (SQL 'LIKE %query%').
-  --responder-ids []int — Filter by responder person IDs. At most 100 entries.
+  --responder-ids []int — Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.
   --seconds-to-ack-from int — Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)
-  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)
+  --seconds-to-ack-to int — Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
   --seconds-to-close-from int — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
-  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)
-  --severities []string — Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]
-  --split-hours bool — When true, metrics are split into 'work'/'sleep'/'off' hour buckets.
+  --seconds-to-close-to int — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
+  --severities []string — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]
+  --split-hours bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
   --start-time string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Filter by team IDs. At most 100 entries.
-  --time-zone string — IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.
+  --time-zone string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
   fields (object, via --data) — Custom-field filters (exact match).
   labels (object, via --data) — Label filters (exact match).
 
@@ -1962,31 +1963,31 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Aggregates metrics by time granularity. When set, the time range must be at least 24 hours; with 'day' granularity the range must not exceed 31 days. 'day' buckets by calendar day, 'week' by calendar week, and 'month' by calendar month, with boundaries aligned to 'time_zone'. [day, week, month]")
+	cmd.Flags().StringVar(&fAggregateUnit, "aggregate-unit", "", "Split the range into time buckets; omit for a single bucket covering the whole range. Requires a range of at least 24 hours, and 'day' allows at most 31 days. - 'day': calendar days in 'time_zone' (the first bucket runs from 'start_time' to the next midnight). - 'week': consecutive 7-day buckets starting at 'start_time' (not aligned to Monday). - 'month': calendar months in 'time_zone' (the first bucket runs from 'start_time' to the 1st of the next month). [day, week, month]")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true', descending otherwise.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries.")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Strip HTML markup from the description column when exporting.")
 	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End time, Unix seconds. Must be greater than 'start_time'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
 	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "CSV column keys to include in the export, in the given order; unknown or duplicate keys are rejected. The valid key set differs per export endpoint — see each export operation's description. Only used by the export endpoints; at most 50 entries.")
-	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (MongoDB ObjectIDs). At most 100 entries.")
+	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Filter by incident IDs (24-character hex). Used only by the incident list and export. At most 100 entries.")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Include incidents that have ever been muted. By default, they are excluded.")
-	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to teams the caller belongs to. When true and the caller has no teams, the result set is empty.")
-	cmd.Flags().Int64Var(&fK, "k", 0, "Number of top entries to return, between 1 and 100. Defaults to 20. (1-100)")
+	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Restrict results to the caller's teams (intersected with 'team_ids' when both are set). When that intersection is empty, or the caller belongs to no team, the result is empty.")
+	cmd.Flags().Int64Var(&fK, "k", 0, "Number of label values to return, between 1 and 100 (default 20). With 'split_hours', applied per hour bucket. (1-100)")
 	cmd.Flags().StringVar(&fLabel, "label", "", "Aggregation dimension. 'check' aggregates by the event's 'labels.check' label (monitoring check); 'resource' aggregates by the 'labels.resource' label (monitored resource identifier). (required) [check, resource]")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. 'total_alert_cnt' sorts by alert count; 'total_alert_event_cnt' sorts by raw alert event count (default). [total_alert_cnt, total_alert_event_cnt]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on the incident title (SQL 'LIKE %query%').")
-	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder person IDs. At most 100 entries.")
+	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs. Used by '/insight/responder' (which responders to return) and the incident list/export (incidents any of them responded to); ignored by the account/team/channel and top-K endpoints. At most 100 entries.")
 	cmd.Flags().Int64Var(&fSecondsToAckFrom, "seconds-to-ack-from", 0, "Lower bound (inclusive) on time-to-acknowledge, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set. (min 0)")
+	cmd.Flags().Int64Var(&fSecondsToAckTo, "seconds-to-ack-to", 0, "Upper bound (exclusive) on time-to-acknowledge, in seconds. Must be greater than 'seconds_to_ack_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Lower bound (inclusive) on time-to-close, in seconds. (min 0)")
-	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set. (min 0)")
-	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity. At most 3 entries. [Critical, Warning, Info, Ok]")
-	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When true, metrics are split into 'work'/'sleep'/'off' hour buckets.")
+	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)")
+	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. [Critical, Warning, Info, Ok]")
+	cmd.Flags().BoolVar(&fSplitHours, "split-hours", false, "When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.")
 	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start time, Unix seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
 	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. At most 100 entries.")
-	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone name used to cut day/week/month buckets (e.g. 'Asia/Shanghai'). Optional; defaults to UTC, except that '/insight/incident/export' falls back to the account time zone and then 'Asia/Shanghai'.")
+	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -18,22 +18,23 @@ API: POST /datasource/im/war-room-enabled/list (im-war-room-enabled-list)
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — IM integrations with the war-room feature enabled.
     - account_id (integer) (required) — Account this integration belongs to.
-    - category (string) (required) — Plugin category; 'im' for the IM integrations returned here.
+    - category (string) (required) — Plugin category. Always 'im', because this endpoint returns only IM integrations. [im]
     - created_at (string) (required) — Unix timestamp in seconds when the integration was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Person who created the integration.
     - data_source_id (integer) (required) — Integration ID.
     - description (string) (required) — Integration description.
-    - exclusive_data_source_id (integer) (required) — Legacy exclusive-integration linkage; deprecated.
-    - integration_id (integer) (required) — Integration ID, alias of data_source_id.
+    - exclusive_data_source_id (integer) (required) — Deprecated; always '0' in this response.
+    - integration_id (integer) (required) — Integration ID; same value as 'data_source_id'.
     - integration_key (string) (required) — Push key used by alert sources to send to this integration.
+    - last_source_time (string) — Unix timestamp in seconds of the latest upstream event. Always '0' in this response. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - last_time (string) (required) — Unix timestamp in seconds of the most recent activity in this datasource. Always '0' — this endpoint does not populate the field. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - name (string) (required) — Integration name.
     - no_editable (boolean) (required) — Whether the integration is read-only.
     - plugin_id (integer) (required) — Plugin ID backing this integration.
-    - plugin_type (string) (required) — Plugin type identifier of the IM integration, for example 'feishu_app', 'dingtalk_app', 'wecom_app', 'slack_app', or 'teams_app'.
+    - plugin_type (string) (required) — IM integration type: 'feishu_app' Feishu (Lark), 'dingtalk_app' DingTalk, 'wecom_app' WeCom, 'slack_app' Slack, 'teams_app' Microsoft Teams. [feishu_app, dingtalk_app, wecom_app, slack_app, teams_app]
     - plugin_type_name (string) (required) — Localized display name of the integration plugin type.
     - ref_id (string) (required) — External reference ID of the integration.
-    - settings (object) (required) — Plugin-specific configuration of the integration.
+    - settings (object) (required) — Plugin-specific configuration of the integration; includes 'war_room_enabled: true'. Secret values are masked as '******'.
     - status (string) (required) — Integration status: 'enabled' or 'disabled'. Deleted integrations are never returned. [enabled, disabled]
     - team_id (integer) (required) — Team that owns this integration.
     - updated_at (string) (required) — Unix timestamp in seconds when the integration was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.

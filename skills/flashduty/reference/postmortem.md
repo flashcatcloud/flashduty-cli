@@ -57,11 +57,11 @@ flashduty incident post-mortem-status-reset <post-mortem-id> --status published
 ### post-mortem-basics-reset <post-mortem-id>
 Update post-mortem basics
 - `--incidents-earliest-start-seconds` string (required) — Unix timestamp in seconds for the earliest linked incident start time. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--incidents-highest-severity` string (required) — Highest severity among linked incidents: 'Critical', 'Warning', 'Info', or 'Ok'. · enum: Critical | Warning | Info | Ok
-- `--incidents-latest-close-seconds` string — Unix timestamp in seconds for the latest linked incident close time. 0 when still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--incidents-total-duration-seconds` int64 — Total incident duration in seconds. (min 0)
+- `--incidents-highest-severity` string (required) — Highest severity among the linked incidents. - 'Critical': critical. - 'Warning': warning. - 'Info': informational. - 'Ok': recovered. · enum: Critical | Warning | Info | Ok
+- `--incidents-latest-close-seconds` string — Latest close time among the linked incidents, Unix timestamp in seconds. 0 (also when omitted) means still open. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--incidents-total-duration-seconds` int64 — Total incident duration in seconds; 0 when omitted. (min 0)
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-- `--responder-ids` intSlice — Responder member IDs to store on the report.
+- `--responder-ids` intSlice — Member IDs to store as the report's responders. Replaces the stored list; omit or send '[]' to clear it. IDs that do not resolve to a person are dropped.
 
 ### post-mortem-content-reset <post-mortem-id>
 Reset post-mortem Markdown content
@@ -76,18 +76,18 @@ Delete post-mortem
 
 ### post-mortem-follow-ups-reset <post-mortem-id>
 Update post-mortem follow-ups
-- `--follow-ups` string — Follow-up action items as free text.
+- `--follow-ups` string — Follow-ups as free text, replacing the stored string. A JSON array in the console's follow-up format (objects with 'title', 'status', 'priority', 'assignee_ids', …) is also synced into structured follow-up work items.
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
 
 ### post-mortem-info <post-mortem-id>
 Get post-mortem
-- `<post-mortem-id>` (positional, required) string — Post-mortem ID. Deterministic hash derived from account ID and the set of linked incident IDs.
-- response: single object (`data` unwrapped to the top level) — fields: basics (object); content (object); follow_ups (string); meta (object)
+- `<post-mortem-id>` (positional, required) string — Post-mortem ID: a 32-character hex string derived from the account ID and the linked incident IDs.
+- response: single object (`data` unwrapped to the top level) — fields: basics (object); content (object); follow_ups (string); has_active_incident (boolean); meta (object)
 
 ### post-mortem-init <incident-id> [<id2>...]
 Initialize post-mortem
-- `<incident-ids>` (positional, required) stringSlice — Incident IDs to link to the report. 1-10 incidents.
-- `--template-id` string (required) — Template ID used to initialize the report.
+- `<incident-ids>` (positional, required) stringSlice — Incident IDs (MongoDB ObjectIDs) to link to the report, 1–10. All must exist in the account. The same set always maps to the same report.
+- `--template-id` string (required) — Template ID from 'POST /incident/post-mortem/template/list', e.g. the built-in 'post_mortem_default_tmpl_en-us' or 'post_mortem_default_tmpl_zh-cn', or a custom template ID.
 - response: same shape as `post-mortem-info <post-mortem-id>` above
 
 ### post-mortem-list
@@ -96,8 +96,8 @@ List post-mortems
 - `--channel-ids` intSlice — Channel IDs to restrict the query to.
 - `--created-at-end-seconds` string — Upper bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--created-at-start-seconds` string — Lower bound of post-mortem creation time (Unix timestamp in seconds). (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
-- `--limit` int64 — Page size, at most 100. (0-100)
-- `--order-by` string — Field used to order results. · enum: created_at_seconds | updated_at_seconds
+- `--limit` int64 — Page size, at most 100. With page-number paging, 'p × limit' may not exceed 10,000. (0-100)
+- `--order-by` string — Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. · enum: created_at_seconds | updated_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
 - `--status` string — Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. · enum: drafting | published
@@ -107,40 +107,40 @@ List post-mortems
 ### post-mortem-status-reset <post-mortem-id>
 Update post-mortem status
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-- `--status` string (required) — Target report status: 'drafting' draft, 'published' published. · enum: drafting | published
+- `--status` string (required) — Target report status. - 'drafting': being edited; the body can still be replaced with a content reset. - 'published': published; media files no longer referenced by the body are deleted. · enum: drafting | published
 
 ### post-mortem-template-delete <template-id>
 Delete post-mortem template
-- `<template-id>` (positional, required) string — Template ID; obtain it from 'POST /incident/post-mortem/template/list'.
+- `<template-id>` (positional, required) string — ID of the custom template to delete; obtain it from 'POST /incident/post-mortem/template/list'.
 
 ### post-mortem-template-info <template-id>
 Get post-mortem template detail
-- `<template-id>` (positional, required) string — Template ID.
+- `<template-id>` (positional, required) string — Template ID: a built-in ID such as 'post_mortem_default_tmpl_en-us', or a custom template ID from 'POST /incident/post-mortem/template/list'.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (string); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (string)
 
 ### post-mortem-template-list
 List post-mortem templates
-- `--asc` bool — Ascending order when true.
-- `--limit` int64 — Page size, at most 100. (0-100)
-- `--order-by` string — Field used to order results. · enum: created_at_seconds
-- `--page` int64 — Page number starting at 1. (min 0)
-- `--search-after-ctx` string — Cursor from a previous response for forward pagination.
-- response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (string); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (string)
+- `--asc` bool — Sort custom templates in ascending order when true; default false (newest first).
+- `--limit` int64 — Page size, 1–100; 0 or omitted means 20. (0-100)
+- `--order-by` string — Sort field for custom templates. Only 'created_at_seconds' is supported, which is also the default. · enum: created_at_seconds
+- `--page` int64 — Page number starting at 1; 0 or omitted means 1. (min 0)
+- `--search-after-ctx` string — Not supported by this operation; leave it unset and paginate with 'p'. If sent, it must be an integer string, and 'p' is then ignored (results start from the first page).
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); content (string); content_markdown (string); created_at_seconds (string); description (string); name (string); team_id (integer); template_id (string); updated_at_seconds (string)
 
 ### post-mortem-template-upsert
 Create or update post-mortem template
-- `--content` string (required) — BlockNote JSON template content.
-- `--content-markdown` string — Markdown version of the template content.
-- `--description` string — Template description.
-- `--name` string (required) — Template name.
-- `--team-id` int64 — Managing team ID. Required when creating a custom template.
-- `--template-id` string — Template ID. Omit to create a new template; provide it to update an existing template.
+- `--content` string (required) — Template body as BlockNote editor JSON (an array of blocks), serialized as a string. New reports created from this template start from this body.
+- `--content-markdown` string — Markdown version of the body, used as the outline when AI generates a report. Empty when omitted.
+- `--description` string — Template description; empty when omitted.
+- `--name` string (required) — Template name shown in the console.
+- `--team-id` int64 — Managing team ID. Required when creating; the team must exist. On update, a different team ID moves the template; omit it or send 0 to keep the current team.
+- `--template-id` string — ID of the custom template to replace. Omit it to create a new template (the server generates the ID).
 - response: same shape as `post-mortem-template-info <template-id>` above
 
 ### post-mortem-title-reset <post-mortem-id>
 Update post-mortem title
 - `<post-mortem-id>` (positional, required) string — Post-mortem ID; obtain it from 'POST /incident/post-mortem/list'.
-- `--title` string (required) — New report title.
+- `--title` string (required) — New report title, at most 256 characters. (≤256 chars)
 
 <!-- GENERATED:incident[post-mortem] END -->
 

@@ -8,6 +8,79 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genIntegrationsAlertReadEmailPreviewCmd() *cobra.Command {
+	var dataJSON string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "email-preview",
+		Short: "Preview email-to-alert conversion",
+		Long: `Preview email-to-alert conversion.
+
+Run unsaved email integration settings over one email, the way ingestion would.
+
+API: POST /alert/email/preview (alert-read-email-preview)
+
+Request fields:
+  --integration-id int — Email integration whose saved settings seed the preview. '0' or omitted is what the console sends on the create page, before the integration exists.
+  email (object, via --data) (required) — The email to convert.
+    - body (string) — Email body: HTML when it starts with '<', otherwise plain text.
+    - eml (string) — A whole email file ('.eml') as base64. When set it stands in for 'subject', 'body' and 'from' and is parsed the way the SMTP server parses mail.
+    - from (string) — Sender address.
+    - subject (string) — Email subject.
+  settings (object, via --data) (required) — Settings to preview. They are validated the way the save endpoint validates them.
+    - default (string) — What happens to an email that matches no rule when 'mode' is 'triggerOrCloseByRule': 'trigger' turns it into a firing event, 'discard' drops it. [trigger, discard]
+    - mode (string) — How the integration decides what an email becomes. Omitted defaults to 'alwaysTrigger'. - 'alwaysTrigger': every email becomes its own alert, keyed randomly. - 'triggerByTitle': every email becomes a firing event whose alert key is hashed from the subject. - 'triggerOrCloseByRule': 'rules' decide whether an email triggers, closes or is discarded, and 'default' handles the rest. [alwaysTrigger, triggerByTitle, triggerOrCloseByRule]
+    - rules (array<object>) — Rules tried in order when 'mode' is 'triggerOrCloseByRule'; each entry must be a non-empty object. At most 50.
+      - extract_from (string) (required) — Which part of the email the alert key is extracted from: 'title' or 'description'. For 'description' the body text is searched first, then the body text with tables, then the description. [title, description]
+      - extract_pattern (string) (required) — Regular expression the key is extracted with; the captured groups are joined by ',' to form the key source. A pattern that captures nothing falls back to the subject.
+      - filters (array<object>) (required) — AND conditions the email must match for the rule to apply. Send '[]' to match every email.
+        - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
+        - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
+        - vals (array<string>) (required) — Values to compare, at least one. Each entry is matched as: an exact string; a wildcard pattern when it contains '*' or '?' (must match the whole value); a regular expression when wrapped in slashes, such as '/^db-/' (may match anywhere in the value); an IP range written 'cidr:<network>', such as 'cidr:203.0.113.0/24'; or a numeric comparison 'num:<op>:<number>' with 'lt', 'le', 'gt' or 'ge', such as 'num:gt:90'.
+      - type (string) (required) — 'trigger' turns a matching email into a firing event, 'close' into a recovery event. [trigger, close]
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - alert_key (string) (required) — Hash of 'key_source'. Empty in 'alwaysTrigger' mode, where each email gets a random key.
+  - email (object) (required) — What the conversion read from the email.
+    - body (string) (required) — Body the conversion used: the HTML part when there is one, otherwise the text part.
+    - body_text (string) (required) — Body as plain text; a key extracted from the description is looked for here first.
+    - from (string) (required) — Sender address taken from the email.
+    - subject (string) (required) — Subject as the parser decoded it.
+  - event (any) (required) — The event the email produces. 'null' when the email is discarded.
+  - key_fallback (boolean) (required) — 'true' when the rule's pattern captured nothing and the subject was used as the key source.
+  - key_source (string) (required) — What the alert key was hashed from. Empty when every email is its own alert ('alwaysTrigger') or the email is discarded.
+  - matched_rule (integer) (required) — Zero-based index of the rule that matched. 'null' when no rule matched, and always 'null' in 'alwaysTrigger' and 'triggerByTitle' modes.
+  - result (string) (required) — What the settings make of this email: 'trigger' (a firing event), 'close' (a recovery event) or 'discard' (dropped). [trigger, close, discard]
+`,
+		Example: `  flashduty alert email-preview --data '{"email":{"body":"The checkout service 5xx rate is 3.4% over the last 5 minutes.","from":"alerts@acme.example.com","subject":"[ALERT] checkout 5xx rate above 2%"},"integration_id":6113996590131,"settings":{"default":"discard","mode":"triggerOrCloseByRule","rules":[{"extract_from":"title","extract_pattern":"^\\[ALERT\\]\\s*(?P\u003cresult\u003e.*)$","filters":[{"key":"title","oper":"IN","vals":["/[ALERT]/"]}],"type":"trigger"},{"extract_from":"title","extract_pattern":"^\\[OK\\]\\s*(?P\u003cresult\u003e.*)$","filters":[{"key":"title","oper":"IN","vals":["/[OK]/"]}],"type":"close"}]}}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.AlertEmailPreviewRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.AlertReadEmailPreview(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "AlertReadEmailPreview"))
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Email integration whose saved settings seed the preview. '0' or omitted is what the console sends on the create page, before the integration exists.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIntegrationsDatasourceImPersonTryLinkCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
@@ -24,7 +97,9 @@ Request fields:
   --integration-id int (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - new_linked_person_ids (array<integer>) (required) — Person IDs newly linked during this call.
+  - new_linked_person_ids (array<integer>) (required) — Person IDs linked to the IM app during this call. Empty when nobody was newly linked.
+  - no_contact_count (integer) (required) — Unlinked members skipped because they have neither an email nor a phone number.
+  - unmatched_count (integer) (required) — Members with an email or phone that were looked up but not newly linked: not found on the IM platform, the IM account is already linked to another member, or the lookup failed for them.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty datasource im-person-try-link --data '{"integration_id":6113996590131}'`,
@@ -72,7 +147,7 @@ Get a public integration with its stored settings and decrypted integration key.
 API: POST /integration/info (integration-api-read-info)
 
 Request fields:
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - category (string) (required) — Category the integration belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
@@ -80,8 +155,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) (required) — ID of the member who created the integration.
   - description (string) (required) — Free-form description.
   - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
-  - integration_id (integer) (required) — Integration ID.
+  - integration_id (integer) (required) — Integration ID; pass it as 'integration_id' to the other '/integration/*' endpoints.
   - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
+  - last_source_time (string) — Unix timestamp in seconds of the most recent event received from the upstream tool, including events dropped before they became alerts. '0' when none has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - name (string) (required) — Integration name.
   - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
@@ -126,7 +202,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -160,15 +236,15 @@ Request fields:
   --limit int — Page size. Defaults to 100, maximum 100. (1-100)
   --search-after-ctx string
   --asc bool — Sort ascending when true, descending when false.
-  --category string — Filter by category. Accepts a comma-separated list.
+  --category string — Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.
   --is-my-team bool — Limit the result to integrations owned by your teams.
-  --name string — Filter by integration name.
+  --name string — Filter by integration name; matches any name that contains this text.
   --orderby string — Sort field. Defaults to 'created_at'; 'plugin_type' is sorted by the underlying plugin. [created_at, updated_at, name, plugin_type, status]
-  --plugin-type string — Filter by integration type. Accepts a comma-separated list.
+  --plugin-type string — Comma-separated integration type keys, for example 'standard.alert,prometheus.alert'; the keys are the 'plugin_type' values from 'POST /integration/type/list'.
   --ref-ids []string — Filter by source reference IDs. Each value must start with 'c_' (channel), 'a_' (account) or 'w_'.
-  --status string — Filter by status. Accepts a comma-separated list.
+  --status string — Comma-separated status filter: 'enabled' (accepting events) and/or 'disabled' (paused).
   --team-ids []int — Filter by team IDs. With 'is_my_team', the values narrow that set further.
-  --type string — Deprecated. Merged into 'plugin_type' when both are set.
+  --type string — Deprecated alias of 'plugin_type' (comma-separated type keys such as 'prometheus.alert', 'zabbix.alert'). Ignored when 'plugin_type' is also set.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Integrations on the current page.
@@ -180,8 +256,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - description (string) (required) — Free-form description.
     - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
     - exclusive_data_source_id (integer) (required) — Legacy compatibility field; '0' for items returned by this public-integration list.
-    - integration_id (integer) (required) — Integration ID.
+    - integration_id (integer) (required) — Integration ID; pass it as 'integration_id' to the other '/integration/*' endpoints.
     - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
+    - last_source_time (string) — Unix timestamp in seconds of the most recent event received from the upstream tool, including events dropped before they became alerts. '0' when none has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - name (string) (required) — Integration name.
     - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
@@ -262,15 +339,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100, maximum 100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when true, descending when false.")
-	cmd.Flags().StringVar(&fCategory, "category", "", "Filter by category. Accepts a comma-separated list.")
+	cmd.Flags().StringVar(&fCategory, "category", "", "Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.")
 	cmd.Flags().BoolVar(&fIsMyTeam, "is-my-team", false, "Limit the result to integrations owned by your teams.")
-	cmd.Flags().StringVar(&fName, "name", "", "Filter by integration name.")
+	cmd.Flags().StringVar(&fName, "name", "", "Filter by integration name; matches any name that contains this text.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Defaults to 'created_at'; 'plugin_type' is sorted by the underlying plugin. [created_at, updated_at, name, plugin_type, status]")
-	cmd.Flags().StringVar(&fPluginType, "plugin-type", "", "Filter by integration type. Accepts a comma-separated list.")
+	cmd.Flags().StringVar(&fPluginType, "plugin-type", "", "Comma-separated integration type keys, for example 'standard.alert,prometheus.alert'; the keys are the 'plugin_type' values from 'POST /integration/type/list'.")
 	cmd.Flags().StringSliceVar(&fRefIDs, "ref-ids", nil, "Filter by source reference IDs. Each value must start with 'c_' (channel), 'a_' (account) or 'w_'.")
-	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by status. Accepts a comma-separated list.")
+	cmd.Flags().StringVar(&fStatus, "status", "", "Comma-separated status filter: 'enabled' (accepting events) and/or 'disabled' (paused).")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. With 'is_my_team', the values narrow that set further.")
-	cmd.Flags().StringVar(&fType, "type", "", "Deprecated. Merged into 'plugin_type' when both are set.")
+	cmd.Flags().StringVar(&fType, "type", "", "Deprecated alias of 'plugin_type' (comma-separated type keys such as 'prometheus.alert', 'zabbix.alert'). Ignored when 'plugin_type' is also set.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -297,16 +374,16 @@ Request fields:
   --limit int — Page size. Defaults to 20, maximum 100. (1-100)
   --search-after-ctx string
   --asc bool — Sort ascending when 'true' (the default); descending when 'false'.
-  --category string — Filter by category. Accepts a comma-separated list, for example 'event.alert,event.change'.
+  --category string — Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.
   --orderby string — Sort field. When omitted, types are returned in console ranking order. [id, created_at, updated_at, name, type]
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Integration types on the current page.
     - category (string) (required) — Category the type belongs to: 'event.alert' alert events, 'event.change' change events, 'im' IM bots, 'webhook' custom webhooks. [event.alert, event.change, im, webhook]
-    - plugin_type (string) (required) — Type identifier to pass as 'plugin_type' when creating an integration.
+    - plugin_type (string) (required) — Type key to pass as 'plugin_type' when creating an integration, for example 'standard.alert', 'prometheus.alert', 'zabbix.alert' or 'feishu'. The set grows as integrations are added; this endpoint returns the full list.
     - plugin_type_logo_url (string) (required) — Logo URL of the type.
     - plugin_type_name (string) (required) — Display name of the type.
-    - status (string) (required) — Platform status of the type.
+    - status (string) (required) — Platform status of the type: 'enabled' types can be used; 'disabled' types are switched off platform-wide and 'POST /integration/create' or 'POST /integration/update' returns 'InvalidParameter' for them. [enabled, disabled]
     - supports_api_create (boolean) (required) — Whether 'POST /integration/create' accepts this type.
   - limit (integer) (required) — Page size echoed back.
   - p (integer) (required) — Page number echoed back.
@@ -355,7 +432,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 20, maximum 100. (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true' (the default); descending when 'false'.")
-	cmd.Flags().StringVar(&fCategory, "category", "", "Filter by category. Accepts a comma-separated list, for example 'event.alert,event.change'.")
+	cmd.Flags().StringVar(&fCategory, "category", "", "Comma-separated category filter. Values: 'event.alert' (alert events), 'event.change' (change events), 'im' (IM bots), 'webhook' (custom webhooks). Unknown values are not rejected and match nothing.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. When omitted, types are returned in console ranking order. [id, created_at, updated_at, name, type]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -456,7 +533,7 @@ Delete an integration that nothing else references.
 API: POST /integration/delete (integration-api-write-delete)
 
 Request fields:
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration delete --data '{"integration_id":6113996590131}'`,
@@ -490,7 +567,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -508,7 +585,7 @@ Disable an integration without deleting its configuration.
 API: POST /integration/disable (integration-api-write-disable)
 
 Request fields:
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration disable --data '{"integration_id":6113996590131}'`,
@@ -542,7 +619,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -560,7 +637,7 @@ Re-enable a disabled integration so it accepts events again.
 API: POST /integration/enable (integration-api-write-enable)
 
 Request fields:
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty integration enable --data '{"integration_id":6113996590131}'`,
@@ -594,7 +671,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -612,7 +689,7 @@ Issue a new integration key and invalidate the previous one.
 API: POST /integration/key/rotate (integration-api-write-rotate-key)
 
 Request fields:
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - integration_key (string) (required) — New integration key; the previous key stops working immediately.
@@ -645,7 +722,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -668,7 +745,7 @@ API: POST /integration/update (integration-api-write-update)
 
 Request fields:
   --description string — New description, at most 499 characters. (≤499 chars)
-  --integration-id int (required) — Integration ID. (min 1)
+  --integration-id int (required) — ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (min 1)
   --is-test bool — Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.
   --name string — New name, 2–49 characters. (2-49 chars)
   --team-id int — New owning team ID; '0' clears the team assignment. (min 0)
@@ -680,8 +757,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) (required) — ID of the member who created the integration.
   - description (string) (required) — Free-form description.
   - editable (boolean) (required) — Whether the current caller passes the integration object-permission check; write calls also require Integrations Manage.
-  - integration_id (integer) (required) — Integration ID.
+  - integration_id (integer) (required) — Integration ID; pass it as 'integration_id' to the other '/integration/*' endpoints.
   - integration_key (string) (required) — Decrypted integration key for inbound pushes. Empty when no key is stored; distinct from the account 'app_key'.
+  - last_source_time (string) — Unix timestamp in seconds of the most recent event received from the upstream tool, including events dropped before they became alerts. '0' when none has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - last_time (string) (required) — Unix timestamp in seconds of the most recent event received. '0' when no event has arrived yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - name (string) (required) — Integration name.
   - no_editable (boolean) (required) — Read-only flag. When true, the public APIs do not allow changes to this integration.
@@ -739,7 +817,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description, at most 499 characters. (≤499 chars)")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ID of a public integration, returned by 'POST /integration/list'. An unknown ID or a channel-owned integration returns 'ResourceNotFound'. (required) (min 1)")
 	cmd.Flags().BoolVar(&fIsTest, "is-test", false, "Run the plugin test when submitting 'settings'; no test is performed for a metadata-only update.")
 	cmd.Flags().StringVar(&fName, "name", "", "New name, 2–49 characters. (2-49 chars)")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; '0' clears the team assignment. (min 0)")
@@ -761,28 +839,28 @@ Retrieve the detailed payload and response for a specific webhook delivery attem
 API: POST /webhook/history/detail (webhookHistoryDetail)
 
 Request fields:
-  --event-id string (required) — Event ID returned by 'ListWebhookHistory'.
+  --event-id string (required) — 'event_id' of a record returned by 'POST /webhook/history/list'. It starts with the delivery date ('YYYYMMDD'); an ID without that prefix fails the request.
   --integration-id int (required) — Integration ID the event belongs to; available in the items returned by 'POST /webhook/history/list'. (min 1)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - attempt (integer) (required) — Attempt sequence number.
+  - attempt (integer) (required) — Number of HTTP tries made for this delivery; retries happen only on connection errors.
   - channel_id (integer) — Channel ID when applicable.
   - channel_name (string) — Name of the associated channel, resolved at query time.
-  - duration (integer) (required) — Total elapsed time of the attempt in milliseconds.
+  - duration (integer) (required) — Total time of the delivery including retries, in milliseconds.
   - endpoint (string) (required) — Destination URL.
-  - error_message (string) — Error message when delivery failed.
-  - event_id (string) (required) — Event ID.
+  - error_message (string) — Error text when the delivery failed (connection error or unexpected status code), truncated. Omitted on success.
+  - event_id (string) (required) — ID of this delivery record: the delivery date ('YYYYMMDD') followed by a random suffix. Pass it to 'POST /webhook/history/detail'.
   - event_time (string) (required) — Event time formatted as 'YYYY-MM-DD HH:MM:SS.ffffff'.
   - event_type (string) (required) — Event type code. 'i_*' values are incident events (for example 'i_new' = incident created); 'a_*' values are alert events (for example 'a_new' = alert triggered).
-  - integration_id (integer) (required) — Integration ID.
+  - integration_id (integer) (required) — ID of the webhook integration that sent the request.
   - ref_id (string) — Source object ID.
   - ref_title (string) — Title of the source incident or alert, resolved at query time.
-  - request_body (string) — Outbound request body payload.
+  - request_body (string) — JSON payload sent to the endpoint, truncated to the stored size limit.
   - request_headers (string) — Serialized outbound request headers.
-  - response_body (string) — Response body.
+  - response_body (string) — Body returned by the endpoint, truncated to the stored size limit. Omitted when empty or when no response was received.
   - response_headers (string) — Serialized response headers.
-  - status (string) (required) — Delivery outcome. [success, failed]
-  - status_code (integer) (required) — HTTP status code.
+  - status (string) (required) — Delivery outcome: 'success' when the endpoint answered HTTP 200; 'failed' on a connection error or any other status code. [success, failed]
+  - status_code (integer) (required) — HTTP status code returned by the endpoint; '0' when no response was received.
   - webhook_type (string) (required) — Source object kind: 'incident' or 'alert'. [incident, alert]
 `,
 		Example: `  flashduty webhook history-detail --data '{"event_id":"20260412Xatt9hrXsgmFkBR78WF655","integration_id":6113996590131}'`,
@@ -812,7 +890,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fEventID, "event-id", "", "Event ID returned by 'ListWebhookHistory'. (required)")
+	cmd.Flags().StringVar(&fEventID, "event-id", "", "'event_id' of a record returned by 'POST /webhook/history/list'. It starts with the delivery date ('YYYYMMDD'); an ID without that prefix fails the request. (required)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration ID the event belongs to; available in the items returned by 'POST /webhook/history/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -843,8 +921,8 @@ Request fields:
   --asc bool — Ascending order by 'event_time' when true; otherwise descending.
   --end-time int (required) — Window end time in Unix milliseconds. Must be greater than 'start_time'. (1000000000000-9999999999999)
   --event-types []string — Filter by event type codes (e.g. 'i_new' incident created, 'a_new' alert triggered).
-  --integration-id int — Filter by webhook integration ID. (min 0)
-  --limit int (required) — Page size. (1-100)
+  --integration-id int — Filter by webhook integration ID; '0' or omitted returns all integrations. (min 0)
+  --limit int (required) — Number of records per page, 1–100. (1-100)
   --orderby string — Sort field. Currently only 'event_time' is supported. [event_time]
   --ref-id string — Reference ID filter (incident or alert ID). (≤128 chars)
   --search-after-ctx string — Opaque cursor returned by a previous call for fetching the next page.
@@ -853,25 +931,25 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Webhook delivery records on the current page.
-    - attempt (integer) (required) — Attempt sequence number.
+    - attempt (integer) (required) — Number of HTTP tries made for this delivery; retries happen only on connection errors.
     - channel_id (integer) — Channel ID associated with the event, when applicable.
-    - duration (integer) (required) — Total elapsed time of the attempt in milliseconds.
+    - duration (integer) (required) — Total time of the delivery including retries, in milliseconds.
     - endpoint (string) (required) — Destination URL.
-    - error_message (string) — Error message when delivery failed.
-    - event_id (string) (required) — Unique event identifier for the delivery attempt.
+    - error_message (string) — Error text when the delivery failed (connection error or unexpected status code), truncated. Omitted on success.
+    - event_id (string) (required) — ID of this delivery record: the delivery date ('YYYYMMDD') followed by a random suffix. Pass it to 'POST /webhook/history/detail'.
     - event_time (string) (required) — Event time formatted as 'YYYY-MM-DD HH:MM:SS.ffffff'.
     - event_type (string) (required) — Event type code. 'i_*' values are incident events (for example 'i_new' = incident created); 'a_*' values are alert events (for example 'a_new' = alert triggered).
-    - integration_id (integer) (required) — Integration ID that triggered the webhook.
+    - integration_id (integer) (required) — ID of the webhook integration that sent the request.
     - ref_id (string) — Source object ID (incident ID or alert ID).
-    - request_body (string) — Outbound request body payload.
+    - request_body (string) — JSON payload sent to the endpoint, truncated to the stored size limit.
     - request_headers (string) — Serialized outbound request headers.
-    - response_body (string) — Response body returned by the destination.
+    - response_body (string) — Body returned by the endpoint, truncated to the stored size limit. Omitted when empty or when no response was received.
     - response_headers (string) — Serialized response headers from the destination.
-    - status (string) (required) — Delivery outcome. [success, failed]
-    - status_code (integer) (required) — HTTP status code returned by the destination.
+    - status (string) (required) — Delivery outcome: 'success' when the endpoint answered HTTP 200; 'failed' on a connection error or any other status code. [success, failed]
+    - status_code (integer) (required) — HTTP status code returned by the endpoint; '0' when no response was received.
     - webhook_type (string) (required) — Source object kind: 'incident' or 'alert'. [incident, alert]
   - search_after_ctx (string) (required) — Cursor to pass as 'search_after_ctx' to fetch the next page. Empty when no further pages are available.
-  - total (integer) (required) — Total number of matching records.
+  - total (integer) (required) — Total number of records matching the filters, not capped.
 `,
 		Example: `  flashduty webhook history-list --data '{"end_time":1775203200000,"integration_id":6113996590131,"limit":20,"start_time":1775116800000,"status":"success"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -927,8 +1005,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order by 'event_time' when true; otherwise descending.")
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Window end time in Unix milliseconds. Must be greater than 'start_time'. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringSliceVar(&fEventTypes, "event-types", nil, "Filter by event type codes (e.g. 'i_new' incident created, 'a_new' alert triggered).")
-	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by webhook integration ID. (min 0)")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. (required) (1-100)")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Filter by webhook integration ID; '0' or omitted returns all integrations. (min 0)")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Number of records per page, 1–100. (required) (1-100)")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Currently only 'event_time' is supported. [event_time]")
 	cmd.Flags().StringVar(&fRefID, "ref-id", "", "Reference ID filter (incident or alert ID). (≤128 chars)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
@@ -939,6 +1017,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 }
 
 func registerGeneratedIntegrations(root *cobra.Command) {
+	gAlert := genGroup(root, "alert", "On-call API")
+	genAddLeaf(gAlert, genIntegrationsAlertReadEmailPreviewCmd())
 	gDatasource := genGroup(root, "datasource", "On-call API")
 	genAddLeaf(gDatasource, genIntegrationsDatasourceImPersonTryLinkCmd())
 	gIntegration := genGroup(root, "integration", "On-call/Integrations API")

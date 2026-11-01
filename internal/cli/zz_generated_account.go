@@ -17,22 +17,22 @@ API: POST /account/info (account-read-info)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Account identifier.
-  - account_name (string) (required) — Account name.
+  - account_name (string) (required) — Account (organization) name shown in the console.
   - avatar (string) (required) — Account avatar URL.
   - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the contact phone (e.g. "CN", "US", "HK").
   - created_at (string) (required) — Account creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - domain (string) (required) — Primary account domain (login subdomain).
   - email (string) (required) — Account contact email.
   - extra_domains (array<string>) (required) — Additional account domains.
-  - locale (string) (required) — Account language preference (e.g. zh-CN, en-US).
+  - locale (string) (required) — Account language preference ('zh-CN' or 'en-US'); empty string when not set.
   - mp_account_id (string) — Account identifier on the marketplace platform. Omitted together with 'mp_plat'.
-  - mp_plat (string) — Cloud marketplace platform the account was provisioned from. Omitted when the account did not come from a marketplace.
+  - mp_plat (string) — Cloud marketplace the account was provisioned from: 'aws' — AWS Marketplace. Omitted when the account did not come from a marketplace. [aws]
   - phone (string) (required) — Account contact phone, masked for privacy.
   - restrictions (object) — Account access restrictions. Omitted when none are configured.
     - allow_subdomain (boolean) — Whether subdomains of the allowed email domains are also accepted.
-    - email_domains (array<string>) — Allowed login email domains.
-    - ips (array<string>) — Allowed source IP/CIDR whitelist.
-  - time_zone (string) (required) — Account default timezone (IANA name, e.g. Asia/Shanghai).
+    - email_domains (array<string>) — Email domains allowed for new members; invitations to other domains are rejected. 'null' or empty when unrestricted.
+    - ips (array<string>) — Source IP addresses or CIDR ranges allowed to call the console and API for this account; 'null' or empty when unrestricted.
+  - time_zone (string) (required) — Account default time zone (IANA name, e.g. 'Asia/Shanghai'); members without their own setting follow it. Empty string when not set.
 `,
 		Example: `  flashduty account info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

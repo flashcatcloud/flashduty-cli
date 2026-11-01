@@ -20,17 +20,17 @@ func genDiagnosticsQueryDataCmd() *cobra.Command {
 		Short: "Query structured data",
 		Long: `Query structured data.
 
-Run a synchronous ad-hoc query against a configured data source and return a stable 'query_result.v1' result whose natural shape is frames, records, or samples. This public API requires monit-edge v0.65.0 or later.
+Run a synchronous ad-hoc query against a data source and return a 'query_result.v1' result as frames, records, or samples.
 
 API: POST /monit/query/data (monit-read-query-data)
 
 Request fields:
-  --account-id int — Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.
-  --delay-seconds int — Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.
-  --ds-name string (required) — Data source name; must match a configured data source under the tenant.
-  --ds-type string (required) — Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'.
-  --expr string (required) — Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.).
-  args (object, via --data) — Polymorphic key/value extension parameters forwarded verbatim to monit-edge. All values must be strings, and keys are always namespaced by source (e.g. 'sls.project', 'loki.type'). Validation depends on 'ds_type': SLS requires 'sls.project' + 'sls.logstore'. Elasticsearch accepts 'es.type' of 'sql', or omitted — any other value is rejected. Loki and VictoriaLogs accept '<source>.type' of 'stats', 'raw', or omitted; 'raw' additionally requires a time range, either '<source>.start' + '<source>.end' or '<source>.timespan.value' + '<source>.timespan.unit' (unit one of 's', 'm', 'h', 'd'). Prometheus and the remaining SQL sources ignore 'args' entirely.
+  --account-id int — Optional consistency check. When supplied it must equal the authenticated account, otherwise the request fails with 'AccessDenied'. The query always runs as the authenticated account.
+  --delay-seconds int — Look-back offset in seconds, from 0 to 86400. Applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats); ignored for raw and detail queries. When 'args' carries an absolute '<source>.time' and the Edge is v0.74.0 or later, the absolute time takes precedence and this offset is not applied. (0-86400)
+  --ds-name string (required) — Data source name, as returned by '/monit/datasource/list'. The data source must be enabled; a name that matches no data source of the account returns HTTP 400.
+  --ds-type string (required) — Data source type. Together with 'ds_name' it must match an enabled data source of the account. - 'prometheus': Prometheus-compatible data source; 'expr' is PromQL. - 'loki': Grafana Loki; 'expr' is LogQL. - 'victorialogs': VictoriaLogs. - 'sls': Alibaba Cloud Log Service (SLS). - 'tencent_cls': Tencent Cloud Log Service (CLS); requires monit-edge v0.66.0 or later. - 'elasticsearch': Elasticsearch. - 'mysql': MySQL; 'expr' is SQL. - 'postgres': PostgreSQL; 'expr' is SQL. - 'oracle': Oracle Database; 'expr' is SQL. - 'clickhouse': ClickHouse; 'expr' is SQL. Other data source types (for example MongoDB, Redis, or Kafka) are rejected. [clickhouse, elasticsearch, loki, mysql, oracle, postgres, prometheus, sls, tencent_cls, victorialogs]
+  --expr string (required) — Query expression in the language of 'ds_type' (PromQL for 'prometheus', LogQL for 'loki', SQL for SQL sources, and so on). Required, at most 64 KiB (12 KiB for 'tencent_cls'). Loki's '$__auto' is not supported here; use a fixed duration such as '[5m]'. Prometheus expressions are syntax-checked before dispatch. (≥1 chars)
+  args (object, via --data) — Extra query parameters as string key/value pairs; keys are namespaced by data source (for example 'sls.project', 'loki.type'). At most 128 entries, keys up to 256 bytes, values up to 64 KiB, and 128 KiB in total. What is accepted depends on 'ds_type': - 'prometheus': optional 'prometheus.time', the evaluation time as Unix seconds, not in the future. - 'loki', 'victorialogs': '<source>.type' is 'stats' (default) or 'raw'. 'stats' accepts an optional '<source>.time' (Unix seconds, not in the future). 'raw' requires a time range, either '<source>.start' + '<source>.end' (Unix seconds) or '<source>.timespan.value' + '<source>.timespan.unit' ('s', 'm', 'h', or 'd'), spanning at most 6 hours, and accepts '<source>.limit' from 1 to 1001. - 'sls': 'sls.project' and 'sls.logstore' are required. Optional: 'sls.lines' (1 to 100), 'sls.offset' (0 or more), and a time range of at most 6 hours given as 'sls.from' + 'sls.to' (Unix seconds) or 'sls.timespan.value' + 'sls.timespan.unit'. - 'tencent_cls': 'tencent_cls.region', 'tencent_cls.topic_id', 'tencent_cls.query_mode' ('raw' or 'analysis'), and 'tencent_cls.syntax' ('cql' or 'lucene') are required. Optional: 'tencent_cls.limit' (1 to 100, 'raw' mode only, needs monit-edge v0.67.0 or later) and a time range given as 'tencent_cls.from' + 'tencent_cls.to' (Unix seconds) or 'tencent_cls.timespan.value' + 'tencent_cls.timespan.unit', at most 6 hours in 'raw' mode and 24 hours in 'analysis' mode. Any other key is rejected. - 'elasticsearch': 'es.type' may be 'sql' or omitted; any other value is rejected. - 'mysql', 'postgres', 'oracle', 'clickhouse': no arguments are defined. An absolute '<source>.time' is only valid for its own data source type. Edges older than v0.74.0 approximate it with a look-back offset and accept only times within the last 86,400 seconds.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - format (string) (required) — Public result-contract version. It is independent of the internal monit-edge query protocol version. Fixed at 'query_result.v1', which defines the structure of the 'result' field. [query_result.v1]
@@ -84,11 +84,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. Must equal the authenticated account when supplied; mismatched values are rejected. Business execution always uses the authenticated account.")
-	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Look-back offset in seconds applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats). Ignored for raw / detail queries.")
-	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name; must match a configured data source under the tenant. (required)")
-	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type; must match a configured data source under the tenant. Examples: 'prometheus', 'loki', 'victorialogs', 'sls', 'elasticsearch', 'mysql', 'postgres', 'oracle', 'clickhouse'. (required)")
-	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression. Syntax depends on 'ds_type' and is interpreted by the corresponding monit-edge client (PromQL for Prometheus, LogQL for Loki, SQL for SQL sources, etc.). (required)")
+	cmd.Flags().Int64Var(&fAccountID, "account-id", 0, "Optional consistency check. When supplied it must equal the authenticated account, otherwise the request fails with 'AccessDenied'. The query always runs as the authenticated account.")
+	cmd.Flags().Int64Var(&fDelaySeconds, "delay-seconds", 0, "Look-back offset in seconds, from 0 to 86400. Applied to point-in-time queries (Prometheus, Loki stats, VictoriaLogs stats); ignored for raw and detail queries. When 'args' carries an absolute '<source>.time' and the Edge is v0.74.0 or later, the absolute time takes precedence and this offset is not applied. (0-86400)")
+	cmd.Flags().StringVar(&fDsName, "ds-name", "", "Data source name, as returned by '/monit/datasource/list'. The data source must be enabled; a name that matches no data source of the account returns HTTP 400. (required)")
+	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Data source type. Together with 'ds_name' it must match an enabled data source of the account. - 'prometheus': Prometheus-compatible data source; 'expr' is PromQL. - 'loki': Grafana Loki; 'expr' is LogQL. - 'victorialogs': VictoriaLogs. - 'sls': Alibaba Cloud Log Service (SLS). - 'tencent_cls': Tencent Cloud Log Service (CLS); requires monit-edge v0.66.0 or later. - 'elasticsearch': Elasticsearch. - 'mysql': MySQL; 'expr' is SQL. - 'postgres': PostgreSQL; 'expr' is SQL. - 'oracle': Oracle Database; 'expr' is SQL. - 'clickhouse': ClickHouse; 'expr' is SQL. Other data source types (for example MongoDB, Redis, or Kafka) are rejected. (required) [clickhouse, elasticsearch, loki, mysql, oracle, postgres, prometheus, sls, tencent_cls, victorialogs]")
+	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression in the language of 'ds_type' (PromQL for 'prometheus', LogQL for 'loki', SQL for SQL sources, and so on). Required, at most 64 KiB (12 KiB for 'tencent_cls'). Loki's '$__auto' is not supported here; use a fixed duration such as '[5m]'. Prometheus expressions are syntax-checked before dispatch. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -107,15 +107,15 @@ Run an Explore query against a configured data source and return frames, samples
 API: POST /monit/query/explore (monit-read-query-explore)
 
 Request fields:
-  --datasource-id int (required) — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer and belong to the authenticated account. (1-9007199254740991)
-  --expr string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; some data source types enforce a lower limit. (≥1 chars)
+  --datasource-id int (required) — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer for an enabled data source of the authenticated account that the caller may query. (1-9007199254740991)
+  --expr string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; 'mysql' allows at most 16 KiB and 'tencent_cls' at most 12 KiB. (≥1 chars)
   args (object, via --data) (required) — Macro substitutions keyed by variable name, used for Grafana-style variables. Keys are at most 256 bytes, values at most 64 KiB, with a 128 KiB total budget.
-  execution (object, via --data) (required) — Time semantics of the query. The accepted companion fields depend on 'kind': 'instant' takes only 'to_ms' (plus optional 'from_ms'), 'range' requires 'from_ms', 'to_ms', and 'max_data_points', and 'window' takes only 'from_ms' and 'to_ms'. 'step_seconds' is never accepted over HTTP.
-    - from_ms (integer) — Unix timestamp in milliseconds for the start of the range. Required for 'range' and 'window'; optional for 'instant'.
-    - kind (string) (required) — Execution kind. 'instant' evaluates at a single point in time, 'range' evaluates a series over a range, and 'window' returns raw rows inside a time window. [instant, range, window]
+  execution (object, via --data) (required) — Time semantics of the query. The accepted companion fields depend on 'kind': 'instant' takes 'to_ms' (and optionally 'from_ms'), 'range' requires 'from_ms', 'to_ms', and 'max_data_points', and 'window' takes only 'from_ms' and 'to_ms'. When both times are present, 'from_ms' must be less than 'to_ms'. 'step_seconds' is never accepted over HTTP.
+    - from_ms (integer) — Start of the interval as a Unix timestamp in milliseconds; non-negative and less than 'to_ms'. Required for 'range' and 'window'; optional for 'instant'. (min 0)
+    - kind (string) (required) — Execution kind. - 'instant': evaluate at a single point in time. - 'range': evaluate a series over 'from_ms' to 'to_ms', with a step derived from 'max_data_points' and 'min_step_seconds'. - 'window': query the interval from 'from_ms' to 'to_ms' with no step. [instant, range, window]
     - max_data_points (integer) — Maximum number of points to return. Required for 'range' and rejected for 'instant' and 'window'. (2-5000)
     - min_step_seconds (integer) — Lower bound, in seconds, for the step derived from 'max_data_points'. Optional and only accepted for 'range'. (min 1)
-    - to_ms (integer) — Unix timestamp in milliseconds for the end of the range. Required for every execution kind.
+    - to_ms (integer) — End of the interval (or the evaluation time for 'instant') as a Unix timestamp in milliseconds; non-negative. Required for every execution kind. (min 0)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - execution (object) — Execution actually used, present when the data source returned a stepped result.
@@ -123,17 +123,17 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - kind (string) (required) — Execution kind; always 'range' when this object is present. [range]
   - format (string) (required) — Result contract version; always 'explore_result.v1'. [explore_result.v1]
   - result (object) (required) — Result body. Exactly one of 'frames', 'samples', or 'entries' is present and matches 'kind'.
-    - applied_limit (integer) — Entry limit applied to a logs result; at most 1000.
+    - applied_limit (integer) — Entry limit applied to a logs result: 1 to 1000 (1 to 100 for 'sls' data sources). Present only when 'kind' is 'logs'.
     - entries (array<object>) — Log entries. Present when 'kind' is 'logs'; never longer than 'applied_limit'.
       - fields (object) (required) — Log fields as raw JSON values. Integer literals outside JavaScript's safe integer range are returned as decimal strings.
       - timestamp_ns (string) (required) — Entry time as a canonical unsigned decimal string of Unix epoch nanoseconds, at most 20 digits.
-    - frames (array<object>) — Columnar frames. Present when 'kind' is 'frames'; at most 1,000 frames.
+    - frames (array<object>) — Columnar frames. Present when 'kind' is 'frames'; at most 1,000 frames, 1,000 table rows in total, and 100,000 values in total.
       - fields (array<object>) (required) — Columns of the frame.
         - labels (object) — Label set of this column. Only 'time_series' value fields may carry labels; a 'table' field must not.
         - name (string) (required) — Column name, at most 1 MiB of UTF-8.
         - type (string) (required) — Column type. 'string' is rejected inside a 'time_series' frame; 'float' holds numbers and 'time' holds UTC RFC3339Nano strings. [string, float, time]
         - values (array<any>) (required) — Column values in row order.
-      - kind (string) (required) — Frame shape. 'table' is an unlabeled table, while 'time_series' carries exactly one time field and one float field. [table, time_series]
+      - kind (string) (required) — Frame shape. 'table' is an unlabeled table. 'time_series' carries exactly one time field and one float field; its time values are strictly increasing and never null. [table, time_series]
     - has_more (boolean) — Whether a logs result was truncated by 'applied_limit'.
     - kind (string) (required) — Result shape. 'frames' returns columnar tables or time series, 'samples' returns instant values with labels, and 'logs' returns log entries. [frames, samples, logs]
     - samples (array<object>) — Instant samples. Present when 'kind' is 'samples'; at most 1,000 samples.
@@ -171,8 +171,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer and belong to the authenticated account. (required) (1-9007199254740991)")
-	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; some data source types enforce a lower limit. (required) (≥1 chars)")
+	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer for an enabled data source of the authenticated account that the caller may query. (required) (1-9007199254740991)")
+	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; 'mysql' allows at most 16 KiB and 'tencent_cls' at most 12 KiB. (required) (≥1 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

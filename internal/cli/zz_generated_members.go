@@ -29,7 +29,7 @@ API: POST /member/delete (memberDelete)
 Request fields:
   --country-code string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
   --email string — Email address. Only used when neither 'member_id' nor 'member_name' is provided
-  --is-force bool — Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately
+  --is-force bool — Skip the reference check. When false (default), the call fails with 'ReferenceExist' if the member belongs to a team, is targeted by an escalation rule, or is in a schedule. A forced delete does not remove those references.
   --member-id int — Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'
   --member-name string — Member name. Only used when 'member_id' is not provided
   --phone string — Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent
@@ -83,7 +83,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Region hint for parsing 'phone' when it has no \"+\" prefix — an ISO 3166-1 alpha-2 code such as \"CN\" (the default when omitted). Legacy digit calling codes like \"86\" are still accepted in this parsing context.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email address. Only used when neither 'member_id' nor 'member_name' is provided")
-	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "Force delete. Defaults to false, which checks for references from escalation rules, schedules, etc. Set to true to skip the reference check and delete immediately")
+	cmd.Flags().BoolVar(&fIsForce, "is-force", false, "Skip the reference check. When false (default), the call fails with 'ReferenceExist' if the member belongs to a team, is targeted by an escalation rule, or is in a schedule. A forced delete does not remove those references.")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID. When several lookup fields are provided, the first non-empty one wins in the order 'member_id' > 'member_name' > 'email' > 'phone' > 'ref_id'")
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name. Only used when 'member_id' is not provided")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number. Only used when 'member_id', 'member_name', and 'email' are all absent")
@@ -101,12 +101,12 @@ func genMembersMemberGrantRoleCmd() *cobra.Command {
 		Short: "Grant role to member",
 		Long: `Grant role to member.
 
-Add role assignments to a member. Role IDs that do not exist are silently ignored; if none resolve, the call is a no-op success.
+Add one or more roles to a member's existing role assignments.
 
 API: POST /member/role/grant (memberGrantRole)
 
 Request fields:
-  --member-id int (required) — Member ID
+  --member-id int (required) — ID of the member whose roles change (from 'POST /member/list').
   --role-ids []int (required) — Role IDs to grant; appended to the member's current roles (duplicates are deduplicated).
 `,
 		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
@@ -144,7 +144,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "ID of the member whose roles change (from 'POST /member/list'). (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to grant; appended to the member's current roles (duplicates are deduplicated). (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -157,33 +157,34 @@ func genMembersMemberInfoCmd() *cobra.Command {
 		Short: "Get current member info",
 		Long: `Get current member info.
 
-Return the profile of the member the credential belongs to. Requires a member-scoped credential — calls authenticated as the account principal (e.g. an account-level app key) are rejected with a 400.
+Return the profile and account context of the member who owns the credential.
 
 API: POST /member/info (memberInfo)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_avatar (string) (required) — Account avatar URL
-  - account_email (string) (required) — Account email
-  - account_id (integer) (required) — Account ID
+  - account_email (string) (required) — Contact email of the account owner.
+  - account_id (integer) (required) — ID of the account the member belongs to.
   - account_locale (string) — Account-level locale preference (e.g. zh-CN or en-US). Omitted when the account has none set.
-  - account_name (string) (required) — Account name
-  - account_role_ids (array<integer>) (required) — Assigned role IDs
-  - account_time_zone (string) — Account-level time zone (e.g. Asia/Shanghai). Omitted when the account has none set.
+  - account_name (string) (required) — Name of the account (organization).
+  - account_role_ids (array<integer>) (required) — IDs of the roles assigned to the member; resolve them with 'POST /role/list'.
+  - account_time_zone (string) (required) — The account's IANA time zone setting; empty string when the account has none. Always present.
   - avatar (string) (required) — Member avatar URL
   - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
   - created_at (string) (required) — Member creation time, Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - domain (string) (required) — Account domain
+  - domain (string) (required) — Account domain, the subdomain used to sign in to the console.
   - email (string) (required) — Email address
   - email_verified (boolean) (required) — Whether email is verified
   - is_external (boolean) (required) — Whether provisioned via SSO
   - locale (string) — Member's locale preference. Omitted when the member has none set.
-  - member_id (integer) (required) — Member ID
+  - member_id (integer) (required) — ID of the calling member.
   - member_name (string) (required) — Member display name
   - mp_account_id (string) — Account identifier on the marketplace platform. Omitted together with 'mp_plat'.
-  - mp_plat (string) — Cloud marketplace platform the account was provisioned from. Omitted when the account did not come from a marketplace.
+  - mp_plat (string) — Cloud marketplace the account was provisioned from: 'aws' — AWS Marketplace. Omitted when the account did not come from a marketplace. [aws]
   - phone (string) (required) — Masked phone number
   - phone_verified (boolean) (required) — Whether phone is verified
-  - time_zone (string) — Member's IANA time zone. Omitted when the member has none set.
+  - resolved_time_zone (string) (required) — Effective time zone to render times in: the member's 'time_zone' if valid, otherwise the account's, otherwise 'Asia/Shanghai'. Always present.
+  - time_zone (string) (required) — The member's own IANA time zone setting; empty string when the member follows the account's time zone. Always present.
 `,
 		Example: `  flashduty member info --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -223,20 +224,21 @@ Request fields:
   --from string — Invite source. Only takes effect when the account has member invites disabled and the value is 'api': members are created directly in the enabled state with email/phone marked verified and no invitation sent. Any other value follows the normal invite flow
   members (array<object>, via --data) (required) — Members to invite in one call (at least 1). Each entry needs either an 'email', or 'member_name' + 'phone' together.
     - country_code (string) — ISO 3166-1 alpha-2 region code for 'phone' (e.g. "CN"). Validated and normalized to upper case before storage; invalid values are rejected with a 400. Also the parsing hint when 'phone' has no "+" prefix (defaults to "CN").
-    - email (string) — Email address. Required when 'phone' is not provided.
-    - locale (string) — Locale. One of: 'zh-CN' (Simplified Chinese), 'en-US' (English); other values are rejected with a 400. [zh-CN, en-US]
+    - email (string) — Email address, stored in lower case. Required when 'phone' is not provided.
+    - locale (string) — Locale: 'zh-CN' (Simplified Chinese) or 'en-US' (English); other values are rejected with a 400. Defaults to the account's locale when omitted. [zh-CN, en-US]
     - member_name (string) — Display name, 2–39 characters. Required when 'email' is not provided; derived from the email prefix when omitted. (2-39 chars)
     - phone (string) — Phone number. Required when 'email' is not provided.
-    - ref_id (string) — External reference ID
-    - role_ids (array<integer>) — Role IDs to assign
-    - time_zone (string) — Time zone
+    - ref_id (string) — External reference ID (for example an employee ID in an HR system), usable later as a lookup key in 'POST /member/delete' and 'POST /member/info/reset'.
+    - role_ids (array<integer>) — Role IDs to assign: built-in '2' (Admin), '6' (Responder), '8' (Viewer), or custom role IDs from 'POST /role/list'. Defaults to Viewer ('8') when omitted; an ID that does not exist returns '400'.
+    - schedule_id (integer) — Schedule to add the member to after the member is created or accepts the invitation. The join runs as the caller; if the caller cannot edit the schedule, the schedule is deleted, or it has no joinable layer, the invitation still succeeds but the member is not added. Omit it to invite without a schedule.
+    - time_zone (string) — IANA time zone name such as 'Asia/Shanghai'. Omit it to have the member follow the account's time zone; an invalid name returns '400'.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) — Newly created members
-    - member_id (integer) — Member ID
-    - member_name (string) — Member display name
+  - items (array<object>) — Members created by this call; entries skipped because they already exist are not listed. 'null' when no member was created.
+    - member_id (integer) — ID of the newly created member.
+    - member_name (string) — Display name stored for the member; derived from the email prefix when 'member_name' was omitted.
 `,
-		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"time_zone":"Asia/Shanghai"},{"country_code":"CN","locale":"zh-CN","member_name":"Dave","phone":"13800138000","time_zone":"Asia/Shanghai"}]}'`,
+		Example: `  flashduty member invite --data '{"members":[{"email":"charlie@example.com","locale":"en-US","member_name":"Charlie","role_ids":[6],"schedule_id":5789640530410,"time_zone":"Asia/Shanghai"},{"country_code":"CN","locale":"zh-CN","member_name":"Dave","phone":"13800138000","time_zone":"Asia/Shanghai"}]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
@@ -285,37 +287,37 @@ Return a paginated list of organization members.
 API: POST /member/list (memberList)
 
 Request fields:
-  --page int — Page number, 1-based (min 1)
+  --page int — Page number, starting at 1. Defaults to the first page. (min 1)
   --limit int — Page size. Defaults to 100 on the server when omitted or 0 (1-100)
   --search-after-ctx string
   --asc bool — Ascending order. Default: false (descending)
   --member-id int — Filter by member ID. Return only the member with this ID.
   --orderby string — Sort field. Default: 'updated_at' [created_at, updated_at]
-  --query string — Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied
+  --query string — Keyword. Matches a substring of the member name or email; a numeric keyword also matches an exact member ID, and a keyword that parses as a phone number (without '+', parsed as a Chinese number) also matches the exact phone.
   --role-id int — Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — Member items
-    - account_id (integer) (required) — Account ID
-    - account_role_ids (array<integer>) (required) — Role IDs
-    - avatar (string) (required) — Avatar URL
+  - items (array<object>) (required) — Members on this page; empty array when none match.
+    - account_id (integer) (required) — ID of the account the member belongs to.
+    - account_role_ids (array<integer>) (required) — IDs of the roles assigned to the member: built-in '2' (Admin), '6' (Responder), '8' (Viewer), or custom role IDs from 'POST /role/list'.
+    - avatar (string) (required) — Avatar image URL or path; empty string when unset.
     - country_code (string) (required) — ISO 3166-1 alpha-2 region code of the member's contact phone (e.g. "CN", "US", "HK").
     - created_at (string) (required) — Creation timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - email (string) (required) — Email address
-    - email_verified (boolean) (required) — Email verified
-    - is_external (boolean) (required) — Provisioned via SSO
-    - locale (string) — Member's locale preference (e.g. 'zh-CN'). Omitted when empty — the list endpoint does not populate it.
-    - member_id (integer) (required) — Member ID
-    - member_name (string) (required) — Display name
-    - phone (string) (required) — Masked phone number
-    - phone_verified (boolean) (required) — Phone verified
-    - ref_id (string) (required) — External reference ID
-    - status (string) (required) — Member status. 'enabled' — active member; 'pending' — invited but not yet accepted; 'deleted' — removed from the organization. [enabled, pending, deleted]
-    - time_zone (string) — Member's IANA time zone (e.g. 'Asia/Shanghai'). Omitted when empty — the list endpoint does not populate it.
+    - email (string) (required) — Email address in lower case; empty string when unset.
+    - email_verified (boolean) (required) — 'true' once the member has verified the email address.
+    - is_external (boolean) (required) — 'true' when the member was provisioned through SSO rather than invited or registered.
+    - locale (string) — Locale preference. Not populated by 'POST /member/list', so it is always omitted there.
+    - member_id (integer) (required) — Member ID; the same value is used as the person ID in other APIs (for example 'person_ids').
+    - member_name (string) (required) — Display name, unique in the account.
+    - phone (string) (required) — Phone number in E.164 form with the middle digits masked (for example '+86151****6519'); empty string when unset.
+    - phone_verified (boolean) (required) — 'true' once the member has verified the phone number.
+    - ref_id (string) (required) — External reference ID (for example an employee ID in an HR system); empty string when unset.
+    - status (string) (required) — Member status. 'enabled' — active member; 'pending' — invited but has not accepted yet. Removed members are not listed. [enabled, pending]
+    - time_zone (string) — The member's own IANA time zone setting (for example 'Asia/Shanghai'). Omitted when unset, which means the member follows the account's time zone; 'POST /member/info' returns the effective zone.
     - updated_at (string) (required) — Update timestamp (Unix seconds) CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - limit (integer) (required) — Page size
-  - p (integer) (required) — Current page
-  - total (integer) (required) — Total count
+  - limit (integer) (required) — Page size applied; 100 when 'limit' was omitted.
+  - p (integer) (required) — Page number from the request; '0' when 'p' was omitted (the first page is returned).
+  - total (integer) (required) — Number of members matching the filters, across all pages.
 `,
 		Example: `  flashduty member list --data '{"limit":5,"p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -362,13 +364,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based (min 1)")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, starting at 1. Defaults to the first page. (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Defaults to 100 on the server when omitted or 0 (1-100)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Ascending order. Default: false (descending)")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Filter by member ID. Return only the member with this ID.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field. Default: 'updated_at' [created_at, updated_at]")
-	cmd.Flags().StringVar(&fQuery, "query", "", "Substring match on member name or email; if the keyword parses as a phone number, an exact phone match is also applied")
+	cmd.Flags().StringVar(&fQuery, "query", "", "Keyword. Matches a substring of the member name or email; a numeric keyword also matches an exact member ID, and a keyword that parses as a phone number (without '+', parsed as a Chinese number) also matches the exact phone.")
 	cmd.Flags().Int64Var(&fRoleID, "role-id", 0, "Filter by role ID. Get role IDs from 'POST /role/list' (built-in roles: 2=Admin, 6=Responder, 8=Viewer)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -384,13 +386,13 @@ func genMembersMemberNotifyCmd() *cobra.Command {
 		Short: "Notify members",
 		Long: `Notify members.
 
-Send an email to account members on behalf of the caller, with content the caller supplies. Only callable with a credential minted for an AI SRE session; any other credential is rejected with 'AccessDenied'. Delivery is asynchronous — 'accepted' means the email was queued, not that it was delivered.
+Email account members a message written by the calling AI SRE session.
 
 API: POST /member/notify (memberNotify)
 
 Request fields:
   --html string (required) — Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. '<script>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are silently removed before sending, since email clients never execute them; inline 'style' attributes are kept as written. '<style>', '<svg>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', and '<button>' tags, an '<img>' with a missing or non-'https' 'src' (including 'data:'), or an '<a>' whose href scheme is not 'http', 'https', or 'mailto' are rejected instead of stripped: the request fails with '400' rather than silently changing what recipients see. (≤102400 chars)
-  --person-ids []int — Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.
+  --person-ids []int — Recipient member IDs. Optional, up to 20; duplicate and non-positive IDs are dropped. Omitted or empty sends to the caller only.
   --subject string (required) — Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (1-200 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -431,7 +433,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fHTML, "html", "", "Email body as an HTML fragment (no '<html>'/'<head>'/'<body>' wrapper needed); recipients receive it as the whole email body. Required, up to 102,400 bytes of raw UTF-8 input (larger messages are clipped by common email clients), and must be non-empty after sanitization. '<script>', '<meta>', '<link>', and '<base>' tags and all 'on*' event handlers are silently removed before sending, since email clients never execute them; inline 'style' attributes are kept as written. '<style>', '<svg>', '<iframe>', '<object>', '<embed>', '<form>', '<input>', and '<button>' tags, an '<img>' with a missing or non-'https' 'src' (including 'data:'), or an '<a>' whose href scheme is not 'http', 'https', or 'mailto' are rejected instead of stripped: the request fails with '400' rather than silently changing what recipients see. (required) (≤102400 chars)")
-	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Recipient member IDs. Optional, up to 20, no duplicates. Omitted or empty sends to the caller only.")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Recipient member IDs. Optional, up to 20; duplicate and non-positive IDs are dropped. Omitted or empty sends to the caller only.")
 	cmd.Flags().StringVar(&fSubject, "subject", "", "Email subject, used as written. Required, 1–200 characters. Line breaks are replaced with a space; leading/trailing whitespace is trimmed. (required) (1-200 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -458,7 +460,7 @@ API: POST /member/info/reset (memberResetInfo)
 Request fields:
   --country-code string — Region hint for parsing 'phone' when it has no "+" prefix — an ISO 3166-1 alpha-2 code such as "CN" (the default when omitted). Legacy digit calling codes like "86" are still accepted in this parsing context.
   --email string — Email address used to identify the member.
-  --from string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.
+  --from string — Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled and the member is not the caller; any other value is ignored.
   --member-id int — Member ID used to identify the member.
   --member-name string — Member name used to identify the member.
   --phone string — Phone number used to identify the member. Include country_code when the number is not in E.164 format.
@@ -466,13 +468,13 @@ Request fields:
   updates (object, via --data) (required) — New profile values to write. Must include at least one field.
     - avatar (string) — New avatar URL. (≤499 chars)
     - country_code (string) — ISO 3166-1 alpha-2 region code (e.g. "CN", "US"). Updated independently — 'phone' is not required — and also used as the parsing hint for 'phone'. Invalid values are rejected with a 400; an explicit empty string is not allowed.
-    - email (string) — New email address.
+    - email (string) — New email address. Must not belong to another member; the new address is marked unverified (see 'from').
     - locale (string) — New locale preference. One of: 'zh-CN' (Simplified Chinese), 'en-US' (English); other values are rejected with a 400. [zh-CN, en-US]
-    - member_name (string) — New display name. (2-39 chars)
+    - member_name (string) — New display name, 2–39 characters, unique in the account. (2-39 chars)
     - password (string) — New login password in the encrypted format accepted by the backend.
-    - phone (string) — New phone number. Include country_code when the number is not in E.164 format.
-    - ref_id (string) — New external reference ID.
-    - time_zone (string) — New IANA time zone name, such as Asia/Shanghai.
+    - phone (string) — New phone number; include 'country_code' when it is not in E.164 format. Must not belong to another member; the new number is marked unverified (see 'from').
+    - ref_id (string) — New external reference ID; an empty string clears it.
+    - time_zone (string) — New IANA time zone name such as 'Asia/Shanghai'; an empty string clears it so the member follows the account's time zone. An invalid name returns '400'.
 `,
 		Example: `  flashduty member info-reset --data '{"member_id":2476444212131,"updates":{"locale":"zh-CN","member_name":"Alice Chen","time_zone":"Asia/Shanghai"}}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -522,7 +524,7 @@ Request fields:
 	}
 	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Region hint for parsing 'phone' when it has no \"+\" prefix — an ISO 3166-1 alpha-2 code such as \"CN\" (the default when omitted). Legacy digit calling codes like \"86\" are still accepted in this parsing context.")
 	cmd.Flags().StringVar(&fEmail, "email", "", "Email address used to identify the member.")
-	cmd.Flags().StringVar(&fFrom, "from", "", "Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled; any other value is ignored.")
+	cmd.Flags().StringVar(&fFrom, "from", "", "Set to 'api' to mark an updated phone or email as verified. Only takes effect when the account has member invites disabled and the member is not the caller; any other value is ignored.")
 	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID used to identify the member.")
 	cmd.Flags().StringVar(&fMemberName, "member-name", "", "Member name used to identify the member.")
 	cmd.Flags().StringVar(&fPhone, "phone", "", "Phone number used to identify the member. Include country_code when the number is not in E.164 format.")
@@ -540,12 +542,12 @@ func genMembersMemberRevokeRoleCmd() *cobra.Command {
 		Short: "Revoke role from member",
 		Long: `Revoke role from member.
 
-Remove role assignments from a member. Role IDs that do not exist are silently ignored; if none resolve, the call is a no-op success.
+Remove one or more roles from a member's role assignments.
 
 API: POST /member/role/revoke (memberRevokeRole)
 
 Request fields:
-  --member-id int (required) — Member ID
+  --member-id int (required) — ID of the member whose roles change (from 'POST /member/list').
   --role-ids []int (required) — Role IDs to remove from the member.
 `,
 		Args:    requireBodyFieldOrArgs("role_ids", "role-ids"),
@@ -583,7 +585,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "ID of the member whose roles change (from 'POST /member/list'). (required)")
 	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "Role IDs to remove from the member. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -598,13 +600,13 @@ func genMembersMemberUpdateRoleCmd() *cobra.Command {
 		Short: "Update member roles",
 		Long: `Update member roles.
 
-Replace all role assignments for a member at once. Role IDs that do not exist are silently dropped; an empty 'role_ids' resets the member to the built-in Viewer role (ID 8).
+Replace a member's role assignments with the given set of roles.
 
 API: POST /member/role/update (memberUpdateRole)
 
 Request fields:
-  --member-id int (required) — Member ID
-  --role-ids []int — New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)
+  --member-id int (required) — ID of the member whose roles change (from 'POST /member/list').
+  --role-ids []int — New role ID set; replaces the member's existing roles entirely (not additive). Get IDs from 'POST /role/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("member_id", "member-id"),
 		Example: `  flashduty member role-update --data '{"member_id":5068740052131,"role_ids":[2,6]}'`,
@@ -641,8 +643,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "Member ID (required)")
-	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New role ID set. Replaces the member's existing roles entirely (not additive); get IDs from 'POST /role/list'. Leave empty to reset to the built-in Viewer role (ID 8)")
+	cmd.Flags().Int64Var(&fMemberID, "member-id", 0, "ID of the member whose roles change (from 'POST /member/list'). (required)")
+	cmd.Flags().IntSliceVar(&fRoleIDs, "role-ids", nil, "New role ID set; replaces the member's existing roles entirely (not additive). Get IDs from 'POST /role/list'.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -664,18 +666,18 @@ Request fields:
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Person profiles
-    - account_id (integer) (required) — Account ID
+    - account_id (integer) (required) — ID of the account the person belongs to.
     - as (string) — Principal kind: 'account' — the account owner principal; 'member' — an organization member. [account, member]
     - avatar (string) — Avatar URL. Omitted when empty.
     - email (string) — Email address. Omitted when empty.
-    - email_verified (boolean) (required) — Email verified
-    - locale (string) — Locale. Omitted when empty.
-    - person_id (integer) (required) — Person ID
+    - email_verified (boolean) (required) — 'true' when the email address is verified; for the account owner, 'true' whenever an email is set.
+    - locale (string) — Locale preference ('zh-CN' or 'en-US'). Omitted when unset.
+    - person_id (integer) (required) — Person ID: the account ID for the account owner, otherwise the member ID.
     - person_name (string) — Display name. Omitted when empty.
     - phone (string) — Phone number. Omitted when empty — this endpoint never populates it.
     - phone_verified (boolean) (required) — Whether the phone is verified. Always false in this endpoint's response.
     - status (string) — Person status. 'enabled' — active; 'pending' — invited but not yet accepted; 'deleted' — removed. Omitted when empty. [enabled, pending, deleted]
-    - time_zone (string) — Time zone. Omitted when empty.
+    - time_zone (string) — IANA time zone setting: the member's own setting, or the account's for the account owner. Omitted when unset (a member without a setting follows the account's time zone).
 `,
 		Args:    requireBodyFieldOrArgs("person_ids", "person-ids"),
 		Example: `  flashduty person infos --data '{"person_ids":[2476444212131,3790925372131]}'`,

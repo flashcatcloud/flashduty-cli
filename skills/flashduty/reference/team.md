@@ -101,14 +101,14 @@ Update an existing team
 
 ### upsert
 Create or update a team
-- `--country-code` string — Default country code applied to any 'phones' entries that are not in E.164 format.
-- `--description` string — Free-form description. (≤500 chars)
-- `--emails` stringSlice — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
-- `--person-ids` intSlice — Member IDs to set as team members. Replaces the existing member list.
-- `--phones` stringSlice — Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.
-- `--ref-id` string — External reference ID for HR system integration.
+- `--country-code` string — Region hint for 'phones' entries without a '+' prefix: an ISO 3166-1 alpha-2 code such as 'CN' (the default when omitted) or a digit calling code such as '86'.
+- `--description` string — Free-form description, up to 500 characters. On update, omitting it clears the stored description. (≤500 chars)
+- `--emails` stringSlice — Emails of existing members to place in the team; merged with 'person_ids' and 'phones'. Addresses that match no member are ignored and no invitation is sent.
+- `--person-ids` intSlice — Person IDs to place in the team (member IDs, or the account ID for the account owner). Together with 'emails' and 'phones' they replace the entire member list; IDs that are not members of the account are ignored.
+- `--phones` stringSlice — Phone numbers of existing members to place in the team; merged with 'person_ids' and 'emails'. Numbers without a '+' prefix are parsed with 'countryCode'; an unparseable number fails the whole request with '400', and numbers that match no member are ignored.
+- `--ref-id` string — External reference ID (for example a department ID in an HR system), usable as a lookup key in 'POST /team/info' and 'POST /team/delete'. On update, omitting it clears the stored value.
 - `--reset-if-name-exist` bool — When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.
-- `--team-id` int64 — Team ID. Omit or set to 0 to create a new team.
+- `--team-id` int64 — ID of the team to update. Omit or set to 0 to create a new team; a non-zero ID must belong to an existing team of the account.
 - `--team-name` string (required) — Team display name. 1–39 characters. (1-39 chars)
 - response: single object (`data` unwrapped to the top level) — fields: team_id (integer); team_name (string)
 

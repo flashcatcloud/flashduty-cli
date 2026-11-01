@@ -15,14 +15,14 @@ func genRuleFoldersReadHealthCmd() *cobra.Command {
 		Short: "Get monitor folder health",
 		Long: `Get monitor folder health.
 
-Get health summaries for visible folders, including issues in their descendants.
+Get issue flags for the visible monitor folders, including issues in their descendants.
 
 API: POST /monit/folder/health (monit-folder-read-health)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — Folder health summaries.
-    - folder_id (integer) (required) — Folder ID. (min 0)
-    - has_issue (boolean) (required) — Whether this folder or a visible descendant has active alerts or rule runtime issues.
+  - items (array<object>) (required) — One health entry per folder visible to the caller, sorted by 'folder_id'.
+    - folder_id (integer) (required) — ID of the folder this entry describes; matches 'id' in '/monit/folder/list'. (min 0)
+    - has_issue (boolean) (required) — 'true' when a rule in this folder or in any descendant has an active alert or a runtime problem ('runtime_state' of 'offline', 'abnormal', 'stale', or 'no_datasource'). Rules in folders the caller cannot read are not counted.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
@@ -58,17 +58,17 @@ API: POST /monit/folder/list (monit-folder-read-list)
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - account_id (integer) (required) — Owning account ID.
-  - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - creator_id (integer) (required) — Member ID of the creator.
+  - created_at (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — Member ID of the creator; the creator can always see and modify the folder.
   - creator_name (string) (required) — Name of the creator.
-  - id (integer) (required) — Folder ID.
+  - id (integer) (required) — Folder ID. Pass it as 'id' to update, move, or delete the folder, as 'parent_id' or 'dest_parent_id' to nest folders under it, and as 'folder_id' on alert rules and dashboards.
   - name (string) (required) — Folder name.
   - note (string) (required) — Free-form note.
   - parent_id (integer) (required) — Parent folder ID; 0 at the root.
   - parent_path (string) (required) — Comma-separated ancestor IDs from the root, excluding this folder; empty at the root.
-  - team_id (integer) (required) — Team the folder is scoped to; 0 when account-wide.
-  - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - updater_id (integer) (required) — Member ID of the last updater.
+  - team_id (integer) (required) — ID of the team the folder belongs to; 0 when it has no team. Members of the team can see and modify the folder.
+  - updated_at (string) (required) — Time of the last update or move as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updater_id (integer) (required) — Member ID of the last updater. Updates and moves both set it.
   - updater_name (string) (required) — Name of the last updater.
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,29 +103,29 @@ func genRuleFoldersWriteCreateCmd() *cobra.Command {
 		Short: "Create monitor folder",
 		Long: `Create monitor folder.
 
-Create a monitor folder at the root or under an accessible parent folder.
+Create a monitor folder at the root or under a parent folder the caller may modify.
 
 API: POST /monit/folder/create (monit-folder-write-create)
 
 Request fields:
-  --name string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
-  --note string — Free-form note; omitted or empty clears the note on update.
-  --parent-id int — Parent folder ID; 0 or omitted creates a root folder. (min 0)
-  --team-id int — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+  --name string (required) — Folder name; required, and must not contain a period ('.'), slash ('/'), or comma (','). (≥1 chars)
+  --note string — Free-form note. Empty when omitted.
+  --parent-id int — ID of the parent folder; 0 or omitted creates a root folder. The caller must be allowed to modify the parent. (min 0)
+  --team-id int — ID of the team the folder belongs to; 0 or omitted means no team. Members of the team can see and modify the folder and everything below it. (min 0)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - creator_id (integer) (required) — Member ID of the creator.
+  - created_at (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — Member ID of the creator; the creator can always see and modify the folder.
   - creator_name (string) (required) — Name of the creator.
-  - id (integer) (required) — Folder ID.
+  - id (integer) (required) — Folder ID. Pass it as 'id' to update, move, or delete the folder, as 'parent_id' or 'dest_parent_id' to nest folders under it, and as 'folder_id' on alert rules and dashboards.
   - name (string) (required) — Folder name.
   - note (string) (required) — Free-form note.
   - parent_id (integer) (required) — Parent folder ID; 0 at the root.
   - parent_path (string) (required) — Comma-separated ancestor IDs from the root, excluding this folder; empty at the root.
-  - team_id (integer) (required) — Team the folder is scoped to; 0 when account-wide.
-  - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - updater_id (integer) (required) — Member ID of the last updater.
+  - team_id (integer) (required) — ID of the team the folder belongs to; 0 when it has no team. Members of the team can see and modify the folder.
+  - updated_at (string) (required) — Time of the last update or move as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updater_id (integer) (required) — Member ID of the last updater. Updates and moves both set it.
   - updater_name (string) (required) — Name of the last updater.
 `,
 		Example: `  flashduty monit folder-create --data '{"name":"Checkout","note":"Checkout service folders","parent_id":10,"team_id":0}'`,
@@ -161,10 +161,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fName, "name", "", "Folder name; cannot contain a period, slash, or comma. (required) (≥1 chars)")
-	cmd.Flags().StringVar(&fNote, "note", "", "Free-form note; omitted or empty clears the note on update.")
-	cmd.Flags().Int64Var(&fParentID, "parent-id", 0, "Parent folder ID; 0 or omitted creates a root folder. (min 0)")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)")
+	cmd.Flags().StringVar(&fName, "name", "", "Folder name; required, and must not contain a period ('.'), slash ('/'), or comma (','). (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fNote, "note", "", "Free-form note. Empty when omitted.")
+	cmd.Flags().Int64Var(&fParentID, "parent-id", 0, "ID of the parent folder; 0 or omitted creates a root folder. The caller must be allowed to modify the parent. (min 0)")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "ID of the team the folder belongs to; 0 or omitted means no team. Members of the team can see and modify the folder and everything below it. (min 0)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -177,12 +177,12 @@ func genRuleFoldersWriteDeleteCmd() *cobra.Command {
 		Short: "Delete monitor folder",
 		Long: `Delete monitor folder.
 
-Delete an accessible monitor folder after removing its children, rules, and dashboards.
+Delete an empty monitor folder that the caller may modify.
 
 API: POST /monit/folder/delete (monit-folder-write-delete)
 
 Request fields:
-  --id int (required) — Folder ID. (min 1)
+  --id int (required) — ID of the folder to delete, from '/monit/folder/list'. The folder must be empty. (min 1)
 `,
 		Example: `  flashduty monit folder-delete --data '{"id":12}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -212,7 +212,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "ID of the folder to delete, from '/monit/folder/list'. The folder must be empty. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -231,8 +231,8 @@ Move a monitor folder and its descendants under another folder or to the root.
 API: POST /monit/folder/move (monit-folder-write-move)
 
 Request fields:
-  --dest-parent-id int (required) — Destination parent folder ID; required even when 0 to move to the root. (min 0)
-  --id int (required) — Folder ID. (min 1)
+  --dest-parent-id int (required) — ID of the new parent folder; send 0 to move to the root. The field cannot be omitted. Must differ from 'id' and must not be a descendant of the folder. (min 0)
+  --id int (required) — ID of the folder to move, from '/monit/folder/list'. (min 1)
 `,
 		Args:    requireBodyFieldOrExactArg("dest_parent_id", "dest-parent-id"),
 		Example: `  flashduty monit folder-move --data '{"dest_parent_id":0,"id":12}'`,
@@ -269,8 +269,8 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fDestParentID, "dest-parent-id", 0, "Destination parent folder ID; required even when 0 to move to the root. (required) (min 0)")
-	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
+	cmd.Flags().Int64Var(&fDestParentID, "dest-parent-id", 0, "ID of the new parent folder; send 0 to move to the root. The field cannot be omitted. Must differ from 'id' and must not be a descendant of the folder. (required) (min 0)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "ID of the folder to move, from '/monit/folder/list'. (required) (min 1)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -286,29 +286,29 @@ func genRuleFoldersWriteUpdateCmd() *cobra.Command {
 		Short: "Update monitor folder",
 		Long: `Update monitor folder.
 
-Replace the name, note, and team assignment of an accessible monitor folder.
+Replace the name, note, and team assignment of a monitor folder the caller may modify.
 
 API: POST /monit/folder/update (monit-folder-write-update)
 
 Request fields:
-  --id int (required) — Folder ID. (min 1)
-  --name string (required) — Folder name; cannot contain a period, slash, or comma. (≥1 chars)
-  --note string — Free-form note; omitted or empty clears the note on update.
-  --team-id int — Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)
+  --id int (required) — ID of the folder to update, from '/monit/folder/list' or the create response. (min 1)
+  --name string (required) — New folder name; required, and must not contain a period ('.'), slash ('/'), or comma (','). (≥1 chars)
+  --note string — New note. Omitted or empty clears the note.
+  --team-id int — New team ID; 0 or omitted removes the team assignment. (min 0)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
-  - created_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - creator_id (integer) (required) — Member ID of the creator.
+  - created_at (string) (required) — Creation time as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - creator_id (integer) (required) — Member ID of the creator; the creator can always see and modify the folder.
   - creator_name (string) (required) — Name of the creator.
-  - id (integer) (required) — Folder ID.
+  - id (integer) (required) — Folder ID. Pass it as 'id' to update, move, or delete the folder, as 'parent_id' or 'dest_parent_id' to nest folders under it, and as 'folder_id' on alert rules and dashboards.
   - name (string) (required) — Folder name.
   - note (string) (required) — Free-form note.
   - parent_id (integer) (required) — Parent folder ID; 0 at the root.
   - parent_path (string) (required) — Comma-separated ancestor IDs from the root, excluding this folder; empty at the root.
-  - team_id (integer) (required) — Team the folder is scoped to; 0 when account-wide.
-  - updated_at (string) (required) — Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - updater_id (integer) (required) — Member ID of the last updater.
+  - team_id (integer) (required) — ID of the team the folder belongs to; 0 when it has no team. Members of the team can see and modify the folder.
+  - updated_at (string) (required) — Time of the last update or move as a Unix timestamp in seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - updater_id (integer) (required) — Member ID of the last updater. Updates and moves both set it.
   - updater_name (string) (required) — Name of the last updater.
 `,
 		Example: `  flashduty monit folder-update --data '{"id":12,"name":"Checkout production","note":"Production services","team_id":0}'`,
@@ -344,10 +344,10 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fID, "id", 0, "Folder ID. (required) (min 1)")
-	cmd.Flags().StringVar(&fName, "name", "", "Folder name; cannot contain a period, slash, or comma. (required) (≥1 chars)")
-	cmd.Flags().StringVar(&fNote, "note", "", "Free-form note; omitted or empty clears the note on update.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID; 0 means account-wide. Omitted on update resets to 0. (min 0)")
+	cmd.Flags().Int64Var(&fID, "id", 0, "ID of the folder to update, from '/monit/folder/list' or the create response. (required) (min 1)")
+	cmd.Flags().StringVar(&fName, "name", "", "New folder name; required, and must not contain a period ('.'), slash ('/'), or comma (','). (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fNote, "note", "", "New note. Omitted or empty clears the note.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New team ID; 0 or omitted removes the team assignment. (min 0)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

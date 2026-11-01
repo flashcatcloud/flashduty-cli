@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/flashcatcloud/go-flashduty"
+
+	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
 func TestScheduleLayerCount(t *testing.T) {
@@ -41,5 +44,25 @@ func TestScheduleLayerCount(t *testing.T) {
 				t.Fatalf("scheduleLayerCount() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNobodyOnCallRendersPlaceholders(t *testing.T) {
+	var s flashduty.ScheduleItem
+	if err := json.Unmarshal([]byte(`{"cur_oncall":null,"next_oncall":null}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if got := formatOncallMembers(s.CurOncall, nil); got != "-" {
+		t.Fatalf("formatOncallMembers = %q", got)
+	}
+	start, end := oncallWindow(s.NextOncall)
+	if got := output.FormatTime(start); got != "-" {
+		t.Fatalf("start = %q", got)
+	}
+	if got := output.FormatTime(end); got != "-" {
+		t.Fatalf("end = %q", got)
+	}
+	if got := scheduleGroupName(nil); got != "-" {
+		t.Fatalf("scheduleGroupName = %q", got)
 	}
 }

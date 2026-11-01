@@ -33,14 +33,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) (required) — Member ID of the creator.
   - creator_name (string) (required) — Display name of the creator. Not populated by current endpoints — always an empty string; resolve 'creator_id' via 'POST /person/infos'.
   - description (string) (required) — Free-form description.
-  - person_ids (array<integer>) (required) — Member IDs of team members.
+  - person_ids (array<integer>) (required) — Person IDs of the team's members (member IDs; the account owner's ID when the owner is in the team). Empty array when the team has no members.
   - ref_id (string) (required) — External reference ID for third-party HR system integration.
   - status (string) (required) — Team status. 'enabled' — active; 'deleted' — soft-deleted (only possible when fetching a deleted team by 'team_id'; list and name/ref_id lookups exclude deleted teams). [enabled, deleted]
   - team_id (integer) (required) — Unique team ID.
   - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
   - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Member ID of the last editor.
-  - updated_by_name (string) (required) — Display name of the last editor.
+  - updated_by_name (string) (required) — Name of the last editor: the member's name, or the account name when the account owner made the change; empty string when unknown.
 `,
 		Example: `  flashduty team info --data '{"team_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,10 +95,10 @@ Request fields:
   --team-ids []int (required) — List of team IDs to look up.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — Array of brief team info for the matched 'team_ids'; may be null when no ID matches.
+  - items (array<object>) (required) — Brief info for the matched teams, including deleted ones; 'null' when no ID matches.
     - person_ids (array<integer>) (required) — Array of person IDs belonging to the team; empty array (never null) when the team has no members.
-    - team_id (integer) (required) — Team ID.
-    - team_name (string) (required) — Team name.
+    - team_id (integer) (required) — Team ID, one of the requested 'team_ids'.
+    - team_name (string) (required) — Team name. Deleted teams are included, so this can be the name of a team that no longer appears in 'POST /team/list'.
 `,
 		Args:    requireBodyFieldOrArgs("team_ids", "team-ids"),
 		Example: `  flashduty team infos --data '{"team_ids":[1001,1002]}'`,
@@ -167,17 +167,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) (required) — Member ID of the creator.
     - creator_name (string) (required) — Display name of the creator. Not populated by current endpoints — always an empty string; resolve 'creator_id' via 'POST /person/infos'.
     - description (string) (required) — Free-form description.
-    - person_ids (array<integer>) (required) — Member IDs of team members.
+    - person_ids (array<integer>) (required) — Person IDs of the team's members (member IDs; the account owner's ID when the owner is in the team). Empty array when the team has no members.
     - ref_id (string) (required) — External reference ID for third-party HR system integration.
     - status (string) (required) — Team status. 'enabled' — active; 'deleted' — soft-deleted (only possible when fetching a deleted team by 'team_id'; list and name/ref_id lookups exclude deleted teams). [enabled, deleted]
     - team_id (integer) (required) — Unique team ID.
     - team_name (string) (required) — Team display name. 1–39 characters, unique per account.
     - updated_at (string) (required) — Unix epoch seconds the team was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Member ID of the last editor.
-    - updated_by_name (string) (required) — Display name of the last editor.
-  - limit (integer) (required) — Page size used.
-  - p (integer) (required) — Current page number.
-  - total (integer) (required) — Total number of teams matching the filter.
+    - updated_by_name (string) (required) — Name of the last editor: the member's name, or the account name when the account owner made the change; empty string when unknown.
+  - limit (integer) (required) — Page size applied; 20 when 'limit' was omitted.
+  - p (integer) (required) — Page number from the request; '0' when 'p' was omitted (the first page is returned).
+  - total (integer) (required) — Number of non-deleted teams matching the filters, across all pages.
 `,
 		Example: `  flashduty team list --data '{"asc":false,"limit":20,"orderby":"created_at","p":1}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -242,7 +242,7 @@ func genTeamsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete a team",
 		Long: `Delete a team.
 
-Permanently delete a team by ID, name, or external reference ID.
+Delete a team by ID, name, or external reference ID and remove all of its members.
 
 API: POST /team/delete (team-write-delete)
 
@@ -313,14 +313,14 @@ Create a new team or update an existing one. Pass 'team_id' to update.
 API: POST /team/upsert (team-write-upsert)
 
 Request fields:
-  --country-code string — Default country code applied to any 'phones' entries that are not in E.164 format.
-  --description string — Free-form description. (≤500 chars)
-  --emails []string — Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.
-  --person-ids []int — Member IDs to set as team members. Replaces the existing member list.
-  --phones []string — Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.
-  --ref-id string — External reference ID for HR system integration.
+  --country-code string — Region hint for 'phones' entries without a '+' prefix: an ISO 3166-1 alpha-2 code such as 'CN' (the default when omitted) or a digit calling code such as '86'.
+  --description string — Free-form description, up to 500 characters. On update, omitting it clears the stored description. (≤500 chars)
+  --emails []string — Emails of existing members to place in the team; merged with 'person_ids' and 'phones'. Addresses that match no member are ignored and no invitation is sent.
+  --person-ids []int — Person IDs to place in the team (member IDs, or the account ID for the account owner). Together with 'emails' and 'phones' they replace the entire member list; IDs that are not members of the account are ignored.
+  --phones []string — Phone numbers of existing members to place in the team; merged with 'person_ids' and 'emails'. Numbers without a '+' prefix are parsed with 'countryCode'; an unparseable number fails the whole request with '400', and numbers that match no member are ignored.
+  --ref-id string — External reference ID (for example a department ID in an HR system), usable as a lookup key in 'POST /team/info' and 'POST /team/delete'. On update, omitting it clears the stored value.
   --reset-if-name-exist bool — When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.
-  --team-id int — Team ID. Omit or set to 0 to create a new team.
+  --team-id int — ID of the team to update. Omit or set to 0 to create a new team; a non-zero ID must belong to an existing team of the account.
   --team-name string (required) — Team display name. 1–39 characters. (1-39 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
@@ -375,14 +375,14 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Default country code applied to any 'phones' entries that are not in E.164 format.")
-	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description. (≤500 chars)")
-	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Add existing members to the team by email. Addresses that don't match an existing member are silently ignored — no invitation is sent.")
-	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Member IDs to set as team members. Replaces the existing member list.")
-	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Add existing members to the team by phone number. Numbers not in E.164 format are parsed with 'countryCode'; an unparseable number fails the whole request with a 400. Numbers that parse but match no existing member are silently ignored.")
-	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID for HR system integration.")
+	cmd.Flags().StringVar(&fCountryCode, "country-code", "", "Region hint for 'phones' entries without a '+' prefix: an ISO 3166-1 alpha-2 code such as 'CN' (the default when omitted) or a digit calling code such as '86'.")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Free-form description, up to 500 characters. On update, omitting it clears the stored description. (≤500 chars)")
+	cmd.Flags().StringSliceVar(&fEmails, "emails", nil, "Emails of existing members to place in the team; merged with 'person_ids' and 'phones'. Addresses that match no member are ignored and no invitation is sent.")
+	cmd.Flags().IntSliceVar(&fPersonIDs, "person-ids", nil, "Person IDs to place in the team (member IDs, or the account ID for the account owner). Together with 'emails' and 'phones' they replace the entire member list; IDs that are not members of the account are ignored.")
+	cmd.Flags().StringSliceVar(&fPhones, "phones", nil, "Phone numbers of existing members to place in the team; merged with 'person_ids' and 'emails'. Numbers without a '+' prefix are parsed with 'countryCode'; an unparseable number fails the whole request with '400', and numbers that match no member are ignored.")
+	cmd.Flags().StringVar(&fRefID, "ref-id", "", "External reference ID (for example a department ID in an HR system), usable as a lookup key in 'POST /team/info' and 'POST /team/delete'. On update, omitting it clears the stored value.")
 	cmd.Flags().BoolVar(&fResetIfNameExist, "reset-if-name-exist", false, "When true and 'team_id' is 0, an existing team with the same 'team_name' is updated in place instead of returning a name-conflict error.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Team ID. Omit or set to 0 to create a new team.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "ID of the team to update. Omit or set to 0 to create a new team; a non-zero ID must belong to an existing team of the account.")
 	cmd.Flags().StringVar(&fTeamName, "team-name", "", "Team display name. 1–39 characters. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd

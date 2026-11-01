@@ -16,7 +16,7 @@ func genAutomationsRuleReadGetCmd() *cobra.Command {
 		Short: "Get Automation rule",
 		Long: `Get Automation rule.
 
-Get one Automation rule by ID.
+Get one Automation rule by ID, including its trigger settings and execution destination.
 
 API: POST /safari/automation/rule/get (automation-rule-read-get)
 
@@ -24,44 +24,49 @@ Request fields:
   --rule-id string (required) — Rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
+  - account_id (integer) (required) — ID of the account that owns the rule.
+  - can_edit (boolean) (required) — 'true' when the caller can manage (get, update, delete, run) this rule: the owner of a personal rule, or a member of a team rule's team. Account owners and admins get no exemption.
   - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - cron_expr (string) (required) — Normalized 5-field cron expression.
-  - enabled (boolean) (required) — Whether the rule is enabled.
-  - environment_id (string) (required) — BYOC Runner ID.
+  - cron_expr (string) (required) — Normalized 5-field cron expression ('minute hour day month weekday'), evaluated in 'timezone'.
+  - enabled (boolean) (required) — Whether the rule's automatic triggers are armed. A disabled rule can still be run manually. A personal rule is disabled automatically when its owner leaves the account.
+  - environment_id (string) (required) — BYOC runner ID when 'environment_kind=byoc'; empty string otherwise.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
-  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
-    - chat_name (string) — Display name of the bound IM conversation when available.
-    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
-    - description (string) (required) — Human-readable destination description.
-    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
-    - platform (string) — IM platform when execution place is 'im'.
-    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
-    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
-  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
-  - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
+  - execution_location (object) — Read-only description of where the rule runs.
+    - chat_name (string) — Name of the bound chat. Present only when 'place=im' and the name is known.
+    - conversation_mode (string) — Conversation type of the bound chat: 'direct' (one-to-one chat with the bot), 'group_chat' (a group chat), 'group_thread' (a thread in a group chat), 'war_room_chat' (an incident war room). Present only when 'place=im'. [direct, group_chat, group_thread, war_room_chat]
+    - description (string) (required) — Human-readable destination label: 'Web console' for web console rules, otherwise the chat name or platform and conversation type.
+    - place (string) (required) — Same as the rule's 'execution_place': 'web_console' runs in a web console session, 'im' runs in the bound IM chat. [web_console, im]
+    - platform (string) — IM platform of the bound chat: 'feishu' (Feishu/Lark), 'dingtalk' (DingTalk), 'wecom' (WeCom), 'slack' (Slack), 'teams' (Microsoft Teams). Present only when 'place=im'. [feishu, dingtalk, wecom, slack, teams]
+    - run_scope (string) (required) — 'person': runs as the owner; 'team': runs under the team in 'team_id'. [person, team]
+    - team_id (integer) (required) — Team the runs belong to; '0' for a personal rule.
+  - execution_place (string) (required) — Where runs started by the schedule, HTTP POST, On-call incident, and manual triggers execute: 'web_console' (a web console session) or 'im' (the IM chat the rule was created from). War room runs always execute in the war room's group chat. Fixed at creation. [web_console, im]
+  - http_post_token (string) — HTTP POST trigger token. Returned only in the response that issues it: create with 'http_post_trigger_enabled=true', an update that creates the trigger, or an update with 'rotate_http_post_trigger_token=true'. Save it; it cannot be read again.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
-  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
-  - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
+  - http_post_trigger_url (string) — Path to fire the HTTP POST trigger, '/safari/automation/triggers/{trigger_id}/fire', relative to the API base URL. Send 'POST' with 'Authorization: Bearer <http_post_token>'. Omitted when the rule has no HTTP POST trigger.
+  - last_run (object) — The rule's most recent run. Returned only by List Automation rules, and only when the rule has run at least once.
+    - run_id (string) (required) — Run ID, as in List Automation runs.
+    - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) (required) — Run status, same meanings as 'status' in List Automation runs: 'queued', 'running', 'retrying' (in progress); 'succeeded', 'partial', 'failed', 'skipped' (did not execute or merged into another run), 'abandoned' (never completed), 'blocked' (ended waiting on a connector authorization). [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
+  - name (string) (required) — Display name of the rule.
+  - oncall_incident_channel_ids (array<integer>) — Channel IDs the On-call incident trigger watches. Omitted when the rule has no such trigger.
+  - oncall_incident_merge_similar (boolean) (required) — Whether similar incidents are merged into one analysis (see the create request). 'true' when the rule has no On-call incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities the On-call incident trigger watches: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no such trigger. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
-  - owner_id (integer) (required) — Creator person ID.
-  - prompt (string) (required) — Task prompt.
-  - rule_id (string) (required) — Rule ID.
+  - owner_id (integer) (required) — Person ID of the member who created the rule. For a personal rule, the only person who can manage it.
+  - prompt (string) (required) — Task instruction sent to the AI SRE agent on every run.
+  - rule_id (string) (required) — Rule ID (prefix 'arule_'). Pass it as 'rule_id' to get, update, delete, run, and list-runs calls.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
-  - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - team_id (integer) (required) — Scope team ID; '0' means a personal rule. Fixed at creation.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
   - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
-  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_enabled (boolean) (required) — Whether the war room trigger is enabled.
   - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
@@ -112,7 +117,7 @@ func genAutomationsRuleReadListCmd() *cobra.Command {
 		Short: "List Automation rules",
 		Long: `List Automation rules.
 
-List Automation rules visible to the caller.
+List Automation rules visible to the caller, newest update first, with pagination and filters.
 
 API: POST /safari/automation/rule/list (automation-rule-read-list)
 
@@ -121,53 +126,58 @@ Request fields:
   --limit int — Page size. Values below 1 fall back to 20; values above 200 are capped at 200. (max 200)
   --search-after-ctx string
   --enabled bool — Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.
-  --include-person bool — Compatibility field; when scope is empty and this is false, behaves like team scope.
-  --keyword string — Filter by name keyword. (≤64 chars)
-  --scope string — Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]
+  --include-person bool — Legacy switch. Only read when 'scope' is empty: 'false' behaves like 'scope=team'; otherwise ignored.
+  --keyword string — Returns rules whose name contains this text. At most 64 characters. (≤64 chars)
+  --scope string — Scope filter: 'all' (default) your personal rules plus rules of your teams; 'personal' only your personal rules; 'team' only rules of your teams. [all, personal, team]
   --team-ids []int — Filter to these team IDs; this narrows results and does not expand access.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - rules (array<object>) (required) — Array of automation rules for the current page, used with 'total' for pagination.
-    - account_id (integer) (required) — Account ID.
-    - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
+    - account_id (integer) (required) — ID of the account that owns the rule.
+    - can_edit (boolean) (required) — 'true' when the caller can manage (get, update, delete, run) this rule: the owner of a personal rule, or a member of a team rule's team. Account owners and admins get no exemption.
     - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - cron_expr (string) (required) — Normalized 5-field cron expression.
-    - enabled (boolean) (required) — Whether the rule is enabled.
-    - environment_id (string) (required) — BYOC Runner ID.
+    - cron_expr (string) (required) — Normalized 5-field cron expression ('minute hour day month weekday'), evaluated in 'timezone'.
+    - enabled (boolean) (required) — Whether the rule's automatic triggers are armed. A disabled rule can still be run manually. A personal rule is disabled automatically when its owner leaves the account.
+    - environment_id (string) (required) — BYOC runner ID when 'environment_kind=byoc'; empty string otherwise.
     - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
-    - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
-      - chat_name (string) — Display name of the bound IM conversation when available.
-      - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
-      - description (string) (required) — Human-readable destination description.
-      - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
-      - platform (string) — IM platform when execution place is 'im'.
-      - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
-      - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
-    - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
-    - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
+    - execution_location (object) — Read-only description of where the rule runs.
+      - chat_name (string) — Name of the bound chat. Present only when 'place=im' and the name is known.
+      - conversation_mode (string) — Conversation type of the bound chat: 'direct' (one-to-one chat with the bot), 'group_chat' (a group chat), 'group_thread' (a thread in a group chat), 'war_room_chat' (an incident war room). Present only when 'place=im'. [direct, group_chat, group_thread, war_room_chat]
+      - description (string) (required) — Human-readable destination label: 'Web console' for web console rules, otherwise the chat name or platform and conversation type.
+      - place (string) (required) — Same as the rule's 'execution_place': 'web_console' runs in a web console session, 'im' runs in the bound IM chat. [web_console, im]
+      - platform (string) — IM platform of the bound chat: 'feishu' (Feishu/Lark), 'dingtalk' (DingTalk), 'wecom' (WeCom), 'slack' (Slack), 'teams' (Microsoft Teams). Present only when 'place=im'. [feishu, dingtalk, wecom, slack, teams]
+      - run_scope (string) (required) — 'person': runs as the owner; 'team': runs under the team in 'team_id'. [person, team]
+      - team_id (integer) (required) — Team the runs belong to; '0' for a personal rule.
+    - execution_place (string) (required) — Where runs started by the schedule, HTTP POST, On-call incident, and manual triggers execute: 'web_console' (a web console session) or 'im' (the IM chat the rule was created from). War room runs always execute in the war room's group chat. Fixed at creation. [web_console, im]
+    - http_post_token (string) — HTTP POST trigger token. Returned only in the response that issues it: create with 'http_post_trigger_enabled=true', an update that creates the trigger, or an update with 'rotate_http_post_trigger_token=true'. Save it; it cannot be read again.
     - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
     - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
-    - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
-    - name (string) (required) — Rule name.
-    - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
-    - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
+    - http_post_trigger_url (string) — Path to fire the HTTP POST trigger, '/safari/automation/triggers/{trigger_id}/fire', relative to the API base URL. Send 'POST' with 'Authorization: Bearer <http_post_token>'. Omitted when the rule has no HTTP POST trigger.
+    - last_run (object) — The rule's most recent run. Returned only by List Automation rules, and only when the rule has run at least once.
+      - run_id (string) (required) — Run ID, as in List Automation runs.
+      - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - status (string) (required) — Run status, same meanings as 'status' in List Automation runs: 'queued', 'running', 'retrying' (in progress); 'succeeded', 'partial', 'failed', 'skipped' (did not execute or merged into another run), 'abandoned' (never completed), 'blocked' (ended waiting on a connector authorization). [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
+    - name (string) (required) — Display name of the rule.
+    - oncall_incident_channel_ids (array<integer>) — Channel IDs the On-call incident trigger watches. Omitted when the rule has no such trigger.
+    - oncall_incident_merge_similar (boolean) (required) — Whether similar incidents are merged into one analysis (see the create request). 'true' when the rule has no On-call incident trigger.
+    - oncall_incident_severities (array<string>) — Incident severities the On-call incident trigger watches: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no such trigger. [Critical, Warning, Info]
     - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
     - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
-    - owner_id (integer) (required) — Creator person ID.
-    - prompt (string) (required) — Task prompt.
-    - rule_id (string) (required) — Rule ID.
+    - owner_id (integer) (required) — Person ID of the member who created the rule. For a personal rule, the only person who can manage it.
+    - prompt (string) (required) — Task instruction sent to the AI SRE agent on every run.
+    - rule_id (string) (required) — Rule ID (prefix 'arule_'). Pass it as 'rule_id' to get, update, delete, run, and list-runs calls.
     - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
     - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
     - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
-    - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+    - team_id (integer) (required) — Scope team ID; '0' means a personal rule. Fixed at creation.
     - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
     - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
-    - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+    - war_room_trigger_enabled (boolean) (required) — Whether the war room trigger is enabled.
     - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
-  - total (integer) (required) — Total count.
+  - total (integer) (required) — Number of rules matching the filters across all pages.
 `,
 		Example: `  flashduty safari automation-rule-list --data '{"limit":20,"scope":"all"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -218,9 +228,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Values below 1 fall back to 20; values above 200 are capped at 200. (max 200)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Filter by enabled state: 'true' returns only enabled rules, 'false' only disabled; omit or pass null for no filter.")
-	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Compatibility field; when scope is empty and this is false, behaves like team scope.")
-	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Filter by name keyword. (≤64 chars)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Scope filter: 'all' (own personal + accessible team rules), 'personal', or 'team'; default 'all'. [all, personal, team]")
+	cmd.Flags().BoolVar(&fIncludePerson, "include-person", false, "Legacy switch. Only read when 'scope' is empty: 'false' behaves like 'scope=team'; otherwise ignored.")
+	cmd.Flags().StringVar(&fKeyword, "keyword", "", "Returns rules whose name contains this text. At most 64 characters. (≤64 chars)")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Scope filter: 'all' (default) your personal rules plus rules of your teams; 'personal' only your personal rules; 'team' only rules of your teams. [all, personal, team]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; this narrows results and does not expand access.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -235,6 +245,7 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 	var fHTTPPostTriggerEnabled bool
 	var fName string
 	var fOncallIncidentChannelIDs []int
+	var fOncallIncidentMergeSimilar bool
 	var fOncallIncidentSeverities []string
 	var fOncallIncidentTriggerEnabled bool
 	var fPrompt string
@@ -250,68 +261,74 @@ func genAutomationsRuleWriteCreateCmd() *cobra.Command {
 		Short: "Create Automation rule",
 		Long: `Create Automation rule.
 
-Create an Automation rule with schedule, HTTP POST, and On-call incident triggers.
+Create an Automation rule with schedule, HTTP POST, On-call incident, and war room triggers.
 
 API: POST /safari/automation/rule/create (automation-rule-write-create)
 
 Request fields:
-  --cron-expr string (required) — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'.
-  --enabled bool — Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.
-  --environment-id string — BYOC Runner ID. Used only when 'environment_kind=byoc'.
+  --cron-expr string (required) — Schedule in local time of 'timezone'. Accepts 4 fields ('hour day month weekday', minute defaults to 0) or 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; seconds (6 fields) are not supported; setting both day-of-month and day-of-week is rejected. Required even for rules that use only other triggers: send a valid expression with 'schedule_trigger_enabled=false'.
+  --enabled bool — Whether the rule's automatic triggers (schedule, HTTP POST, On-call incident, war room) are armed after creation. Defaults to 'false'. Manual runs work either way.
+  --environment-id string — BYOC runner ID. Required when 'environment_kind=byoc' and rejected for other kinds. A personal rule can only use account-scope runners; a team rule can use account-scope runners or runners of its own team.
   --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (a self-hosted BYOC runner in the account, used with 'environment_id'); automatic selection prefers an online BYOC runner and falls back to the cloud sandbox. [cloud, byoc]
-  --http-post-trigger-enabled bool — Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.
-  --name string (required) — Rule name. (1-255 chars)
-  --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-  --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
-  --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
-  --prompt string (required) — Task prompt sent to the AI SRE agent on each run. (≥1 chars)
-  --run-in string — Execution destination. 'current-chat' binds the rule to the authenticated live IM conversation; 'web' runs in the web console. Omit it so the server selects 'current-chat' for an authenticated IM invocation and 'web' otherwise. The server rejects 'current-chat' outside a live IM conversation. [current-chat, web]
-  --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.
-  --team-id int — Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)
-  --timezone string — IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.
+  --http-post-trigger-enabled bool — Whether to create an enabled HTTP POST trigger. When 'true', the response carries 'http_post_trigger_url' and the one-time 'http_post_token'.
+  --name string (required) — Display name of the rule, 1–255 characters; leading and trailing spaces are trimmed. (1-255 chars)
+  --oncall-incident-channel-ids []int — Channel IDs to watch; incidents in these channels can start a run. Each ID must be positive.
+  --oncall-incident-merge-similar bool — Whether to merge similar incidents into one analysis. When 'true' (default), an incident that closely resembles one already being analyzed by this rule (a run in progress or finished within the last 10 minutes) joins that run's session instead of starting a new one; its own run is recorded as 'skipped' with 'joined_session_id' set. When 'false', every matching incident starts its own run.
+  --oncall-incident-severities []string — Incident severities to watch: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]
+  --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled. When the trigger is created (this is 'true', or channel IDs or severities are sent), both 'oncall_incident_channel_ids' and 'oncall_incident_severities' must be non-empty.
+  --prompt string (required) — Task instruction sent to the AI SRE agent on every run. Must not be empty after trimming spaces. (≥1 chars)
+  --run-in string — Where the rule's runs execute. 'web' (default): in a web console session. 'current-chat': in the IM chat the rule is created from; accepted only from a live IM conversation with the AI SRE agent, so API calls that send it get '400'. [web, current-chat]
+  --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Defaults to 'true' when omitted; send 'false' for rules that should fire only from other triggers.
+  --team-id int — Scope of the rule. '0': a personal rule owned by the caller. '>0': a team rule; the caller must be a member of that team. Omitted: a personal rule for an app key; a rule created by the AI SRE agent inherits its session's scope. The scope cannot be changed after creation. (min 0)
+  --timezone string — IANA time zone name used to evaluate 'cron_expr', e.g. 'Asia/Shanghai'. Ambiguous names such as 'Local', 'CST', 'UTC+8', and 'GMT+8' are rejected. When omitted: the caller's member time zone, then the account time zone, then 'Asia/Shanghai'.
   --war-room-channel-ids []int — Channel IDs whose war rooms start a run. Each ID must be positive.
   --war-room-severities []string — Incident severities that start a run when their war room is created: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]
   --war-room-trigger-enabled bool — Whether the war room trigger is enabled. It fires when a war room (IM group chat) is created for an incident in one of 'war_room_channel_ids' with a severity in 'war_room_severities'; the agent then runs inside that group chat. When the trigger is created (this is 'true', or 'war_room_channel_ids' is sent), both lists must be non-empty.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
+  - account_id (integer) (required) — ID of the account that owns the rule.
+  - can_edit (boolean) (required) — 'true' when the caller can manage (get, update, delete, run) this rule: the owner of a personal rule, or a member of a team rule's team. Account owners and admins get no exemption.
   - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - cron_expr (string) (required) — Normalized 5-field cron expression.
-  - enabled (boolean) (required) — Whether the rule is enabled.
-  - environment_id (string) (required) — BYOC Runner ID.
+  - cron_expr (string) (required) — Normalized 5-field cron expression ('minute hour day month weekday'), evaluated in 'timezone'.
+  - enabled (boolean) (required) — Whether the rule's automatic triggers are armed. A disabled rule can still be run manually. A personal rule is disabled automatically when its owner leaves the account.
+  - environment_id (string) (required) — BYOC runner ID when 'environment_kind=byoc'; empty string otherwise.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
-  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
-    - chat_name (string) — Display name of the bound IM conversation when available.
-    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
-    - description (string) (required) — Human-readable destination description.
-    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
-    - platform (string) — IM platform when execution place is 'im'.
-    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
-    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
-  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
-  - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
+  - execution_location (object) — Read-only description of where the rule runs.
+    - chat_name (string) — Name of the bound chat. Present only when 'place=im' and the name is known.
+    - conversation_mode (string) — Conversation type of the bound chat: 'direct' (one-to-one chat with the bot), 'group_chat' (a group chat), 'group_thread' (a thread in a group chat), 'war_room_chat' (an incident war room). Present only when 'place=im'. [direct, group_chat, group_thread, war_room_chat]
+    - description (string) (required) — Human-readable destination label: 'Web console' for web console rules, otherwise the chat name or platform and conversation type.
+    - place (string) (required) — Same as the rule's 'execution_place': 'web_console' runs in a web console session, 'im' runs in the bound IM chat. [web_console, im]
+    - platform (string) — IM platform of the bound chat: 'feishu' (Feishu/Lark), 'dingtalk' (DingTalk), 'wecom' (WeCom), 'slack' (Slack), 'teams' (Microsoft Teams). Present only when 'place=im'. [feishu, dingtalk, wecom, slack, teams]
+    - run_scope (string) (required) — 'person': runs as the owner; 'team': runs under the team in 'team_id'. [person, team]
+    - team_id (integer) (required) — Team the runs belong to; '0' for a personal rule.
+  - execution_place (string) (required) — Where runs started by the schedule, HTTP POST, On-call incident, and manual triggers execute: 'web_console' (a web console session) or 'im' (the IM chat the rule was created from). War room runs always execute in the war room's group chat. Fixed at creation. [web_console, im]
+  - http_post_token (string) — HTTP POST trigger token. Returned only in the response that issues it: create with 'http_post_trigger_enabled=true', an update that creates the trigger, or an update with 'rotate_http_post_trigger_token=true'. Save it; it cannot be read again.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
-  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
-  - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
+  - http_post_trigger_url (string) — Path to fire the HTTP POST trigger, '/safari/automation/triggers/{trigger_id}/fire', relative to the API base URL. Send 'POST' with 'Authorization: Bearer <http_post_token>'. Omitted when the rule has no HTTP POST trigger.
+  - last_run (object) — The rule's most recent run. Returned only by List Automation rules, and only when the rule has run at least once.
+    - run_id (string) (required) — Run ID, as in List Automation runs.
+    - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) (required) — Run status, same meanings as 'status' in List Automation runs: 'queued', 'running', 'retrying' (in progress); 'succeeded', 'partial', 'failed', 'skipped' (did not execute or merged into another run), 'abandoned' (never completed), 'blocked' (ended waiting on a connector authorization). [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
+  - name (string) (required) — Display name of the rule.
+  - oncall_incident_channel_ids (array<integer>) — Channel IDs the On-call incident trigger watches. Omitted when the rule has no such trigger.
+  - oncall_incident_merge_similar (boolean) (required) — Whether similar incidents are merged into one analysis (see the create request). 'true' when the rule has no On-call incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities the On-call incident trigger watches: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no such trigger. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
-  - owner_id (integer) (required) — Creator person ID.
-  - prompt (string) (required) — Task prompt.
-  - rule_id (string) (required) — Rule ID.
+  - owner_id (integer) (required) — Person ID of the member who created the rule. For a personal rule, the only person who can manage it.
+  - prompt (string) (required) — Task instruction sent to the AI SRE agent on every run.
+  - rule_id (string) (required) — Rule ID (prefix 'arule_'). Pass it as 'rule_id' to get, update, delete, run, and list-runs calls.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
-  - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - team_id (integer) (required) — Scope team ID; '0' means a personal rule. Fixed at creation.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
   - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
-  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_enabled (boolean) (required) — Whether the war room trigger is enabled.
   - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Example: `  flashduty safari automation-rule-create --data '{"cron_expr":"0 9 * * 1","enabled":true,"http_post_trigger_enabled":true,"name":"Weekly on-call review","oncall_incident_channel_ids":[456],"oncall_incident_severities":["Critical","Warning"],"oncall_incident_trigger_enabled":true,"prompt":"Summarize last week'\''s alert noise and escalation load.","schedule_trigger_enabled":true,"team_id":123,"timezone":"Asia/Shanghai"}'`,
@@ -338,6 +355,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					}
 					if cmd.Flags().Changed("oncall-incident-channel-ids") {
 						body["oncall_incident_channel_ids"] = fOncallIncidentChannelIDs
+					}
+					if cmd.Flags().Changed("oncall-incident-merge-similar") {
+						body["oncall_incident_merge_similar"] = fOncallIncidentMergeSimilar
 					}
 					if cmd.Flags().Changed("oncall-incident-severities") {
 						body["oncall_incident_severities"] = fOncallIncidentSeverities
@@ -386,20 +406,21 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported. A cron that sets both day-of-month and day-of-week is rejected. The create API currently requires this field even for HTTP-POST-only rules; send a valid cron and set 'schedule_trigger_enabled=false'. (required)")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled after creation. Omitted API value is false; Chat/CLI create sends true by default unless the user asks for disabled.")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID. Used only when 'environment_kind=byoc'.")
+	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Schedule in local time of 'timezone'. Accepts 4 fields ('hour day month weekday', minute defaults to 0) or 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; seconds (6 fields) are not supported; setting both day-of-month and day-of-week is rejected. Required even for rules that use only other triggers: send a valid expression with 'schedule_trigger_enabled=false'. (required)")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule's automatic triggers (schedule, HTTP POST, On-call incident, war room) are armed after creation. Defaults to 'false'. Manual runs work either way.")
+	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC runner ID. Required when 'environment_kind=byoc' and rejected for other kinds. A personal rule can only use account-scope runners; a team rule can use account-scope runners or runners of its own team.")
 	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (a self-hosted BYOC runner in the account, used with 'environment_id'); automatic selection prefers an online BYOC runner and falls back to the cloud sandbox. [cloud, byoc]")
-	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether to create and enable an HTTP POST trigger. When enabled, the response includes a one-time token.")
-	cmd.Flags().StringVar(&fName, "name", "", "Rule name. (required) (1-255 chars)")
-	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
-	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
-	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
-	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task prompt sent to the AI SRE agent on each run. (required) (≥1 chars)")
-	cmd.Flags().StringVar(&fRunIn, "run-in", "", "Execution destination. 'current-chat' binds the rule to the authenticated live IM conversation; 'web' runs in the web console. Omit it so the server selects 'current-chat' for an authenticated IM invocation and 'web' otherwise. The server rejects 'current-chat' outside a live IM conversation. [current-chat, web]")
-	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to true when omitted; HTTP-POST-only rules should send false.")
-	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope team ID. Explicit 0 means personal scope; >0 means a team in the account. Omit it to inherit the authenticated IM conversation scope when one is available, otherwise let the server select the normal default. A current-chat rule must match that conversation's scope. (min 0)")
-	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone 'cron_expr' is evaluated in, e.g. 'Asia/Shanghai'. Must be a timezone name loadable by the server; an invalid value is rejected. Defaults to the caller's member timezone, then the account timezone, then the server default (Asia/Shanghai) when omitted.")
+	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether to create an enabled HTTP POST trigger. When 'true', the response carries 'http_post_trigger_url' and the one-time 'http_post_token'.")
+	cmd.Flags().StringVar(&fName, "name", "", "Display name of the rule, 1–255 characters; leading and trailing spaces are trimmed. (required) (1-255 chars)")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "Channel IDs to watch; incidents in these channels can start a run. Each ID must be positive.")
+	cmd.Flags().BoolVar(&fOncallIncidentMergeSimilar, "oncall-incident-merge-similar", false, "Whether to merge similar incidents into one analysis. When 'true' (default), an incident that closely resembles one already being analyzed by this rule (a run in progress or finished within the last 10 minutes) joins that run's session instead of starting a new one; its own run is recorded as 'skipped' with 'joined_session_id' set. When 'false', every matching incident starts its own run.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled. When the trigger is created (this is 'true', or channel IDs or severities are sent), both 'oncall_incident_channel_ids' and 'oncall_incident_severities' must be non-empty.")
+	cmd.Flags().StringVar(&fPrompt, "prompt", "", "Task instruction sent to the AI SRE agent on every run. Must not be empty after trimming spaces. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fRunIn, "run-in", "", "Where the rule's runs execute. 'web' (default): in a web console session. 'current-chat': in the IM chat the rule is created from; accepted only from a live IM conversation with the AI SRE agent, so API calls that send it get '400'. [web, current-chat]")
+	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Defaults to 'true' when omitted; send 'false' for rules that should fire only from other triggers.")
+	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Scope of the rule. '0': a personal rule owned by the caller. '>0': a team rule; the caller must be a member of that team. Omitted: a personal rule for an app key; a rule created by the AI SRE agent inherits its session's scope. The scope cannot be changed after creation. (min 0)")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA time zone name used to evaluate 'cron_expr', e.g. 'Asia/Shanghai'. Ambiguous names such as 'Local', 'CST', 'UTC+8', and 'GMT+8' are rejected. When omitted: the caller's member time zone, then the account time zone, then 'Asia/Shanghai'.")
 	cmd.Flags().IntSliceVar(&fWarRoomChannelIDs, "war-room-channel-ids", nil, "Channel IDs whose war rooms start a run. Each ID must be positive.")
 	cmd.Flags().StringSliceVar(&fWarRoomSeverities, "war-room-severities", nil, "Incident severities that start a run when their war room is created: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. [Critical, Warning, Info]")
 	cmd.Flags().BoolVar(&fWarRoomTriggerEnabled, "war-room-trigger-enabled", false, "Whether the war room trigger is enabled. It fires when a war room (IM group chat) is created for an incident in one of 'war_room_channel_ids' with a severity in 'war_room_severities'; the agent then runs inside that group chat. When the trigger is created (this is 'true', or 'war_room_channel_ids' is sent), both lists must be non-empty.")
@@ -415,7 +436,7 @@ func genAutomationsRuleWriteDeleteCmd() *cobra.Command {
 		Short: "Delete Automation rule",
 		Long: `Delete Automation rule.
 
-Delete an Automation rule.
+Delete an Automation rule together with all of its triggers and their subscriptions.
 
 API: POST /safari/automation/rule/delete (automation-rule-write-delete)
 
@@ -463,7 +484,7 @@ func genAutomationsRuleWriteRunCmd() *cobra.Command {
 		Short: "Run Automation rule",
 		Long: `Run Automation rule.
 
-Manually run an Automation rule immediately, outside its schedule.
+Run an Automation rule once right now, regardless of its triggers or enabled state.
 
 API: POST /safari/automation/rule/run (automation-rule-write-run)
 
@@ -474,15 +495,15 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - preflight (object) (required) — Readiness checks computed before a manual run is allowed to start.
     - app_name (string) (required) — App the rule is scoped to. Currently always ai-sre; manual runs are only supported for that app.
     - checks (array<string>) (required) — Names of the readiness checks performed, in order. Current fixed set: rule_loaded, actor_authorized, app_allowed, runtime_scope_resolved, rule_config_valid.
-    - ok (boolean) (required) — Whether all readiness checks passed. Always true in a response that reaches the caller — a failed preflight returns a 400/403 error instead of a payload with ok=false.
+    - ok (boolean) (required) — Whether all readiness checks passed. Always 'true' in a 200 response; a failed preflight returns an error instead.
     - owner_id (integer) (required) — Rule owner person ID.
     - scope (string) (required) — Resolved run scope for this run; mirrors the rule's run_scope. One of: 'person' (personal rule, runs as its creator), 'team' (team rule, runs under the owning team). [person, team]
     - team_id (integer) (required) — Rule's scope team ID; 0 means a personal rule.
-    - warnings (array<string>) — Non-fatal warnings surfaced during preflight. Omitted or empty when there are none.
+    - warnings (array<string>) — Non-fatal warnings from preflight. Currently never populated, so the field is omitted.
   - rule_id (string) (required) — Rule ID that was run.
   - run (object) — Reference to the run started by a manual trigger.
     - run_id (string) (required) — Run ID, always populated once a run is created.
-    - session_id (string) — AI SRE session ID for this run. Always populated in a 200 response, since the call only returns after the session has started.
+    - session_id (string) — AI SRE session started for this run. Omitted when the rule executes in an IM chat ('execution_place=im').
   - trigger_kind (string) (required) — Always manual for this operation. [manual]
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
@@ -542,68 +563,73 @@ func genAutomationsRuleWriteUpdateCmd() *cobra.Command {
 		Short: "Update Automation rule",
 		Long: `Update Automation rule.
 
-Update mutable Automation rule fields, including HTTP POST and On-call incident trigger settings.
+Update an Automation rule's fields and trigger settings; omitted fields keep their current values.
 
 API: POST /safari/automation/rule/update (automation-rule-write-update)
 
 Request fields:
   --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
-  --name string — New rule name. (≤255 chars)
-  --enabled bool — Whether the rule is enabled.
-  --cron-expr string — Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.
-  --timezone string — New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.
-  --schedule-trigger-enabled bool — Whether the schedule trigger is enabled.
-  --prompt string — New task prompt.
-  --environment-kind string — Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]
-  --environment-id string — BYOC Runner ID.
-  --http-post-trigger-enabled bool — Whether the HTTP POST trigger is enabled. Sending true creates one when missing.
-  --rotate-http-post-trigger-token bool — Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.
-  --oncall-incident-trigger-enabled bool — Whether the On-call incident trigger is enabled.
-  --oncall-incident-channel-ids []int — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.
-  --oncall-incident-severities []string — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]
-  --war-room-trigger-enabled bool
-  --war-room-channel-ids []int
-  --war-room-severities []string
+  --name string — New display name, at most 255 characters. An empty string after trimming is rejected. (≤255 chars)
+  --enabled bool — Whether the rule's automatic triggers are armed. Omit to keep the current value.
+  --cron-expr string — New schedule, same format as on create: 4 fields ('hour day month weekday') or 5 fields ('minute hour day month weekday'), fixed-integer minute, no seconds, not both day-of-month and day-of-week. Omit to keep the current expression.
+  --timezone string — New IANA time zone for 'cron_expr'. An empty string stores 'UTC'. Omit or send 'null' to keep the current time zone.
+  --schedule-trigger-enabled bool — Whether the schedule trigger is enabled. Omit to keep the current value.
+  --prompt string — New task instruction for the agent. Omit to keep the current one.
+  --environment-kind string — New runtime environment: '""' automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox), 'cloud' platform-hosted cloud sandbox, 'byoc' the runner in 'environment_id'. Sending this without 'environment_id' clears the stored 'environment_id'. [cloud, byoc]
+  --environment-id string — BYOC runner ID; required when the resulting 'environment_kind' is 'byoc', rejected otherwise.
+  --http-post-trigger-enabled bool — Enable or disable the HTTP POST trigger. 'true' on a rule without one creates it and returns its token in this response.
+  --rotate-http-post-trigger-token bool — When 'true', issues a new HTTP POST trigger token and invalidates the old one. The trigger must exist and be enabled. The new token is returned only in this response.
+  --oncall-incident-trigger-enabled bool — Enable or disable the On-call incident trigger. Creating it on a rule that has none also needs 'oncall_incident_channel_ids' and 'oncall_incident_severities'.
+  --oncall-incident-channel-ids []int — Replaces the watched channel IDs when non-empty; an empty or omitted list keeps the stored IDs.
+  --oncall-incident-severities []string — Replaces the watched severities when non-empty ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels); an empty or omitted list keeps the stored values. [Critical, Warning, Info]
+  --war-room-trigger-enabled bool — Enable or disable the war room trigger. Creating it on a rule that has none also needs 'war_room_channel_ids' and 'war_room_severities'. Omit to keep the current value.
+  --war-room-channel-ids []int — Replaces the channel IDs whose war rooms start a run when non-empty; an empty or omitted list keeps the stored IDs.
+  --war-room-severities []string — Replaces the war room severities when non-empty ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels); an empty or omitted list keeps the stored values. [Critical, Warning, Info]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - account_id (integer) (required) — Account ID.
-  - can_edit (boolean) (required) — True when the caller can manage this rule: the personal rule owner; for team rules, an account admin or a member of the rule's team.
+  - account_id (integer) (required) — ID of the account that owns the rule.
+  - can_edit (boolean) (required) — 'true' when the caller can manage (get, update, delete, run) this rule: the owner of a personal rule, or a member of a team rule's team. Account owners and admins get no exemption.
   - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - cron_expr (string) (required) — Normalized 5-field cron expression.
-  - enabled (boolean) (required) — Whether the rule is enabled.
-  - environment_id (string) (required) — BYOC Runner ID.
+  - cron_expr (string) (required) — Normalized 5-field cron expression ('minute hour day month weekday'), evaluated in 'timezone'.
+  - enabled (boolean) (required) — Whether the rule's automatic triggers are armed. A disabled rule can still be run manually. A personal rule is disabled automatically when its owner leaves the account.
+  - environment_id (string) (required) — BYOC runner ID when 'environment_kind=byoc'; empty string otherwise.
   - environment_kind (string) (required) — Runtime environment kind. Omit or send an empty value for automatic selection. One of: 'cloud' (platform-hosted cloud sandbox), 'byoc' (self-hosted BYOC runner in the account); an empty value means automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox). [cloud, byoc]
-  - execution_location (object) — Read-only Automation execution destination. It never includes a chat, integration, or session identifier.
-    - chat_name (string) — Display name of the bound IM conversation when available.
-    - conversation_mode (string) — Bound IM conversation mode when execution place is 'im'.
-    - description (string) (required) — Human-readable destination description.
-    - place (string) (required) — Execution destination: 'im' or 'web_console'. [im, web_console]
-    - platform (string) — IM platform when execution place is 'im'.
-    - run_scope (string) (required) — Pinned execution scope: 'person' or 'team'. [person, team]
-    - team_id (integer) (required) — Pinned scope team ID. 0 means personal scope.
-  - execution_place (string) (required) — Configured execution destination for ordinary triggers. War-room triggers resolve their event war room at execution time. [im, web_console]
-  - http_post_token (string) — HTTP POST trigger token. Returned only on create or token rotation; save it immediately.
+  - execution_location (object) — Read-only description of where the rule runs.
+    - chat_name (string) — Name of the bound chat. Present only when 'place=im' and the name is known.
+    - conversation_mode (string) — Conversation type of the bound chat: 'direct' (one-to-one chat with the bot), 'group_chat' (a group chat), 'group_thread' (a thread in a group chat), 'war_room_chat' (an incident war room). Present only when 'place=im'. [direct, group_chat, group_thread, war_room_chat]
+    - description (string) (required) — Human-readable destination label: 'Web console' for web console rules, otherwise the chat name or platform and conversation type.
+    - place (string) (required) — Same as the rule's 'execution_place': 'web_console' runs in a web console session, 'im' runs in the bound IM chat. [web_console, im]
+    - platform (string) — IM platform of the bound chat: 'feishu' (Feishu/Lark), 'dingtalk' (DingTalk), 'wecom' (WeCom), 'slack' (Slack), 'teams' (Microsoft Teams). Present only when 'place=im'. [feishu, dingtalk, wecom, slack, teams]
+    - run_scope (string) (required) — 'person': runs as the owner; 'team': runs under the team in 'team_id'. [person, team]
+    - team_id (integer) (required) — Team the runs belong to; '0' for a personal rule.
+  - execution_place (string) (required) — Where runs started by the schedule, HTTP POST, On-call incident, and manual triggers execute: 'web_console' (a web console session) or 'im' (the IM chat the rule was created from). War room runs always execute in the war room's group chat. Fixed at creation. [web_console, im]
+  - http_post_token (string) — HTTP POST trigger token. Returned only in the response that issues it: create with 'http_post_trigger_enabled=true', an update that creates the trigger, or an update with 'rotate_http_post_trigger_token=true'. Save it; it cannot be read again.
   - http_post_trigger_enabled (boolean) (required) — Whether the HTTP POST trigger is enabled.
   - http_post_trigger_id (string) — HTTP POST trigger ID. Omitted when the rule has no HTTP POST trigger.
-  - http_post_trigger_url (string) — HTTP POST trigger path. Omitted when the rule has no HTTP POST trigger.
-  - name (string) (required) — Rule name.
-  - oncall_incident_channel_ids (array<integer>) — On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID. Omitted when no On-call incident trigger is configured.
-  - oncall_incident_severities (array<string>) — Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. Omitted when no On-call incident trigger is configured. [Critical, Warning, Info]
+  - http_post_trigger_url (string) — Path to fire the HTTP POST trigger, '/safari/automation/triggers/{trigger_id}/fire', relative to the API base URL. Send 'POST' with 'Authorization: Bearer <http_post_token>'. Omitted when the rule has no HTTP POST trigger.
+  - last_run (object) — The rule's most recent run. Returned only by List Automation rules, and only when the rule has run at least once.
+    - run_id (string) (required) — Run ID, as in List Automation runs.
+    - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - status (string) (required) — Run status, same meanings as 'status' in List Automation runs: 'queued', 'running', 'retrying' (in progress); 'succeeded', 'partial', 'failed', 'skipped' (did not execute or merged into another run), 'abandoned' (never completed), 'blocked' (ended waiting on a connector authorization). [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
+  - name (string) (required) — Display name of the rule.
+  - oncall_incident_channel_ids (array<integer>) — Channel IDs the On-call incident trigger watches. Omitted when the rule has no such trigger.
+  - oncall_incident_merge_similar (boolean) (required) — Whether similar incidents are merged into one analysis (see the create request). 'true' when the rule has no On-call incident trigger.
+  - oncall_incident_severities (array<string>) — Incident severities the On-call incident trigger watches: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no such trigger. [Critical, Warning, Info]
   - oncall_incident_trigger_enabled (boolean) (required) — Whether the On-call incident trigger is enabled.
   - oncall_incident_trigger_id (string) — On-call incident trigger ID. Omitted when the rule has no On-call incident trigger.
-  - owner_id (integer) (required) — Creator person ID.
-  - prompt (string) (required) — Task prompt.
-  - rule_id (string) (required) — Rule ID.
+  - owner_id (integer) (required) — Person ID of the member who created the rule. For a personal rule, the only person who can manage it.
+  - prompt (string) (required) — Task instruction sent to the AI SRE agent on every run.
+  - rule_id (string) (required) — Rule ID (prefix 'arule_'). Pass it as 'rule_id' to get, update, delete, run, and list-runs calls.
   - run_scope (string) (required) — Hidden session run scope. One of: 'person' (personal rule, team_id=0, runs as the creator; disabled when the creator leaves the account), 'team' (team rule, team_id>0, owned by the team and shared with its members; survives the creator leaving). Derived from the rule's team_id. [person, team]
   - schedule_next_fire_at_ms (string) (required) — Next scheduled fire time, Unix milliseconds. 0 means no future scheduled fire is available. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - schedule_trigger_enabled (boolean) (required) — Whether the schedule trigger is enabled.
   - schedule_trigger_id (string) — Schedule trigger ID. Omitted if the rule has no schedule trigger.
-  - team_id (integer) (required) — Scope team ID; 0 means personal rule.
+  - team_id (integer) (required) — Scope team ID; '0' means a personal rule. Fixed at creation.
   - timezone (string) (required) — IANA timezone 'cron_expr' is evaluated in. Always populated for rules created after this field shipped; empty on legacy rows created before it, which still resolve to UTC when scheduled.
   - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - war_room_channel_ids (array<integer>) — Channel IDs whose war rooms start a run. Omitted when the rule has no war room trigger.
   - war_room_severities (array<string>) — Incident severities whose war rooms start a run: 'Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels. Omitted when the rule has no war room trigger. [Critical, Warning, Info]
-  - war_room_trigger_enabled (boolean) — Whether the war room trigger is enabled.
+  - war_room_trigger_enabled (boolean) (required) — Whether the war room trigger is enabled.
   - war_room_trigger_id (string) — War room trigger ID. Omitted when the rule has no war room trigger.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
@@ -683,22 +709,22 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
-	cmd.Flags().StringVar(&fName, "name", "", "New rule name. (≤255 chars)")
-	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled.")
-	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "Run cadence. Supports 4 fields ('hour day month weekday', minute defaults to 0) and 5 fields ('minute hour day month weekday'). The minute must be one fixed integer; 6-field seconds are not supported.")
-	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone for evaluating 'cron_expr'. Omit or send null to leave the current timezone unchanged.")
-	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled.")
-	cmd.Flags().StringVar(&fPrompt, "prompt", "", "New task prompt.")
-	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "Runtime environment kind. Omit or send an empty value for automatic selection. [cloud, byoc]")
-	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC Runner ID.")
-	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Whether the HTTP POST trigger is enabled. Sending true creates one when missing.")
-	cmd.Flags().BoolVar(&fRotateHTTPPostTriggerToken, "rotate-http-post-trigger-token", false, "Whether to rotate the HTTP POST trigger token. The new token is returned only in this response.")
-	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Whether the On-call incident trigger is enabled.")
-	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "On-call integration IDs to watch. Creating or enabling this trigger requires at least one valid ID.")
-	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Incident severities to watch. Supported values are Critical, Warning, and Info; creating or enabling this trigger requires at least one value. [Critical, Warning, Info]")
-	cmd.Flags().BoolVar(&fWarRoomTriggerEnabled, "war-room-trigger-enabled", false, "Request field ")
-	cmd.Flags().IntSliceVar(&fWarRoomChannelIDs, "war-room-channel-ids", nil, "Request field ")
-	cmd.Flags().StringSliceVar(&fWarRoomSeverities, "war-room-severities", nil, "Request field ")
+	cmd.Flags().StringVar(&fName, "name", "", "New display name, at most 255 characters. An empty string after trimming is rejected. (≤255 chars)")
+	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule's automatic triggers are armed. Omit to keep the current value.")
+	cmd.Flags().StringVar(&fCronExpr, "cron-expr", "", "New schedule, same format as on create: 4 fields ('hour day month weekday') or 5 fields ('minute hour day month weekday'), fixed-integer minute, no seconds, not both day-of-month and day-of-week. Omit to keep the current expression.")
+	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA time zone for 'cron_expr'. An empty string stores 'UTC'. Omit or send 'null' to keep the current time zone.")
+	cmd.Flags().BoolVar(&fScheduleTriggerEnabled, "schedule-trigger-enabled", false, "Whether the schedule trigger is enabled. Omit to keep the current value.")
+	cmd.Flags().StringVar(&fPrompt, "prompt", "", "New task instruction for the agent. Omit to keep the current one.")
+	cmd.Flags().StringVar(&fEnvironmentKind, "environment-kind", "", "New runtime environment: '\"\"' automatic selection (prefers an online BYOC runner, falls back to the cloud sandbox), 'cloud' platform-hosted cloud sandbox, 'byoc' the runner in 'environment_id'. Sending this without 'environment_id' clears the stored 'environment_id'. [cloud, byoc]")
+	cmd.Flags().StringVar(&fEnvironmentID, "environment-id", "", "BYOC runner ID; required when the resulting 'environment_kind' is 'byoc', rejected otherwise.")
+	cmd.Flags().BoolVar(&fHTTPPostTriggerEnabled, "http-post-trigger-enabled", false, "Enable or disable the HTTP POST trigger. 'true' on a rule without one creates it and returns its token in this response.")
+	cmd.Flags().BoolVar(&fRotateHTTPPostTriggerToken, "rotate-http-post-trigger-token", false, "When 'true', issues a new HTTP POST trigger token and invalidates the old one. The trigger must exist and be enabled. The new token is returned only in this response.")
+	cmd.Flags().BoolVar(&fOncallIncidentTriggerEnabled, "oncall-incident-trigger-enabled", false, "Enable or disable the On-call incident trigger. Creating it on a rule that has none also needs 'oncall_incident_channel_ids' and 'oncall_incident_severities'.")
+	cmd.Flags().IntSliceVar(&fOncallIncidentChannelIDs, "oncall-incident-channel-ids", nil, "Replaces the watched channel IDs when non-empty; an empty or omitted list keeps the stored IDs.")
+	cmd.Flags().StringSliceVar(&fOncallIncidentSeverities, "oncall-incident-severities", nil, "Replaces the watched severities when non-empty ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels); an empty or omitted list keeps the stored values. [Critical, Warning, Info]")
+	cmd.Flags().BoolVar(&fWarRoomTriggerEnabled, "war-room-trigger-enabled", false, "Enable or disable the war room trigger. Creating it on a rule that has none also needs 'war_room_channel_ids' and 'war_room_severities'. Omit to keep the current value.")
+	cmd.Flags().IntSliceVar(&fWarRoomChannelIDs, "war-room-channel-ids", nil, "Replaces the channel IDs whose war rooms start a run when non-empty; an empty or omitted list keeps the stored IDs.")
+	cmd.Flags().StringSliceVar(&fWarRoomSeverities, "war-room-severities", nil, "Replaces the war room severities when non-empty ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels); an empty or omitted list keeps the stored values. [Critical, Warning, Info]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -718,43 +744,45 @@ func genAutomationsRunReadListCmd() *cobra.Command {
 		Short: "List Automation runs",
 		Long: `List Automation runs.
 
-List run history for a rule the caller can manage.
+List the run history of one Automation rule, newest first, with status, trigger, and time filters.
 
 API: POST /safari/automation/run/list (automation-run-read-list)
 
 Request fields:
   --page int — Page number, 1-based.
-  --limit int — Page size.
+  --limit int — Page size. Values below 1 fall back to 20.
   --search-after-ctx string
   --rule-id string (required) — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
   --started-after-ms int — Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)
   --started-before-ms int — Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)
   --status string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
-  --trigger-kind string — Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]
+  --trigger-kind string — Trigger filter: 'schedule' schedule trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' On-call incident trigger, 'war_room_created' war room trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident, war_room_created]
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - runs (array<object>) (required) — Array of run records for the given 'rule_id', filtered by the request's status/trigger-kind/time-range and paginated.
-    - account_id (integer) (required) — Account ID.
-    - attempts (integer) (required) — Attempt count.
+    - account_id (integer) (required) — ID of the account that owns the run.
+    - attempts (integer) (required) — Number of execution attempts made for this run.
     - completed_at (string) (required) — Completion time, Unix milliseconds. 0 means not completed. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_at (string) (required) — Creation time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - duration_ms (integer) (required) — Duration in milliseconds.
     - error_code (string) (required) — Error code; empty when the run did not fail.
     - error_message (string) (required) — Error message; empty when the run did not fail.
-    - execution_place (string) (required) — Actual execution destination: 'im' or 'web_console'. IM runs omit session details and deep links. [im, web_console]
+    - execution_place (string) (required) — Where this run executed: 'web_console' (a web console session; 'session_id' links to it) or 'im' (an IM chat; session details are withheld). 'war_room_created' runs are always 'im'. [web_console, im]
+    - joined_session_id (string) — For an On-call incident run merged into a similar incident's analysis ('status=skipped'): the session it joined. Omitted otherwise.
+    - joined_session_name (string) — Display name of 'joined_session_id'. Omitted when empty or when the name lookup fails.
     - kind (string) (required) — Run kind; runs listed for a rule are always 'automation_rule'. [automation_rule]
-    - occurrence_key (string) (required) — Idempotency key for this occurrence.
-    - result_json (object) (required) — Raw run result JSON (carries the run's 'session_id' once started); null when empty.
-    - rule_id (string) (required) — Rule ID.
-    - run_id (string) (required) — Run ID.
-    - session_id (string) — Session created for this run, extracted from 'result_json'. Omitted when the run has not (yet) started a session.
+    - occurrence_key (string) (required) — Idempotency key of this occurrence: 'manual:<run_id>' for manual runs, '<trigger_id>:<scheduled fire time in Unix ms>' for schedule runs, 'oncall_incident:<trigger_id>:<incident_id>' for On-call incident runs.
+    - result_json (object) (required) — Raw run result JSON (carries 'session_id' once a session started). 'null' when empty or when the run executed in an IM chat.
+    - rule_id (string) (required) — ID of the rule this run belongs to.
+    - run_id (string) (required) — Run ID (prefix 'trun_').
+    - session_id (string) — AI SRE session the run executed in. Omitted when the run has not started a session, when it joined another run (see 'joined_session_id'), or when it executed in an IM chat.
     - session_name (string) — Display name of the run's session, stamped via a batch lookup. Omitted when empty or when the lookup fails.
     - started_at (string) (required) — Start time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - stats_json (object) (required) — Raw run statistics JSON; null when empty.
-    - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | | 'blocked' | Terminal: the run produced output but ended with a connector waiting on a human to complete authorization (distinct from 'failed') | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
-    - trigger_kind (string) (required) — Trigger kind. One of: | Value | Meaning | | --- | --- | | 'schedule' | Fired by the rule's schedule trigger | | 'debug' | Debug run (reserved; current rule runs never carry this kind) | | 'manual' | Triggered manually by a user | | 'http_post' | Fired via the rule's HTTP POST webhook | | 'oncall_incident' | Fired by an on-call incident event | [schedule, debug, manual, http_post, oncall_incident]
+    - status (string) (required) — Run status. One of (the first three are in-flight, the rest terminal): | Value | Meaning | | --- | --- | | 'queued' | Enqueued, waiting for a worker | | 'running' | Executing | | 'retrying' | An attempt failed and a retry is scheduled | | 'succeeded' | Completed successfully | | 'partial' | Partially succeeded (currently only produced by memory-consolidation runs; rule runs never reach it) | | 'failed' | Terminal failure, no further retries | | 'skipped' | Not executed (e.g. grace period expired, trigger or rule invalid); the reason is kept on the run record. Also used for an On-call incident run merged into a similar incident's analysis (see 'joined_session_id') | | 'abandoned' | Still in-flight past the stale threshold and swept as never-completed (e.g. worker died) | | 'blocked' | Terminal: the run produced output but ended with a connector waiting on a human to complete authorization (distinct from 'failed') | [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
+    - trigger_kind (string) (required) — Trigger kind. One of: | Value | Meaning | | --- | --- | | 'schedule' | Fired by the rule's schedule trigger | | 'debug' | Debug run (reserved; current rule runs never carry this kind) | | 'manual' | Started with Run Automation rule | | 'http_post' | Fired via the rule's HTTP POST trigger | | 'oncall_incident' | Fired by a matching On-call incident | | 'war_room_created' | Fired when a war room was created for a matching incident; runs in that group chat | [schedule, debug, manual, http_post, oncall_incident, war_room_created]
     - updated_at (string) (required) — Last update time, Unix milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - total (integer) (required) — Total count.
+  - total (integer) (required) — Number of runs matching the filters across all pages.
 `,
 		Args:    requireBodyFieldOrExactArg("rule_id", "rule-id"),
 		Example: `  flashduty safari automation-run-list --data '{"limit":20,"rule_id":"arule_7NnLzY2Qp8xS4kUaV3mR6b","trigger_kind":"schedule"}'`,
@@ -806,13 +834,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size. Values below 1 fall back to 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().StringVar(&fRuleID, "rule-id", "", "Target rule ID, from the list returned by 'POST /safari/automation/rule/list'. (required)")
 	cmd.Flags().Int64Var(&fStartedAfterMs, "started-after-ms", 0, "Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)")
 	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]")
-	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger source filter: 'schedule' cron trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' on-call incident trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident]")
+	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger filter: 'schedule' schedule trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' On-call incident trigger, 'war_room_created' war room trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident, war_room_created]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -825,20 +853,29 @@ func genAutomationsTemplateReadListCmd() *cobra.Command {
 		Short: "List Automation templates",
 		Long: `List Automation templates.
 
-List preset Automation templates for the requested locale.
+List built-in Automation templates that prefill the create-rule form, in Chinese or English.
 
 API: POST /safari/automation/template/list (automation-template-read-list)
 
 Request fields:
-  --locale string — Template locale such as zh-CN or en-US. Omit to detect from the request locale. (≤16 chars)
+  --locale string — Template language. A value containing 'zh' returns Chinese, one containing 'en' returns English, any other non-empty value returns Chinese. When omitted, the 'locale'/'lang' query parameter or the 'Accept-Language' header decides, defaulting to Chinese. (≤16 chars)
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
-  - templates (array<object>) (required) — Array of built-in automation templates, with display text localized by the request 'locale' (falling back to request headers).
-    - description (string) (required) — Template description.
-    - enabled (boolean) (required) — Whether a rule created from this template starts out enabled (prefill value).
-    - icon (string) (required) — Icon identifier.
-    - name (string) (required) — Template name.
-    - prompt (string) (required) — Template prompt.
+  - templates (array<object>) (required) — Built-in templates in the resolved language, in display order.
+    - category (string) (required) — Free-text, localized name of the group the template is shown under in the console, e.g. 'Incident Response'. Groups appear in the order of their first template.
+    - cron_expr (string) — Prefill for 'cron_expr'. Omitted when the template does not use the schedule trigger; the create request still needs a valid 'cron_expr'.
+    - description (string) (required) — Localized explanation of what a rule created from this template does.
+    - enabled (boolean) (required) — Prefill for the create request's 'enabled'.
+    - http_post_trigger_enabled (boolean) (required) — Prefill for 'http_post_trigger_enabled'.
+    - icon (string) (required) — Icon identifier the console displays for the template, e.g. 'siren'.
+    - key (string) — Stable, locale-independent template ID (lowercase letters, digits, underscores). Present only on templates that other console pages link to directly; omitted otherwise.
+    - name (string) (required) — Localized template name; use it as the rule 'name'.
+    - oncall_incident_severities (array<string>) — Prefill for 'oncall_incident_severities' ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels). Omitted when the template does not use the On-call incident trigger. [Critical, Warning, Info]
+    - oncall_incident_trigger_enabled (boolean) (required) — Prefill for 'oncall_incident_trigger_enabled'; when 'true', add 'oncall_incident_channel_ids' before creating.
+    - prompt (string) (required) — Prefill for the create request's 'prompt'.
+    - schedule_trigger_enabled (boolean) (required) — Prefill for 'schedule_trigger_enabled'; 'true' exactly when 'cron_expr' is present.
+    - war_room_severities (array<string>) — Prefill for 'war_room_severities' ('Critical' (most severe), 'Warning', or 'Info' (least severe) — the On-call incident severity levels). Omitted when the template does not use the war room trigger. [Critical, Warning, Info]
+    - war_room_trigger_enabled (boolean) (required) — Prefill for 'war_room_trigger_enabled'; when 'true', add 'war_room_channel_ids' before creating.
 `,
 		Example: `  flashduty safari automation-template-list --data '{"locale":"en-US"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -864,7 +901,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fLocale, "locale", "", "Template locale such as zh-CN or en-US. Omit to detect from the request locale. (≤16 chars)")
+	cmd.Flags().StringVar(&fLocale, "locale", "", "Template language. A value containing 'zh' returns Chinese, one containing 'en' returns English, any other non-empty value returns Chinese. When omitted, the 'locale'/'lang' query parameter or the 'Accept-Language' header decides, defaulting to Chinese. (≤16 chars)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

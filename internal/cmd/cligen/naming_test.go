@@ -8,3 +8,12 @@ func TestDiagnosticsNamesSurviveAgentRetirement(t *testing.T) {
 		t.Fatalf("supported method names changed: %v", names)
 	}
 }
+
+func TestDashboardTagsGenerateDistinctServices(t *testing.T) {
+	if got := serviceName("Monitors/Dashboards"); got != "Dashboards" {
+		t.Fatalf("Monitors service = %s", got)
+	}
+	if got := serviceName("RUM/Dashboards"); got != "RumDashboards" {
+		t.Fatalf("RUM service = %s", got)
+	}
+}

@@ -74,28 +74,31 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - author (string) — Skill author.
-  - can_edit (boolean) (required) — Whether the caller may edit this skill.
+  - can_edit (boolean) (required) — True when the caller may change this skill: account owners and admins for account-scope skills, team members for team skills.
   - checksum (string) — SHA-256 checksum of the skill zip.
   - content (string) — Full SKILL.md content. Omitted in list responses.
-  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+  - created (boolean) — Not returned by these endpoints; it is set only by the install-from-session flow.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
   - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
-  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+  - examples (array<object>) — Example prompts declared in the SKILL.md frontmatter (up to 10), shown as suggested questions. Omitted when none.
+    - en (string) (required) — English prompt text.
+    - zh (string) (required) — Chinese prompt text.
+  - is_modified (boolean) (required) — True when a marketplace-installed skill was changed locally (for example by uploading a new archive); automatic marketplace updates skip it.
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
   - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
   - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
+  - status (string) (required) — Skill status: 'enabled' (agents load it) or 'disabled' (kept but not loaded). Deleted skills never appear in responses. [enabled, disabled]
   - tags (array<string>) — Tags parsed from the frontmatter.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
-  - update_available (boolean) (required) — True when the marketplace has a newer template version.
+  - update_available (boolean) (required) — True when the marketplace template this skill was installed from has a newer version. Computed by 'POST /safari/skill/list' only; always false in other responses.
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
+  - venues (array<string>) — Execution environments the skill is restricted to: 'cloud' (managed sandbox) and/or 'byoc' (self-hosted runner). Omitted when empty, which means every environment. [cloud, byoc]
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
@@ -150,40 +153,43 @@ List AI SRE skills visible to the caller across account and team scopes, with pa
 API: POST /safari/skill/list (skill-read-list)
 
 Request fields:
-  --page int — Page number, 1-based.
-  --limit int — Page size.
+  --page int — Page number, 1-based; values below 1 fall back to 1.
+  --limit int — Page size; values below 1 fall back to 20.
   --search-after-ctx string
   --include-account bool — Include account-scoped (team_id=0) rows. Defaults to true. Ignored when 'scope' is 'account' or 'team'.
   --query string — Free-text search across skill name, description, English description, skill ID, marketplace source template name, and author. (≤128 chars)
-  --scope string — Restrict results to 'all' (default), 'account'-only (team_id=0), or 'team'-only (excludes account-scoped rows). Overrides 'include_account' when set. [all, account, team]
-  --team-ids []int — Filter to these team IDs; empty = the caller's visible set.
+  --scope string — Which skills to return; overrides 'include_account' when set: - 'all' (default): account-scope skills (unless 'include_account' is false) plus the caller's team skills - 'account': account-scope skills only ('team_id' = 0) - 'team': the caller's team skills only [all, account, team]
+  --team-ids []int — Limit team-scope results to these team IDs; IDs of teams the caller does not belong to are dropped. Empty = all of the caller's teams.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - skills (array<object>) (required) — Skills on this page.
     - account_id (integer) (required) — Owning account ID.
     - author (string) — Skill author.
-    - can_edit (boolean) (required) — Whether the caller may edit this skill.
+    - can_edit (boolean) (required) — True when the caller may change this skill: account owners and admins for account-scope skills, team members for team skills.
     - checksum (string) — SHA-256 checksum of the skill zip.
     - content (string) — Full SKILL.md content. Omitted in list responses.
-    - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+    - created (boolean) — Not returned by these endpoints; it is set only by the install-from-session flow.
     - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_by (integer) (required) — Member ID that created the skill.
     - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
     - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
-    - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+    - examples (array<object>) — Example prompts declared in the SKILL.md frontmatter (up to 10), shown as suggested questions. Omitted when none.
+      - en (string) (required) — English prompt text.
+      - zh (string) (required) — Chinese prompt text.
+    - is_modified (boolean) (required) — True when a marketplace-installed skill was changed locally (for example by uploading a new archive); automatic marketplace updates skip it.
     - license (string) — Skill license.
     - s3_key (string) — Object-storage key of the skill zip.
     - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
     - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
     - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
     - source_template_version (string) — Template version at install time.
-    - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
+    - status (string) (required) — Skill status: 'enabled' (agents load it) or 'disabled' (kept but not loaded). Deleted skills never appear in responses. [enabled, disabled]
     - tags (array<string>) — Tags parsed from the frontmatter.
     - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
     - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
-    - update_available (boolean) (required) — True when the marketplace has a newer template version.
+    - update_available (boolean) (required) — True when the marketplace template this skill was installed from has a newer version. Computed by 'POST /safari/skill/list' only; always false in other responses.
     - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-    - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
+    - venues (array<string>) — Execution environments the skill is restricted to: 'cloud' (managed sandbox) and/or 'byoc' (self-hosted runner). Omitted when empty, which means every environment. [cloud, byoc]
     - version (string) — Skill version from the frontmatter.
   - total (integer) (required) — Total number of matching skills.
 `,
@@ -229,13 +235,13 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
-	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based.")
-	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size.")
+	cmd.Flags().Int64Var(&fP, "page", 0, "Page number, 1-based; values below 1 fall back to 1.")
+	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size; values below 1 fall back to 20.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Request field ")
 	cmd.Flags().BoolVar(&fIncludeAccount, "include-account", false, "Include account-scoped (team_id=0) rows. Defaults to true. Ignored when 'scope' is 'account' or 'team'.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Free-text search across skill name, description, English description, skill ID, marketplace source template name, and author. (≤128 chars)")
-	cmd.Flags().StringVar(&fScope, "scope", "", "Restrict results to 'all' (default), 'account'-only (team_id=0), or 'team'-only (excludes account-scoped rows). Overrides 'include_account' when set. [all, account, team]")
-	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter to these team IDs; empty = the caller's visible set.")
+	cmd.Flags().StringVar(&fScope, "scope", "", "Which skills to return; overrides 'include_account' when set: - 'all' (default): account-scope skills (unless 'include_account' is false) plus the caller's team skills - 'account': account-scope skills only ('team_id' = 0) - 'team': the caller's team skills only [all, account, team]")
+	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Limit team-scope results to these team IDs; IDs of teams the caller does not belong to are dropped. Empty = all of the caller's teams.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -248,7 +254,7 @@ func genSkillsWriteDeleteCmd() *cobra.Command {
 		Short: "Delete skill",
 		Long: `Delete skill.
 
-Delete a skill by ID.
+Soft-delete a skill so agents stop loading it and its name can be reused.
 
 API: POST /safari/skill/delete (skill-write-delete)
 
@@ -360,28 +366,31 @@ Request fields:
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — Owning account ID.
   - author (string) — Skill author.
-  - can_edit (boolean) (required) — Whether the caller may edit this skill.
+  - can_edit (boolean) (required) — True when the caller may change this skill: account owners and admins for account-scope skills, team members for team skills.
   - checksum (string) — SHA-256 checksum of the skill zip.
   - content (string) — Full SKILL.md content. Omitted in list responses.
-  - created (boolean) — Set only on install-from-session responses: true = fresh install, false = in-place update.
+  - created (boolean) — Not returned by these endpoints; it is set only by the install-from-session flow.
   - created_at (string) (required) — Creation time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - created_by (integer) (required) — Member ID that created the skill.
   - description (string) (required) — Human-readable description from the SKILL.md frontmatter.
   - description_en (string) — Optional English description. English-locale UI responses prefer this over 'description'; the skill catalog also uses it as a stable selection signal when 'description' is localized for display.
-  - is_modified (boolean) (required) — True when a marketplace-sourced skill was edited locally (auto-update skips it).
+  - examples (array<object>) — Example prompts declared in the SKILL.md frontmatter (up to 10), shown as suggested questions. Omitted when none.
+    - en (string) (required) — English prompt text.
+    - zh (string) (required) — Chinese prompt text.
+  - is_modified (boolean) (required) — True when a marketplace-installed skill was changed locally (for example by uploading a new archive); automatic marketplace updates skip it.
   - license (string) — Skill license.
   - s3_key (string) — Object-storage key of the skill zip.
   - skill_id (string) (required) — Unique skill ID (prefix 'skill_').
   - skill_name (string) (required) — Skill name, unique within its scope (account-wide or within one team).
   - source_template_name (string) — Marketplace template this skill was installed from; empty for user-authored.
   - source_template_version (string) — Template version at install time.
-  - status (string) (required) — Skill status. Deleted skills are excluded from every API response, so only these two values are ever returned. [enabled, disabled]
+  - status (string) (required) — Skill status: 'enabled' (agents load it) or 'disabled' (kept but not loaded). Deleted skills never appear in responses. [enabled, disabled]
   - tags (array<string>) — Tags parsed from the frontmatter.
   - team_id (integer) (required) — Team scope: 0 = account-wide; >0 = the owning team.
   - tools (array<string>) — Required tools (builtin or 'mcp:server/tool').
-  - update_available (boolean) (required) — True when the marketplace has a newer template version.
+  - update_available (boolean) (required) — True when the marketplace template this skill was installed from has a newer version. Computed by 'POST /safari/skill/list' only; always false in other responses.
   - updated_at (string) (required) — Last update time. Unix timestamp in milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
-  - venues (array<string>) — Execution-environment kinds (EnvironmentKind strings, e.g. 'byoc') the skill is restricted to. Omitted when empty, which means the skill is available in all venues.
+  - venues (array<string>) — Execution environments the skill is restricted to: 'cloud' (managed sandbox) and/or 'byoc' (self-hosted runner). Omitted when empty, which means every environment. [cloud, byoc]
   - version (string) — Skill version from the frontmatter.
 `,
 		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
