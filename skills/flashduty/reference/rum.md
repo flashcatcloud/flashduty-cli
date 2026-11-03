@@ -21,7 +21,7 @@ Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `applicatio
 | mark issue resolved / label cause | `issue-update` |
 | run raw SQL-style queries over RUM data | `data-query` |
 | top values for one facet field, by occurrence count | `facet-count` |
-| browse facet-enabled RUM fields | `facet-list` |
+| browse facet-enabled RUM fields | `field-list --is-facet true` |
 | browse all RUM field definitions | `field-list` |
 | send a test alert to an app's webhook | `application-webhook-test` |
 | session replay metadata (app/device/views for a session) | `session-replay-metadata` |

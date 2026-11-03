@@ -25,7 +25,7 @@ Public holiday calendars (e.g. `zh-cn.china.official`) are read-only — list th
 | rename / change workdays / inherit holidays | `update <cal-id>` |
 | delete a calendar (irreversible) | `delete <cal-id>` |
 | list events in a calendar | `event-list <cal-id>` |
-| is a given day off or a workday? | `event-list <cal-id> --year Y --month M --day D` → `days` |
+| is a given day off or a workday? | `event-list <cal-id> --year Y --month M --day D` → `.days` |
 | add or edit a working/non-working day override | `event-upsert <cal-id>` |
 | remove a calendar event (irreversible) | `event-delete <cal-id> --event-id <event-id>` |
 | reset a date range to the holiday/weekly defaults | `event-delete <cal-id> --start-at <date> --end-at <date>` |

@@ -1,6 +1,8 @@
 package skilldoc
 
 import (
+	"regexp"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -25,6 +27,8 @@ type Issue struct {
 // unknown-command issue; an example flag absent from its command's flag set
 // (and not a global flag) yields an unknown-flag issue. Placeholder tokens are
 // skipped so documentation stand-ins (<id>, $VAR) never trip the validator.
+// The verb cells of each card's intent table get the same two checks (see
+// validateVerbTable).
 func Validate(d Dump, docs []Doc) []Issue {
 	idx := indexDump(d)
 	var issues []Issue
@@ -32,8 +36,91 @@ func Validate(d Dump, docs []Doc) []Issue {
 		for _, ex := range HarvestExamples(doc.Body) {
 			issues = append(issues, validateExample(idx, doc.Path, ex)...)
 		}
+		issues = append(issues, validateVerbTable(idx, doc)...)
 	}
 	return issues
+}
+
+// verbSpanRe matches a code span that opens with a command word. Everything a
+// verb cell quotes besides verbs fails it: response fields (`change_id`), field
+// paths (`.days`), card references (`reference/noise.md`) and wildcard families
+// (`automation-rule-*`), which name no single command. A bare lowercase word
+// still reads as a verb, so a card quotes a plain field name as a path.
+var verbSpanRe = regexp.MustCompile(`^[a-z][a-z0-9-]*(\s|$)`)
+
+// validateVerbTable checks every verb cell in doc's `| want | verb |` table. A
+// cell may hold several code spans, each a verb relative to the card's group,
+// optionally with positionals and flags; a span holding only a flag belongs to
+// the verb before it. Spans carrying the binary word are skipped, because
+// HarvestExamples already covers them.
+func validateVerbTable(idx commandIndex, doc Doc) []Issue {
+	cells := harvestVerbCells(doc.Body)
+	if len(cells) == 0 {
+		return nil
+	}
+	group, ok := cardGroup(doc.Body)
+	if !ok {
+		return []Issue{{
+			Doc:    doc.Path,
+			Line:   cells[0].Line,
+			Kind:   "unknown-command",
+			Detail: "verb table has no GENERATED fence to name its command group",
+		}}
+	}
+
+	var issues []Issue
+	for _, cell := range cells {
+		verb := ""
+		for _, span := range inlineSpans(cell.Text) {
+			switch {
+			case strings.HasPrefix(span, "--"):
+				span = verb + " " + span
+			case verbSpanRe.MatchString(span) && !firstWordIsBinary(span):
+				verb = span
+			default:
+				continue
+			}
+			issues = append(issues, validateExample(idx, doc.Path, verbExample(idx, group, span, cell.Line))...)
+		}
+	}
+	return issues
+}
+
+// cardGroup returns the command group a card documents: the group of its first
+// GENERATED fence, which holds for a card split off a group under a subset fence
+// whatever the card's file name.
+func cardGroup(body string) (string, bool) {
+	locs := FenceLocs(body)
+	if len(locs) == 0 {
+		return "", false
+	}
+	spec, err := ParseFenceID(locs[0].ID)
+	return spec.Group, err == nil
+}
+
+// verbExample turns a verb span into an Example: relative to group, or, when
+// only that resolves, as a full command path (`safari automation-rule-run`
+// cited from the automation card). Positional placeholders are dropped, since
+// validateExample treats a placeholder among the path words as a template and
+// would wave a stale verb through.
+func verbExample(idx commandIndex, group, span string, line int) Example {
+	relative, _ := parseInvocation("fduty "+group+" "+span, line)
+	relative.Tokens = dropPositionalPlaceholders(relative.Tokens)
+	if _, _, ok := resolveCommand(idx, relative.Tokens); ok {
+		return relative
+	}
+	full, _ := parseInvocation("fduty "+span, line)
+	full.Tokens = dropPositionalPlaceholders(full.Tokens)
+	if _, _, ok := resolveCommand(idx, full.Tokens); ok {
+		return full
+	}
+	return relative
+}
+
+func dropPositionalPlaceholders(tokens []string) []string {
+	return slices.DeleteFunc(tokens, func(t string) bool {
+		return !strings.HasPrefix(t, "-") && HasPlaceholder(t)
+	})
 }
 
 // CheckFences asserts every GENERATED fence embedded in docs matches a fresh
