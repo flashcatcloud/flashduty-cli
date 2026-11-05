@@ -326,16 +326,17 @@ func buildSessionExportCmd(use string) *cobra.Command {
 					return err
 				}
 
-				rc, _, err := ctx.Client.Sessions.Export(cmdContext(ctx.Cmd), &flashduty.SessionExportRequest{
+				tr := startTransfer(cmdContext(ctx.Cmd))
+				rc, _, err := ctx.Client.Sessions.Export(tr.ctx, &flashduty.SessionExportRequest{
 					SessionID:        ctx.Args[0],
 					IncludeSubagents: includeSubagents,
 				})
 				if err != nil {
-					return err
+					return tr.done(err)
 				}
 				defer func() { _ = rc.Close() }()
 
-				return writeSessionExport(ctx.Writer, format, rc)
+				return tr.done(writeSessionExport(ctx.Writer, format, tr.track(rc)))
 			})
 		},
 	}

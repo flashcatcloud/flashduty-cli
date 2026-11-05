@@ -294,6 +294,12 @@ func collectServices(paths, schemas map[string]any, sdk map[string]map[string]me
 // method. Bounded binary downloads (text/csv, application/octet-stream) are not
 // streams: the generated command streams Response.Raw for them.
 func isStreamingOp(o map[string]any) bool {
+	// The artifact stream returns a user's file verbatim (any type, any size);
+	// go-flashduty serves it as the hand-written Artifacts.Download, and the
+	// curated `safari artifact-download` covers it.
+	if str(o, "operationId") == "artifact-read-stream" {
+		return true
+	}
 	content := asMap(asMap(asMap(o["responses"])["200"])["content"])
 	if _, hasJSON := content["application/json"]; hasJSON {
 		return false

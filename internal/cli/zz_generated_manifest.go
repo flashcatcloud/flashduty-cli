@@ -22,7 +22,6 @@ var generatedOpIDs = []string{
 	"artifact-read-get-file-state",
 	"artifact-read-list",
 	"artifact-read-sign",
-	"artifact-read-stream",
 	"artifact-write-delete",
 	"artifact-write-publish",
 	"artifact-write-share-enable",

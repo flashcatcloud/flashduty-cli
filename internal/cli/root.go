@@ -160,6 +160,7 @@ func init() {
 	// its path-is-king leaf to the (now-existing) generated `safari` group so the
 	// operation stays reachable at safari session-export.
 	attachSafariSessionExport(rootCmd)
+	attachSafariArtifactDownload(rootCmd)
 	attachSafariAutomationTriggerFire(rootCmd)
 
 	// monit-prometheus-read-label-values carries a path parameter, so it is

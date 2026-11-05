@@ -27,6 +27,10 @@ var curatedOperationIDs = map[string]bool{
 	// upload methods (see upload.go).
 	"mapping-data-write-upload": true,
 	"skill-write-upload":        true,
+	// Returns a user's file verbatim (any type and size), served by the
+	// hand-written SDK Artifacts.Download and curated commands (see
+	// artifact_download.go).
+	"artifact-read-stream": true,
 	// Path parameter plus X-DSID header; the response is also the data
 	// source's native (non-enveloped) payload. Served by a curated command
 	// built on the hand-written SDK method (see monit_prometheus_label_values.go).

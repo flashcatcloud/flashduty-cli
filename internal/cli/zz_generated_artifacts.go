@@ -306,59 +306,6 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
-func genArtifactsReadStreamCmd() *cobra.Command {
-	var dataJSON string
-	var fT string
-	var fMode string
-	cmd := &cobra.Command{
-		Use:   "artifact-stream",
-		Short: "Download or preview a file",
-		Long: `Download or preview a file.
-
-Download or preview a file's bytes using a signed token.
-
-API: GET /safari/artifact/stream (artifact-read-stream)
-
-Request fields:
-  --t string (required) — Signed token issued by 'POST /safari/artifact/sign'. Bound to the calling account and person; valid for 5 minutes.
-  --mode string — 'download' (default) serves the file as an attachment; 'preview' serves it inline for browser display. Any other value falls back to 'download'. [download, preview]
-`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
-					if cmd.Flags().Changed("t") {
-						body["t"] = fT
-					}
-					if cmd.Flags().Changed("mode") {
-						body["mode"] = fMode
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				req := new(flashduty.ArtifactsReadStreamRequest)
-				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
-					return err
-				}
-				resp, err := ctx.Client.Artifacts.ReadStream(cmdContext(ctx.Cmd), req)
-				if err != nil {
-					return err
-				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: GET /safari/artifact/stream")
-				return nil
-			})
-		},
-	}
-	cmd.Flags().StringVar(&fT, "t", "", "Signed token issued by 'POST /safari/artifact/sign'. Bound to the calling account and person; valid for 5 minutes. (required)")
-	cmd.Flags().StringVar(&fMode, "mode", "", "'download' (default) serves the file as an attachment; 'preview' serves it inline for browser display. Any other value falls back to 'download'. [download, preview]")
-	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
-	return cmd
-}
-
 func genArtifactsWriteDeleteCmd() *cobra.Command {
 	var dataJSON string
 	var fArtifactID string
@@ -714,7 +661,6 @@ func registerGeneratedArtifacts(root *cobra.Command) {
 	genAddLeaf(gSafari, genArtifactsReadGetFileStateCmd())
 	genAddLeaf(gSafari, genArtifactsReadListCmd())
 	genAddLeaf(gSafari, genArtifactsReadSignCmd())
-	genAddLeaf(gSafari, genArtifactsReadStreamCmd())
 	genAddLeaf(gSafari, genArtifactsWriteDeleteCmd())
 	genAddLeaf(gSafari, genArtifactsWritePublishCmd())
 	genAddLeaf(gSafari, genArtifactsWriteShareEnableCmd())

@@ -70,13 +70,14 @@ API: POST /enrichment/mapping/data/upload (mapping-data-write-upload)`,
 				}
 				defer func() { _ = file.Close() }()
 
-				_, err = ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), &flashduty.MappingDataUploadRequest{
+				tr := startTransfer(cmdContext(ctx.Cmd))
+				_, err = ctx.Client.AlertEnrichment.MappingDataWriteUpload(tr.ctx, &flashduty.MappingDataUploadRequest{
 					SchemaID:           schemaID,
 					DoNotTruncateFirst: doNotTruncateFirst,
-					File:               file,
+					File:               tr.track(file),
 					Filename:           name,
 				})
-				if err != nil {
+				if err = tr.done(err); err != nil {
 					return err
 				}
 				ctx.WriteResult("OK: POST /enrichment/mapping/data/upload")
@@ -122,14 +123,15 @@ API: POST /safari/skill/upload (skill-write-upload)`,
 				}
 				defer func() { _ = file.Close() }()
 
-				item, _, err := ctx.Client.Skills.WriteUpload(cmdContext(ctx.Cmd), &flashduty.SkillUploadRequest{
-					File:     file,
+				tr := startTransfer(cmdContext(ctx.Cmd))
+				item, _, err := ctx.Client.Skills.WriteUpload(tr.ctx, &flashduty.SkillUploadRequest{
+					File:     tr.track(file),
 					Filename: name,
 					TeamID:   teamID,
 					Replace:  replace,
 					SkillID:  skillID,
 				})
-				if err != nil {
+				if err = tr.done(err); err != nil {
 					return err
 				}
 				if ctx.Structured() {
