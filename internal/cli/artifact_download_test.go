@@ -105,7 +105,7 @@ func TestArtifactDownloadRejectsRefWithoutID(t *testing.T) {
 	}
 }
 
-func TestTransferStallCancelsAndRemovesPartialFile(t *testing.T) {
+func TestTransferStallKeepsEarlierFileAndLeavesNoPartial(t *testing.T) {
 	saveAndResetGlobals(t)
 	old := transferIdleTimeout
 	transferIdleTimeout = 50 * time.Millisecond
@@ -113,13 +113,19 @@ func TestTransferStallCancelsAndRemovesPartialFile(t *testing.T) {
 	artifactServer(t, "late", 500*time.Millisecond)
 	dir := t.TempDir()
 	dst := filepath.Join(dir, "x.txt")
+	if err := os.WriteFile(dst, []byte("earlier"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	_, err := execCommand("safari", "artifact-download", "pf_BBBBBBBBBBBBBBBBBBBBBB", "-o", dst)
 	if !errors.Is(err, errTransferStalled) {
 		t.Fatalf("err = %v, want errTransferStalled", err)
 	}
-	if _, statErr := os.Stat(dst); !os.IsNotExist(statErr) {
-		t.Fatalf("partial file left behind: %v", statErr)
+	if got, _ := os.ReadFile(dst); string(got) != "earlier" {
+		t.Fatalf("earlier file changed to %q", got)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
+		t.Fatalf("temp file left behind: %v", entries)
 	}
 }
 

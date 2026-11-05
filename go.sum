@@ -5,6 +5,8 @@ github.com/flashcatcloud/go-flashduty v0.16.0 h1:YHrd9NaJZReWv1u1iUSLh89HNCeFP+Z
 github.com/flashcatcloud/go-flashduty v0.16.0/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
 github.com/flashcatcloud/go-flashduty v0.16.1-0.20261105090239-bf4b1ab78074 h1:uhJ3M9xUKS08DlomkR0Ag8qgDKXxpKIWqJV+HtorJ80=
 github.com/flashcatcloud/go-flashduty v0.16.1-0.20261105090239-bf4b1ab78074/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
+github.com/flashcatcloud/go-flashduty v0.16.1-0.20261105090952-5be8d556bcd3 h1:rChSIGUT1HeKKcRnUSSof0kOFDkLp38P/OsAi0ZqZvE=
+github.com/flashcatcloud/go-flashduty v0.16.1-0.20261105090952-5be8d556bcd3/go.mod h1:YpHiTYXR5NXBI/rGRZfUy537XMkhdCkwA8NW1QoRHwk=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/mattn/go-runewidth v0.0.30 h1:+KUuiDA4fF0R1p5FeueHefjDm+GIM+kWfFnDjybOPgk=

@@ -110,6 +110,9 @@ func runArtifactDownload(ctx *RunContext, ref, output string) error {
 		if err != nil {
 			return err
 		}
+		if item.FileID == "" {
+			return fmt.Errorf("artifact %s has no file to download", m[0])
+		}
 		fileID = item.FileID
 	}
 
@@ -184,18 +187,38 @@ func attachmentName(disposition, fallback string) string {
 	return name
 }
 
-// saveFile writes r to path and removes the partial file if the copy fails.
+// saveFile writes r to path. A file is written to a temp file beside it and
+// renamed into place, so a failed transfer leaves neither a partial file nor a
+// damaged earlier one. A destination that exists and is not a regular file (a
+// device or FIFO such as /dev/null) is written directly.
 func saveFile(path string, r io.Reader) (int64, error) {
-	f, err := os.Create(path)
+	if fi, err := os.Stat(path); err == nil && !fi.Mode().IsRegular() {
+		f, err := os.OpenFile(path, os.O_WRONLY, 0)
+		if err != nil {
+			return 0, err
+		}
+		n, err := io.Copy(f, r)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+		return n, err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".part-*")
 	if err != nil {
 		return 0, err
 	}
-	n, err := io.Copy(f, r)
-	if cerr := f.Close(); err == nil {
+	n, err := io.Copy(tmp, r)
+	if err == nil {
+		err = tmp.Chmod(0o644)
+	}
+	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
+	if err == nil {
+		err = os.Rename(tmp.Name(), path)
+	}
 	if err != nil {
-		_ = os.Remove(path)
+		_ = os.Remove(tmp.Name())
 		return 0, err
 	}
 	return n, nil
