@@ -137,7 +137,7 @@ func downloadSigned(ctx *RunContext, token, fileID, output string) error {
 		return tr.done(err)
 	}
 	defer func() { _ = rc.Close() }()
-	body := tr.track(rc)
+	body := tr.trackBody(rc)
 
 	if output == "-" {
 		_, err = io.Copy(ctx.Writer, body)
@@ -145,6 +145,10 @@ func downloadSigned(ctx *RunContext, token, fileID, output string) error {
 	}
 	if output == "" {
 		output = attachmentName(resp.Header.Get("Content-Disposition"), cmp.Or(fileID, "download"))
+		// The name came from the server: never let it replace a local file.
+		if _, err := os.Lstat(output); err == nil {
+			return tr.done(fmt.Errorf("%s already exists; pass --output to choose the path (an explicit path is overwritten)", output))
+		}
 	}
 	n, err := saveFile(output, body)
 	if err = tr.done(err); err != nil {
@@ -203,14 +207,13 @@ func saveFile(path string, r io.Reader) (int64, error) {
 		}
 		return n, err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".part-*")
+	// 0o666 so the umask decides the mode, as for any file the shell creates.
+	tmpName := filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.part-%d", filepath.Base(path), os.Getpid()))
+	tmp, err := os.OpenFile(tmpName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return 0, err
 	}
 	n, err := io.Copy(tmp, r)
-	if err == nil {
-		err = tmp.Chmod(0o644)
-	}
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}

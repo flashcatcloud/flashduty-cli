@@ -37,9 +37,17 @@ func startTransfer(parent context.Context) *transfer {
 	}
 }
 
-// track wraps r so every read that moves bytes restarts the idle clock.
+// track wraps an upload source: the SDK reads it only as fast as the network
+// drains the request, so every read that moves bytes restarts the idle clock.
 func (t *transfer) track(r io.Reader) io.Reader {
 	return &progressReader{r: r, timer: t.timer}
+}
+
+// trackBody wraps a response body. The clock runs only while a read waits on
+// the network: time the consumer spends with the bytes (a slow pipe such as
+// `| less`) is not a stall.
+func (t *transfer) trackBody(r io.Reader) io.Reader {
+	return &bodyReader{r: r, timer: t.timer}
 }
 
 // done stops the idle clock and, when the transfer failed because it stalled,
@@ -52,6 +60,18 @@ func (t *transfer) done(err error) error {
 		return fmt.Errorf("%w: no bytes moved for %s, so it was cancelled; retry, and check the network path if it repeats", errTransferStalled, transferIdleTimeout)
 	}
 	return err
+}
+
+type bodyReader struct {
+	r     io.Reader
+	timer *time.Timer
+}
+
+func (b *bodyReader) Read(p []byte) (int, error) {
+	b.timer.Reset(transferIdleTimeout)
+	n, err := b.r.Read(p)
+	b.timer.Stop()
+	return n, err
 }
 
 type progressReader struct {

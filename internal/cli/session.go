@@ -336,7 +336,7 @@ func buildSessionExportCmd(use string) *cobra.Command {
 				}
 				defer func() { _ = rc.Close() }()
 
-				return tr.done(writeSessionExport(ctx.Writer, format, tr.track(rc)))
+				return tr.done(writeSessionExport(ctx.Writer, format, tr.trackBody(rc)))
 			})
 		},
 	}

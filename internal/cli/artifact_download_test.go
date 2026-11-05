@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -95,6 +96,46 @@ func TestArtifactDownloadStdout(t *testing.T) {
 	if err != nil || out != "line1\nline2\n" {
 		t.Fatalf("stdout = %q, %v", out, err)
 	}
+}
+
+func TestArtifactDownloadDefaultNameNeverReplacesLocalFile(t *testing.T) {
+	saveAndResetGlobals(t)
+	artifactServer(t, "new", 0)
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("data.json", []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := execCommand("safari", "artifact-download", "pf_BBBBBBBBBBBBBBBBBBBBBB")
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("err = %v", err)
+	}
+	if got, _ := os.ReadFile("data.json"); string(got) != "mine" {
+		t.Fatalf("local file changed to %q", got)
+	}
+}
+
+func TestTransferBodyIgnoresSlowConsumer(t *testing.T) {
+	old := transferIdleTimeout
+	transferIdleTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { transferIdleTimeout = old })
+
+	tr := startTransfer(t.Context())
+	body := tr.trackBody(strings.NewReader("abc"))
+	buf := make([]byte, 1)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			time.Sleep(80 * time.Millisecond) // consumer slower than the idle timeout
+		}
+		if err != nil {
+			break
+		}
+	}
+	if err := context.Cause(tr.ctx); err != nil {
+		t.Fatalf("slow consumer cancelled the transfer: %v", err)
+	}
+	_ = tr.done(nil)
 }
 
 func TestArtifactDownloadRejectsRefWithoutID(t *testing.T) {
