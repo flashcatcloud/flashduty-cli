@@ -207,10 +207,11 @@ func uploadSessionFile(ctx *RunContext, sessionID, path string) (flashduty.Sessi
 		return flashduty.SessionMessagePart{}, err
 	}
 	defer func() { _ = f.Close() }()
-	att, _, err := ctx.Client.Sessions.UploadAttachment(cmdContext(ctx.Cmd), &flashduty.SessionAttachmentUploadRequest{
-		SessionID: sessionID, Filename: name, File: f,
+	tr := startTransfer(cmdContext(ctx.Cmd))
+	att, _, err := ctx.Client.Sessions.UploadAttachment(tr.ctx, &flashduty.SessionAttachmentUploadRequest{
+		SessionID: sessionID, Filename: name, File: tr.track(f),
 	})
-	if err != nil {
+	if err = tr.done(err); err != nil {
 		return flashduty.SessionMessagePart{}, err
 	}
 	return att.FilePart(), nil

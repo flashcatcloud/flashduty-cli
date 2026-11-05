@@ -105,6 +105,10 @@ Update A2A agent
 - `--team-id` int64 — Reassign team scope; omit to leave unchanged. Moving to a team requires membership in it; moving to account scope ('0') requires the account owner or an admin. If the team changes without 'environments' in the same request, the current runner entries must stay selectable by the caller or the update is rejected.
 - body-only (`--data`): auth_config (object)
 
+### artifact-download <artifact-id | file-id | link>
+Download an artifact or session file
+- `--output` string
+
 ### artifact-gallery-delete <artifact-id>
 Remove artifact from gallery
 - `<artifact-id>` (positional, required) string — Artifact ID ('art_' prefix). Also the key of the public-share link.
@@ -163,10 +167,10 @@ Create signed file URLs
 - `--share-token` string — Optional session share-link token. Needed only when the caller reaches the file through a shared session link rather than account membership.
 - response: single object (`data` unwrapped to the top level) — fields: content_type (string); download_url (string); expires_in (integer); frame_base (string); frame_expires_in (integer); frame_url (string); name (string); preview_url (string); size (integer)
 
-### artifact-stream
-Download or preview a file
-- `--mode` string — 'download' (default) serves the file as an attachment; 'preview' serves it inline for browser display. Any other value falls back to 'download'. · enum: download | preview
-- `--t` string (required) — Signed token issued by 'POST /safari/artifact/sign'. Bound to the calling account and person; valid for 5 minutes.
+### artifact-stream --t <token>
+Download a file by signed token
+- `--output` string
+- `--t` string
 
 ### automation-rule-create
 Create Automation rule
