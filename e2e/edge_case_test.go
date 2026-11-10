@@ -134,11 +134,13 @@ func TestJSONOnAckCommand(t *testing.T) {
 	id := extractIncidentID(t, r.Stdout)
 	t.Cleanup(func() { runCLI(t, "incident", "close", id) })
 
-	// ack is served by the generated twin; --json wraps the OK line as {"message":"..."}.
+	// ack is served by the generated twin. /incident/ack answers with an empty
+	// data envelope, so --json emits the one thing the call did report: its
+	// request id.
 	r = runCLI(t, "incident", "ack", id, "--json")
 	requireSuccess(t, r)
 	requireValidJSON(t, r.Stdout)
-	requireContains(t, r.Stdout, "OK: POST /incident/ack")
+	requireRequestIDOnly(t, r.Stdout)
 }
 
 // Test 307: --json on close command

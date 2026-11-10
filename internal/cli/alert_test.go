@@ -154,8 +154,8 @@ func TestCommandAlertMergeCommentFileReachesWireByteForByte(t *testing.T) {
 	if stub.lastBody["incident_id"] != "inc-1" {
 		t.Fatalf("[alert-merge-comment-file] expected incident_id %q, got %#v", "inc-1", stub.lastBody["incident_id"])
 	}
-	if !strings.Contains(out, "OK: POST /alert/merge") {
-		t.Fatalf("[alert-merge-comment-file] unexpected output:\n%s", out)
+	if got := strings.TrimRight(out, "\n"); got != gfStubNoPayloadLine {
+		t.Fatalf("[alert-merge-comment-file] default output must be exactly %q, got:\n%s", gfStubNoPayloadLine, out)
 	}
 }
 

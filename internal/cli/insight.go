@@ -311,8 +311,7 @@ Request fields:
 					return err
 				}
 				if resp == nil || len(resp.Raw) == 0 {
-					ctx.WriteResult("OK: POST /insight/incident/export")
-					return nil
+					return printNoPayload(ctx, resp)
 				}
 				rows, err := countCSVDataRows(resp.Raw)
 				if err != nil {

@@ -295,8 +295,9 @@ func (ctx *RunContext) WriteResult(message string) {
 
 // WriteRaw writes a non-JSON response body (e.g. a CSV/file download surfaced
 // on Response.Raw by the *export endpoints) straight to the output writer, so
-// shell redirection (`> file.csv`) captures the bytes verbatim instead of the
-// canned "OK: POST ..." acknowledgment.
+// shell redirection (`> file.csv`) captures the bytes verbatim rather than the
+// no-payload acknowledgement those commands print when no bytes arrive (see
+// printRawOrNoPayload).
 func (ctx *RunContext) WriteRaw(body []byte) error {
 	_, err := ctx.Writer.Write(body)
 	return err

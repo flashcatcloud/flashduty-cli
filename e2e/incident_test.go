@@ -104,7 +104,7 @@ func TestIncidentLifecycle(t *testing.T) {
 	// Step 3: Ack (served by the generated twin; positional id → incident_ids).
 	r = runCLI(t, "incident", "ack", id)
 	requireSuccess(t, r)
-	requireContains(t, r.Stdout, "OK: POST /incident/ack")
+	requireNoPayloadAck(t, r.Stdout)
 
 	// Step 4: Get - should be Processing
 	r = runCLI(t, "incident", "get", id)
