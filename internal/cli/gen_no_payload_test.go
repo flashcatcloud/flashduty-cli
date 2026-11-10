@@ -36,7 +36,7 @@ func newRawStub(t *testing.T, contentType string, body []byte, setRequestID bool
 	}
 }
 
-// TestGeneratedWriteAckIsTheWholeDefaultOutput pins the default output of a
+// TestGeneratedNoPayloadLineIsTheWholeDefaultOutput pins the default output of a
 // generated command whose endpoint returns no payload. Equality on the whole
 // output, not a substring, is the contract: callers read this through `head`,
 // so a line pushed down by anything printed above it is a regression a
@@ -45,7 +45,7 @@ func newRawStub(t *testing.T, contentType string, body []byte, setRequestID bool
 // What it must NOT be is the previous output, "OK: POST /channel/disable" — an
 // echo of the request, which restated the path the caller had just typed and
 // so read as a description of a result nobody had fetched.
-func TestGeneratedWriteAckIsTheWholeDefaultOutput(t *testing.T) {
+func TestGeneratedNoPayloadLineIsTheWholeDefaultOutput(t *testing.T) {
 	saveAndResetGlobals(t)
 	newGFStub(t)
 
@@ -61,7 +61,7 @@ func TestGeneratedWriteAckIsTheWholeDefaultOutput(t *testing.T) {
 	}
 }
 
-// TestGeneratedWriteAckStructuredCarriesOnlyTheRequestID guards the machine
+// TestGeneratedNoPayloadStructuredCarriesOnlyTheRequestID guards the machine
 // path. The old shape was {"message": "OK: POST /channel/disable"} — a rendered
 // English sentence in a JSON field, which a caller could only string-match. The
 // new shape carries the request id as data, and carries nothing else, because
@@ -71,7 +71,7 @@ func TestGeneratedWriteAckIsTheWholeDefaultOutput(t *testing.T) {
 // The TOON subtest is not duplicate coverage. TOON is a different marshaller
 // (toon.Marshal, vs json.MarshalIndent over output.NullUnsetInstants), so a
 // change that broke only the TOON path would pass every JSON assertion.
-func TestGeneratedWriteAckStructuredCarriesOnlyTheRequestID(t *testing.T) {
+func TestGeneratedNoPayloadStructuredCarriesOnlyTheRequestID(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		newGFStub(t)
@@ -109,12 +109,12 @@ func TestGeneratedWriteAckStructuredCarriesOnlyTheRequestID(t *testing.T) {
 	})
 }
 
-// TestGeneratedWriteAckOmitsAnAbsentRequestID covers the case the two wordings
+// TestGeneratedNoPayloadOmitsAnAbsentRequestID covers the case the two wordings
 // exist for. A 200 with an empty body never parses an envelope, so the id can
 // only come from the Flashcat-Request-Id header; with neither, there is no id.
 // The line must then say so rather than print a hole, "(request_id )", and the
 // structured form must emit an empty object rather than invent request_id: "".
-func TestGeneratedWriteAckOmitsAnAbsentRequestID(t *testing.T) {
+func TestGeneratedNoPayloadOmitsAnAbsentRequestID(t *testing.T) {
 	t.Run("table", func(t *testing.T) {
 		saveAndResetGlobals(t)
 		newRawStub(t, "", nil, false)
@@ -178,13 +178,14 @@ var issueExportArgs = []string{
 	"--data", `{"start_time":1772611200000,"end_time":1775961914595}`,
 }
 
-// TestGeneratedDownloadStreamsRawBodyInsteadOfTheAck is the other half of the
-// branch printRawOrNoPayload chooses between. Response.Raw is populated only for a success
-// body that is not envelope JSON, so that guard — not anything in the spec read
-// at generation time — is what tells a CSV download apart from a mutation at
-// runtime. The bytes must reach stdout verbatim, with no acknowledgement line
-// wrapped around them, or `> file.csv` writes a corrupt file.
-func TestGeneratedDownloadStreamsRawBodyInsteadOfTheAck(t *testing.T) {
+// TestGeneratedDownloadStreamsRawBodyInsteadOfTheNoPayloadLine is the other
+// half of the branch printRawOrNoPayload chooses between. Response.Raw is
+// populated only for a success body that is not envelope JSON, so that guard —
+// not anything in the spec read at generation time — is what tells a CSV
+// download apart from a mutation at runtime. The bytes must reach stdout
+// verbatim, with no acknowledgement line wrapped around them, or `> file.csv`
+// writes a corrupt file.
+func TestGeneratedDownloadStreamsRawBodyInsteadOfTheNoPayloadLine(t *testing.T) {
 	saveAndResetGlobals(t)
 	newRawStub(t, "text/csv", []byte(exportCSV), true)
 
@@ -197,12 +198,12 @@ func TestGeneratedDownloadStreamsRawBodyInsteadOfTheAck(t *testing.T) {
 	}
 }
 
-// TestGeneratedDownloadAcksWhenTheServerSendsNoBytes is the same command
+// TestGeneratedDownloadReportsNoPayloadWhenTheServerSendsNoBytes is the same command
 // answered with an empty body. There is nothing to stream, so it falls through
 // to the acknowledgement — and "the API returned no payload" is the literal
 // truth of a zero-byte download, which is why one wording serves both the
 // mutations and this case instead of two.
-func TestGeneratedDownloadAcksWhenTheServerSendsNoBytes(t *testing.T) {
+func TestGeneratedDownloadReportsNoPayloadWhenTheServerSendsNoBytes(t *testing.T) {
 	saveAndResetGlobals(t)
 	newRawStub(t, "text/csv", nil, true)
 
