@@ -581,7 +581,7 @@ func TestCommandIncidentComment(t *testing.T) {
 	if got, want := strings.Join(stringsField(stub.bodies[0], "incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-comment] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "Commented on 2 incident(s).") {
+	if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 2)) {
 		t.Fatalf("[incident-comment] unexpected output:\n%s", out)
 	}
 }
@@ -652,7 +652,7 @@ func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testin
 		if stub.bodies[0]["comment"] != want {
 			t.Fatalf("[comment-file] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
 		}
-		if !strings.Contains(out, "Commented on 1 incident(s).") {
+		if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 1)) {
 			t.Fatalf("[comment-file] unexpected output:\n%s", out)
 		}
 	})
@@ -669,7 +669,7 @@ func TestCommandIncidentCommentPreservesShellMetacharactersByteForByte(t *testin
 		if stub.bodies[0]["comment"] != want {
 			t.Fatalf("[stdin] comment reached the API mangled:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
 		}
-		if !strings.Contains(out, "Commented on 1 incident(s).") {
+		if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 1)) {
 			t.Fatalf("[stdin] unexpected output:\n%s", out)
 		}
 	})
@@ -739,7 +739,7 @@ func TestCommandIncidentCommentSurvivesServerSideTrim(t *testing.T) {
 	if stub.bodies[0]["comment"] != want {
 		t.Fatalf("[server-trim] expected the wire payload pre-trimmed to match what the server stores:\nwant: %q\n got: %q", want, stub.bodies[0]["comment"])
 	}
-	if !strings.Contains(out, "Commented on 1 incident(s).") {
+	if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 1)) {
 		t.Fatalf("[server-trim] unexpected output:\n%s", out)
 	}
 }
@@ -779,7 +779,7 @@ func TestCommandIncidentCommentSucceedsDespiteNewerConcurrentComment(t *testing.
 	if err != nil {
 		t.Fatalf("[newer-concurrent-comment] unexpected error: %v", err)
 	}
-	if !strings.Contains(out, "Commented on 1 incident(s).") {
+	if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 1)) {
 		t.Fatalf("[newer-concurrent-comment] unexpected output:\n%s", out)
 	}
 }
@@ -1030,7 +1030,7 @@ func TestCommandIncidentCommentVerifiesAcrossFeedPages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("[feed-pagination] unexpected error: %v", err)
 	}
-	if !strings.Contains(out, "Commented on 1 incident(s).") {
+	if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, 1)) {
 		t.Fatalf("[feed-pagination] unexpected output:\n%s", out)
 	}
 }
@@ -1152,7 +1152,7 @@ func runIncidentCommentVerifyProbe(t *testing.T, n int, tag string) int32 {
 	if err != nil {
 		t.Fatalf("[%s] unexpected error: %v", tag, err)
 	}
-	if !strings.Contains(out, fmt.Sprintf("Commented on %d incident(s).", n)) {
+	if !strings.Contains(out, fmt.Sprintf(incidentCommentConfirmedFmt, n)) {
 		t.Fatalf("[%s] unexpected output:\n%s", tag, out)
 	}
 	return maxInFlight.Load()
@@ -1403,6 +1403,142 @@ func TestCommandIncidentCommentStructuredEmitsNothingWhenUnconfirmed(t *testing.
 	}
 	if !strings.Contains(err.Error(), "inc-2") {
 		t.Fatalf("[entry-unconfirmed] expected the unconfirmed incident named in the error: %v", err)
+	}
+}
+
+// TestCommandIncidentCommentConfirmationIsTheFirstLine pins that the default
+// (non-structured) output is exactly the one confirmation line — see
+// incidentCommentConfirmedFmt for why that matters. A `strings.Contains`
+// assertion cannot catch the regression this guards: a line pushed down by
+// output added above it still "contains" the sentence.
+func TestCommandIncidentCommentConfirmationIsTheFirstLine(t *testing.T) {
+	saveAndResetGlobals(t)
+	newIncidentCommentEchoStub(t)
+	commentFile := writeCommentFile(t, "rollback started")
+
+	stdout, _, err := execCommandSplit("incident", "comment", "inc-1", "inc-2", "--comment-file", commentFile)
+	if err != nil {
+		t.Fatalf("[first-line] unexpected error: %v", err)
+	}
+
+	want := fmt.Sprintf(incidentCommentConfirmedFmt, 2)
+	if got := strings.TrimRight(stdout, "\n"); got != want {
+		t.Fatalf("[first-line] default output must be exactly the one confirmation line %q — a caller piping this through `head` misses anything else — got:\n%s",
+			want, stdout)
+	}
+}
+
+// newIncidentCommentMentionStub serves a feed whose stored comment is
+// storedComment whatever was written, so a test can stand in for the server's
+// canonical rewrite of a mention label.
+func newIncidentCommentMentionStub(t *testing.T, storedComment string) {
+	t.Helper()
+	stub := newGFStub(t)
+	stub.dataForPath = func(path string, body map[string]any) any {
+		if path == "/incident/feed" {
+			return map[string]any{"items": []any{
+				map[string]any{
+					"type":       "i_comm",
+					"created_at": 1,
+					"detail":     map[string]any{"comment": storedComment},
+				},
+			}}
+		}
+		return map[string]any{}
+	}
+}
+
+// incidentCommentMentionSent is the comment body every mention case below
+// writes. The member id is the one the published API example uses.
+const incidentCommentMentionSent = "Please verify the fix [@Jane](flashduty://ref/member/2476444212131) thanks"
+
+// TestCommandIncidentCommentVerifiesMentionsByMemberID covers the comparison
+// rule for member mentions; why the stored label differs from the one sent is
+// documented on canonicalizeIncidentCommentMentions.
+//
+// Both directions matter, which is what the cases below are for: the
+// insensitivity is scoped to the label alone. A different member id is a
+// different mention and must still fail, otherwise the check would confirm a
+// comment that mentioned someone else.
+func TestCommandIncidentCommentVerifiesMentionsByMemberID(t *testing.T) {
+	// The returned entry must report what is STORED, canonical label
+	// included, not echo what was sent — that is what makes it worth reading.
+	// Only this case decodes the output, so it stays separate from the table.
+	t.Run("label rewritten still matches, and the entry carries the stored text", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		const stored = "Please verify the fix [@Jane Doe](flashduty://ref/member/2476444212131) thanks"
+		newIncidentCommentMentionStub(t, stored)
+		commentFile := writeCommentFile(t, incidentCommentMentionSent)
+
+		stdout, _, err := execCommandSplit("incident", "comment", "inc-1", "--comment-file", commentFile, "--json")
+		if err != nil {
+			t.Fatalf("[mention-label] a successful write was reported unconfirmed: %v", err)
+		}
+		var entries []struct {
+			Comment string `json:"comment"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &entries); err != nil {
+			t.Fatalf("[mention-label] output is not valid JSON (%v):\n%s", err, stdout)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("[mention-label] expected 1 entry, got %d:\n%s", len(entries), stdout)
+		}
+		if entries[0].Comment != stored {
+			t.Errorf("[mention-label] comment = %q, want the stored text %q", entries[0].Comment, stored)
+		}
+	})
+
+	for _, tc := range []struct {
+		name string
+		// sent defaults to incidentCommentMentionSent when empty.
+		sent    string
+		stored  string
+		wantErr bool
+	}{
+		{
+			// The server backslash-escapes ASCII punctuation in the canonical
+			// name, so a name containing "]" arrives as "\]". A label pattern
+			// that stopped at the first "]" cuts the match short here and
+			// reports this good write as unconfirmed.
+			name:   "escaped punctuation in the canonical label still matches",
+			stored: `Please verify the fix [@Jane\]\*\_Doe](flashduty://ref/member/2476444212131) thanks`,
+		},
+		{
+			// Every mention in the body is canonicalized, not just the first.
+			name:   "several rewritten mentions still match",
+			sent:   "Please verify [@Jane](flashduty://ref/member/2476444212131) and [@John](flashduty://ref/member/2476444212222) now",
+			stored: "Please verify [@Jane Doe](flashduty://ref/member/2476444212131) and [@John Roe](flashduty://ref/member/2476444212222) now",
+		},
+		{
+			// A mention of someone else: the id differs, and so does the
+			// label, which is the realistic shape — the server canonicalizes
+			// the other member's name too. Since labels are discarded, the id
+			// is the only thing that can make this fail, which is the point.
+			name:    "different member id does not match",
+			stored:  "Please verify the fix [@Someone Else](flashduty://ref/member/2476444212999) thanks",
+			wantErr: true,
+		},
+		{
+			// Identical mention, one word changed outside it.
+			name:    "text outside the mention is still compared exactly",
+			stored:  "Please verify the patch [@Jane Doe](flashduty://ref/member/2476444212131) thanks",
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			newIncidentCommentMentionStub(t, tc.stored)
+			sent := tc.sent
+			if sent == "" {
+				sent = incidentCommentMentionSent
+			}
+			commentFile := writeCommentFile(t, sent)
+
+			_, _, err := execCommandSplit("incident", "comment", "inc-1", "--comment-file", commentFile, "--json")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("wantErr=%v, got err=%v", tc.wantErr, err)
+			}
+		})
 	}
 }
 
