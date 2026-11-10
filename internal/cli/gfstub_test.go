@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,15 @@ import (
 
 	"github.com/flashcatcloud/go-flashduty"
 )
+
+// gfStubRequestID is the request id newGFStub reports in every envelope. A
+// command whose endpoint returns no payload prints it (see gfStubNoPayloadLine),
+// so the two are pinned to one constant rather than two literals that can drift.
+const gfStubRequestID = "test-request-id"
+
+// gfStubNoPayloadLine is the exact line a command prints against newGFStub when
+// its endpoint answered with no payload.
+var gfStubNoPayloadLine = fmt.Sprintf(noPayloadLineFmt, gfStubRequestID)
 
 // gfStub is an httptest-backed stand-in for the go-flashduty API. Migrated
 // commands build a *flashduty.Client (a concrete type, not an interface), so
@@ -107,7 +117,7 @@ func newGFStub(t *testing.T) *gfStub {
 		}
 
 		resp := map[string]any{
-			"request_id": "test-request-id",
+			"request_id": gfStubRequestID,
 			"error":      map[string]any{"code": "OK", "message": ""},
 			"data":       payload,
 		}

@@ -1394,14 +1394,20 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		fmt.Fprintf(&b, "\t\t\t\treturn printGenericResult(ctx, out, body, listDefaultsFor(%q, %q))\n", s.Name, o.Method)
 	default:
 		// (*Response, error): a mutation, OR an export/attachment endpoint
-		// whose CSV/file body the SDK surfaces on Response.Raw. Capture the
-		// response and stream Raw verbatim when present (so `> file.csv`
-		// works); otherwise fall back to the canned OK acknowledgment.
+		// whose CSV/file body the SDK surfaces on Response.Raw. Which one a
+		// given call turned out to be is not knowable here, only at runtime —
+		// Raw is filled exactly when a 2xx body is not envelope JSON — so
+		// printRawOrNoPayload decides, streaming a download verbatim and
+		// otherwise saying the call carried nothing.
+		//
+		// For the mutations the spec says it will carry nothing: every one of
+		// their 200 envelopes declares `data` as an empty object. There is no
+		// stored object and no id to report, so the output states that and
+		// hands back the request id rather than echoing the path the caller
+		// typed.
 		fmt.Fprintf(&b, "\t\t\t\tresp, err := %s\n", call)
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
-		b.WriteString("\t\t\t\tif resp != nil && len(resp.Raw) > 0 {\n\t\t\t\t\treturn ctx.WriteRaw(resp.Raw)\n\t\t\t\t}\n")
-		fmt.Fprintf(&b, "\t\t\t\tctx.WriteResult(%q)\n", "OK: "+o.HTTP+" "+o.Path)
-		b.WriteString("\t\t\t\treturn nil\n")
+		b.WriteString("\t\t\t\treturn printRawOrNoPayload(ctx, resp)\n")
 	}
 	b.WriteString("\t\t\t})\n\t\t},\n\t}\n")
 
