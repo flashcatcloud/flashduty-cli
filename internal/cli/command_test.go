@@ -1185,6 +1185,227 @@ func TestCommandIncidentCommentVerifyRespectsConcurrencyBound(t *testing.T) {
 	}
 }
 
+// TestCommandIncidentCommentStructuredReturnsVerifiedEntry guards what the
+// command returns, not just its exit code. /incident/comment answers with an
+// empty data envelope, so the only description of a stored comment comes from
+// the read-after-write feed walk the command already performs; it emits that
+// entry instead of discarding it, which is what spares a caller the separate
+// `incident timeline` read it would otherwise need to learn the stored body,
+// the author and the timestamp.
+//
+// The TOON subtest is not duplicate coverage of the JSON one: TOON is a
+// different marshaller (toon.Marshal, vs json.MarshalIndent over
+// output.NullUnsetInstants), and a top-level array of flat structs is exactly
+// the shape it renders tabularly, so a change that broke only the TOON path
+// would pass the JSON assertions.
+func TestCommandIncidentCommentStructuredReturnsVerifiedEntry(t *testing.T) {
+	const (
+		comment   = "the real comment"
+		creatorID = 4242
+		// A whole-second millisecond epoch, so the RFC3339 rendering carries
+		// no fractional part and the assertion below can compare instants
+		// without worrying about sub-second formatting.
+		createdAtMilli = int64(1762761600000)
+	)
+
+	newCommentStub := func(t *testing.T) {
+		stub := newGFStub(t)
+		stub.dataForPath = func(path string, body map[string]any) any {
+			switch path {
+			case "/incident/comment":
+				return map[string]any{}
+			case "/incident/feed":
+				return map[string]any{"items": []any{
+					map[string]any{
+						"type":       "i_comm",
+						"created_at": createdAtMilli,
+						"creator_id": creatorID,
+						"detail":     map[string]any{"comment": comment},
+					},
+				}}
+			default:
+				return map[string]any{}
+			}
+		}
+	}
+
+	t.Run("json", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		newCommentStub(t)
+		commentFile := writeCommentFile(t, comment)
+
+		stdout, _, err := execCommandSplit("incident", "comment", "inc-1", "--comment-file", commentFile, "--json")
+		if err != nil {
+			t.Fatalf("[entry-json] unexpected error: %v", err)
+		}
+		// A one-incident call must still be an array, not a bare object: a
+		// shape that changed with batch size would force every caller to
+		// branch on arity before reading its own result.
+		if trimmed := strings.TrimSpace(stdout); !strings.HasPrefix(trimmed, "[") {
+			t.Fatalf("[entry-json] output must be a top-level array:\n%s", stdout)
+		}
+
+		var entries []struct {
+			IncidentID string `json:"incident_id"`
+			Comment    string `json:"comment"`
+			CreatorID  int64  `json:"creator_id"`
+			CreatedAt  string `json:"created_at"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &entries); err != nil {
+			t.Fatalf("[entry-json] output is not valid JSON (%v):\n%s", err, stdout)
+		}
+		if len(entries) != 1 {
+			t.Fatalf("[entry-json] expected 1 entry, got %d:\n%s", len(entries), stdout)
+		}
+		got := entries[0]
+		if got.IncidentID != "inc-1" {
+			t.Errorf("[entry-json] incident_id = %q, want %q", got.IncidentID, "inc-1")
+		}
+		if got.Comment != comment {
+			t.Errorf("[entry-json] comment = %q, want %q", got.Comment, comment)
+		}
+		if got.CreatorID != creatorID {
+			t.Errorf("[entry-json] creator_id = %d, want %d", got.CreatorID, creatorID)
+		}
+		// created_at must be the feed entry's instant, rendered the way every
+		// other timestamp in structured output is (RFC3339, local zone) rather
+		// than leaked as a raw epoch integer.
+		parsed, parseErr := time.Parse(time.RFC3339, got.CreatedAt)
+		if parseErr != nil {
+			t.Fatalf("[entry-json] created_at %q is not RFC3339: %v", got.CreatedAt, parseErr)
+		}
+		if parsed.UnixMilli() != createdAtMilli {
+			t.Errorf("[entry-json] created_at = %q (%d ms), want %d ms", got.CreatedAt, parsed.UnixMilli(), createdAtMilli)
+		}
+	})
+
+	t.Run("toon", func(t *testing.T) {
+		saveAndResetGlobals(t)
+		newCommentStub(t)
+		commentFile := writeCommentFile(t, comment)
+
+		stdout, _, err := execCommandSplit("incident", "comment", "inc-1", "--comment-file", commentFile, "--output-format", "toon")
+		if err != nil {
+			t.Fatalf("[entry-toon] unexpected error: %v", err)
+		}
+		for _, want := range []string{"incident_id", "inc-1", comment, "4242"} {
+			if !strings.Contains(stdout, want) {
+				t.Errorf("[entry-toon] output missing %q:\n%s", want, stdout)
+			}
+		}
+	})
+}
+
+// TestCommandIncidentCommentStructuredEntriesFollowArgumentOrder is the
+// output-side counterpart to
+// TestCommandIncidentCommentVerifyOrderStableDespiteCompletionOrder: the
+// per-incident feed walks run concurrently, so the emitted entries must be
+// ordered by the ids the caller passed, never by whichever request finished
+// first. The stub sleeps longest for the first id and shortest for the last,
+// making completion order the exact reverse of argument order — a regression
+// that appended entries as they arrived would come out backwards here, while
+// a stub with uniform latency could pass by luck.
+func TestCommandIncidentCommentStructuredEntriesFollowArgumentOrder(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+
+	const (
+		n       = 4
+		comment = "batch comment"
+	)
+	ids := make([]string, n)
+	delay := make(map[string]time.Duration, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("inc-%d", i+1)
+		delay[ids[i]] = time.Duration(n-i) * 15 * time.Millisecond
+	}
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			incID, _ := body["incident_id"].(string)
+			time.Sleep(delay[incID])
+			return map[string]any{"items": []any{
+				map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": comment}},
+			}}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, comment)
+
+	args := append([]string{"incident", "comment"}, ids...)
+	args = append(args, "--comment-file", commentFile, "--json")
+	stdout, _, err := execCommandSplit(args...)
+	if err != nil {
+		t.Fatalf("[entry-order] unexpected error: %v", err)
+	}
+
+	var entries []struct {
+		IncidentID string `json:"incident_id"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &entries); err != nil {
+		t.Fatalf("[entry-order] output is not valid JSON (%v):\n%s", err, stdout)
+	}
+	if len(entries) != n {
+		t.Fatalf("[entry-order] expected %d entries, got %d:\n%s", n, len(entries), stdout)
+	}
+	for i, want := range ids {
+		if entries[i].IncidentID != want {
+			t.Fatalf("[entry-order] entry %d is %q, want %q — entries came out in completion order, not argument order:\n%s",
+				i, entries[i].IncidentID, want, stdout)
+		}
+	}
+}
+
+// TestCommandIncidentCommentStructuredEmitsNothingWhenUnconfirmed guards the
+// failure path's output, which matters as much as its exit code: when any
+// incident in the batch can't be confirmed, the command must emit no entries
+// at all rather than a partial array. A caller that saw entries for the
+// confirmed incidents next to a non-zero exit would have to reconcile the two
+// signals; there is a single batch write behind them, so the result is
+// reported whole or not at all.
+//
+// TestCommandIncidentCommentChecksEntireBatchNotJustFirstFailure runs the same
+// mixed verified/unverified batch but in table mode, where it asserts the
+// "Commented on ..." line is absent. That assertion says nothing here: in
+// structured mode there is no such line to suppress, and what must not appear
+// is a partial array. Hence two tests over one scenario, one per output mode,
+// rather than one test carrying both contracts.
+func TestCommandIncidentCommentStructuredEmitsNothingWhenUnconfirmed(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	stub.dataForPath = func(path string, body map[string]any) any {
+		switch path {
+		case "/incident/comment":
+			return map[string]any{}
+		case "/incident/feed":
+			// inc-1 verifies, inc-2 never does.
+			if incID, _ := body["incident_id"].(string); incID == "inc-1" {
+				return map[string]any{"items": []any{
+					map[string]any{"type": "i_comm", "created_at": 1, "detail": map[string]any{"comment": "the real comment"}},
+				}}
+			}
+			return map[string]any{"items": []any{}}
+		default:
+			return map[string]any{}
+		}
+	}
+	commentFile := writeCommentFile(t, "the real comment")
+
+	stdout, _, err := execCommandSplit("incident", "comment", "inc-1", "inc-2", "--comment-file", commentFile, "--json")
+	if err == nil {
+		t.Fatal("[entry-unconfirmed] expected a non-zero exit, got nil error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("[entry-unconfirmed] expected no entries on stdout, got:\n%s", stdout)
+	}
+	if !strings.Contains(err.Error(), "inc-2") {
+		t.Fatalf("[entry-unconfirmed] expected the unconfirmed incident named in the error: %v", err)
+	}
+}
+
 // TestCommandIncidentLifecycleRejectsMoreThan100IDs covers the curated
 // commands that still enforce the 100-id batch cap client-side. unack and wake
 // were dropped in favor of their generated twins, which carry no client-side

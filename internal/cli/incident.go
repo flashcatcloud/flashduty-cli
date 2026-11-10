@@ -1065,7 +1065,15 @@ when the comment should not trigger webhook reply behavior.
 After writing, the command reads back every incident's timeline and verifies
 an entry with the exact (trimmed) text is present; on any incident it can't
 confirm, across the whole batch, it exits non-zero instead of reporting
-success.`,
+success.
+
+The confirmed entries are the command's output: with --json or
+--output-format toon it prints one object per incident, in the order the ids
+were given, carrying the incident id, the stored comment body, the author the
+server recorded, and the entry's timestamp. A follow-up
+'flashduty incident timeline <id>' is not needed to find out what landed.
+The shape is an array whatever the batch size, so a single-incident call reads
+the same as a hundred-incident one.`,
 		Example: `  flashduty incident comment inc_123 --comment-file ./comment.txt
   printf '%s' 'Rollback started' | flashduty incident comment inc_123 --comment-file -`,
 		Args: requireArgs("incident_id"),
@@ -1108,12 +1116,12 @@ success.`,
 					return err
 				}
 
-				if err := verifyIncidentCommentsWritten(ctx, comment); err != nil {
+				entries, err := verifyIncidentCommentsWritten(ctx, comment)
+				if err != nil {
 					return err
 				}
 
-				ctx.WriteResult(fmt.Sprintf("Commented on %d incident(s).", len(ctx.Args)))
-				return nil
+				return ctx.WriteResultJSON(entries, fmt.Sprintf("Commented on %d incident(s).", len(ctx.Args)))
 			})
 		},
 	}
@@ -1173,10 +1181,35 @@ const commentVerificationGuidance = "The write API already reported success for 
 // commentVerificationGuidance above.
 const commentVerificationNotFoundDetailFmt = "no timeline entry matches the written text within the first %d pages"
 
+// incidentCommentEntry is one incident's timeline entry as located by the
+// read-after-write check, and the command's output.
+//
+// It is the only description of the written comment any Flashduty API will
+// give back: POST /incident/comment answers with an empty data envelope (no
+// id, no echo of what it stored), and /incident/feed entries carry no
+// per-entry id either — IncidentFeedItem has account_id, created_at,
+// creator_id, deleted_at, detail, ref_id, type and updated_at, none of which
+// identifies the comment itself. So these four fields are everything that can
+// be reported about a comment that landed: which incident it landed on, the
+// body as stored, who the server recorded as its author (0 when it attributed
+// the write to the system rather than a member), and when it was written.
+type incidentCommentEntry struct {
+	IncidentID string                   `json:"incident_id" toon:"incident_id"`
+	Comment    string                   `json:"comment" toon:"comment"`
+	CreatorID  int64                    `json:"creator_id" toon:"creator_id"`
+	CreatedAt  flashduty.TimestampMilli `json:"created_at" toon:"created_at"`
+}
+
 // verifyIncidentCommentsWritten re-fetches every incident's timeline after a
-// comment write and confirms an entry with the exact text just sent is
-// present. The Comment API returns no handle for the created entry, so this
-// must find it by re-listing the feed instead.
+// comment write, confirms an entry with the exact text just sent is present,
+// and returns those entries in ctx.Args order. The Comment API returns no
+// handle for the created entry, so this must find it by re-listing the feed
+// instead — and since it has the entry in hand at that point, it hands it
+// back rather than reducing it to a yes/no: a caller that needs to know what
+// landed gets it from this one invocation instead of a second timeline read.
+//
+// A non-nil error means no entries: the batch either verified whole or is
+// reported whole, so there is no partial success for a caller to interpret.
 //
 // It deliberately does not track "the newest" entry and compare it against
 // want. This is a war-room CLI: another human or bot commenting on the same
@@ -1203,11 +1236,11 @@ const commentVerificationNotFoundDetailFmt = "no timeline entry matches the writ
 // a time, instead of walking ctx.Args one at a time: with a batch of up to
 // 100 incidents and up to maxIncidentFeedVerifyPages page fetches apiece, a
 // sequential walk could take thousands of round-trips before the command
-// returned. Each goroutine writes only its own slot of a pre-sized results
-// slice (index == position in ctx.Args), so the problems reported below
-// always come out in ctx.Args order regardless of which request happens to
-// finish first — the message must read the same on every run, not depend on
-// network timing.
+// returned. Each goroutine writes only its own slot of the two pre-sized
+// result slices (index == position in ctx.Args), so both the problems and the
+// entries reported below always come out in ctx.Args order regardless of
+// which request happens to finish first — the message and the output must
+// read the same on every run, not depend on network timing.
 //
 // Neither a page-budget miss nor a transport error while re-fetching the feed
 // means the write was corrupted — corruption can no longer even be observed
@@ -1221,8 +1254,9 @@ const commentVerificationNotFoundDetailFmt = "no timeline entry matches the writ
 // incident (which risks a duplicate on a write that most likely landed and
 // simply couldn't be located within budget). The safe next step is to look,
 // not to write.
-func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
+func verifyIncidentCommentsWritten(ctx *RunContext, want string) ([]incidentCommentEntry, error) {
 	slots := make([]string, len(ctx.Args))
+	found := make([]incidentCommentEntry, len(ctx.Args))
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxIncidentVerifyConcurrency)
@@ -1233,12 +1267,14 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			found, err := incidentTimelineHasComment(ctx, id, want)
+			entry, err := findIncidentCommentEntry(ctx, id, want)
 			switch {
 			case err != nil:
 				slots[i] = fmt.Sprintf("incident %s: %v", id, err)
-			case !found:
+			case entry == nil:
 				slots[i] = fmt.Sprintf("incident %s: "+commentVerificationNotFoundDetailFmt, id, maxIncidentFeedVerifyPages)
+			default:
+				found[i] = *entry
 			}
 		}(i, id)
 	}
@@ -1250,16 +1286,21 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 			problems = append(problems, p)
 		}
 	}
-	if len(problems) == 0 {
-		return nil
+	if len(problems) > 0 {
+		return nil, fmt.Errorf("comment verification could not confirm %d of %d incident(s) — %s. %s",
+			len(problems), len(ctx.Args), strings.Join(problems, "; "), commentVerificationGuidance)
 	}
-	return fmt.Errorf("comment verification could not confirm %d of %d incident(s) — %s. %s",
-		len(problems), len(ctx.Args), strings.Join(problems, "; "), commentVerificationGuidance)
+
+	// No problems means every slot holds a located entry: the switch above
+	// fills exactly one of the two slices per index, and problems is empty.
+	return found, nil
 }
 
-// incidentTimelineHasComment walks every page of incidentID's i_comm feed
+// findIncidentCommentEntry walks every page of incidentID's i_comm feed
 // entries (up to maxIncidentFeedVerifyPages) looking for one whose text
-// exactly equals want.
+// exactly equals want, and returns it. A nil entry with a nil error means the
+// page budget ran out without a match — the "could not confirm" case, which
+// is not evidence the comment is absent (see verifyIncidentCommentsWritten).
 //
 // Converse limitation, accepted: if an OLDER i_comm entry already carries
 // text byte-identical to want (e.g. a templated automation posting the same
@@ -1272,7 +1313,7 @@ func verifyIncidentCommentsWritten(ctx *RunContext, want string) error {
 // Do not add a CreatedAt floor to close this gap — that reintroduces the
 // clock-ordering dependence that caused the original bug, to guard a narrow,
 // accepted risk.
-func incidentTimelineHasComment(ctx *RunContext, incidentID, want string) (bool, error) {
+func findIncidentCommentEntry(ctx *RunContext, incidentID, want string) (*incidentCommentEntry, error) {
 	for page := 1; page <= maxIncidentFeedVerifyPages; page++ {
 		result, _, err := ctx.Client.Incidents.Feed(cmdContext(ctx.Cmd), &flashduty.ListIncidentFeedRequest{
 			IncidentID:  incidentID,
@@ -1280,18 +1321,29 @@ func incidentTimelineHasComment(ctx *RunContext, incidentID, want string) (bool,
 			ListOptions: flashduty.ListOptions{Page: page, Limit: 100},
 		})
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		for _, item := range result.Items {
-			if comment, ok := incidentCommentText(item); ok && comment == want {
-				return true, nil
+			comment, ok := incidentCommentText(item)
+			if !ok || comment != want {
+				continue
 			}
+			// incidentID, not item.RefID: ref_id is documented as "the source
+			// alert or incident this entry references", so it is not
+			// guaranteed to be the incident whose feed was queried, and the
+			// caller needs the id it asked about.
+			return &incidentCommentEntry{
+				IncidentID: incidentID,
+				Comment:    comment,
+				CreatorID:  item.CreatorID,
+				CreatedAt:  item.CreatedAt,
+			}, nil
 		}
 		if !result.HasNextPage {
 			break
 		}
 	}
-	return false, nil
+	return nil, nil
 }
 
 // incidentCommentText returns item's comment body if it is an i_comm entry.
