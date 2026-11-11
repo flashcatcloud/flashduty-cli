@@ -97,10 +97,14 @@ The message is sent on the CLI channel (reply-only delivery): the agent answers
 through its reply tool and the answers are read with 'safari watch'. If the
 server does not accept that channel, the command fails instead of falling back.
 
+Sent to a session whose turn is still running, the message is taken into that
+turn at its next step instead of waiting for the turn to finish, and the
+running turn answers it.
+
 Follow the answer with:
   flashduty safari watch --session-id <session_id> --root-invocation-id <root_invocation_id>
 
-API: POST /safari/session/message, POST /safari/attachment/upload`,
+API: POST /safari/session/message, POST /safari/session/get, POST /safari/attachment/upload`,
 		Example: `  flashduty safari send "why is checkout latency up?"
   flashduty safari send --session-id sess_01 --file trace.json "does this match?"
   cat question.md | flashduty safari send --team-id 42 --env-kind byoc`,
@@ -176,6 +180,17 @@ API: POST /safari/session/message, POST /safari/attachment/upload`,
 				if req.SessionID == "" {
 					req.AppName = safariAppName
 					req.EntryKind = safariEntryKind
+				}
+
+				if sessionID != "" {
+					// A message sent while a turn runs joins that turn at its
+					// next step instead of waiting for a turn of its own; an
+					// idle session runs it as an ordinary turn.
+					info, _, err := ctx.Client.Sessions.ReadInfo(cctx, &flashduty.SessionGetRequest{SessionID: sessionID, Limit: 1})
+					if err != nil {
+						return err
+					}
+					req.Steering = info.Session.TurnInFlight
 				}
 
 				ack, _, err := ctx.Client.Sessions.WriteMessage(cctx, req)

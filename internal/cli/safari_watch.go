@@ -22,6 +22,8 @@ const (
 	replyToolName        = "reply"
 	replyPurposeResult   = "result"
 	replyPurposeProgress = "progress"
+	// settledReasonSteered settles a message the running turn took in.
+	settledReasonSteered = "steered"
 )
 
 // watchEvent is the one user-facing line `safari watch` prints. Only the fields
@@ -45,32 +47,96 @@ type settledPayload struct {
 	RootInvocationID string            `json:"root_invocation_id"`
 	Reason           string            `json:"reason"`
 	StandingTasks    []json.RawMessage `json:"standing_tasks"`
+	// FinalEventID names the turn's answer. A turn that is not reply-only
+	// (one started from the web console, say) answers in that event's text
+	// instead of through the reply tool; FinalKind set means it has nothing
+	// to deliver.
+	FinalEventID string `json:"final_event_id"`
+	FinalKind    string `json:"final_kind"`
+	DeliveryMode string `json:"delivery_mode"`
 }
 
 // frameOutcome is what one frame means for the watch loop.
 type frameOutcome struct {
 	Events []watchEvent
-	// Settled is true for a session_turn_settled frame of the watched root with
-	// no standing tasks: the root has no more automatic work, so the request
-	// is a candidate for "fully done" (confirmed against is_running).
+	// Settled is true for a settle with no standing tasks once the followed
+	// request has settled: the request is then a candidate for "fully done"
+	// (confirmed against is_running).
 	Settled bool
 	// Fatal is true for a frame after which the session will produce nothing
 	// more (environment provisioning failed before the turn started).
 	Fatal bool
 }
 
-// watchState turns raw stream frames into events. It owns the root filter, the
-// dedupe set and the resume cursor, none of which depend on the transport.
+// watchState turns raw stream frames into events. It owns the request
+// tracking, the dedupe set and the resume cursor, none of which depend on the
+// transport.
+//
+// The watch follows the session, not one invocation: a message sent while
+// another turn runs may be taken into that turn, and its answer then comes
+// from that turn's invocation. rootID (the request being followed) only marks
+// where output starts — its first frame — and which settle makes the request
+// a done candidate.
 type watchState struct {
 	rootID string
-	seen   map[string]struct{}
+	// started is set once output begins: at the followed request's first
+	// frame, or immediately when no request is followed.
+	started bool
+	// rootSettled is set once the followed request has settled (answered in a
+	// turn of its own, or taken into the running turn).
+	rootSettled bool
+	seen        map[string]struct{}
+	// answers holds, per root, the visible text of its latest persisted
+	// assistant frame, so a turn that answers without the reply tool can still
+	// be printed from its settle's final_event_id. A finished turn clears it.
+	answers map[string]heldAnswer
+
+	// When an earlier watch is re-armed with --root-invocation-id and --since,
+	// the stream is replayed from the session start so the request's own
+	// frames are seen again. Persisted frames up to quietAt (and, at exactly
+	// quietAt, up to and including quietID) were already printed: they update
+	// the state but print nothing.
+	quietAt     int64
+	quietID     string
+	quietPassed bool
+	// quietDone is set when the last persisted frame was a quiet done
+	// candidate. It cannot end the stream — later frames may still follow in
+	// the replay — so it is acted on only if the stream ends with nothing new.
+	quietDone bool
 
 	cursorAt int64
 	cursorID string
 }
 
+type heldAnswer struct {
+	eventID, invocation, text string
+}
+
 func newWatchState(rootID string, since int64) *watchState {
-	return &watchState{rootID: rootID, seen: map[string]struct{}{}, cursorAt: since}
+	return &watchState{
+		rootID: rootID, started: rootID == "", rootSettled: rootID == "",
+		seen: map[string]struct{}{}, answers: map[string]heldAnswer{}, cursorAt: since,
+	}
+}
+
+// quiet reports whether a persisted frame was already printed by an earlier
+// watch. Live-only frames (no event id) are never quiet.
+func (w *watchState) quiet(f *flashduty.SessionEventFrame) bool {
+	switch {
+	case f.EventID == "" || w.quietAt == 0 || f.CreatedAt > w.quietAt:
+		return false
+	case f.CreatedAt < w.quietAt:
+		return true
+	case w.quietID == "":
+		// --since alone resumes at that millisecond inclusive.
+		return false
+	case w.quietPassed:
+		return false
+	}
+	if f.EventID == w.quietID {
+		w.quietPassed = true
+	}
+	return true
 }
 
 // frameRoot is the root invocation a frame belongs to. A frame that carries no
@@ -85,7 +151,14 @@ func frameRoot(f *flashduty.SessionEventFrame) string {
 // handle processes one frame. Persisted frames always advance the resume
 // cursor, even when filtered out, so a reconnect never replays them.
 func (w *watchState) handle(f *flashduty.SessionEventFrame) frameOutcome {
+	quiet := w.quiet(f)
 	out := w.classify(f)
+	if quiet {
+		w.quietDone = out.Settled
+		out.Events, out.Settled = nil, false
+	} else if f.EventID != "" {
+		w.quietDone = false
+	}
 	for i := range out.Events {
 		out.Events[i].CreatedAt = f.CreatedAt
 	}
@@ -104,23 +177,42 @@ func (w *watchState) classify(f *flashduty.SessionEventFrame) frameOutcome {
 		}
 		w.seen[f.EventID] = struct{}{}
 	}
-	if w.rootID != "" && frameRoot(f) != w.rootID {
-		return frameOutcome{}
+	if !w.started {
+		if frameRoot(f) != w.rootID {
+			return frameOutcome{}
+		}
+		w.started = true
 	}
 
 	switch f.Type {
 	case frameTypeSettled:
 		var p settledPayload
 		_ = json.Unmarshal(f.Payload, &p)
-		if w.rootID != "" && p.RootInvocationID != "" && p.RootInvocationID != w.rootID {
-			return frameOutcome{}
-		}
 		root := p.RootInvocationID
 		if root == "" {
 			root = frameRoot(f)
 		}
-		ev := watchEvent{Type: "settled", RootInvocationID: root, Reason: p.Reason, EventID: f.EventID, StandingTasks: len(p.StandingTasks)}
-		return frameOutcome{Events: []watchEvent{ev}, Settled: len(p.StandingTasks) == 0}
+		var events []watchEvent
+		if a := w.answers[root]; a.eventID != "" && a.eventID == p.FinalEventID && p.DeliveryMode != safariReplyOnlyMode && p.FinalKind == "" {
+			// Carries the settle's own event id, so the line's
+			// created_at/event_id pair is one real stream position to resume
+			// after.
+			events = append(events, watchEvent{Type: "reply", Purpose: replyPurposeResult, Message: a.text, InvocationID: a.invocation, EventID: f.EventID})
+		}
+		if root == w.rootID {
+			w.rootSettled = true
+		}
+		events = append(events, watchEvent{Type: "settled", RootInvocationID: root, Reason: p.Reason, EventID: f.EventID, StandingTasks: len(p.StandingTasks)})
+		// A steered settle is written while the absorbing turn still runs and
+		// is about to answer, so it is never the session's last frame.
+		steered := p.Reason == settledReasonSteered
+		if !steered {
+			// The session runs one turn at a time: a finished turn leaves no
+			// other answer pending.
+			clear(w.answers)
+		}
+		done := w.rootSettled && len(p.StandingTasks) == 0 && !steered
+		return frameOutcome{Events: events, Settled: done}
 	case frameTypeEnvFailed:
 		var p struct {
 			ErrorMessage string `json:"error_message"`
@@ -140,15 +232,35 @@ func (w *watchState) classify(f *flashduty.SessionEventFrame) frameOutcome {
 		if f.IsError {
 			return frameOutcome{Events: []watchEvent{{Type: "error", Message: errorFrameMessage(f), Code: f.ErrorCode, EventID: f.EventID}}}
 		}
+		if text := visibleText(f); text != "" && f.EventID != "" {
+			w.answers[frameRoot(f)] = heldAnswer{eventID: f.EventID, invocation: f.InvocationID, text: text}
+		}
 	}
 	return frameOutcome{}
 }
 
+// visibleText is a frame's answer text: its text parts without the model's
+// thinking.
+func visibleText(f *flashduty.SessionEventFrame) string {
+	var c adkContent
+	if len(f.Payload) == 0 || json.Unmarshal(f.Payload, &c) != nil {
+		return ""
+	}
+	var texts []string
+	for _, p := range c.Parts {
+		if t := strings.TrimSpace(p.Text); t != "" && !p.Thought {
+			texts = append(texts, t)
+		}
+	}
+	return strings.Join(texts, "\n")
+}
+
 // adkContent is the slice of an ADK content payload the reply tool result
-// lives in.
+// and the answer text live in.
 type adkContent struct {
 	Parts []struct {
 		Text             string `json:"text"`
+		Thought          bool   `json:"thought"`
 		FunctionResponse *struct {
 			Name     string `json:"name"`
 			Response struct {
@@ -276,19 +388,20 @@ var errFatalFrame = errors.New("session produced a terminal error")
 // run blocks until the request is fully done (nil), an unrecoverable error, or
 // ctx cancellation.
 //
-// Done rule: a session_turn_settled frame for the watched root that lists no
-// standing tasks means the root has no more automatic work; the watcher then
-// asks POST /safari/session/get and exits only when is_running is false (no
-// in-flight turn, so no queued follow-up turn or notification round is about
-// to start). A settle that lists standing tasks keeps the watch open: those
-// background tasks post later rounds into the same root.
+// Done rule: once the followed request has settled — in a turn of its own, or
+// as "steered" when the running turn took it in — the next settle that is not
+// steered and lists no standing tasks (its own, or the absorbing turn's) makes
+// the watch ask POST /safari/session/get, and it exits only when is_running is
+// false (no in-flight turn, so no queued follow-up turn or notification round
+// is about to start). A settle that lists standing tasks keeps the watch open:
+// those background tasks post later rounds into the session.
 //
-// Why the first such settle is final for the root: the server persists a
-// settle only when the whole session has no open tasks and no queued
-// notifications (logic/session/actor/settled.go, maybePersistSessionTurnSettled),
-// and stamps standing_tasks with the running bash_background/monitor tasks
-// (model/task/task.go, ListSessionRunningProcessTasks). With both empty nothing
-// can start another round under that root; a user follow-up opens a new root.
+// Why such a settle is final: the server persists it only when the whole
+// session has no open tasks and no queued notifications, and stamps
+// standing_tasks with the running background shell and monitor tasks. With
+// both empty nothing can start another round; a new message opens a new root.
+// A steered settle is different — it is written while the absorbing turn still
+// runs, before that turn answers — so it never ends the watch.
 func (r *watchRunner) run(ctx context.Context) error {
 	failures := 0
 	settledSeen := false
@@ -312,6 +425,11 @@ func (r *watchRunner) run(ctx context.Context) error {
 
 		started := time.Now()
 		progressed, settled, err := r.streamOnce(ctx)
+		if err == nil && r.state.quietDone {
+			// A re-armed watch replayed up to a done candidate the earlier
+			// watch already printed, and nothing new followed it.
+			settled = true
+		}
 		if err == nil && time.Since(started) >= r.healthyAfter {
 			progressed = true
 		}
@@ -448,22 +566,31 @@ Events:
   {"type":"settled","root_invocation_id":"...","reason":"...","event_id":"...","created_at":1700000000000}
   {"type":"error","message":"...","created_at":1700000000000}
 
-Only messages the agent explicitly sends with its reply tool are printed; tool
-calls, thinking and ordinary assistant text are not. Every event carries created_at (Unix ms of its frame). Events are de-duplicated
-by event id and the stream is resumed from the last seen event after a drop.
+Printed: messages the agent sends with its reply tool, and the final answer of
+a turn that does not use the reply tool (one started from the web console).
+Tool calls, thinking and other assistant text are not. Every event carries
+created_at (Unix ms of its frame). Events are de-duplicated by event id and the
+stream is resumed from the last seen event after a drop.
+
+The watch follows the whole session. A message sent while another turn is
+running is taken into that turn ('safari send' asks for this), so its answer
+comes from that turn, and replies to other people's messages in the same
+session are printed too.
+
+With --root-invocation-id (printed by 'safari send') output starts at that
+request and the watch ends once it is done. Without it, --since (Unix
+milliseconds) bounds the replay; the default is "now".
 
 To re-arm a watch later, pass the last line's created_at as --since and its
-event_id as --since-event-id: replay then starts strictly after that event.
---since alone resumes at that millisecond inclusive, so the frame at exactly
-that time (and any sibling in the same millisecond) is delivered again.
+event_id as --since-event-id: nothing up to and including that event is
+printed again. --since alone resumes at that millisecond inclusive, so the
+frame at exactly that time (and any sibling in the same millisecond) is
+delivered again.
 
-With --root-invocation-id (printed by 'safari send') only that request's frames
-count. Without it, --since (Unix milliseconds) bounds the replay; the default
-is "now".
-
-The command exits 0 once the request is fully done: the root has settled with
-no background tasks left and the session reports no running turn. It exits
-non-zero on an unrecoverable error.
+The command exits 0 once the request is fully done: it has settled (answered
+in a turn of its own, or taken into the running turn), a turn has then settled
+with no background tasks left, and the session reports no running turn. It
+exits non-zero on an unrecoverable error.
 
 API: POST /safari/session/subscribe, POST /safari/session/get`,
 		Example: `  flashduty safari watch --session-id sess_01 --root-invocation-id inv_01`,
@@ -477,7 +604,14 @@ API: POST /safari/session/subscribe, POST /safari/session/get`,
 					since = time.Now().UnixMilli()
 				}
 				r := newWatchRunner(ctx.Client, sessionID, rootID, since, ctx.Writer, ctx.Cmd.ErrOrStderr())
-				if sinceEventID != "" {
+				switch {
+				case rootID != "" && since != 0:
+					// The request's own frames may predate the cursor; replay
+					// from the session start, silently up to the cursor, so
+					// its settle is still seen.
+					r.state.cursorAt = 0
+					r.state.quietAt, r.state.quietID = since, sinceEventID
+				case sinceEventID != "":
 					r.state.cursorID = sinceEventID
 					r.state.seen[sinceEventID] = struct{}{}
 				}
@@ -492,8 +626,8 @@ API: POST /safari/session/subscribe, POST /safari/session/get`,
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session-id", "", "Session to follow (required)")
-	cmd.Flags().StringVar(&rootID, "root-invocation-id", "", "Only follow this request (the root_invocation_id printed by 'safari send')")
-	cmd.Flags().Int64Var(&since, "since", 0, "Replay from this Unix-millisecond timestamp (default: now, or the start of the session with --root-invocation-id)")
+	cmd.Flags().StringVar(&rootID, "root-invocation-id", "", "Start at this request and end once it is done (the root_invocation_id printed by 'safari send')")
+	cmd.Flags().Int64Var(&since, "since", 0, "Print only what comes after this Unix-millisecond timestamp (default: now; with --root-invocation-id the session is replayed from its start and everything up to this point is skipped silently)")
 	cmd.Flags().StringVar(&sinceEventID, "since-event-id", "", "With --since: resume strictly after the event with this id (the event_id of the last line seen)")
 	_ = cmd.MarkFlagRequired("session-id")
 	return cmd
