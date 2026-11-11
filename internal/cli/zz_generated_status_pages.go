@@ -348,11 +348,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/change/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -688,11 +684,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/change/timeline/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -762,11 +754,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/change/timeline/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -834,11 +822,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/change/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -895,11 +879,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/component/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1117,11 +1097,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1441,11 +1417,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/migration/cancel")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1567,11 +1539,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/section/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1683,11 +1651,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/subscriber/export")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1747,11 +1711,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/subscriber/import")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1889,11 +1849,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/template/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2145,11 +2101,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /status-page/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

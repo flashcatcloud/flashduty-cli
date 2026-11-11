@@ -70,7 +70,7 @@ API: POST /enrichment/mapping/data/upload (mapping-data-write-upload)`,
 				}
 				defer func() { _ = file.Close() }()
 
-				_, err = ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), &flashduty.MappingDataUploadRequest{
+				resp, err := ctx.Client.AlertEnrichment.MappingDataWriteUpload(cmdContext(ctx.Cmd), &flashduty.MappingDataUploadRequest{
 					SchemaID:           schemaID,
 					DoNotTruncateFirst: doNotTruncateFirst,
 					File:               file,
@@ -79,8 +79,7 @@ API: POST /enrichment/mapping/data/upload (mapping-data-write-upload)`,
 				if err != nil {
 					return err
 				}
-				ctx.WriteResult("OK: POST /enrichment/mapping/data/upload")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

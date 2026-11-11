@@ -559,11 +559,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /integration/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -611,11 +607,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /integration/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -663,11 +655,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /integration/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

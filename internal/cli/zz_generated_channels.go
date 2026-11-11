@@ -196,11 +196,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -248,11 +244,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -300,11 +292,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -456,11 +444,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/escalate/rule/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -510,11 +494,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/escalate/rule/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -564,11 +544,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/escalate/rule/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -796,11 +772,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/escalate/rule/reorder")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -901,11 +873,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/escalate/rule/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1193,11 +1161,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/inhibit/rule/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1247,11 +1211,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/inhibit/rule/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1301,11 +1261,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/inhibit/rule/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1442,11 +1398,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/inhibit/rule/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1760,11 +1712,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/silence/rule/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1814,11 +1762,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/silence/rule/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -1868,11 +1812,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/silence/rule/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2027,11 +1967,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/silence/rule/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2150,11 +2086,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2204,11 +2136,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2258,11 +2186,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2385,11 +2309,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /channel/unsubscribe/rule/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -2739,11 +2659,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /route/upsert")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

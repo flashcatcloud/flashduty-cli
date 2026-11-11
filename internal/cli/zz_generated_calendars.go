@@ -62,11 +62,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /calendar/event/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -366,11 +362,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /calendar/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -580,11 +572,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /calendar/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

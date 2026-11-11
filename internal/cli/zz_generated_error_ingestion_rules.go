@@ -116,11 +116,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /rum/error-ingestion/rules/delete")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -170,11 +166,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /rum/error-ingestion/rules/disable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -224,11 +216,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /rum/error-ingestion/rules/enable")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -386,11 +374,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /rum/error-ingestion/rules/history/revert")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
@@ -515,11 +499,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: POST /rum/error-ingestion/rules/update")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}
