@@ -195,7 +195,7 @@ func TestIncidentAckSingleID(t *testing.T) {
 	// Served by the generated twin (positional id → incident_ids).
 	r = runCLI(t, "incident", "ack", id)
 	requireSuccess(t, r)
-	requireContains(t, r.Stdout, "OK: POST /incident/ack")
+	requireNoPayloadAck(t, r.Stdout)
 }
 
 // Test 204: close single ID

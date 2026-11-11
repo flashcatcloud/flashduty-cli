@@ -496,8 +496,8 @@ func TestCommandIncidentUnack(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-unack] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "OK: POST /incident/unack") {
-		t.Fatalf("[incident-unack] unexpected output:\n%s", out)
+	if got := strings.TrimRight(out, "\n"); got != gfStubNoPayloadLine {
+		t.Fatalf("[incident-unack] default output must be exactly %q, got:\n%s", gfStubNoPayloadLine, out)
 	}
 }
 
@@ -516,8 +516,8 @@ func TestCommandIncidentWake(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1"; got != want {
 		t.Fatalf("[incident-wake] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "OK: POST /incident/wake") {
-		t.Fatalf("[incident-wake] unexpected output:\n%s", out)
+	if got := strings.TrimRight(out, "\n"); got != gfStubNoPayloadLine {
+		t.Fatalf("[incident-wake] default output must be exactly %q, got:\n%s", gfStubNoPayloadLine, out)
 	}
 }
 
@@ -1669,8 +1669,8 @@ func TestCommandIncidentDisableMerge(t *testing.T) {
 	if got, want := strings.Join(stub.bodyStrings("incident_ids"), ","), "inc-1,inc-2"; got != want {
 		t.Fatalf("[incident-disable-merge] expected ids %q, got %q", want, got)
 	}
-	if !strings.Contains(out, "OK: POST /incident/disable-merge") {
-		t.Fatalf("[incident-disable-merge] unexpected output:\n%s", out)
+	if got := strings.TrimRight(out, "\n"); got != gfStubNoPayloadLine {
+		t.Fatalf("[incident-disable-merge] default output must be exactly %q, got:\n%s", gfStubNoPayloadLine, out)
 	}
 }
 

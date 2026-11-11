@@ -121,25 +121,171 @@ func TestWatchStateDedupeAndCursor(t *testing.T) {
 	}
 }
 
-func TestWatchStateRootFilter(t *testing.T) {
-	w := newWatchState("rootA", 0)
-	if out := w.handle(replyFrame("e1", "invB", "rootB", "result", "other", 1)); len(out.Events) != 0 {
-		t.Errorf("other root emitted: %+v", out.Events)
+func steeredFrame(eventID, root string, createdAt int64) *flashduty.SessionEventFrame {
+	payload := fmt.Sprintf(`{"root_invocation_id":%q,"reason":"steered"}`, root)
+	return &flashduty.SessionEventFrame{
+		EventID: eventID, CreatedAt: createdAt, Type: "session_turn_settled",
+		RootInvocationID: root, Payload: json.RawMessage(payload),
 	}
-	// Filtered frames still advance the resume cursor.
+}
+
+func TestWatchStateStartsAtRequestThenFollowsSession(t *testing.T) {
+	w := newWatchState("rootA", 0)
+	// Before the request's first frame: earlier history is not printed.
+	if out := w.handle(replyFrame("e1", "invB", "rootB", "result", "earlier", 1)); len(out.Events) != 0 {
+		t.Errorf("history before the request emitted: %+v", out.Events)
+	}
+	// Skipped frames still advance the resume cursor.
 	if w.cursorID != "e1" {
 		t.Errorf("cursor id = %q", w.cursorID)
 	}
-	if out := w.handle(replyFrame("e2", "invA", "rootA", "result", "mine", 2)); len(out.Events) != 1 {
-		t.Errorf("own root dropped: %+v", out.Events)
-	}
 	// A frame without a root id belongs to the root whose own invocation it is.
-	bare := replyFrame("e3", "rootA", "", "result", "bare", 3)
-	if out := w.handle(bare); len(out.Events) != 1 {
-		t.Errorf("bare invocation frame dropped: %+v", out.Events)
+	if out := w.handle(replyFrame("e2", "rootA", "", "progress", "mine", 2)); len(out.Events) != 1 {
+		t.Errorf("own request dropped: %+v", out.Events)
 	}
-	if out := w.handle(settleFrame("e4", "rootB", 4, 0)); len(out.Events) != 0 || out.Settled {
-		t.Errorf("other root's settle leaked: %+v", out)
+	// From then on the whole session is followed.
+	if out := w.handle(replyFrame("e3", "invB", "rootB", "result", "theirs", 3)); len(out.Events) != 1 {
+		t.Errorf("other root after the request dropped: %+v", out.Events)
+	}
+	// Another root settling is printed but is not done while the request is open.
+	if out := w.handle(settleFrame("e4", "rootB", 4, 0)); len(out.Events) != 1 || out.Settled {
+		t.Errorf("other root's settle before the request settled: %+v", out)
+	}
+	if out := w.handle(settleFrame("e5", "rootA", 5, 0)); !out.Settled {
+		t.Errorf("own settle must be a done candidate: %+v", out)
+	}
+}
+
+func TestWatchStateSteeredRequestIsAnsweredByTheRunningTurn(t *testing.T) {
+	w := newWatchState("rootA", 0)
+	// The running turn (rootH) took the message in: its own root settles as
+	// steered first, then the running turn answers and settles.
+	out := w.handle(steeredFrame("e1", "rootA", 1))
+	if len(out.Events) != 1 || out.Events[0].Reason != "steered" {
+		t.Fatalf("steered settle = %+v", out)
+	}
+	if out.Settled {
+		t.Error("a steered settle is written before the absorbing turn answers; it must not be a done candidate")
+	}
+	if out = w.handle(replyFrame("e2", "invH", "rootH", "result", "answer to both", 2)); len(out.Events) != 1 {
+		t.Errorf("absorbing turn's reply dropped: %+v", out.Events)
+	}
+	if out = w.handle(settleFrame("e3", "rootH", 3, 0)); !out.Settled {
+		t.Errorf("absorbing turn's settle must be a done candidate: %+v", out)
+	}
+}
+
+func nativeFrame(eventID, invocation, root, payload string, createdAt int64) *flashduty.SessionEventFrame {
+	return &flashduty.SessionEventFrame{
+		EventID: eventID, CreatedAt: createdAt, Type: "assistant",
+		InvocationID: invocation, RootInvocationID: root, Payload: json.RawMessage(payload),
+	}
+}
+
+func TestWatchStatePrintsFinalAnswerOfTurnWithoutReplyTool(t *testing.T) {
+	settled := func(eventID, root, extra string) *flashduty.SessionEventFrame {
+		return &flashduty.SessionEventFrame{EventID: eventID, CreatedAt: 9, Type: "session_turn_settled", RootInvocationID: root,
+			Payload: json.RawMessage(`{"root_invocation_id":"` + root + `","reason":"completed"` + extra + `}`)}
+	}
+	t.Run("web turn", func(t *testing.T) {
+		w := newWatchState("", 0)
+		if out := w.handle(nativeFrame("a1", "iW", "rW", `{"parts":[{"text":"draft"}]}`, 1)); len(out.Events) != 0 {
+			t.Errorf("working text printed: %+v", out.Events)
+		}
+		w.handle(nativeFrame("a2", "iW", "rW", `{"parts":[{"text":"thinking","thought":true},{"text":"Disk is full."}]}`, 2))
+		out := w.handle(settled("s", "rW", `,"final_event_id":"a2"`))
+		if len(out.Events) != 2 || out.Events[0].Type != "reply" || out.Events[0].Message != "Disk is full." || out.Events[0].Purpose != "result" || out.Events[0].EventID != "s" || out.Events[0].InvocationID != "iW" {
+			t.Fatalf("events = %+v", out.Events)
+		}
+		if len(w.answers) != 0 {
+			t.Errorf("held answers not released at settle: %v", w.answers)
+		}
+	})
+	t.Run("reply-only turn", func(t *testing.T) {
+		w := newWatchState("", 0)
+		w.handle(nativeFrame("a1", "iC", "rC", `{"parts":[{"text":"wrap-up text"}]}`, 1))
+		out := w.handle(settled("s", "rC", `,"final_event_id":"a1","delivery_mode":"reply_only"`))
+		if len(out.Events) != 1 || out.Events[0].Type != "settled" {
+			t.Errorf("reply-only final text printed: %+v", out.Events)
+		}
+	})
+	t.Run("nothing to deliver", func(t *testing.T) {
+		w := newWatchState("", 0)
+		w.handle(nativeFrame("a1", "iW", "rW", `{"parts":[{"text":"partial"}]}`, 1))
+		out := w.handle(settled("s", "rW", `,"final_event_id":"a1","final_kind":"no_deliverable"`))
+		if len(out.Events) != 1 {
+			t.Errorf("undeliverable final printed: %+v", out.Events)
+		}
+	})
+}
+
+func TestWatchStateResumeQuietlyReplaysWithoutReprinting(t *testing.T) {
+	w := newWatchState("rootA", 0)
+	w.quietAt, w.quietID = 5, "e5"
+	frames := []*flashduty.SessionEventFrame{
+		steeredFrame("e2", "rootA", 2),
+		replyFrame("e4", "invH", "rootH", "result", "seen before", 5),
+		replyFrame("e5", "invH", "rootH", "result", "seen before too", 5),
+		replyFrame("e6", "invH", "rootH", "result", "new", 5),
+		settleFrame("e7", "rootH", 7, 0),
+	}
+	var printed []string
+	var done bool
+	for _, f := range frames {
+		out := w.handle(f)
+		for _, ev := range out.Events {
+			printed = append(printed, ev.Type+":"+ev.Message)
+		}
+		done = out.Settled
+	}
+	if strings.Join(printed, "|") != "reply:new|settled:" {
+		t.Errorf("printed = %q", printed)
+	}
+	if !done {
+		t.Error("the request settled before the cursor; a later settle must still be a done candidate")
+	}
+}
+
+func TestWatchStateQuietSettleDoesNotEndTheReplay(t *testing.T) {
+	// The earlier watch saw the request settle at 5 but the session kept
+	// running, so it stayed open and printed up to e10 before it was stopped.
+	w := newWatchState("rootA", 0)
+	w.quietAt, w.quietID = 10, "e10"
+	if out := w.handle(settleFrame("e5", "rootA", 5, 0)); out.Settled || len(out.Events) != 0 {
+		t.Fatalf("quiet settle = %+v, want silent and not done", out)
+	}
+	if !w.quietDone {
+		t.Error("a quiet done candidate must be remembered")
+	}
+	w.handle(replyFrame("e10", "iB", "rootB", "progress", "printed before", 10))
+	if out := w.handle(replyFrame("e12", "iB", "rootB", "result", "new", 12)); len(out.Events) != 1 {
+		t.Errorf("frame after the cursor = %+v", out)
+	}
+	if w.quietDone {
+		t.Error("a new frame must clear the quiet done candidate")
+	}
+	if out := w.handle(settleFrame("e13", "rootB", 13, 0)); !out.Settled {
+		t.Errorf("later settle = %+v, want done candidate", out)
+	}
+	// Live-only frames are never quiet.
+	w.quietAt, w.quietPassed = 99, false
+	if out := w.handle(&flashduty.SessionEventFrame{Type: "error", Payload: json.RawMessage(`{"message":"boom"}`)}); len(out.Events) != 1 {
+		t.Errorf("live error frame silenced: %+v", out)
+	}
+}
+
+func TestWatchRunEndsAReplayThatIsAllAlreadyPrinted(t *testing.T) {
+	s := &watchServer{
+		streams: []string{sse(replyFrame("e1", "rootA", "", "result", "done", 3), settleFrame("e2", "rootA", 5, 0))},
+		running: []bool{false},
+	}
+	r, out, _ := newTestWatchRunner(t, s, "rootA")
+	r.state.quietAt, r.state.quietID = 5, "e2"
+	if err := r.run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if out.Len() != 0 {
+		t.Errorf("reprinted:\n%s", out.String())
 	}
 }
 
@@ -322,6 +468,34 @@ func TestWatchRunStandingTasksKeepWatchOpen(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "task finished") {
 		t.Errorf("stdout:\n%s", out.String())
+	}
+}
+
+func TestWatchRunWaitsForTheTurnThatTookTheMessageIn(t *testing.T) {
+	// The message was taken into a running turn: its own root settles as
+	// steered while that turn still runs, so the watch must keep listening
+	// until the running turn answers and settles.
+	// The session already reads idle: a watch that stopped reading at the
+	// steered settle to confirm idleness would exit before the answer.
+	s := &watchServer{
+		streams: []string{sse(
+			replyFrame("e0", "iH", "rH", "progress", "before the message", 1),
+			steeredFrame("e1", "r1", 2),
+			replyFrame("e2", "iH", "rH", "result", "answer", 3),
+			settleFrame("e3", "rH", 4, 0),
+		)},
+		running: []bool{false},
+	}
+	r, out, _ := newTestWatchRunner(t, s, "r1")
+	if err := r.run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	text := out.String()
+	if strings.Contains(text, "before the message") {
+		t.Errorf("output before the request:\n%s", text)
+	}
+	if !strings.Contains(text, `"message":"answer"`) || strings.Count(text, `"type":"settled"`) != 2 {
+		t.Errorf("stdout:\n%s", text)
 	}
 }
 

@@ -345,11 +345,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if resp != nil && len(resp.Raw) > 0 {
-					return ctx.WriteRaw(resp.Raw)
-				}
-				ctx.WriteResult("OK: GET /safari/artifact/stream")
-				return nil
+				return printRawOrNoPayload(ctx, resp)
 			})
 		},
 	}

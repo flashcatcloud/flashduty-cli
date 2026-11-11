@@ -124,7 +124,7 @@ func TestGlobalFieldsOnAcknowledgement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
-	if !strings.Contains(stdout, `"message"`) {
+	if !strings.Contains(stdout, `"request_id"`) {
 		t.Errorf("acknowledgement should print unchanged, got %q", stdout)
 	}
 	if !strings.Contains(stderr, `note: --fields does not apply to the output of "flashduty channel disable"`) {

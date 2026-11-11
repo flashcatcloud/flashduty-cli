@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
@@ -431,6 +432,73 @@ func bindURLTagged(body map[string]any, rv reflect.Value) {
 			}
 		}
 	}
+}
+
+// noPayloadLine is the table-mode line for a call whose body carried
+// nothing: the mutation endpoints whose 200 envelope declares `data` as an
+// empty object, and an export/download endpoint that answered with zero bytes.
+// It replaces an echo of the request — the verb and path the caller had just
+// typed — which stated nothing the caller did not already know, yet read as a
+// description of a stored result that was never fetched.
+const noPayloadLine = "OK: the API returned no payload."
+
+// noPayloadLineFmt is noPayloadLine carrying the request id: the one
+// fact of such a call a caller cannot derive from its own arguments, and what
+// it has to quote when reporting a write that went wrong. The id can be
+// genuinely absent — a 200 with an empty body never parses an envelope, leaving
+// only the Flashcat-Request-Id header — which is why the no-id wording above
+// exists rather than printing "(request_id )".
+const noPayloadLineFmt = "OK: the API returned no payload (request_id %s)."
+
+// printRawOrNoPayload renders the response of a command whose SDK method
+// returns no typed data (methodInfo.HasData false, reflected at generation
+// time), which is every generated mutation plus the CSV/file downloads. Its two
+// names are its two outcomes, and which one applies is only knowable at
+// runtime: the SDK fills Response.Raw exactly when a 2xx body is not envelope
+// JSON, so a download's bytes land there while a mutation's empty envelope
+// leaves it nil.
+//
+// Non-empty Raw streams verbatim, so shell redirection (`> file.csv`) captures
+// a download byte for byte. Otherwise the call really did carry nothing, and the
+// output says so — the alternative being to print a sentence that contradicts
+// bytes the command is holding. Deciding that here rather than in each caller is
+// what keeps the claim and the response in step: a caller cannot forget the
+// check, and the acknowledgement cannot outrun what arrived.
+//
+// A command that does something else with a download's bytes — insight
+// incident-export counts its rows before writing them — keeps its own Raw
+// branch and calls printNoPayload directly for the empty case.
+func printRawOrNoPayload(ctx *RunContext, resp *flashduty.Response) error {
+	if resp != nil && len(resp.Raw) > 0 {
+		return ctx.WriteRaw(resp.Raw)
+	}
+	return printNoPayload(ctx, resp)
+}
+
+// printNoPayload states that a call carried nothing back, and reports the
+// request id when the server gave one. Structured mode emits that id as data
+// rather than a rendered sentence, so `--json` stays parseable; an absent id is
+// left out instead of invented as "".
+func printNoPayload(ctx *RunContext, resp *flashduty.Response) error {
+	ack := noPayloadAck{}
+	if resp != nil {
+		ack.RequestID = resp.RequestID
+	}
+	message := noPayloadLine
+	if ack.RequestID != "" {
+		message = fmt.Sprintf(noPayloadLineFmt, ack.RequestID)
+	}
+	return ctx.WriteResultJSON(ack, message)
+}
+
+// noPayloadAck is the structured form of the no-payload branch
+// above. It carries only what the API actually reported; there is no payload
+// field, because the absence of one is the statement. The toon tag is not
+// redundant with the json one: toon.Marshal reads only its own tag, so without
+// it TOON output would spell the field RequestID while JSON spelled it
+// request_id.
+type noPayloadAck struct {
+	RequestID string `json:"request_id,omitempty" toon:"request_id,omitempty"`
 }
 
 // printGenericResult renders a generated command's typed response. In

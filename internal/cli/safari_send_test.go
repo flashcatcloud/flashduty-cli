@@ -24,6 +24,7 @@ type sendServer struct {
 	uploadBody   string
 	ackMode      string
 	createCalled map[string]any
+	turnInFlight bool
 }
 
 func newSendServer(t *testing.T, ackMode string) *sendServer {
@@ -49,6 +50,10 @@ func newSendServer(t *testing.T, ackMode string) *sendServer {
 			b, _ := io.ReadAll(f)
 			s.uploadName, s.uploadBody = hdr.Filename, string(b)
 			reply(map[string]any{"object_key": "attachments/a1/" + hdr.Filename, "mime": "text/plain", "filename": hdr.Filename, "size": len(b), "attachment_id": "a1"})
+		case "/safari/session/get":
+			reply(map[string]any{"events": []any{}, "pending_messages": []any{}, "session": map[string]any{
+				"session_id": "sess-7", "is_running": s.turnInFlight, "turn_in_flight": s.turnInFlight,
+			}})
 		case "/safari/session/message":
 			_ = json.NewDecoder(r.Body).Decode(&s.message)
 			sid, _ := s.message["session_id"].(string)
@@ -112,6 +117,25 @@ func TestSafariSendExistingSessionOmitsNewSessionFields(t *testing.T) {
 	}
 	if _, ok := m["entry_kind"]; ok {
 		t.Errorf("entry_kind must be omitted for an existing session: %v", m)
+	}
+}
+
+func TestSafariSendSteersOnlyIntoARunningTurn(t *testing.T) {
+	for _, running := range []bool{true, false} {
+		t.Run(map[bool]string{true: "running", false: "idle"}[running], func(t *testing.T) {
+			saveAndResetGlobals(t)
+			s := newSendServer(t, "reply_only")
+			s.turnInFlight = running
+			if _, err := execCommand("safari", "send", "--session-id", "sess-7", "and the db?"); err != nil {
+				t.Fatalf("send: %v", err)
+			}
+			if strings.Join(s.paths, ",") != "/safari/session/get,/safari/session/message" {
+				t.Errorf("calls = %v", s.paths)
+			}
+			if got, _ := s.message["steering"].(bool); got != running {
+				t.Errorf("steering = %v, want %v (body %v)", s.message["steering"], running, s.message)
+			}
+		})
 	}
 }
 

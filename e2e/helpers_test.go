@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -214,6 +215,47 @@ func requireValidJSON(t *testing.T, output string) {
 	output = strings.TrimSpace(output)
 	if !json.Valid([]byte(output)) {
 		t.Fatalf("output is not valid JSON:\n%s", output)
+	}
+}
+
+// noPayloadAckRe matches the whole single line a command prints when its
+// endpoint answers with no payload. Unlike the unit tests, which pin the line
+// by equality against a stub's fixed request id, e2e runs against the real API
+// and cannot know the id — so it pins the shape AND requires the id to be
+// non-empty, which is the part a live server must supply.
+var noPayloadAckRe = regexp.MustCompile(`^OK: the API returned no payload \(request_id \S+\)\.$`)
+
+// requireNoPayloadAck fails the test unless output is exactly the no-payload
+// acknowledgement line. Equality on the whole output (not a substring) is the
+// point: a caller reading this through `head` must find the line first, so
+// anything printed above it is a regression.
+func requireNoPayloadAck(t *testing.T, output string) {
+	t.Helper()
+	got := strings.TrimRight(output, "\n")
+	if !noPayloadAckRe.MatchString(got) {
+		t.Fatalf("output must be exactly the no-payload acknowledgement line, got:\n%s", output)
+	}
+}
+
+// requireRequestIDOnly fails the test unless output is the structured form of
+// the no-payload acknowledgement: an object carrying a non-empty request_id and
+// nothing a caller would mistake for a payload. It also guards against the old
+// shape, which wrapped a rendered sentence as {"message": "OK: POST /..."} and
+// gave a machine caller nothing to read.
+func requireRequestIDOnly(t *testing.T, output string) {
+	t.Helper()
+	var ack struct {
+		RequestID string `json:"request_id"`
+		Message   string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &ack); err != nil {
+		t.Fatalf("output is not a JSON object (%v):\n%s", err, output)
+	}
+	if ack.RequestID == "" {
+		t.Fatalf("structured acknowledgement carries no request_id:\n%s", output)
+	}
+	if ack.Message != "" {
+		t.Fatalf("structured acknowledgement still renders a prose message:\n%s", output)
 	}
 }
 
