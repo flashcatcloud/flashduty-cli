@@ -218,11 +218,22 @@ func renameCommandText(cmd *cobra.Command, name string) {
 
 // cliWord matches "flashduty" used as a command word: followed by a space, and
 // not part of a path, domain or longer identifier ("go-flashduty",
-// "~/.flashduty").
+// "~/.flashduty"). Every match contains cliWordLiteral.
 var cliWord = regexp.MustCompile(`(^|[^\w./~-])flashduty `)
 
+// cliWordLiteral is the fixed text every cliWord match contains.
+const cliWordLiteral = "flashduty "
+
 // renameCLI replaces every command-word "flashduty" in s with name.
+//
+// Text without cliWordLiteral cannot match, so it is returned as is. Running
+// under another name renames the whole command tree at startup, about 2MB of
+// help text of which only a few hundred strings mention the CLI; scanning all
+// of it with the regex cost tens of milliseconds per invocation.
 func renameCLI(s, name string) string {
+	if !strings.Contains(s, cliWordLiteral) {
+		return s
+	}
 	return cliWord.ReplaceAllString(s, "${1}"+strings.ReplaceAll(name, "$", "$$")+" ")
 }
 

@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func TestRenameCLI(t *testing.T) {
@@ -51,5 +53,43 @@ func TestRenameCommandText(t *testing.T) {
 		if c.got != c.want {
 			t.Errorf("got %q, want %q", c.got, c.want)
 		}
+	}
+}
+
+// TestRenameCLIMatchesRegexOnCommandTree pins the shortcut in renameCLI: for
+// every help string of the real command tree, skipping text without
+// cliWordLiteral must give exactly what the regex alone gives. It fails if
+// cliWord is ever changed to match text that lacks the literal.
+func TestRenameCLIMatchesRegexOnCommandTree(t *testing.T) {
+	regexOnly := func(s, name string) string {
+		return cliWord.ReplaceAllString(s, "${1}"+strings.ReplaceAll(name, "$", "$$")+" ")
+	}
+	var texts []string
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		texts = append(texts, c.Short, c.Long, c.Example)
+		add := func(f *pflag.Flag) { texts = append(texts, f.Usage) }
+		c.Flags().VisitAll(add)
+		c.PersistentFlags().VisitAll(add)
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(rootCmd)
+	if len(texts) < 1000 {
+		t.Fatalf("walked only %d help strings; the command tree is not populated", len(texts))
+	}
+	changed := 0
+	for _, s := range texts {
+		want := regexOnly(s, "fduty")
+		if got := renameCLI(s, "fduty"); got != want {
+			t.Fatalf("renameCLI differs from the regex on %q:\ngot  %q\nwant %q", s, got, want)
+		}
+		if want != s {
+			changed++
+		}
+	}
+	if changed == 0 {
+		t.Fatal("no help string mentions the CLI; the comparison proves nothing")
 	}
 }
