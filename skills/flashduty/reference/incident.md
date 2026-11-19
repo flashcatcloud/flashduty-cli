@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ## Route here when
 
-"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). Post-mortem reports (复盘) have their own card: `reference/postmortem.md`. You need **`incident_id` (24-char MongoDB ObjectID)** for most verbs — not the 6-char `num` shown in the UI. **`detail` and `get` are the exception and accept either** (a num auto-resolves via a 30-day lookback). For any other verb, if you only have a num, use `incident info --num <num>` first.
+"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). Post-mortem reports (复盘) have their own card: `reference/postmortem.md`. Every verb that takes an incident id (positional, `--incident-id(s)`, `--source`, or `--data`) accepts either the 24-char `incident_id` or the 6-char `num` shown in the UI: a num resolves through a 30-day lookback; one that matches several incidents fails listing the candidates and nothing is sent; for an incident older than 30 days use its full id.
 
 ## Intent → verb
 
@@ -16,7 +16,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 | full detail + AI summary for a 24-char id | `detail <id>` (narrative) or `info --incident-id <id>` (same endpoint) |
 | get structured data for one or more ids | `get <id> [<id2>...]` |
 | responders with resolved names + ack state | `detail <id> --json \| jq '.responders[]'` (schema in Gotchas) |
-| contributing alerts | `alerts <id>` |
+| contributing alerts (overview: counts, labels, groups by title) | `alerts <id>`; rows: `alerts <id> --output-format json --limit 100 --page N` |
 | full event history (short) | `timeline <id>` |
 | paginated event history | `feed <id>` |
 | past similar incidents | `similar <id>` |
@@ -52,7 +52,7 @@ flashduty incident list --severity Critical --progress Triggered --since 4h --fi
 # 2. Get AI summary + full detail (use the 24-char incident_id from step 1)
 flashduty incident detail <incident-id> --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon
 
-# 3. See contributing alerts
+# 3. See contributing alerts: an overview (counts, shared labels, groups by title); rows via --output-format json
 flashduty incident alerts <incident-id>
 
 # 4. Check for prior similar incidents (channel-backed only; see Gotchas)
@@ -94,9 +94,9 @@ bash <skill-dir>/scripts/incident-summary.sh <incident-id>
 If you fetch the pieces by hand instead, run **all seven** — they are cheap reads:
 
 ```bash
-ID=<incident-id>                                          # 24-char id from `incident list`
+ID=<incident-id>                                          # incident_id from `incident list`, or its 6-char num
 flashduty incident detail   "$ID" --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon  # ① 详情 + AI summary + alert counts + channel
-flashduty incident alerts   "$ID"                             # ② contributing alerts (detail's embedded alerts are empty here)
+flashduty incident alerts   "$ID"                             # ② contributing alerts as an overview: counts, shared labels, groups by title (detail's embedded alerts are empty here)
 flashduty incident timeline "$ID"                             # ④ timeline  (or `incident feed "$ID"` for the paginated view)
 flashduty incident similar  "$ID" --limit 5 --output-format toon          # ⑤ similar past incidents (channel-backed; see Gotchas; compact by default)
 flashduty incident post-mortem-list --channel-ids <channel-id> # ⑥ post-mortems for this incident's channel (verb card: reference/postmortem.md)

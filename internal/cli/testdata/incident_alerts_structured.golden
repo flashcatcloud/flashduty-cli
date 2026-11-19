@@ -1,0 +1,616 @@
+== --output-format json
+-- request map[incident_id:64f0c0ffee0123456789abcd limit:10 p:1]
+-- stdout
+[
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000001",
+    "alert_key": "",
+    "alert_severity": "Critical",
+    "alert_status": "Critical",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "web-1"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:00:00+08:00",
+    "title": "High error rate",
+    "title_rule": "",
+    "updated_at": null
+  },
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000002",
+    "alert_key": "",
+    "alert_severity": "Warning",
+    "alert_status": "Ok",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "web-2"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:05:00+08:00",
+    "title": "High error rate",
+    "title_rule": "",
+    "updated_at": null
+  },
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000003",
+    "alert_key": "",
+    "alert_severity": "Critical",
+    "alert_status": "Critical",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "web-1"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:10:00+08:00",
+    "title": "High error rate",
+    "title_rule": "",
+    "updated_at": null
+  },
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000004",
+    "alert_key": "",
+    "alert_severity": "Warning",
+    "alert_status": "Warning",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "db-1",
+      "mount": "/data"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:02:00+08:00",
+    "title": "Disk almost full",
+    "title_rule": "",
+    "updated_at": null
+  },
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000005",
+    "alert_key": "",
+    "alert_severity": "Info",
+    "alert_status": "Ok",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "queue": "orders"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:20:00+08:00",
+    "title": "Queue lag",
+    "title_rule": "",
+    "updated_at": null
+  }
+]
+-- stderr
+== --output-format toon
+-- request map[incident_id:64f0c0ffee0123456789abcd limit:10 p:1]
+-- stdout
+[5]:
+  - account_id: 0
+    alert_id: a00000000000000000000001
+    alert_key: ""
+    alert_severity: Critical
+    alert_status: Critical
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: web-1
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:00:00+08:00"
+    title: High error rate
+    title_rule: ""
+    updated_at: "0"
+  - account_id: 0
+    alert_id: a00000000000000000000002
+    alert_key: ""
+    alert_severity: Warning
+    alert_status: Ok
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: web-2
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:05:00+08:00"
+    title: High error rate
+    title_rule: ""
+    updated_at: "0"
+  - account_id: 0
+    alert_id: a00000000000000000000003
+    alert_key: ""
+    alert_severity: Critical
+    alert_status: Critical
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: web-1
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:10:00+08:00"
+    title: High error rate
+    title_rule: ""
+    updated_at: "0"
+  - account_id: 0
+    alert_id: a00000000000000000000004
+    alert_key: ""
+    alert_severity: Warning
+    alert_status: Warning
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: db-1
+      mount: /data
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:02:00+08:00"
+    title: Disk almost full
+    title_rule: ""
+    updated_at: "0"
+  - account_id: 0
+    alert_id: a00000000000000000000005
+    alert_key: ""
+    alert_severity: Info
+    alert_status: Ok
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      queue: orders
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:20:00+08:00"
+    title: Queue lag
+    title_rule: ""
+    updated_at: "0"
+-- stderr
+== --output-format json --limit 2 --page 2
+-- request map[incident_id:64f0c0ffee0123456789abcd limit:2 p:2]
+-- stdout
+[
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000003",
+    "alert_key": "",
+    "alert_severity": "Critical",
+    "alert_status": "Critical",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "web-1"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:10:00+08:00",
+    "title": "High error rate",
+    "title_rule": "",
+    "updated_at": null
+  },
+  {
+    "account_id": 0,
+    "alert_id": "a00000000000000000000004",
+    "alert_key": "",
+    "alert_severity": "Warning",
+    "alert_status": "Warning",
+    "channel_id": 0,
+    "channel_name": "",
+    "channel_status": "",
+    "created_at": null,
+    "data_source_id": 0,
+    "data_source_name": "",
+    "data_source_ref_id": "",
+    "data_source_type": "",
+    "deleted_at": null,
+    "description": "",
+    "detail_url": "",
+    "end_time": null,
+    "event_cnt": 0,
+    "events": [],
+    "ever_muted": false,
+    "images": null,
+    "incident": {
+      "incident_id": "",
+      "progress": "",
+      "title": ""
+    },
+    "integration_id": 0,
+    "integration_name": "",
+    "integration_ref_id": "",
+    "integration_type": "",
+    "labels": {
+      "cluster": "prod-a",
+      "env": "prod",
+      "host": "db-1",
+      "mount": "/data"
+    },
+    "last_time": null,
+    "responder_email": "",
+    "responder_name": "",
+    "start_time": "2026-01-02T14:02:00+08:00",
+    "title": "Disk almost full",
+    "title_rule": "",
+    "updated_at": null
+  }
+]
+-- stderr
+note: showing 2 of 5 total results (page 2): raise --limit or use --page 3
+== --output-format toon --limit 2 --page 2
+-- request map[incident_id:64f0c0ffee0123456789abcd limit:2 p:2]
+-- stdout
+[2]:
+  - account_id: 0
+    alert_id: a00000000000000000000003
+    alert_key: ""
+    alert_severity: Critical
+    alert_status: Critical
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: web-1
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:10:00+08:00"
+    title: High error rate
+    title_rule: ""
+    updated_at: "0"
+  - account_id: 0
+    alert_id: a00000000000000000000004
+    alert_key: ""
+    alert_severity: Warning
+    alert_status: Warning
+    channel_id: 0
+    channel_name: ""
+    channel_status: ""
+    created_at: "0"
+    data_source_id: 0
+    data_source_name: ""
+    data_source_ref_id: ""
+    data_source_type: ""
+    deleted_at: "0"
+    description: ""
+    detail_url: ""
+    end_time: "0"
+    event_cnt: 0
+    events: []
+    ever_muted: false
+    images: []
+    incident:
+      incident_id: ""
+      progress: ""
+      title: ""
+    integration_id: 0
+    integration_name: ""
+    integration_ref_id: ""
+    integration_type: ""
+    labels:
+      cluster: prod-a
+      env: prod
+      host: db-1
+      mount: /data
+    last_time: "0"
+    responder_email: ""
+    responder_name: ""
+    start_time: "2026-01-02T14:02:00+08:00"
+    title: Disk almost full
+    title_rule: ""
+    updated_at: "0"
+-- stderr
+note: showing 2 of 5 total results (page 2): raise --limit or use --page 3
