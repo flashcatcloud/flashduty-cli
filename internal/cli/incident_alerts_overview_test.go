@@ -108,7 +108,12 @@ func TestIncidentAlertsStructuredUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := structuredAlertsOutput(t); got != string(want) {
-		t.Errorf("structured output changed:\n%s", got)
+		i := 0
+		for i < len(got) && i < len(want) && got[i] == want[i] {
+			i++
+		}
+		t.Errorf("structured output differs from the golden at byte %d: got %q, want %q\n%s",
+			i, got[i:min(i+40, len(got))], want[i:min(i+40, len(want))], got)
 	}
 }
 

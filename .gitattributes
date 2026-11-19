@@ -3,3 +3,6 @@
 # (The skilldoc tool also normalizes EOL on read; this keeps the committed files
 # canonical so Windows checkouts don't materialize them as CRLF.)
 skills/flashduty/**/*.md text eol=lf
+# Test goldens are compared byte-for-byte with output the code writes with LF
+# line endings, so they must not be checked out as CRLF either.
+internal/cli/testdata/** text eol=lf
