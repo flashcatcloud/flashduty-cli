@@ -382,3 +382,62 @@ func TestApplyToolWindowRejectsNonObjectParams(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+// TestMonitQueryWindowEcho: json/toon keep the stderr window note and a pure
+// stdout; the default digest states the window once, as its first stdout
+// line; a non-digest result in the default format keeps the stderr note.
+func TestMonitQueryWindowEcho(t *testing.T) {
+	const explore = `{"datasource_id":1,"tool":"prometheus.query","data":{"format":"explore_result.v1","result":{"kind":"samples","samples":[{"labels":{"job":"api"},"value":1}]}}}`
+	const note = "note: window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00 (1h, ended 5m ago)\n"
+	args := []string{"monit-query", "1", "--tool", "prometheus.query",
+		"--params", `{"expr":"up","execution":{"kind":"range","max_data_points":10}}`,
+		"--since", "2026-01-02T14:00:00+08:00", "--until", "2026-01-02T15:00:00+08:00"}
+	run := func(t *testing.T, data string, extra ...string) (string, string) {
+		t.Helper()
+		saveAndResetGlobals(t)
+		pinClock(t, time.Date(2026, 1, 2, 7, 5, 0, 0, time.UTC))
+		stub := newGFStub(t)
+		stub.data = json.RawMessage(data)
+		stdout, stderr, err := execCommandSplit(append(append([]string{}, args...), extra...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return stdout, stderr
+	}
+
+	for _, format := range []string{"json", "toon"} {
+		t.Run(format, func(t *testing.T) {
+			stdout, stderr := run(t, explore, "--output-format", format)
+			if stderr != note {
+				t.Errorf("stderr = %q, want %q", stderr, note)
+			}
+			if strings.Contains(stdout, "window ") || strings.Contains(stdout, "complete result") {
+				t.Errorf("stdout carries more than the result: %s", stdout)
+			}
+			if format == "json" {
+				var parsed map[string]any
+				if err := json.Unmarshal([]byte(stdout), &parsed); err != nil {
+					t.Errorf("stdout does not parse as JSON: %v\n%s", err, stdout)
+				}
+			}
+		})
+	}
+	t.Run("digest", func(t *testing.T) {
+		stdout, stderr := run(t, explore)
+		if stderr != "" {
+			t.Errorf("stderr = %q, want empty", stderr)
+		}
+		if want := strings.TrimPrefix(note, "note: ") + "samples: 1,"; !strings.HasPrefix(stdout, want) {
+			t.Errorf("stdout = %q, want prefix %q", stdout, want)
+		}
+	})
+	t.Run("non-digest result", func(t *testing.T) {
+		stdout, stderr := run(t, `{"datasource_id":1,"tool":"prometheus.query","data":{"connected_clients":12}}`)
+		if stderr != note {
+			t.Errorf("stderr = %q, want %q", stderr, note)
+		}
+		if strings.Contains(stdout, "window ") || !strings.Contains(stdout, "connected_clients") {
+			t.Errorf("stdout = %q", stdout)
+		}
+	})
+}

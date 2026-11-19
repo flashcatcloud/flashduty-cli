@@ -69,26 +69,25 @@ func parseWindow(cmd *cobra.Command, since, until, why string) (start, end int64
 // in the future: "ends in 7h"). stderr keeps stdout byte-identical for
 // json/toon consumers.
 func noteWindow(w io.Writer, start, end time.Time, why string) {
-	_, _ = fmt.Fprintf(w, "note: %s\n", windowText(start, end, why))
-}
-
-// windowText describes a window: "window <start>..<end> (<span>, ended 3m
-// ago[; why])".
-func windowText(start, end time.Time, why string) string {
 	detail := formatSpan(end.Sub(start)) + ", " + relativeToNow(end, "ended", "ends")
 	if why != "" {
 		detail += "; " + why
 	}
-	return fmt.Sprintf("window %s..%s (%s)", formatLocal(start), formatLocal(end), detail)
+	_, _ = fmt.Fprintf(w, "note: window %s..%s (%s)\n", formatLocal(start), formatLocal(end), detail)
 }
 
-// toolWindowLine describes the window of a datasource query tool from its
-// params' execution block ({"kind","from_ms","to_ms"}): "window ..." for a
-// window, "instant <time> (3m ago)" for an evaluation time. Params without
-// an execution window (diagnostic tools) give "".
-func toolWindowLine(params json.RawMessage) string {
+// noteInstant is noteWindow for a single evaluation timestamp.
+func noteInstant(w io.Writer, at time.Time) {
+	_, _ = fmt.Fprintf(w, "note: instant %s (%s)\n", formatLocal(at), relativeToNow(at, "", ""))
+}
+
+// noteToolWindow announces the window of a datasource query tool from its
+// params' execution block ({"kind","from_ms","to_ms"}). Params without an
+// execution window (diagnostic tools) produce no note; the params themselves
+// are never altered.
+func noteToolWindow(w io.Writer, params json.RawMessage) {
 	if len(params) == 0 {
-		return ""
+		return
 	}
 	var p struct {
 		Execution *struct {
@@ -100,21 +99,21 @@ func toolWindowLine(params json.RawMessage) string {
 	dec := json.NewDecoder(bytes.NewReader(params))
 	dec.UseNumber()
 	if err := dec.Decode(&p); err != nil || p.Execution == nil || p.Execution.ToMS == nil {
-		return ""
+		return
 	}
 	to, err := p.Execution.ToMS.Int64()
 	if err != nil {
-		return ""
+		return
 	}
 	if p.Execution.FromMS == nil {
-		at := time.UnixMilli(to)
-		return fmt.Sprintf("instant %s (%s)", formatLocal(at), relativeToNow(at, "", ""))
+		noteInstant(w, time.UnixMilli(to))
+		return
 	}
 	from, err := p.Execution.FromMS.Int64()
 	if err != nil {
-		return ""
+		return
 	}
-	return windowText(time.UnixMilli(from), time.UnixMilli(to), "")
+	noteWindow(w, time.UnixMilli(from), time.UnixMilli(to), "")
 }
 
 func formatLocal(t time.Time) string {

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"strconv"
 	"strings"
 	"testing"
@@ -55,7 +54,7 @@ func TestNoteWindowText(t *testing.T) {
 	}
 }
 
-func TestToolWindowLine(t *testing.T) {
+func TestNoteToolWindow(t *testing.T) {
 	now := time.Date(2026, 10, 9, 6, 0, 0, 0, time.UTC)
 	pinClock(t, now)
 	from, to := now.Add(-time.Hour).UnixMilli(), now.UnixMilli()
@@ -63,16 +62,18 @@ func TestToolWindowLine(t *testing.T) {
 		name, params, want string
 	}{
 		{"window", `{"expr":"x","execution":{"kind":"window","from_ms":` + itoa(from) + `,"to_ms":` + itoa(to) + `}}`,
-			"window 2026-10-09T13:00:00+08:00..2026-10-09T14:00:00+08:00 (1h, ended now)"},
+			"note: window 2026-10-09T13:00:00+08:00..2026-10-09T14:00:00+08:00 (1h, ended now)\n"},
 		{"instant", `{"expr":"up","execution":{"kind":"instant","to_ms":` + itoa(to) + `}}`,
-			"instant 2026-10-09T14:00:00+08:00 (now)"},
+			"note: instant 2026-10-09T14:00:00+08:00 (now)\n"},
 		{"diagnostic tool, no execution", `{"table":"t"}`, ""},
 		{"no params", ``, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := toolWindowLine([]byte(tc.params)); got != tc.want {
-				t.Fatalf("got  %q\nwant %q", got, tc.want)
+			var buf bytes.Buffer
+			noteToolWindow(&buf, []byte(tc.params))
+			if buf.String() != tc.want {
+				t.Fatalf("got  %q\nwant %q", buf.String(), tc.want)
 			}
 		})
 	}
@@ -105,41 +106,23 @@ func TestGeneratedWindowNote(t *testing.T) {
 	}
 }
 
-// TestMonitQueryWindowLine: monit-query never writes the window to stderr.
-// json output is the result alone (parseable even with the streams merged);
-// the default digest leads with the window line on stdout.
-func TestMonitQueryWindowLine(t *testing.T) {
-	const params = `{"expr":"up","execution":{"kind":"range","from_ms":1791540000000,"to_ms":1791543600000,"max_data_points":10}}`
-	result := json.RawMessage(`{"datasource_id":1,"tool":"prometheus.query","data":{"format":"explore_result.v1","result":{"kind":"samples","samples":[{"labels":{"job":"api"},"value":1}]}}}`)
-
+// TestMonitQueryWindowNote: monit-query echoes the execution window of its
+// params on stderr, leaving stdout untouched.
+func TestMonitQueryWindowNote(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
-	stub.data = result
-	stdout, stderr, err := execCommandSplit("monit-query", "1", "--tool", "prometheus.query", "--params", `{"expr":"up","execution":{"kind":"range","max_data_points":10}}`,
-		"--since", "2h", "--output-format", "json")
+	stub.data = map[string]any{"datasource_id": 1, "tool": "prometheus.query", "data": map[string]any{}}
+	stdout, stderr, err := execCommandSplit("monit-query", "1", "--tool", "prometheus.query",
+		"--params", `{"expr":"up","execution":{"kind":"range","from_ms":1791540000000,"to_ms":1791543600000,"max_data_points":10}}`,
+		"--output-format", "json")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
-	if stderr != "" {
-		t.Errorf("json mode wrote to stderr: %q", stderr)
+	if !strings.Contains(stderr, "note: window ") || !strings.Contains(stderr, "(1h, ") {
+		t.Errorf("want a 1h window note, got %q", stderr)
 	}
-	var parsed map[string]any
-	if err := json.Unmarshal([]byte(stdout), &parsed); err != nil {
-		t.Errorf("json stdout does not parse: %v\n%s", err, stdout)
-	}
-
-	saveAndResetGlobals(t)
-	stub = newGFStub(t)
-	stub.data = result
-	stdout, stderr, err = execCommandSplit("monit-query", "1", "--tool", "prometheus.query", "--params", params)
-	if err != nil {
-		t.Fatalf("execCommand: %v", err)
-	}
-	if !strings.HasPrefix(stdout, "window ") || !strings.Contains(strings.SplitN(stdout, "\n", 2)[0], "(1h, ") {
-		t.Errorf("digest should start with the window line, got %q", stdout)
-	}
-	if strings.Contains(stdout, "note:") || stderr != "" {
-		t.Errorf("window note leaked: stdout %q stderr %q", stdout, stderr)
+	if strings.Contains(stdout, "note:") {
+		t.Errorf("stdout must stay pure, got %q", stdout)
 	}
 }
 
