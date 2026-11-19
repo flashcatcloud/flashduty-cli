@@ -502,13 +502,8 @@ type noPayloadAck struct {
 }
 
 // printGenericResult renders a generated command's typed response. In
-// machine-readable mode (TOON/JSON) it marshals the whole value — which is what
-// the agent reads. A list-shaped response (a top-level array of objects, or an
-// items/docs/list page envelope whose other fields are scalar pagination
-// metadata) that overflows compactListOutputLimit is first bounded to the
-// leading rows that fit via boundProjectedList, with the reduction announced on
-// stderr; a payload that fits, and any detail-shaped single object, prints
-// untouched. In human (table) mode it derives an aligned table by reflection
+// machine-readable mode (TOON/JSON) it marshals the whole value, every row and
+// every field (narrowed only by an explicit --fields). In human (table) mode it derives an aligned table by reflection
 // (renderGenericTable), since generated commands carry no hand-written column
 // set; anything that isn't a list or object falls back to indented JSON.
 //
@@ -531,8 +526,8 @@ func printGenericResult(ctx *RunContext, data any, body map[string]any, defaults
 		if v, ok := derefValue(data); ok {
 			_, pg, isList = genericListPage(v, win)
 		}
-		// Size the payload as it will print: project first, then bound and
-		// print through the unprojecting printer so --fields runs once.
+		// Project here and print through the unprojecting printer so
+		// --fields runs once.
 		if fields := requestedFields(); len(fields) > 0 {
 			proj, err := projectOutput(ctx.Cmd, data, fields)
 			if err != nil {
@@ -547,7 +542,7 @@ func printGenericResult(ctx *RunContext, data any, body map[string]any, defaults
 				ctx = &projected
 			}
 		}
-		if err := printBoundedGenericResult(ctx, data); err != nil {
+		if err := ctx.Printer.Print(data, nil); err != nil {
 			return err
 		}
 		if isList {
@@ -624,104 +619,13 @@ func derefValue(data any) (reflect.Value, bool) {
 	return v, v.IsValid()
 }
 
-// printBoundedGenericResult is printGenericResult's structured-mode half. The
-// under-cap fast path is the pre-bound behavior verbatim — same printer call,
-// byte-identical output. Only an over-cap list payload detours through the
-// bounding machinery, and only there does the output change (fewer rows; a
-// rebuilt envelope, so key order is no longer the struct's field order).
-// A reduced list envelope also carries truncated/emitted_rows in the payload
-// itself, so a machine consumer sees the reduction without reading stderr.
-func printBoundedGenericResult(ctx *RunContext, data any) error {
-	encoded, err := marshalStructured(data)
-	if err != nil || len(encoded)+1 < compactListOutputLimit {
-		// Fits the budget (or cannot be measured, in which case the printer
-		// surfaces the same marshal error): emit untouched.
-		return ctx.Printer.Print(data, nil)
-	}
-
-	generic, err := genericStructured(data)
-	if err != nil {
-		return ctx.Printer.Print(data, nil)
-	}
-
-	switch value := generic.(type) {
-	case []any:
-		rows, ok := objectRows(value)
-		if !ok {
-			return ctx.Printer.Print(data, nil)
-		}
-		bounded, bound, err := boundProjectedList(rows, compactListOutputLimit, 0)
-		if err != nil {
-			return explainProjectionOverflow(ctx.Cmd, err)
-		}
-		// A bare array has nowhere to carry the marker the envelope branch
-		// adds; the stderr note is its only signal.
-		noteProjectionBound(ctx.Cmd, bound)
-		return ctx.Printer.Print(bounded, nil)
-	case map[string]any:
-		key, ok := listEnvelopeKey(value)
-		if !ok {
-			// Detail-shaped single object: never bounded, never errored — a
-			// shortened id or status would pass for a real value.
-			return ctx.Printer.Print(data, nil)
-		}
-		rows, ok := objectRows(value[key].([]any))
-		if !ok {
-			return ctx.Printer.Print(data, nil)
-		}
-		// The rows are first sized against the whole limit, but printed inside
-		// the envelope they share the budget with the pagination siblings (and,
-		// in indented JSON, sit one indent level deeper). Each re-fit sizes
-		// them against the limit minus the framing seen so far, growing that
-		// framing by each observed overflow until the whole payload fits.
-		framing := 0
-		for {
-			bounded, bound, err := boundProjectedList(rows, compactListOutputLimit, framing)
-			if err != nil {
-				return explainProjectionOverflow(ctx.Cmd, err)
-			}
-			value[key] = bounded
-			// In-payload, not just on stderr: scripts discard stderr, and
-			// the pagination siblings keep describing the server page, so a
-			// reduced page would otherwise read as complete. emitted_rows
-			// is set only when rows were withheld (a prefix was dropped),
-			// which is the case paging can repair; when instead long values
-			// were clipped, truncated rides alone — re-requesting cannot
-			// restore them, narrowing --fields can. Stamp both keys from this
-			// pass alone, so a key left over from an earlier re-fit cannot
-			// describe a reduction this payload does not carry.
-			if bound.reduced() {
-				value["truncated"] = true
-			} else {
-				delete(value, "truncated")
-			}
-			if len(bounded) < len(rows) {
-				value["emitted_rows"] = len(bounded)
-			} else {
-				delete(value, "emitted_rows")
-			}
-			out, err := marshalStructured(value)
-			if err != nil {
-				return err
-			}
-			if len(out)+1 < compactListOutputLimit {
-				noteProjectionBound(ctx.Cmd, bound)
-				return ctx.Printer.Print(value, nil)
-			}
-			framing += len(out) + 2 - compactListOutputLimit
-		}
-	default:
-		return ctx.Printer.Print(data, nil)
-	}
-}
-
 // genericStructured decodes data through its JSON encoding into plain
-// maps/slices/scalars, so the list-bounding machinery can walk rows of any SDK
+// maps/slices/scalars, so --fields projection can walk rows of any SDK
 // response type. Numbers decode as json.Number first (UseNumber) and are then
 // narrowed by narrowNumbers: decoding straight to float64 would round integer
-// IDs above 2^53 (channel_id, team_id, …) in the bounded output. Unset SDK
+// IDs above 2^53 (channel_id, team_id, …) in the projected output. Unset SDK
 // timestamps go in as null (NullUnsetInstants), matching what the printer
-// would have emitted for the unbounded payload.
+// would have emitted for the unprojected payload.
 func genericStructured(data any) (any, error) {
 	raw, err := json.Marshal(output.NullUnsetInstants(data))
 	if err != nil {
@@ -768,9 +672,8 @@ func narrowNumbers(value any) any {
 // one array field named items/docs/list with only scalar siblings (total,
 // has_next_page, search_after_ctx, …) — and returns the row array's key. It is
 // stricter than cligen's listEnvelope, which also accepts object or array
-// siblings: those cannot be shortened to fit the output limit (a calendar
-// year's days map alone exceeds it), so such a response prints whole, like a
-// detail object.
+// siblings: such a response is a richer record, and --fields projects it as a
+// single object.
 func listEnvelopeKey(value map[string]any) (string, bool) {
 	key := ""
 	for name, field := range value {
@@ -790,9 +693,9 @@ func listEnvelopeKey(value map[string]any) (string, bool) {
 	return key, key != ""
 }
 
-// objectRows converts a decoded JSON array to rows for boundProjectedList. ok
+// objectRows converts a decoded JSON array to rows for --fields projection. ok
 // is false when any element is not an object: an array of scalars has no row
-// fields to bound and prints unbounded instead.
+// fields to project.
 func objectRows(items []any) ([]map[string]any, bool) {
 	rows := make([]map[string]any, len(items))
 	for i, item := range items {

@@ -81,12 +81,11 @@ func newInsightTopAlertsCmd() *cobra.Command {
 func newInsightIncidentsCmd() *cobra.Command {
 	var since, until, fields string
 	var limit, page int
-	defaultStructuredFields := []string{"incident_id", "title", "severity", "channel_name", "seconds_to_ack", "seconds_to_close", "notifications"}
 
 	cmd := &cobra.Command{
 		Use:   "incidents",
 		Short: "Query incidents with performance metrics",
-		Long:  curatedLong("List incidents with per-incident performance metrics (MTTA, MTTR, notifications) over a time window. In json/toon mode, rows default to the compact fields incident_id,title,severity,channel_name,seconds_to_ack,seconds_to_close,notifications; pass --fields to choose a different projection.", "Analytics", "IncidentList"),
+		Long:  curatedLong("List incidents with per-incident performance metrics (MTTA, MTTR, notifications) over a time window. In json/toon mode, rows carry every field; pass --fields to project a subset.", "Analytics", "IncidentList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				startTime, endTime, err := parseWindow(cmd, since, until, "")
@@ -106,31 +105,12 @@ func newInsightIncidentsCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.Structured() {
-					selectedFields := defaultStructuredFields
-					if cmd.Flags().Changed("fields") {
-						selectedFields = parseStringSlice(fields)
-						if len(selectedFields) == 0 {
-							return fmt.Errorf("--fields must name at least one field")
-						}
-					} else {
-						noteDefaultProjection(cmd.ErrOrStderr(), selectedFields)
-					}
-					proj, err := projectFields(result.Items, selectedFields)
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
 					if err != nil {
 						return err
 					}
-					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
-					if err != nil {
-						return explainProjectionOverflow(cmd, err)
-					}
-					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd, bound)
-					effectiveLimit := limit
-					if len(proj) < len(result.Items) {
-						effectiveLimit = len(proj)
-					}
-					return ctx.PrintList(proj, nil, len(proj), page, effectiveLimit, int(result.Total))
+					return ctx.PrintList(proj, nil, len(proj), page, limit, int(result.Total))
 				}
 
 				cols := []output.Column{
@@ -167,7 +147,6 @@ func newInsightIncidentsCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,severity); ignored in table mode. Use to avoid dumping the full nested record.")
-	declareOutputNarrowing(cmd, "fields", "limit")
 
 	return cmd
 }

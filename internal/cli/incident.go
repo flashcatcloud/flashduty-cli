@@ -77,12 +77,11 @@ func newIncidentListCmd() *cobra.Command {
 	var asc, everMuted, hasUnfinishedWorkItem, isMyChannel, isMyTeam, isRare, isSnoozed bool
 	var channelID int64
 	var limit, page int
-	defaultStructuredFields := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "channel_id", "detail_url"}
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
-		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows default to the compact fields incident_id,num,title,incident_severity,progress,start_time,channel_id,detail_url; pass --fields to choose a different projection.\n\nSee also: flashduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), flashduty insight incident-list for metric-rich filtered incident rows, and flashduty insight incident-export for CSV incident exports.", "Incidents", "List"),
+		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows carry every field; pass --fields to project a subset.\n\nSee also: flashduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), flashduty insight incident-list for metric-rich filtered incident rows, and flashduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				why := ""
@@ -150,31 +149,12 @@ func newIncidentListCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.Structured() {
-					selectedFields := defaultStructuredFields
-					if cmd.Flags().Changed("fields") {
-						selectedFields = parseStringSlice(fields)
-						if len(selectedFields) == 0 {
-							return fmt.Errorf("--fields must name at least one field")
-						}
-					} else {
-						noteDefaultProjection(cmd.ErrOrStderr(), selectedFields)
-					}
-					proj, err := projectFields(result.Items, selectedFields)
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
 					if err != nil {
 						return err
 					}
-					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
-					if err != nil {
-						return explainProjectionOverflow(cmd, err)
-					}
-					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd, bound)
-					effectiveLimit := limit
-					if len(proj) < len(result.Items) {
-						effectiveLimit = len(proj)
-					}
-					return ctx.PrintCappedList(proj, nil, len(proj), page, effectiveLimit, int(result.Total), result.HasNextPage)
+					return ctx.PrintCappedList(proj, nil, len(proj), page, limit, int(result.Total), result.HasNextPage)
 				}
 
 				return ctx.PrintCappedList(result.Items, incidentColumns(), len(result.Items), page, limit, int(result.Total), result.HasNextPage)
@@ -216,7 +196,6 @@ func newIncidentListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Use to avoid dumping the full nested record.")
-	declareOutputNarrowing(cmd, "fields", "limit")
 
 	return cmd
 }
@@ -769,23 +748,11 @@ func newIncidentSimilarCmd() *cobra.Command {
 				// list can only say more may exist.
 				similarPage := listPage{Count: len(result.Items), Limit: limit, Total: -1}
 
-				if ctx.Structured() {
-					fieldNames := []string{"incident_id", "num", "title", "incident_severity", "progress", "start_time", "close_time", "ack_time", "alert_cnt", "root_cause", "score", "detail_url"}
-					if fields != "" {
-						fieldNames = parseStringSlice(fields)
-					} else {
-						noteDefaultProjection(cmd.ErrOrStderr(), fieldNames)
-					}
-					proj, err := projectFields(result.Items, fieldNames)
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
 					if err != nil {
 						return err
 					}
-					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
-					if err != nil {
-						return explainProjectionOverflow(cmd, err)
-					}
-					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd, bound)
 					return ctx.PrintPage(proj, nil, similarPage)
 				}
 
@@ -795,8 +762,7 @@ func newIncidentSimilarCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&limit, "limit", 5, "Max results")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Defaults to a compact incident summary. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
-	declareOutputNarrowing(cmd, "fields", "limit")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,start_time); ignored in table mode. Without it, json/toon output carries every field.")
 	return cmd
 }
 
@@ -1910,11 +1876,6 @@ func newIncidentDetailCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						_, bound, err := boundProjectedOutput(proj[0], compactDetailOutputLimit)
-						if err != nil {
-							return explainProjectionOverflow(cmd, err)
-						}
-						noteProjectionBound(cmd, bound)
 						return ctx.Printer.Print(proj[0], nil)
 					}
 					return ctx.Printer.Print(result, nil)
@@ -1925,8 +1886,7 @@ func newIncidentDetailCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. The projection must fit within 8 KiB or the command fails and names the largest fields; omit --fields for the full, unbounded detail.")
-	declareOutputNarrowing(cmd, "fields", "")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. incident_id,title,incident_severity,progress,root_cause); ignored in table mode. Without it, json/toon output carries the full detail.")
 	return cmd
 }
 

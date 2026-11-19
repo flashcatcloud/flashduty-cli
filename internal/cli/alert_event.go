@@ -24,7 +24,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alert events globally",
-		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type. --since/--until window must be < 31 days. In json/toon mode, output defaults to compact event fields; use --fields to choose a different projection.", "Alerts", "EventReadList"),
+		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type. --since/--until window must be < 31 days. In json/toon mode, rows carry every field; pass --fields to project a subset.", "Alerts", "EventReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
 				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
@@ -83,28 +83,12 @@ func newAlertEventListCmd() *cobra.Command {
 					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertEventItem).Title }},
 				}
 
-				if ctx.Structured() {
-					fieldNames := []string{"event_id", "alert_id", "event_severity", "event_status", "event_time", "title"}
-					if fields != "" {
-						fieldNames = parseStringSlice(fields)
-					} else {
-						noteDefaultProjection(cmd.ErrOrStderr(), fieldNames)
-					}
-					proj, err := projectFields(result.Items, fieldNames)
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(result.Items, parseStringSlice(fields))
 					if err != nil {
 						return err
 					}
-					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
-					if err != nil {
-						return explainProjectionOverflow(cmd, err)
-					}
-					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd, bound)
-					effectiveLimit := limit
-					if len(proj) < len(result.Items) {
-						effectiveLimit = len(proj)
-					}
-					return ctx.PrintCappedList(proj, nil, len(proj), page, effectiveLimit, int(result.Total), result.HasNextPage)
+					return ctx.PrintCappedList(proj, nil, len(proj), page, limit, int(result.Total), result.HasNextPage)
 				}
 
 				return ctx.PrintCappedList(result.Items, cols, len(result.Items), page, limit, int(result.Total), result.HasNextPage)
@@ -122,8 +106,7 @@ func newAlertEventListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 20, "Max results (max 100)")
 	cmd.Flags().IntVar(&page, "page", 1, "Page number")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Defaults to these compact event fields. If the page would exceed 16 KiB, only the leading rows that fit are emitted, with every value intact (announced on stderr).")
-	declareOutputNarrowing(cmd, "fields", "limit")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. event_id,alert_id,event_severity,event_status,event_time,title); ignored in table mode. Without it, json/toon output carries every field.")
 
 	return cmd
 }

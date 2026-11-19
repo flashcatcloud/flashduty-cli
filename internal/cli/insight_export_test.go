@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/flashcatcloud/go-flashduty"
 )
@@ -57,8 +56,7 @@ type insightExportStub struct {
 }
 
 // insightIncidentRow builds one /insight/incident/list row for the stub,
-// carrying both the compact-projection fields and the full-record fields a
-// default projection must drop.
+// carrying both the commonly selected fields and the fuller record fields.
 func insightIncidentRow() map[string]any {
 	return map[string]any{
 		"incident_id":      "inc-1",
@@ -76,113 +74,59 @@ func insightIncidentRow() map[string]any {
 	}
 }
 
-// TestInsightIncidentsStructuredDefaultUsesCompactProjection mirrors incident
-// list: structured mode must not dump the full nested SDK row when --fields
-// is omitted, and the default projection announces itself on stderr.
-func TestInsightIncidentsStructuredDefaultUsesCompactProjection(t *testing.T) {
+// TestInsightIncidentsStructuredDefaultIsFullRecord: without --fields,
+// structured mode prints the full SDK row — every row of a page far past
+// 16 KiB, values intact, no stderr note about a reduction.
+func TestInsightIncidentsStructuredDefaultIsFullRecord(t *testing.T) {
 	for _, format := range []string{"json", "toon"} {
 		t.Run(format, func(t *testing.T) {
 			saveAndResetGlobals(t)
 			stub := newGFStub(t)
-			stub.data = map[string]any{"items": []any{insightIncidentRow()}, "total": 1}
+			rows := make([]any, 40)
+			for i := range rows {
+				row := insightIncidentRow()
+				row["incident_id"] = fmt.Sprintf("inc-%d", i)
+				row["description"] = strings.Repeat(fmt.Sprintf("db-%d failover ", i), 200)
+				rows[i] = row
+			}
+			stub.data = map[string]any{"items": rows, "total": len(rows)}
 
-			out, stderrText, err := execCommandSplit("insight", "incidents", "--output-format", format)
+			out, stderrText, err := execCommandSplit("insight", "incidents", "--limit", "40", "--output-format", format)
 			if err != nil {
 				t.Fatalf("execCommandSplit: %v", err)
 			}
-			for _, key := range []string{"incident_id", "title", "severity", "channel_name", "seconds_to_ack", "seconds_to_close", "notifications"} {
+			for i := range rows {
+				desc := rows[i].(map[string]any)["description"].(string)
+				if !strings.Contains(out, fmt.Sprintf("inc-%d", i)) || !strings.Contains(out, desc) {
+					t.Fatalf("%s output lost or altered row %d", format, i)
+				}
+			}
+			for _, key := range []string{"channel_id", "description"} {
 				if !strings.Contains(out, key) {
-					t.Errorf("default %s output missing compact key %q, got:\n%s", format, key, out)
+					t.Errorf("default %s output should contain full-record key %q", format, key)
 				}
 			}
-			// Full-record keys must not leak. (stdout only: the stderr note
-			// embeds the compact field names, never these.)
-			for _, key := range []string{"description", "labels", "responders"} {
-				if strings.Contains(out, key) {
-					t.Errorf("default %s output should not contain full-record key %q, got:\n%s", format, key, out)
-				}
-			}
-			if !strings.Contains(stderrText, "note: rows projected to default compact fields") {
-				t.Errorf("default projection should announce itself on stderr, got:\n%s", stderrText)
-			}
+			assertNoReductionNote(t, stderrText)
 		})
 	}
 }
 
-// TestInsightIncidentsStructuredFieldsFlag: an explicit --fields wins over the
-// default projection and stays exactly the named fields.
+// TestInsightIncidentsStructuredFieldsFlag: an explicit --fields narrows the
+// rows to exactly the named fields.
 func TestInsightIncidentsStructuredFieldsFlag(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)
 	stub.data = map[string]any{"items": []any{insightIncidentRow()}, "total": 1}
 
-	out, stderrText, err := execCommandSplit("insight", "incidents",
+	out, _, err := execCommandSplit("insight", "incidents",
 		"--fields", "incident_id,severity", "--output-format", "json")
 	if err != nil {
 		t.Fatalf("execCommandSplit: %v", err)
 	}
 	assertProjectedJSONFields(t, out, []string{"incident_id", "severity"})
-	if strings.Contains(stderrText, "note: rows projected to default compact fields") {
-		t.Errorf("explicit --fields must not print the default-projection note, got:\n%s", stderrText)
-	}
 }
 
-// TestInsightIncidentsStructuredBounded: an oversized projected page is
-// bounded below the structured-output limit — reduced to the leading intact
-// rows, or a single oversized row shortened with a marked, announced clip.
-func TestInsightIncidentsStructuredBounded(t *testing.T) {
-	t.Run("reduced page keeps every value intact", func(t *testing.T) {
-		saveAndResetGlobals(t)
-		stub := newGFStub(t)
-		rows := make([]any, 10)
-		for i := range rows {
-			row := insightIncidentRow()
-			row["incident_id"] = fmt.Sprintf("inc-%d", i)
-			row["title"] = strings.Repeat(fmt.Sprintf("db-%d failover ", i), 200)
-			rows[i] = row
-		}
-		stub.data = map[string]any{"items": rows, "total": 10}
-
-		out, stderrText, err := execCommandSplit("insight", "incidents", "--output-format", "json")
-		if err != nil {
-			t.Fatalf("execCommandSplit: %v", err)
-		}
-		if len([]byte(out)) >= compactListOutputLimit {
-			t.Fatalf("bounded page is %d bytes, want <%d", len([]byte(out)), compactListOutputLimit)
-		}
-		if !strings.Contains(stderrText, "note: emitted") {
-			t.Errorf("reduced page should announce itself on stderr, got:\n%s", stderrText)
-		}
-		if strings.Contains(out, "...") {
-			t.Errorf("page reduction must never shorten a value, got:\n%s", out)
-		}
-	})
-
-	t.Run("single oversized row is shortened and announced", func(t *testing.T) {
-		saveAndResetGlobals(t)
-		stub := newGFStub(t)
-		row := insightIncidentRow()
-		row["title"] = strings.Repeat("数据库故障", 5000)
-		stub.data = map[string]any{"items": []any{row}, "total": 1}
-
-		out, stderrText, err := execCommandSplit("insight", "incidents", "--output-format", "json")
-		if err != nil {
-			t.Fatalf("execCommandSplit: %v", err)
-		}
-		if len([]byte(out)) >= compactListOutputLimit {
-			t.Fatalf("shortened row is %d bytes, want <%d", len([]byte(out)), compactListOutputLimit)
-		}
-		if !utf8.ValidString(out) || !strings.Contains(out, "...") {
-			t.Fatalf("shortened row must retain valid UTF-8 and show the truncation marker")
-		}
-		if !strings.Contains(stderrText, "were shortened to fit") || !strings.Contains(stderrText, "title") {
-			t.Errorf("shortened row should announce the clipped field on stderr, got:\n%s", stderrText)
-		}
-	})
-}
-
-// TestInsightIncidentsTableUnchanged: the human table keeps its full column
-// set — the structured projection must not leak into table mode.
+// TestInsightIncidentsTableUnchanged: the human table keeps its column set.
 func TestInsightIncidentsTableUnchanged(t *testing.T) {
 	saveAndResetGlobals(t)
 	stub := newGFStub(t)

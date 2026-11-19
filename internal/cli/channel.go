@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 
@@ -173,12 +172,10 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 	var dataJSON, fields string
 	var fChannelID int64
 
-	defaultStructuredFields := []string{"rule_id", "rule_name", "status", "priority", "filters"}
-
 	cmd := &cobra.Command{
 		Use:   "escalate-rule-list <channel-id>",
 		Short: "List escalation rules",
-		Long: curatedLong("List all escalation rules for a channel. In json/toon mode, rows default to the compact fields rule_id,rule_name,status,priority,filters; pass --fields to choose a different projection.",
+		Long: curatedLong("List all escalation rules for a channel. In json/toon mode, rows carry every field; pass --fields to project a subset.",
 			"Channels", "ChannelEscalateRuleList"),
 		Args:    requireBodyFieldOrExactArg("channel_id", "channel-id"),
 		Example: `  flashduty channel escalate-rule-list --data '{"channel_id":1001}'`,
@@ -205,26 +202,11 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 					return err
 				}
 
-				if ctx.Structured() {
-					selectedFields := defaultStructuredFields
-					if cmd.Flags().Changed("fields") {
-						selectedFields = parseStringSlice(fields)
-						if len(selectedFields) == 0 {
-							return fmt.Errorf("--fields must name at least one field")
-						}
-					} else {
-						noteDefaultProjection(cmd.ErrOrStderr(), selectedFields)
-					}
-					proj, err := projectFields(out.Items, selectedFields)
+				if fields != "" && ctx.Structured() {
+					proj, err := projectFields(out.Items, parseStringSlice(fields))
 					if err != nil {
 						return err
 					}
-					bounded, bound, err := boundProjectedOutput(proj, compactListOutputLimit)
-					if err != nil {
-						return explainProjectionOverflow(cmd, err)
-					}
-					proj = bounded.([]map[string]any)
-					noteProjectionBound(cmd, bound)
 					return ctx.PrintPage(proj, nil, listPage{Count: len(proj), Total: -1})
 				}
 
@@ -242,6 +224,5 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Channel to list rules for. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in json/toon output (e.g. rule_id,rule_name,status,priority); ignored in table mode. Use to avoid dumping the full nested record.")
-	declareOutputNarrowing(cmd, "fields", "")
 	return cmd
 }
