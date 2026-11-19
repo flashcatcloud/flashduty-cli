@@ -41,10 +41,10 @@ func TestIncidentSummaryScriptCompactOutput(t *testing.T) {
 	}
 	wantDetail := "incident detail inc-1 --fields incident_id,num,title,incident_severity,progress,ai_summary,root_cause,resolution,alert_cnt,start_time,channel_id,detail_url --output-format toon"
 	if lines[0] != wantDetail {
-		t.Fatalf("detail call = %q, want compact projection %q", lines[0], wantDetail)
+		t.Fatalf("detail call = %q, want projection %q", lines[0], wantDetail)
 	}
 	if strings.Contains(strings.Join(lines[1:6], "\n"), "--output-format toon") {
-		t.Fatalf("non-detail reads force raw toon instead of their compact defaults:\n%s", invocations)
+		t.Fatalf("non-detail reads must print their default table, not full-record toon:\n%s", invocations)
 	}
 	if lines[6] != "incident detail inc-1 --json" {
 		t.Fatalf("start_time probe = %q, want %q", lines[6], "incident detail inc-1 --json")

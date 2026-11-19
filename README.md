@@ -15,7 +15,7 @@ English | [中文](README_zh.md)
 
 - **The whole public API.** Every public Flashduty API operation has a command, generated from the OpenAPI spec through the [go-flashduty](https://github.com/flashcatcloud/go-flashduty) SDK. Common workflows (incidents, alerts, on-call, status pages) also get hand-tuned commands with shorter flags and readable tables.
 - **Predictable names.** An API path maps directly to a command: `POST /incident/merge` is `flashduty incident merge`, and `POST /status-page/change/create` is `flashduty status-page change-create`.
-- **Built for scripts and agents.** Output as `table`, `json`, or `toon` (compact, fewer tokens). List pages are size-bounded and say so when reduced. `--fields` projects rows to the fields you need.
+- **Built for scripts and agents.** Output as `table`, `json`, or `toon` (compact, fewer tokens). Structured output carries every row and field the API returned. `--fields` projects rows to the fields you need.
 - **One binary.** macOS, Linux, and Windows on amd64 and arm64. `flashduty update` upgrades in place.
 
 ## Installation
@@ -145,7 +145,7 @@ flashduty config set base_url URL  # Override the API endpoint
 - **JSON** (`--json`): for `jq` and scripts, e.g. `flashduty incident list --json | jq '.[].title'`.
 - **TOON** (`--output-format toon`): [Token-Oriented Object Notation](https://github.com/toon-format/toon-go). It drops the keys JSON repeats on every row, so lists cost far fewer tokens. Use it when an LLM or agent reads the output.
 
-Every structured list page is capped at 16 KiB. A page that had to be reduced is reported on stderr, and list envelopes also carry `"truncated": true` in the payload. With `"emitted_rows": N`, only the first N rows were returned: re-request with a smaller `--limit` until the rows you hold reach `total`. Without it, every row is present but long values were clipped: narrow `--fields`.
+Structured output (`json`/`toon`) is never shortened: every row of the returned page and every field come back in full. Use `--fields` to keep only the fields you need. A list prints one page; when `total` or `has_next_page` says more exist, a stderr note says so and `--page` fetches the rest.
 
 Commands that query a time range print the window they actually sent on stderr, in the local timezone, e.g. `note: window 2026-10-08T14:00:00+08:00..2026-10-09T14:00:00+08:00 (1d, ended now)`. stdout stays pure `json`/`toon`. `incident list --progress Triggered,Processing` and `alert list --active` default to the last 30 days when `--since` is not given, since open records can be older than a day.
 

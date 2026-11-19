@@ -34,11 +34,11 @@ flashduty alert get <alert-id> --output-format toon
 flashduty alert events <alert-id> --output-format toon
 # 4. view state transitions (mute/severity changes/operator actions)
 flashduty alert feed <alert-id> --output-format toon
-# 5. for a time-window view across alerts, alert-event list is compact by default
+# 5. for a time-window view across alerts, use alert-event list
 flashduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
-Structured `alert-event list` output stays below 16 KiB: when the requested page would overflow, only the leading rows that fit are emitted — every value intact — and a stderr note says how many of the rows were emitted, so heed it before assuming the page is complete (narrow `--fields` or lower `--limit` to fit more rows per page). A trailing `...` on a value, with a stderr note naming the clipped fields, appears only when one row alone exceeds the budget — heed it before matching on that value, because the clipped text is what a `jq` filter sees. In json/toon mode rows default to the compact projection `event_id,alert_id,event_severity,event_status,event_time,title` (a stderr note says so when it applies); any other response field is one `--fields` away — a key missing from the output means it wasn't selected, not that the server omits it.
+In json/toon mode `alert-event list` prints full event records; pass `--fields event_id,alert_id,event_severity,event_status,event_time,title` to keep only those columns.
 
 ## Hot flow — merge noisy alerts into an existing incident
 
@@ -82,7 +82,7 @@ List alert activity feed
 - `--page` int64 — Page number, starting at 1. (min 1)
 - `--search-after-ctx` string
 - `--types` stringSlice — Filter by feed type codes — see the 'type' field of the response items for the full list (e.g. 'a_new', 'a_comm', 'a_merge').
-- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); agent_session_id (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
+- response: `{items: [...], has_next_page}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); agent_session_id (string); byline (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
 
 ### get <alert_id>
 Get alert detail
@@ -150,7 +150,7 @@ Create or update alert pipeline
 View alert timeline
 - `--limit` int
 - `--page` int
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); agent_session_id (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); agent_session_id (string); byline (string); created_at (string); creator_id (integer); deleted_at (string); detail (object); ref_id (string); type (string); updated_at (string); via (string)
 
 <!-- GENERATED:alert END -->
 

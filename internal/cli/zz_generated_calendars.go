@@ -90,7 +90,7 @@ Return a personal calendar's events for a year, month or day, plus the resolved 
 API: POST /calendar/event/list (calEventList)
 
 Request fields:
-  --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
+  --cal-id string (required) — Calendar ID, obtained from 'POST /calendar/list'. A calendar listed there with 'kind' = 'exchange.holiday' is accepted too, so a trading calendar can be read directly.
   --day int — Day (1-31). 0 means no day filter. (0-31)
   --month int — Month (1-12). 0 means no month filter. (0-12)
   --year int — Year. Defaults to the current year when omitted. (min 2023)
@@ -102,6 +102,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - cal_id (string) (required) — Calendar ID. For public events this is a locale key such as zh-cn.china.official.
     - created_at (string) (required) — Creation timestamp (Unix seconds); '0' for generated 'non_work.*' entries. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) — Creator person ID. Only present for private events.
+    - day_end (string) — Local wall-clock time ('HH:MM') at which a working day closes early, e.g. '12:00'. Only events of a shared exchange calendar carry one; omitted for a full day.
     - description (string) (required) — Event description.
     - end_at (string) (required) — Event end date (YYYY-MM-DD, exclusive).
     - event_id (string) (required) — Event ID. 'cale.<id>' for the calendar's own events, 'non_work.YYYYMMDD' for generated non-working weekdays, and '<holiday cal_id>.<id>' for events inherited from a holiday calendar.
@@ -148,7 +149,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
+	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID, obtained from 'POST /calendar/list'. A calendar listed there with 'kind' = 'exchange.holiday' is accepted too, so a trading calendar can be read directly. (required)")
 	cmd.Flags().Int64Var(&fDay, "day", 0, "Day (1-31). 0 means no day filter. (0-31)")
 	cmd.Flags().Int64Var(&fMonth, "month", 0, "Month (1-12). 0 means no month filter. (0-12)")
 	cmd.Flags().Int64Var(&fYear, "year", 0, "Year. Defaults to the current year when omitted. (min 2023)")
@@ -265,7 +266,7 @@ API: POST /calendar/create (calendarCreate)
 Request fields:
   --cal-name string (required) — Calendar display name; must be unique within the account. (1-39 chars)
   --description string — Calendar description. (≤499 chars)
-  --extra-cal-ids []string — Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).
+  --extra-cal-ids []string — Additional public calendar IDs to inherit events from — 'region.official.holiday' IDs such as 'zh-cn.china.official', plus at most one 'exchange.holiday' calendar. Linking an exchange calendar sets this calendar's 'timezone' to the exchange's, overriding the value you send; linking two of them returns 'InvalidParameter'.
   --team-id int — Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.
   --timezone string — IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.
   --workdays []int — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.
@@ -315,7 +316,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().StringVar(&fCalName, "cal-name", "", "Calendar display name; must be unique within the account. (required) (1-39 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "Calendar description. (≤499 chars)")
-	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).")
+	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Additional public calendar IDs to inherit events from — 'region.official.holiday' IDs such as 'zh-cn.china.official', plus at most one 'exchange.holiday' calendar. Linking an exchange calendar sets this calendar's 'timezone' to the exchange's, overriding the value you send; linking two of them returns 'InvalidParameter'.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.")
@@ -394,7 +395,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - creator_id (integer) (required) — Creator person ID.
   - description (string) (required) — Calendar description.
   - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs. Omitted when empty.
-  - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
+  - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'exchange.holiday' is a shared stock-exchange calendar whose timezone is the exchange's and whose dates a rule may read directly, 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, exchange.holiday, religion.holiday, personal]
   - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
   - team_id (integer) (required) — Owning team ID (0 when not assigned).
   - timezone (string) (required) — IANA timezone.
@@ -449,7 +450,7 @@ Return the list of service calendars visible to the current account.
 API: POST /calendar/list (calendarList)
 
 Request fields:
-  --kind string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. [region.official.holiday, personal]
+  --kind string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'exchange.holiday' queries the shared stock-exchange calendars, whose 'cal_id' a rule may read directly; 'personal' queries account-created calendars. [region.official.holiday, exchange.holiday, personal]
   --no-locale bool — Disable locale filtering when listing public-holiday calendars.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
@@ -461,7 +462,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - creator_id (integer) (required) — Creator person ID.
     - description (string) (required) — Calendar description.
     - extra_cal_ids (array<string>) — Inherited public-holiday calendar IDs. Omitted when empty.
-    - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, religion.holiday, personal]
+    - kind (string) (required) — Calendar kind. 'region.official.holiday' is a public regional holiday calendar (served by the central holiday service), 'exchange.holiday' is a shared stock-exchange calendar whose timezone is the exchange's and whose dates a rule may read directly, 'religion.holiday' is a public religious holiday calendar (reserved, currently no data), and 'personal' is an account-created personal/team calendar. [region.official.holiday, exchange.holiday, religion.holiday, personal]
     - status (string) (required) — Calendar status. 'enabled' means usable; 'deleted' means removed and never returned by list endpoints. [enabled, deleted]
     - team_id (integer) (required) — Owning team ID (0 when not assigned).
     - timezone (string) (required) — IANA timezone.
@@ -497,7 +498,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. [region.official.holiday, personal]")
+	cmd.Flags().StringVar(&fKind, "kind", "", "Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'exchange.holiday' queries the shared stock-exchange calendars, whose 'cal_id' a rule may read directly; 'personal' queries account-created calendars. [region.official.holiday, exchange.holiday, personal]")
 	cmd.Flags().BoolVar(&fNoLocale, "no-locale", false, "Disable locale filtering when listing public-holiday calendars.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -525,7 +526,7 @@ Request fields:
   --cal-id string (required) — Calendar ID; obtain it from 'POST /calendar/list'.
   --cal-name string — New calendar name; must be unique within the account. (1-39 chars)
   --description string — New description. (≤499 chars)
-  --extra-cal-ids []string — Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.
+  --extra-cal-ids []string — Public calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday' or 'exchange.holiday'); at most one of them may be an 'exchange.holiday' calendar, and linking one sets 'timezone' to the exchange's. When sent, replaces the stored list; an empty array removes them all; omit to keep it.
   --team-id int — New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.
   --timezone string — New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.
   --workdays []int — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.
@@ -579,7 +580,7 @@ Request fields:
 	cmd.Flags().StringVar(&fCalID, "cal-id", "", "Calendar ID; obtain it from 'POST /calendar/list'. (required)")
 	cmd.Flags().StringVar(&fCalName, "cal-name", "", "New calendar name; must be unique within the account. (1-39 chars)")
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. (≤499 chars)")
-	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.")
+	cmd.Flags().StringSliceVar(&fExtraCalIDs, "extra-cal-ids", nil, "Public calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday' or 'exchange.holiday'); at most one of them may be an 'exchange.holiday' calendar, and linking one sets 'timezone' to the exchange's. When sent, replaces the stored list; an empty array removes them all; omit to keep it.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.")
 	cmd.Flags().IntSliceVar(&fWorkdays, "workdays", nil, "Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.")

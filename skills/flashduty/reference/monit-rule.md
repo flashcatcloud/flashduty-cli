@@ -95,7 +95,7 @@ Delete alert rule
 
 ### rule-delete-batch
 Batch delete alert rules
-- `--ids` intSlice (required) — IDs of the alert rules to delete; must contain at least one ID. Get them from 'POST /monit/rule/list/basic'.
+- `--ids` intSlice (required) — IDs of the alert rules to delete; must contain 1 to 100 IDs. Get them from 'POST /monit/rule/list/basic'.
 
 ### rule-list-basic
 List alert rules
@@ -108,7 +108,7 @@ List alert rules
 ### rule-move
 Move alert rules to folder
 - `--dest-folder-id` int64 (required) — Destination folder ID, from 'POST /monit/folder/list'. Must be non-zero; a folder that does not exist or that the caller cannot manage fails the whole call with 'AccessDenied'.
-- `--ids` intSlice (required) — IDs of the rules to move; must contain at least one ID.
+- `--ids` intSlice (required) — IDs of the rules to move; must contain 1 to 100 IDs.
 - response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: message (string); name (string)
 
 ### rule-update-fields
@@ -123,7 +123,7 @@ Batch update rule fields
 - `--ds-type` string — Datasource type identifier. Enabled rules must use a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'. Effective only when 'fields' includes 'ds_type'.
 - `--enabled` bool — Whether the rule is enabled. Setting it to 'false' makes the server clean up the rule's active alerts. Effective only when 'fields' includes 'enabled'.
 - `--fields` stringSlice (required) — Names of the fields to update. Each listed field takes the value of the same-named request field, and is set to its zero value when that value is omitted; values sent for unlisted fields are ignored. An unknown name fails the whole call with 'InvalidParameter'. · enum: labels | ds_type | ds_list | ds_ids | enabled | debug_log_enabled | cron_pattern | timezone | delay_seconds | enabled_times | annotations | description | channel_ids | repeat_interval | repeat_total
-- `--ids` intSlice (required) — IDs of the rules to update; must contain at least one ID.
+- `--ids` intSlice (required) — IDs of the rules to update; must contain 1 to 100 IDs.
 - `--repeat-interval` int64 — Interval in seconds between repeated alert notifications; values below 1 fall back to 3600, maximum 2147483647. Effective only when 'fields' includes 'repeat_interval'.
 - `--repeat-total` int64 — Maximum number of repeated notifications; values below 1 fall back to 3, maximum 2147483647. Effective only when 'fields' includes 'repeat_total'.
 - `--timezone` string — Timezone the rule runs in, as an IANA name (e.g. 'Asia/Shanghai', 'UTC'); empty falls back to 'Asia/Shanghai'. Effective only when 'fields' includes 'timezone'.
