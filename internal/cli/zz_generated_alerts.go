@@ -283,6 +283,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - items (array<object>) — Alert feed records on the current page.
     - account_id (integer) (required) — ID of the account that owns the alert.
     - agent_session_id (string) — AI SRE session that produced the entry. Omitted when no agent wrote it.
+    - byline (string) — Timeline signature of an entry AI SRE wrote on a person's behalf: 'both' (the person and AI SRE, equally weighted), 'self' (the person only) or 'ai' (AI SRE only). Omitted for entries not written by AI SRE, and for AI SRE entries written before the setting existed, which read as 'both'.
     - created_at (string) (required) — Creation timestamp in Unix epoch milliseconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_id (integer) (required) — Member ID of the creator. 0 for system-generated entries.
     - deleted_at (string) — Soft-delete time, Unix epoch milliseconds. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.

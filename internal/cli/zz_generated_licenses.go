@@ -11,20 +11,30 @@ func genLicensesListCmd() *cobra.Command {
 		Short: "List On-call licenses",
 		Long: `List On-call licenses.
 
-List people with active fixed or temporary On-call licenses in the current account.
+List the current license window's usage and the people counted in it.
 
 API: POST /oncall/license/list (oncall-license-read-license-list)
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
-  - items (array<object>) (required) — People holding an active license.
+  - auto_grab_disabled (boolean) (required) — Whether automatic seat grabbing is off for the account, so only fixed or admin-assigned members hold a license.
+  - items (array<object>) (required) — People counted in the current window: license holders and people revoked in it.
+    - acquired_at (string) (required) — Unix timestamp in seconds when the seat was recorded in this window. '0' when the window holds no record for the person. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - created_at (string) (required) — Unix timestamp when a fixed license was assigned. '0' for temporary licenses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - person_id (integer) (required) — ID of the licensed person.
     - person_name (string) (required) — Display name of the licensed person.
+    - status (string) (required) — Where the person stands in this window: 'fixed' holds an explicitly assigned seat, 'active' holds a temporary seat taken automatically or assigned by an admin, 'revoked' had the seat taken back in this window and still counts until it ends. [fixed, active, revoked]
     - type (string) (required) — License assignment type. 'fixed' is explicitly assigned; 'temporary' is held from the active license window. [fixed, temporary]
     - updated_at (string) (required) — Unix timestamp when a fixed license was last changed. '0' for temporary licenses. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Person ID that last changed a fixed license. '0' for temporary licenses.
-  - release_limited (boolean) (required) — Whether the account has used up its license release quota for the current 30-day window. While 'true', releasing a seat fails with error code 'NoLicense'.
-  - total (integer) (required) — Number of people holding an active license.
+    - via (string) (required) — How the seat was taken: 'auto' from an automatic grab, 'admin' from an admin assignment, 'fixed' from the window being seeded with the account's fixed licenses. Empty string when the window holds no record for the person, for example after a revocation. [auto, admin, fixed]
+  - license_cnt (integer) (required) — Seats purchased on the account's highest-version On-call plan. '0' when the account has no resource record yet.
+  - rule_effective (boolean) (required) — Whether the window-usage license rules already apply to this account. Before 'rule_effective_at' the account keeps its earlier seat behaviour.
+  - rule_effective_at (string) (required) — Unix timestamp in seconds when the window-usage rules start for this account: its own creation time for an account created on or after 2026-11-09 00:00 +08:00, otherwise 2027-01-01 00:00 +08:00. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - total (integer) (required) — Number of people in 'items'.
+  - transferred_at (string) (required) — Unix timestamp in seconds when this window's single license reassignment was used; '0' when it has not been used. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - used_cnt (integer) (required) — Seats in use in the current window: people holding a license plus people revoked in this window, who stay counted until it ends.
+  - window_end (string) (required) — Unix timestamp in seconds when the current license window ends; a window is 30 days long. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - window_start (string) (required) — Unix timestamp in seconds when the current 30-day license window started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
 `,
 		Example: `  flashduty oncall license-list --data '{}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {

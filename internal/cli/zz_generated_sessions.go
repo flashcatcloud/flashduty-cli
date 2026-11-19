@@ -10,6 +10,7 @@ import (
 
 func genSessionsReadInfoCmd() *cobra.Command {
 	var dataJSON string
+	var fIncludeCreditsUsage bool
 	var fLimit int64
 	var fNumRecentEvents int64
 	var fSearchAfterCtx string
@@ -25,6 +26,7 @@ Fetch one session plus a backward-paged window of its most recent events.
 API: POST /safari/session/get (session-read-info)
 
 Request fields:
+  --include-credits-usage bool — Set 'true' to fill 'credits_usage_nano' on the returned session. Omitted or 'false' skips the credit aggregation and leaves the field out of the response.
   --limit int — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
   --num-recent-events int — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
   --search-after-ctx string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)
@@ -88,6 +90,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - context_window (integer) (required) — Maximum context size of the session's model, in tokens. Computed by 'POST /safari/session/get' only; always 0 in list responses and when the lookup fails.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_name (string) — Display name of the session creator. Returned by 'POST /safari/session/list' only; omitted when the name lookup fails.
+    - credits_usage_nano (integer) — Accounted credit usage in nanocredits for this session and the sessions it spawned, covering model, search and sandbox credits. Only 'POST /safari/session/get' with 'include_credits_usage' set fills it; absent means the figure is unavailable, which is different from an accounted zero.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -132,6 +135,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if err := genFoldPositional(args, body, "session_id", "string"); err != nil {
 						return err
 					}
+					if cmd.Flags().Changed("include-credits-usage") {
+						body["include_credits_usage"] = fIncludeCreditsUsage
+					}
 					if cmd.Flags().Changed("limit") {
 						body["limit"] = fLimit
 					}
@@ -164,6 +170,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&fIncludeCreditsUsage, "include-credits-usage", false, "Set 'true' to fill 'credits_usage_nano' on the returned session. Omitted or 'false' skips the credit aggregation and leaves the field out of the response.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)")
 	cmd.Flags().Int64Var(&fNumRecentEvents, "num-recent-events", 0, "Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)")
@@ -241,6 +248,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - context_window (integer) (required) — Maximum context size of the session's model, in tokens. Computed by 'POST /safari/session/get' only; always 0 in list responses and when the lookup fails.
     - created_at (string) (required) — Unix timestamp in milliseconds when the session was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - creator_name (string) — Display name of the session creator. Returned by 'POST /safari/session/list' only; omitted when the name lookup fails.
+    - credits_usage_nano (integer) — Accounted credit usage in nanocredits for this session and the sessions it spawned, covering model, search and sandbox credits. Only 'POST /safari/session/get' with 'include_credits_usage' set fills it; absent means the figure is unavailable, which is different from an accounted zero.
     - current_context_tokens (integer) (required) — Size in tokens of the LLM context window as of the most recent turn. 0 means no turn has completed.
     - current_turn_active_ms (integer) (required) — Active working duration in milliseconds for the current or most recent round, excluding time spent waiting on ask_user; resets to 0 at the start of each new round.
     - current_turn_started_at (string) (required) — Unix timestamp in milliseconds when the current or most recent round started; 0 if no round has started yet. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
