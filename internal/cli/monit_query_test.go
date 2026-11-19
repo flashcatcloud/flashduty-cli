@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flashcatcloud/go-flashduty"
 )
@@ -199,5 +200,168 @@ func TestRetiredMonitCommandsRejectBeforeRequest(t *testing.T) {
 				t.Fatalf("retired command sent %d requests", stub.requests)
 			}
 		})
+	}
+}
+
+// sentToolParams runs monit-query against invokeRawStub and decodes the
+// params the request carried (numbers kept as json.Number).
+func sentToolParams(t *testing.T, args ...string) (map[string]any, string) {
+	t.Helper()
+	requests := invokeRawStub(t)
+	_, stderr, err := execCommandSplit(append([]string{"monit-query", "42", "--tool", "prometheus.query", "--json"}, args...)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := <-requests
+	var sent struct {
+		Params map[string]any `json:"params"`
+	}
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&sent); err != nil {
+		t.Fatal(err)
+	}
+	return sent.Params, stderr
+}
+
+func TestMonitQueryWindowFlags(t *testing.T) {
+	const (
+		from = "2026-01-02T14:00:00+08:00" // 1767333600000
+		to   = "2026-01-02T15:00:00+08:00" // 1767337200000
+	)
+	for _, tc := range []struct {
+		name      string
+		args      []string
+		execution map[string]string // want execution fields (json text); "" = absent
+		note      string
+	}{
+		{"since and until into existing execution",
+			[]string{"--params", `{"expr":"rate(http_requests_total{code=~\"5..\"}[5m]) > 0 < 10","execution":{"kind":"range","max_data_points":240}}`, "--since", from, "--until", to},
+			map[string]string{"kind": "range", "max_data_points": "240", "from_ms": "1767333600000", "to_ms": "1767337200000"},
+			"note: window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00 (1h, "},
+		{"until only is an instant",
+			[]string{"--params", `{"expr":"up","execution":{"kind":"instant"}}`, "--until", to},
+			map[string]string{"kind": "instant", "to_ms": "1767337200000", "from_ms": ""},
+			"note: instant 2026-01-02T15:00:00+08:00"},
+		{"since keeps a to_ms from params",
+			[]string{"--params", `{"expr":"up","execution":{"kind":"window","to_ms":1767337200000}}`, "--since", from},
+			map[string]string{"kind": "window", "from_ms": "1767333600000", "to_ms": "1767337200000"},
+			"note: window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00"},
+		{"until keeps a from_ms from params",
+			[]string{"--params", `{"expr":"up","execution":{"kind":"window","from_ms":1767333600000}}`, "--until", to},
+			map[string]string{"kind": "window", "from_ms": "1767333600000", "to_ms": "1767337200000"},
+			"(1h, "},
+		{"params without execution get one without kind",
+			[]string{"--params", `{"expr":"up"}`, "--since", from, "--until", to},
+			map[string]string{"kind": "", "from_ms": "1767333600000", "to_ms": "1767337200000"},
+			"note: window "},
+		{"no params at all",
+			[]string{"--since", from, "--until", to},
+			map[string]string{"kind": "", "from_ms": "1767333600000", "to_ms": "1767337200000"},
+			"note: window "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			pinClock(t, time.Date(2026, 1, 2, 8, 0, 0, 0, time.UTC))
+			params, stderr := sentToolParams(t, tc.args...)
+			execution, _ := params["execution"].(map[string]any)
+			for key, want := range tc.execution {
+				got, present := execution[key]
+				if want == "" {
+					if present {
+						t.Errorf("execution.%s = %v, want absent", key, got)
+					}
+					continue
+				}
+				if fmt.Sprint(got) != want {
+					t.Errorf("execution.%s = %v, want %s", key, got, want)
+				}
+			}
+			if !strings.Contains(stderr, tc.note) {
+				t.Errorf("stderr %q lacks %q", stderr, tc.note)
+			}
+		})
+	}
+}
+
+func TestMonitQuerySinceDefaultsUntilToNow(t *testing.T) {
+	saveAndResetGlobals(t)
+	before := time.Now().UnixMilli()
+	params, _ := sentToolParams(t, "--params", `{"expr":"up","execution":{"kind":"range","max_data_points":10}}`, "--since", "30m")
+	after := time.Now().UnixMilli()
+	execution := params["execution"].(map[string]any)
+	fromMS, _ := execution["from_ms"].(json.Number).Int64()
+	toMS, _ := execution["to_ms"].(json.Number).Int64()
+	if toMS < before-1000 || toMS > after {
+		t.Fatalf("to_ms %d not now (%d..%d)", toMS, before, after)
+	}
+	if span := toMS - fromMS; span < 30*60*1000-1000 || span > 30*60*1000+1000 {
+		t.Fatalf("window span %dms, want 30m", span)
+	}
+}
+
+// Re-encoding for the window flags keeps other large integers exact and the
+// query text unescaped.
+func TestApplyToolWindowFidelity(t *testing.T) {
+	in := json.RawMessage(`{"expr":"a < b && c > d","limit":9007199254740993,"execution":{"kind":"range","max_data_points":18446744073709551615}}`)
+	out, err := applyToolWindow(in, "2026-01-02T14:00:00+08:00", "2026-01-02T15:00:00+08:00", true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"execution":{"from_ms":1767333600000,"kind":"range","max_data_points":18446744073709551615,"to_ms":1767337200000},"expr":"a < b && c > d","limit":9007199254740993}`
+	if string(out) != want {
+		t.Fatalf("got  %s\nwant %s", out, want)
+	}
+}
+
+func TestMonitQueryWindowFlagsRejectBeforeRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"since conflicts with from_ms", []string{"--params", `{"expr":"up","execution":{"kind":"range","from_ms":1767333600000}}`, "--since", "1h"},
+			[]string{"--since", "execution.from_ms"}},
+		{"until conflicts with to_ms", []string{"--params", `{"expr":"up","execution":{"kind":"instant","to_ms":1767337200000}}`, "--until", "1h"},
+			[]string{"--until", "execution.to_ms"}},
+		{"inverted flags", []string{"--params", `{"expr":"up"}`, "--since", "2026-01-02T15:00:00+08:00", "--until", "2026-01-02T14:00:00+08:00"},
+			[]string{"inverted window"}},
+		{"equal bounds", []string{"--since", "2026-01-02T15:00:00+08:00", "--until", "2026-01-02T15:00:00+08:00"},
+			[]string{"inverted window"}},
+		{"until before params from_ms", []string{"--params", `{"execution":{"kind":"window","from_ms":1767337200000}}`, "--until", "2026-01-02T14:00:00+08:00"},
+			[]string{"inverted window"}},
+		{"bad since", []string{"--since", "yesterday-ish"}, []string{"invalid --since"}},
+		{"execution not an object", []string{"--params", `{"execution":"range"}`, "--since", "1h"}, []string{"execution must be an object"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(append([]string{"monit-query", "42", "--tool", "prometheus.query"}, tc.args...)...)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(err.Error(), w) {
+					t.Errorf("error %q lacks %q", err, w)
+				}
+			}
+			if stub.requests != 0 {
+				t.Fatalf("request sent despite invalid window: %d", stub.requests)
+			}
+		})
+	}
+}
+
+// Without --since/--until the params text is forwarded untouched: key order
+// and number spelling survive.
+func TestMonitQueryNoWindowFlagsForwardsParamsVerbatim(t *testing.T) {
+	saveAndResetGlobals(t)
+	requests := invokeRawStub(t)
+	const params = `{"expr":"up","execution":{"to_ms":9007199254740993,"kind":"instant"},"ratio":1.50}`
+	if _, err := execCommand("monit-query", "42", "--tool", "prometheus.query", "--params", params, "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if raw := <-requests; !strings.Contains(raw, `"params":`+params) {
+		t.Fatalf("params not forwarded verbatim: %s", raw)
 	}
 }

@@ -44,15 +44,15 @@ Tools require all currently routable Edge sessions in the selected cluster to su
 
 ## Query tools — `<type>.query`
 
-The same invoke entry also runs query tools named `<type>.query` for ten datasource types: `prometheus`, `mysql`, `postgres`, `oracle`, `clickhouse`, `elasticsearch`, `loki`, `victorialogs`, `sls`, `tencent_cls`. The tool prefix must match the datasource type. `params` is a per-datasource structure: always `expr` plus `execution` (`kind: instant|range|window`, `from_ms`/`to_ms` Unix milliseconds; `range` also needs `max_data_points`). Log types can add `limit`/`direction`; `sls` requires `project`/`logstore`; `tencent_cls` requires `region`/`topic_id`/`syntax`. SQL types take a single read-only statement with `window` execution.
+The same invoke entry also runs query tools named `<type>.query` for ten datasource types: `prometheus`, `mysql`, `postgres`, `oracle`, `clickhouse`, `elasticsearch`, `loki`, `victorialogs`, `sls`, `tencent_cls`. The tool prefix must match the datasource type. `params` is a per-datasource structure: always `expr` plus `execution` (`kind: instant|range|window`, `from_ms`/`to_ms` Unix milliseconds; `range` also needs `max_data_points`). `monit-query --since/--until` fills `from_ms`/`to_ms` from friendly times (`2h`, RFC3339), so the window need not be computed by hand. Log types can add `limit`/`direction`; `sls` requires `project`/`logstore`; `tencent_cls` requires `region`/`topic_id`/`syntax`. SQL types take a single read-only statement with `window` execution.
 
 ```bash
-flashduty monit-query 12345 --tool prometheus.query --output-format json --params - <<'FDUTY'
-{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"instant","to_ms":1757462400000}}
+flashduty monit-query 12345 --tool prometheus.query --since 2h --params - <<'FDUTY'
+{"expr":"sum by (job) (rate(http_requests_total[5m]))","execution":{"kind":"range","max_data_points":240}}
 FDUTY
 ```
 
-Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to another endpoint automatically.
+By default `monit-query` prints a query result as a bounded digest (per-series stats and shape, sorted samples, rows, log field summaries; every cut states its counts); `--output-format json` returns the complete result. Query `data` is the complete Explore result: `format` is `explore_result.v1` and `result.kind` is `samples`, `frames`, or `logs`; log results keep `applied_limit` and `has_more`. Query tools never synthesize `summary` or `truncated`. Query tools require Edge Explore support (protocol v0.68.0); unsupported clusters fail with `edge_upgrade_required`, `mixed_edge_versions`, or `edge_version_unknown` — report as returned, never fall back to another endpoint automatically.
 
 <!-- GENERATED:monit[datasource] START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 
