@@ -2076,62 +2076,6 @@ func TestCommandAlertListStructuredAnnouncesTruncation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Projection overflow is a hard failure
-// ---------------------------------------------------------------------------
-
-// TestCommandListProjectionOverflowFails pins that a compact list projection
-// which cannot fit the byte budget at all — a single row that overflows on
-// its own and carries nothing shortenable — fails the command instead of
-// emitting anything: Execute returns the error and stdout stays empty, so a
-// pipeline reading stdout sees a failed call, never an empty page
-// masquerading as "no data". (A multi-row page that overflows is instead
-// reduced to the leading rows that fit — see
-// TestAlertEventListAutoReducesPageAtLargeLimit.)
-func TestCommandListProjectionOverflowFails(t *testing.T) {
-	t.Run("incident list", func(t *testing.T) {
-		saveAndResetGlobals(t)
-		stub := newGFStub(t)
-		row := incidentRow()
-		row["labels"] = map[string]any{"payload": strings.Repeat("x", 20000)}
-		stub.data = map[string]any{"items": []any{row}, "total": 1}
-
-		out, stderrText, err := execCommandSplit("incident", "list", "--fields", "incident_id,labels", "--output-format", "json")
-		if err == nil || !strings.Contains(err.Error(), "16384-byte structured-output limit") {
-			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
-		}
-		if out != "" {
-			t.Errorf("a failed projection must write nothing to stdout, got %d bytes", len(out))
-		}
-		if strings.Contains(stderrText, "structured-output limit") {
-			t.Errorf("the error is returned for the entrypoint to report, not printed mid-run, got:\n%s", stderrText)
-		}
-	})
-
-	t.Run("alert-event list", func(t *testing.T) {
-		saveAndResetGlobals(t)
-		stub := newGFStub(t)
-		row := map[string]any{
-			"event_id":       fmt.Sprintf("%024x", 1),
-			"alert_id":       fmt.Sprintf("%024x", 1_000_001),
-			"event_severity": "Warning",
-			"event_status":   "Triggered",
-			"event_time":     1712000000,
-			"title":          "disk full",
-			"labels":         map[string]any{"payload": strings.Repeat("x", 20000)},
-		}
-		stub.data = map[string]any{"items": []any{row}, "total": 1}
-
-		out, _, err := execCommandSplit("alert-event", "list", "--fields", "event_id,labels", "--output-format", "json")
-		if err == nil || !strings.Contains(err.Error(), "16384-byte structured-output limit") {
-			t.Fatalf("irreducible projection error = %v, want the byte-limit refusal", err)
-		}
-		if out != "" {
-			t.Errorf("a failed projection must write nothing to stdout, got %d bytes", len(out))
-		}
-	})
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

@@ -29,7 +29,7 @@ Append `--output-format toon` to read commands: it drops the per-row repeated ke
 
 **Shape the payload before you fetch it.** For ID scans, counts, or "find the matching row" tasks, prefer `--fields` projections and compact list verbs over full detail dumps. Huge raw JSON dumps are a last resort, not a default.
 
-**A structured list page is capped at 16 KiB.** An oversize page is emitted as its leading rows, and the envelope carries `"truncated": true` with `"emitted_rows": N`; `total` / `has_next_page` / `search_after_ctx` still describe the page as the server returned it, so a reduced page reads as complete unless you check the marker. `truncated` WITHOUT `emitted_rows` means long values inside the rows were clipped — narrow `--fields` instead of paging. When a walk must cover everything (a script, a full export), resume after the last row you actually received: re-request with a `--limit` no larger than the rows you got, then follow that response's cursor.
+**Structured output is complete.** `--json` / toon print every row of the page the server returned and every field, unshortened; `--fields` is the way to get fewer bytes. A list is still one page: when a walk must cover everything (a script, a full export), keep paging until the rows you hold reach `total`, or follow `has_next_page` / `search_after_ctx`.
 
 **Empty result = authoritative not-found.** A filter returning `[]` means no such entity in scope — report it (optionally the 1–2 closest names) and stop. Do **not** brute-force (no shifted-keyword re-queries, no widening past caps, no full-dump grep). Never infer "feature not enabled" from an empty list, and never fabricate data absent from tool output.
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -112,23 +113,17 @@ func TestSetVersionInfoBeforeExecute(t *testing.T) {
 	}
 }
 
-// Test 79: When a compact list projection cannot fit its byte budget at
-// all — a single row that overflows on its own and carries nothing
-// shortenable — the binary exits non-zero, writes nothing to stdout, and
-// reports the error on stderr: a pipeline reading stdout must see a failed
-// call, never an empty page masquerading as "no data". (A multi-row page
-// that overflows is instead reduced to the leading rows that fit, announced
-// on stderr.)
-func TestProjectionOverflowFailsHard(t *testing.T) {
+// Test 79: a structured list far larger than 16 KiB comes back whole from the
+// built binary — exit 0, every byte of an oversized value on stdout, nothing on
+// stderr about a reduction.
+func TestLargeStructuredOutputIsComplete(t *testing.T) {
 	binPath := buildTestBinary(t, "")
 
-	// Stub the alert-event list endpoint with one row whose projected labels
-	// blob alone exceeds the 16 KiB budget; a labels map is not a string, so
-	// no value shortening can rescue it.
+	payload := strings.Repeat("x", 20000)
 	var body strings.Builder
 	body.WriteString(`{"request_id":"r","error":{"code":"OK","message":""},"data":{"total":1,"items":[`)
 	fmt.Fprintf(&body, `{"event_id":"%024x","alert_id":"%024x","event_severity":"Warning","event_status":"Triggered","event_time":1712000000,"title":"disk full","labels":{"payload":%q}}`,
-		1, 1_000_001, strings.Repeat("x", 20000))
+		1, 1_000_001, payload)
 	body.WriteString(`]}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -145,14 +140,22 @@ func TestProjectionOverflowFailsHard(t *testing.T) {
 	run.Stdout = &stdout
 	run.Stderr = &stderr
 
-	err := run.Run()
-	if err == nil {
-		t.Fatalf("[#79] expected non-zero exit code for an over-budget projection, got success; stderr:\n%s", stderr.String())
+	if err := run.Run(); err != nil {
+		t.Fatalf("[#79] expected success, got %v; stderr:\n%s", err, stderr.String())
 	}
-	if stdout.Len() != 0 {
-		t.Errorf("[#79] a failed projection must write nothing to stdout, got %d bytes:\n%s", stdout.Len(), stdout.String())
+	var rows []struct {
+		EventID string            `json:"event_id"`
+		Labels  map[string]string `json:"labels"`
 	}
-	if !strings.Contains(stderr.String(), "Error: projected list is") || !strings.Contains(stderr.String(), "16384-byte structured-output limit") {
-		t.Errorf("[#79] stderr should report the byte-limit refusal, got:\n%s", stderr.String())
+	if err := json.Unmarshal(stdout.Bytes(), &rows); err != nil {
+		t.Fatalf("[#79] stdout is not a JSON array: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Labels["payload"] != payload {
+		t.Errorf("[#79] oversized value did not come back whole")
+	}
+	for _, word := range []string{"emitted", "shortened", "byte"} {
+		if strings.Contains(stderr.String(), word) {
+			t.Errorf("[#79] stderr reports a reduction (%q):\n%s", word, stderr.String())
+		}
 	}
 }
