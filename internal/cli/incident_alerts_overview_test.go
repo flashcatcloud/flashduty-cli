@@ -38,6 +38,12 @@ func overviewFixture() []map[string]any {
 // serveAlertPages answers /incident/alert/list from all by the request's
 // p/limit and returns the recorded request bodies.
 func serveAlertPages(stub *gfStub, all []map[string]any, total int) *[]map[string]any {
+	return serveCappedAlertPages(stub, all, total, 0)
+}
+
+// serveCappedAlertPages is serveAlertPages for a server that returns at most
+// pageCap rows per page (0: no cap).
+func serveCappedAlertPages(stub *gfStub, all []map[string]any, total, pageCap int) *[]map[string]any {
 	var mu sync.Mutex
 	var bodies []map[string]any
 	stub.dataForPath = func(path string, body map[string]any) any {
@@ -47,12 +53,15 @@ func serveAlertPages(stub *gfStub, all []map[string]any, total int) *[]map[strin
 		mu.Lock()
 		bodies = append(bodies, body)
 		mu.Unlock()
-		page, limit := 1, 20
+		page, limit := 1, 1000
 		if v, ok := body["p"].(float64); ok {
 			page = int(v)
 		}
 		if v, ok := body["limit"].(float64); ok {
 			limit = int(v)
+		}
+		if pageCap > 0 {
+			limit = min(limit, pageCap)
 		}
 		lo := min((page-1)*limit, len(all))
 		hi := min(lo+limit, len(all))
@@ -178,7 +187,7 @@ func TestIncidentAlertsOverviewPaging(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"alerts: 1234 total; everything below covers only alerts 1-500 in API order (the first 5 pages of 100)\n",
+		"alerts: 1234 total; everything below covers only alerts 1-500 in API order (5 pages read)\n",
 		"covered: 500, 333 active, 167 recovered; severity Warning 500\n",
 		"labels with few distinct values:\n  host: node-0 (167), node-1 (167), node-2 (166)\n",
 		"--page N (N = 1..13)",
@@ -254,7 +263,7 @@ func TestAlertOverviewHostileBound(t *testing.T) {
 		for i := range alerts {
 			alerts[i] = mk(i)
 		}
-		out := alertOverview(alerts, alertScope{incidentID: overviewIncidentID, total: 123456, first: 1})
+		out := alertOverview(alerts, alertScope{incidentID: overviewIncidentID, total: 123456, first: 1, read: "5 pages read"})
 		t.Logf("%s: %d bytes", name, len(out))
 		if len(out) > 8192 {
 			t.Errorf("%s: %d bytes, want ≤ 8192", name, len(out))
@@ -271,6 +280,79 @@ func TestAlertOverviewHostileBound(t *testing.T) {
 		}
 		if !strings.Contains(out, "everything below covers only alerts 1-5000") {
 			t.Errorf("%s: coverage line missing", name)
+		}
+	}
+}
+
+// TestIncidentAlertsOverviewShortPages: a server that returns fewer rows per
+// page than asked for is still read for 5 pages, and the coverage line counts
+// what was fetched.
+func TestIncidentAlertsOverviewShortPages(t *testing.T) {
+	saveAndResetGlobals(t)
+	pinClock(t, time.Date(2026, 1, 2, 7, 0, 0, 0, time.UTC))
+	stub := newGFStub(t)
+	bodies := serveCappedAlertPages(stub, syntheticAlerts(1234), 1234, 50)
+	out, err := execCommand("incident", "alerts", overviewIncidentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*bodies) != 5 {
+		t.Fatalf("requests = %d, want 5", len(*bodies))
+	}
+	if want := "alerts: 1234 total; everything below covers only alerts 1-250 in API order (5 pages read)\ncovered: 250, "; !strings.HasPrefix(out, want) {
+		t.Errorf("overview:\n%s\nwant prefix %q", out, want)
+	}
+}
+
+// TestIncidentAlertsOverviewExplicitLimitComplete: an explicit page that
+// holds every alert is reported as complete.
+func TestIncidentAlertsOverviewExplicitLimitComplete(t *testing.T) {
+	saveAndResetGlobals(t)
+	pinClock(t, time.Date(2026, 1, 2, 7, 0, 0, 0, time.UTC))
+	stub := newGFStub(t)
+	bodies := serveAlertPages(stub, overviewFixture(), 5)
+	out, err := execCommand("incident", "alerts", overviewIncidentID, "--limit", "100")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*bodies) != 1 || (*bodies)[0]["limit"] != float64(100) {
+		t.Fatalf("requests = %v, want one request with limit 100", *bodies)
+	}
+	if !strings.HasPrefix(out, "alerts: 5, 3 active, 2 recovered; severity Critical 2, Warning 2, Info 1\n") || strings.Contains(out, "covered:") {
+		t.Errorf("overview should state complete coverage:\n%s", out)
+	}
+}
+
+// TestIncidentAlertsOverviewLimitZero: --limit 0 is omitted from the request
+// as in json, so the server's default page size applies.
+func TestIncidentAlertsOverviewLimitZero(t *testing.T) {
+	saveAndResetGlobals(t)
+	stub := newGFStub(t)
+	bodies := serveAlertPages(stub, overviewFixture(), 5)
+	out, err := execCommand("incident", "alerts", overviewIncidentID, "--limit", "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, sent := (*bodies)[0]["limit"]; len(*bodies) != 1 || sent {
+		t.Fatalf("requests = %v, want one request without limit", *bodies)
+	}
+	if !strings.HasPrefix(out, "alerts: 5, ") {
+		t.Errorf("overview:\n%s", out)
+	}
+}
+
+// TestIncidentAlertsOverviewNegativePaging: a negative --limit or --page in
+// the default format is rejected before any request.
+func TestIncidentAlertsOverviewNegativePaging(t *testing.T) {
+	for _, args := range [][]string{{"--limit", "-1"}, {"--page", "-1"}} {
+		saveAndResetGlobals(t)
+		stub := newGFStub(t)
+		_, err := execCommand(append([]string{"incident", "alerts", testShortID}, args...)...)
+		if err == nil || !strings.Contains(err.Error(), "invalid "+args[0]) {
+			t.Errorf("%v: err = %v", args, err)
+		}
+		if stub.requests != 0 {
+			t.Errorf("%v: %d requests, want 0", args, stub.requests)
 		}
 	}
 }

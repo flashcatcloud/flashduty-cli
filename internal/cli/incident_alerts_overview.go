@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/flashcatcloud/go-flashduty"
 )
@@ -32,36 +31,37 @@ func severityRank(s string) int {
 	return len(alertSeverities)
 }
 
-// fetchAlertOverviewPages reads pages of an incident's alerts until total
-// alerts are fetched, a page comes back short, or alertOverviewPages pages
-// were read. It returns the alerts and the server's total.
-func fetchAlertOverviewPages(ctx *RunContext, incidentID string) ([]flashduty.AlertInfo, int, error) {
+// fetchAlertOverviewPages reads pages of alertOverviewPageSize alerts while
+// fewer than the server's total were fetched, the last page was not empty and
+// fewer than alertOverviewPages pages were read. It returns the alerts, the
+// server's total and the number of pages read.
+func fetchAlertOverviewPages(ctx *RunContext, incidentID string) ([]flashduty.AlertInfo, int, int, error) {
 	var items []flashduty.AlertInfo
-	total := 0
-	for page := 1; page <= alertOverviewPages; page++ {
+	total, page := 0, 0
+	for page < alertOverviewPages {
+		page++
 		req := &flashduty.ListIncidentAlertsRequest{IncidentID: incidentID}
 		req.Page = page
 		req.Limit = alertOverviewPageSize
 		result, _, err := ctx.Client.Incidents.AlertList(cmdContext(ctx.Cmd), req)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, 0, err
 		}
 		items = append(items, result.Items...)
 		total = int(result.Total)
-		if len(result.Items) < alertOverviewPageSize || len(items) >= total {
+		if len(result.Items) == 0 || len(items) >= total {
 			break
 		}
 	}
-	return items, max(total, len(items)), nil
+	return items, max(total, len(items)), page, nil
 }
 
 // alertScope says which slice of an incident's alerts an overview covers.
 type alertScope struct {
 	incidentID string
-	total      int // the server's total for the incident
-	first      int // 1-based position of the first fetched alert in API order
-	page       int // the explicit --page, 0 when the default pages were read
-	limit      int // the explicit --limit, with page
+	total      int    // the server's total for the incident
+	first      int    // 1-based position of the first fetched alert in API order
+	read       string // how the alerts were read, stated when they are not all of them
 }
 
 type alertGroup struct {
@@ -69,30 +69,13 @@ type alertGroup struct {
 	alerts  []flashduty.AlertInfo
 	active  int
 	highest string
-	first   time.Time
-	last    time.Time
 }
 
-// alertOverview renders alerts as a bounded plain-text overview: counts,
-// start-time span, shared and low-cardinality labels, then groups by title
-// while they fit the digest budget, and how to get complete rows.
-func alertOverview(alerts []flashduty.AlertInfo, scope alertScope) string {
-	d := &digest{}
-	n := len(alerts)
-	complete := scope.page == 0 && n >= scope.total
-	if complete {
-		d.line("alerts: %d, %s", n, alertCounts(alerts))
-	} else {
-		how := fmt.Sprintf("the first %s of %d", plural((n+alertOverviewPageSize-1)/alertOverviewPageSize, "page"), alertOverviewPageSize)
-		if scope.page > 0 {
-			how = fmt.Sprintf("--page %d --limit %d", scope.page, scope.limit)
-		}
-		d.line("alerts: %d total; everything below covers only alerts %d-%d in API order (%s)",
-			scope.total, scope.first, scope.first+n-1, how)
-		d.line("covered: %d, %s", n, alertCounts(alerts))
-	}
+func isActive(a flashduty.AlertInfo) bool { return a.AlertStatus != "Ok" }
 
-	var first, last time.Time
+// spanOf returns the earliest and latest non-zero start time of alerts; both
+// are zero when none has one.
+func spanOf(alerts []flashduty.AlertInfo) (first, last time.Time) {
 	for _, a := range alerts {
 		if a.StartTime.IsZero() {
 			continue
@@ -105,7 +88,24 @@ func alertOverview(alerts []flashduty.AlertInfo, scope alertScope) string {
 			last = t
 		}
 	}
-	if !first.IsZero() {
+	return first, last
+}
+
+// alertOverview renders alerts as a bounded plain-text overview: counts,
+// start-time span, shared and low-cardinality labels, then groups by title
+// while they fit the digest budget, and how to get complete rows.
+func alertOverview(alerts []flashduty.AlertInfo, scope alertScope) string {
+	d := &digest{}
+	n := len(alerts)
+	if scope.first == 1 && n >= scope.total {
+		d.line("alerts: %d, %s", n, alertCounts(alerts))
+	} else {
+		d.line("alerts: %d total; everything below covers only alerts %d-%d in API order (%s)",
+			scope.total, scope.first, scope.first+n-1, scope.read)
+		d.line("covered: %d, %s", n, alertCounts(alerts))
+	}
+
+	if first, last := spanOf(alerts); !first.IsZero() {
 		d.line("start times: %s .. %s", formatLocal(first), formatLocal(last))
 	}
 
@@ -157,7 +157,7 @@ func alertCounts(alerts []flashduty.AlertInfo) string {
 	active := 0
 	bySeverity := make([]int, len(alertSeverities)+1)
 	for _, a := range alerts {
-		if a.AlertStatus != "Ok" {
+		if isActive(a) {
 			active++
 		}
 		bySeverity[severityRank(a.AlertSeverity)]++
@@ -214,20 +214,11 @@ func groupAlertsByTitle(alerts []flashduty.AlertInfo) []*alertGroup {
 			groups = append(groups, g)
 		}
 		g.alerts = append(g.alerts, a)
-		if a.AlertStatus != "Ok" {
+		if isActive(a) {
 			g.active++
 		}
 		if severityRank(a.AlertSeverity) < severityRank(g.highest) {
 			g.highest = a.AlertSeverity
-		}
-		if !a.StartTime.IsZero() {
-			t := a.StartTime.Time()
-			if g.first.IsZero() || t.Before(g.first) {
-				g.first = t
-			}
-			if t.After(g.last) {
-				g.last = t
-			}
 		}
 	}
 	sort.SliceStable(groups, func(i, j int) bool {
@@ -248,12 +239,12 @@ func alertGroupBlock(n int, g *alertGroup, common map[string]string) string {
 	b.WriteString(capLine(fmt.Sprintf("[%d] %s", n, escapeText(capText(g.title, digestCellCap)))))
 	stats := fmt.Sprintf("\n    %s, %d active, highest %s", plural(len(g.alerts), "alert"), g.active,
 		escapeText(capText(g.highest, digestLowCardValueCap)))
-	switch {
-	case g.first.IsZero():
-	case g.first.Equal(g.last):
-		stats += ", started " + formatLocal(g.first)
+	switch first, last := spanOf(g.alerts); {
+	case first.IsZero():
+	case first.Equal(last):
+		stats += ", started " + formatLocal(first)
 	default:
-		stats += fmt.Sprintf(", started %s .. %s", formatLocal(g.first), formatLocal(g.last))
+		stats += fmt.Sprintf(", started %s .. %s", formatLocal(first), formatLocal(last))
 	}
 	b.WriteString(stats)
 
@@ -261,9 +252,8 @@ func alertGroupBlock(n int, g *alertGroup, common map[string]string) string {
 	for _, f := range labelFields(g.alerts, common) {
 		switch {
 		case f.present == len(g.alerts) && len(f.counts) == 1:
-			for v := range f.counts {
-				constant = append(constant, fieldName(f.name)+"="+strconv.Quote(capText(v, digestFieldCap)))
-			}
+			v := g.alerts[0].Labels[f.name] // every alert carries this one value
+			constant = append(constant, fieldName(f.name)+"="+strconv.Quote(capText(v, digestFieldCap)))
 		case len(f.counts) <= digestLowCard && shortValues(f):
 			varying = append(varying, fieldName(f.name)+": "+valueCounts(f, len(g.alerts)))
 		default:
@@ -297,15 +287,6 @@ func alertGroupBlock(n int, g *alertGroup, common map[string]string) string {
 	}
 	b.WriteString("\n" + line)
 	return b.String()
-}
-
-func shortValues(f *logField) bool {
-	for v := range f.counts {
-		if utf8.RuneCountInString(v) > digestLowCardValueCap {
-			return false
-		}
-	}
-	return true
 }
 
 // alertOverviewFooter names the commands that return complete alert rows.

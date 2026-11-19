@@ -814,9 +814,12 @@ func fitLogValue(v string, room int) string {
 // line: enough entries to show a pattern, few short distinct values, and at
 // least one value repeated.
 func lowCardinality(f *logField, entries int) bool {
-	if entries < digestLowCardMinEntries || len(f.counts) > digestLowCard || len(f.counts) == f.present {
-		return false
-	}
+	return entries >= digestLowCardMinEntries && len(f.counts) <= digestLowCard && len(f.counts) < f.present && shortValues(f)
+}
+
+// shortValues reports whether every distinct value of f is at most
+// digestLowCardValueCap characters, short enough for a value-counts line.
+func shortValues(f *logField) bool {
 	for v := range f.counts {
 		if utf8.RuneCountInString(v) > digestLowCardValueCap {
 			return false

@@ -305,37 +305,28 @@ func runIncidentCommand(cmd *cobra.Command, args []string, fn func(ctx *RunConte
 // reject.
 func genResolveIncidentIDs(ctx *RunContext, body map[string]any, wires ...string) error {
 	for _, wire := range wires {
-		switch v := body[wire].(type) {
-		case string:
-			full, err := resolveIncidentArg(ctx, v)
-			if err != nil {
-				return err
-			}
-			body[wire] = full
-		case []string:
-			ids, err := resolveIncidentArgs(ctx, v)
-			if err != nil {
-				return err
-			}
-			body[wire] = ids
-		case []any:
-			ids := make([]string, len(v))
-			for i, e := range v {
-				s, ok := e.(string)
-				if !ok {
-					ids = nil
-					break
+		v := body[wire]
+		// --data decodes a list as []any; one of only strings reads as []string.
+		if list, ok := v.([]any); ok {
+			ids := make([]string, 0, len(list))
+			for _, e := range list {
+				if s, ok := e.(string); ok {
+					ids = append(ids, s)
 				}
-				ids[i] = s
 			}
-			if ids == nil {
-				continue
+			if len(ids) == len(list) {
+				v = ids
 			}
-			resolved, err := resolveIncidentArgs(ctx, ids)
-			if err != nil {
-				return err
-			}
-			body[wire] = resolved
+		}
+		var err error
+		switch x := v.(type) {
+		case string:
+			body[wire], err = resolveIncidentArg(ctx, x)
+		case []string:
+			body[wire], err = resolveIncidentArgs(ctx, x)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -770,16 +761,23 @@ func newIncidentAlertsCmd() *cobra.Command {
 		Short: "View incident alerts",
 		Long: curatedLong(`View the alerts attached to an incident.
 
-By default the command prints a bounded plain-text overview: the total, active and recovered counts and counts per severity, the span of alert start times, the labels every alert shares and the value counts of labels with few distinct values, then the alerts grouped by title (count, active count, highest severity, first and last start time, and the labels that set each group apart), largest group first, as many as fit in about 8 KB. It reads up to 5 pages of 100 alerts; when the incident has more, the first line says which alerts the overview covers. With --page or --limit set it covers exactly that page instead.
+By default the command prints a bounded plain-text overview: the total, active and recovered counts and counts per severity, the span of alert start times, the labels every alert shares and the value counts of labels with few distinct values, then the alerts grouped by title (count, active count, highest severity, first and last start time, and the labels that set each group apart), largest group first, as many as fit in about 8 KB. It reads up to 5 pages of 100 alerts; when the incident has more, the first line says which alerts the overview covers. With --page or --limit set it covers exactly that page instead, as the json request would read it: --limit 0 or --page 0 leave the server's default; negative values are rejected.
 
 --output-format json (or toon) prints the alert rows of one page (--limit, default 10, and --page) as before; use it for complete rows.`, "Incidents", "AlertList"),
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			overview := currentOutputFormat() == output.FormatTable
+			if overview && limit < 0 {
+				return fmt.Errorf("invalid --limit %d: must be 0 (the server's default page size) or more", limit)
+			}
+			if overview && page < 0 {
+				return fmt.Errorf("invalid --page %d: must be 0 (the first page) or more", page)
+			}
+			explicit := cmd.Flags().Changed("limit") || cmd.Flags().Changed("page")
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
 				incidentID := ctx.Args[0]
-				explicit := cmd.Flags().Changed("limit") || cmd.Flags().Changed("page")
-				if ctx.Format == output.FormatTable && !explicit {
-					alerts, total, err := fetchAlertOverviewPages(ctx, incidentID)
+				if overview && !explicit {
+					alerts, total, pages, err := fetchAlertOverviewPages(ctx, incidentID)
 					if err != nil {
 						return err
 					}
@@ -787,7 +785,9 @@ By default the command prints a bounded plain-text overview: the total, active a
 						_, _ = fmt.Fprintln(ctx.Writer, "No alerts.")
 						return nil
 					}
-					_, err = io.WriteString(ctx.Writer, alertOverview(alerts, alertScope{incidentID: incidentID, total: total, first: 1}))
+					_, err = io.WriteString(ctx.Writer, alertOverview(alerts, alertScope{
+						incidentID: incidentID, total: total, first: 1, read: plural(pages, "page") + " read",
+					}))
 					return err
 				}
 
@@ -804,13 +804,21 @@ By default the command prints a bounded plain-text overview: the total, active a
 					return nil
 				}
 
-				if ctx.Format == output.FormatTable {
+				if overview {
+					// Limit and page 0 are omitted from the request, so the
+					// server's defaults apply.
+					size := limit
+					if size == 0 {
+						size = listDefaultsFor("Incidents", "AlertList").Limit
+					}
+					if size == 0 {
+						size = len(result.Items)
+					}
 					_, err = io.WriteString(ctx.Writer, alertOverview(result.Items, alertScope{
 						incidentID: incidentID,
 						total:      max(int(result.Total), len(result.Items)),
-						first:      (max(page, 1)-1)*limit + 1,
-						page:       page,
-						limit:      limit,
+						first:      (max(page, 1)-1)*size + 1,
+						read:       fmt.Sprintf("--page %d --limit %d", page, limit),
 					}))
 					return err
 				}
@@ -835,10 +843,10 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Long:  curatedLong("Find past incidents similar to the given incident.", "Incidents", "PastList"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if currentOutputFormat().Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+				return errors.New("--fields must name at least one field")
+			}
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
-				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
-					return errors.New("--fields must name at least one field")
-				}
 
 				result, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), &flashduty.ListPastIncidentsRequest{
 					IncidentID: ctx.Args[0],
@@ -940,14 +948,14 @@ func newIncidentMergeCmd() *cobra.Command {
 		Short: "Merge incidents into a target incident",
 		Args:  requireArgs("target_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			sourceIDs := parseStringSlice(source)
+			if len(sourceIDs) == 0 {
+				return fmt.Errorf("--source is required")
+			}
+			if len(sourceIDs) > 100 {
+				return fmt.Errorf("--source accepts at most 100 incident IDs")
+			}
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
-				sourceIDs := parseStringSlice(source)
-				if len(sourceIDs) == 0 {
-					return fmt.Errorf("--source is required")
-				}
-				if len(sourceIDs) > 100 {
-					return fmt.Errorf("--source accepts at most 100 incident IDs")
-				}
 				sourceIDs, err := resolveIncidentArgs(ctx, sourceIDs)
 				if err != nil {
 					return err
@@ -993,20 +1001,19 @@ func newIncidentSnoozeCmd() *cobra.Command {
 		Short: "Snooze incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := time.ParseDuration(duration)
+			if err != nil {
+				return fmt.Errorf("invalid --duration: %w", err)
+			}
+			if d <= 0 || d > 24*time.Hour {
+				return fmt.Errorf("--duration must be between 1m and 24h")
+			}
+			if d%time.Minute != 0 {
+				return fmt.Errorf("--duration must be in whole minutes")
+			}
+			minutes := int64(d / time.Minute)
+
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
-				d, err := time.ParseDuration(duration)
-				if err != nil {
-					return fmt.Errorf("invalid --duration: %w", err)
-				}
-				if d <= 0 || d > 24*time.Hour {
-					return fmt.Errorf("--duration must be between 1m and 24h")
-				}
-				if d%time.Minute != 0 {
-					return fmt.Errorf("--duration must be in whole minutes")
-				}
-
-				minutes := int64(d / time.Minute)
-
 				if _, err := ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), &flashduty.SnoozeIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Minutes:     minutes,
@@ -1034,14 +1041,14 @@ func newIncidentReassignCmd() *cobra.Command {
 		Short: "Reassign an incident to new responders",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			personIDs, err := parseIntSlice(person)
+			if err != nil {
+				return fmt.Errorf("invalid --person: %w", err)
+			}
+			if len(personIDs) == 0 {
+				return fmt.Errorf("--person is required")
+			}
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
-				personIDs, err := parseIntSlice(person)
-				if err != nil {
-					return fmt.Errorf("invalid --person: %w", err)
-				}
-				if len(personIDs) == 0 {
-					return fmt.Errorf("--person is required")
-				}
 
 				// Preserve legacy wire: the hand-written SDK's ReassignIncidents
 				// hard-coded assigned_to.type = "assign". Leaving type empty would let
@@ -1975,10 +1982,10 @@ func newIncidentDetailCmd() *cobra.Command {
 		Long:  curatedLong("View full incident detail, including the AI summary, root cause, and resolution.", "Incidents", "Info"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if currentOutputFormat().Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+				return errors.New("--fields must name at least one field")
+			}
 			return runIncidentCommand(cmd, args, func(ctx *RunContext) error {
-				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
-					return errors.New("--fields must name at least one field")
-				}
 
 				result, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), &flashduty.IncidentInfoRequest{
 					IncidentID: ctx.Args[0],

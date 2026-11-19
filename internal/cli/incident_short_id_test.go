@@ -350,3 +350,48 @@ func TestIncidentMultiIDShortIDsResolve(t *testing.T) {
 		t.Errorf("incident_ids = %v", got)
 	}
 }
+
+// TestIncidentFlagErrorsBeforeShortIDLookup: flag validation fails before the
+// short-id lookup, so a flag error costs no request and is not masked by a
+// lookup error.
+func TestIncidentFlagErrorsBeforeShortIDLookup(t *testing.T) {
+	many := strings.TrimSuffix(strings.Repeat(testFullID+",", 101), ",")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"incident", "snooze", testShortID, "--duration", "bogus"}, "invalid --duration"},
+		{[]string{"incident", "merge", testShortID, "--source", many}, "--source accepts at most 100"},
+		{[]string{"incident", "reassign", testShortID, "--person", "abc"}, "invalid --person"},
+		{[]string{"incident", "similar", testShortID, "--fields", ",", "--output-format", "json"}, "--fields must name"},
+		{[]string{"incident", "detail", testShortID, "--fields", ",", "--output-format", "json"}, "--fields must name"},
+	} {
+		t.Run(strings.Join(c.args[:2], " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(c.args...)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("err = %v, want %q", err, c.want)
+			}
+			if stub.requests != 0 {
+				t.Errorf("%d requests, want 0", stub.requests)
+			}
+		})
+	}
+}
+
+// TestAlertMergeResolvesShortIncidentID: alert merge resolves a short id in
+// --incident-id like the incident commands.
+func TestAlertMergeResolvesShortIncidentID(t *testing.T) {
+	saveAndResetGlobals(t)
+	paths, bodies := shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+	if _, err := execCommand("alert", "merge", "a00000000000000000000001", "--incident-id", testShortID); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if want := []string{"/incident/list", "/alert/merge"}; !equalStrings(*paths, want) {
+		t.Fatalf("paths = %v, want %v", *paths, want)
+	}
+	if got := (*bodies)[1]["incident_id"]; got != testFullID {
+		t.Errorf("incident_id = %#v, want %q", got, testFullID)
+	}
+}

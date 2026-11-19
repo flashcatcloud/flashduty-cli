@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Read verbs are free. `merge` is **irreversible** (alert
 
 ## Route here when
 
-"告警 / 告警事件 / 去重 / 合并到故障 / 告警流水线 / alert noise / dedup / severity filter / alert pipeline" → **alert**, NOT `incident` (incident = the actionable layer above alerts). Key ID: **`alert_id` (ObjectID hex string)** — get it from `alert list` output or from `incident alerts <incident-id>` (incident domain). Pipeline verbs need an **`integration_id` (int)** from the channel/integration domain.
+"告警 / 告警事件 / 去重 / 合并到故障 / 告警流水线 / alert noise / dedup / severity filter / alert pipeline" → **alert**, NOT `incident` (incident = the actionable layer above alerts). Key ID: **`alert_id` (ObjectID hex string)** — get it from `alert list` output or from `incident alerts <incident-id> --output-format toon` (incident domain; the default output is an overview without alert ids). Pipeline verbs need an **`integration_id` (int)** from the channel/integration domain.
 
 ## Intent → verb
 
@@ -45,7 +45,7 @@ Structured `alert-event list` output stays below 16 KiB: when the requested page
 ```bash
 # 1. find active critical alerts in the last 4 hours
 flashduty alert list --severity Critical --active --since 4h --output-format toon
-# 2. merge (IRREVERSIBLE) — alert IDs are POSITIONAL; --incident-id is a flag
+# 2. merge (IRREVERSIBLE) — alert IDs are POSITIONAL; --incident-id is a flag (full id, or the 6-char num within 30 days)
 # comment text comes from a file, never an inline shell argument (see incident.md's comment workflow)
 printf '%s' 'Related disk alerts' > /tmp/merge-comment.txt
 flashduty alert merge <alert-id1> <alert-id2> --incident-id <incident-id> --comment-file /tmp/merge-comment.txt
