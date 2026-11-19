@@ -84,6 +84,9 @@ func newIncidentListCmd() *cobra.Command {
 		Long:  curatedLong("List incidents matching the given filters. The --since/--until window must be < 31 days; --limit max is 100. In json/toon mode, rows carry every field; pass --fields to project a subset.\n\nSee also: flashduty insight <team|responder|channel> for aggregated metrics (MTTA, MTTR, noise reduction), flashduty insight incident-list for metric-rich filtered incident rows, and flashduty insight incident-export for CSV incident exports.", "Incidents", "List"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
+				}
 				why := ""
 				if !cmd.Flags().Changed("since") && onlyOpenProgress(progress) {
 					since, why = openStateSince, "default --since "+openStateSince+" because --progress lists only open states"
@@ -728,8 +731,8 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
-					return errors.New("--fields must name at least one field")
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
 				}
 
 				result, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), &flashduty.ListPastIncidentsRequest{
@@ -1851,8 +1854,8 @@ func newIncidentDetailCmd() *cobra.Command {
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
-					return errors.New("--fields must name at least one field")
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
 				}
 
 				fullID, candidates, err := resolveIncidentArg(ctx, ctx.Args[0])

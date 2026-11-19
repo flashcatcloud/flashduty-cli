@@ -88,6 +88,9 @@ func newInsightIncidentsCmd() *cobra.Command {
 		Long:  curatedLong("List incidents with per-incident performance metrics (MTTA, MTTR, notifications) over a time window. In json/toon mode, rows carry every field; pass --fields to project a subset.", "Analytics", "IncidentList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
+				}
 				startTime, endTime, err := parseWindow(cmd, since, until, "")
 				if err != nil {
 					return err

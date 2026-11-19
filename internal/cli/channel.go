@@ -181,6 +181,9 @@ func newChannelEscalateRuleListCmd() *cobra.Command {
 		Example: `  flashduty channel escalate-rule-list --data '{"channel_id":1001}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if err := genFoldPositional(args, body, "channel_id", "int"); err != nil {
 						return err

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -60,6 +61,17 @@ func projectFields(items any, fields []string) ([]map[string]any, error) {
 		out = append(out, row)
 	}
 	return out, nil
+}
+
+// checkFieldsFlag rejects a --fields that was passed but names no field
+// ("" or ","): in json/toon mode it would otherwise read as "no projection" or
+// project every row to an empty object. Table mode ignores --fields, so it is
+// not checked there. fields is the flag's raw value.
+func checkFieldsFlag(ctx *RunContext, fields string) error {
+	if ctx.Structured() && ctx.Cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
+		return errors.New("--fields must name at least one field")
+	}
+	return nil
 }
 
 // jsonTagIndex maps each exported field's json tag name (leading component, sans

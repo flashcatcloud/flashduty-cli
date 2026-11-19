@@ -462,24 +462,32 @@ func TestStructuredFieldsEmptyErrors(t *testing.T) {
 		cmd  func() *cobra.Command
 		args []string
 	}{
-		{"incident similar", newIncidentSimilarCmd, []string{"inc-1", "--fields", ""}},
-		{"incident detail", newIncidentDetailCmd, []string{"inc-1", "--fields", ""}},
-		{"alert-event list", newAlertEventListCmd, []string{"--fields", ""}},
+		{"incident list", newIncidentListCmd, nil},
+		{"incident similar", newIncidentSimilarCmd, []string{"inc-1"}},
+		{"incident detail", newIncidentDetailCmd, []string{"inc-1"}},
+		{"alert-event list", newAlertEventListCmd, nil},
+		{"channel escalate-rule-list", newChannelEscalateRuleListCmd, []string{"4201"}},
+		{"insight incidents", newInsightIncidentsCmd, nil},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			saveAndResetGlobals(t)
-			newGFStub(t)
-			flagOutputFormat = "json"
-			cmd := tc.cmd()
-			cmd.SetOut(new(bytes.Buffer))
-			cmd.SetErr(cmd.OutOrStderr())
-			cmd.SetArgs(tc.args)
-			err := cmd.Execute()
-			if err == nil || !strings.Contains(err.Error(), "--fields") {
-				t.Fatalf("empty --fields error = %v, want --fields validation", err)
-			}
-		})
+		for _, value := range []string{"", ","} {
+			t.Run(fmt.Sprintf("%s %q", tc.name, value), func(t *testing.T) {
+				saveAndResetGlobals(t)
+				stub := newGFStub(t)
+				flagOutputFormat = "json"
+				cmd := tc.cmd()
+				cmd.SetOut(new(bytes.Buffer))
+				cmd.SetErr(new(bytes.Buffer))
+				cmd.SetArgs(append(append([]string(nil), tc.args...), "--fields", value))
+				err := cmd.Execute()
+				if err == nil || err.Error() != "--fields must name at least one field" {
+					t.Fatalf("--fields %q error = %v, want \"--fields must name at least one field\"", value, err)
+				}
+				if stub.lastPath != "" {
+					t.Errorf("a rejected --fields must not call the API, called %s", stub.lastPath)
+				}
+			})
+		}
 	}
 }
 

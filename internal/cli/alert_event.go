@@ -27,8 +27,8 @@ func newAlertEventListCmd() *cobra.Command {
 		Long:  curatedLong("List alert events across all alerts within a time window, optionally filtered by severity, channel, or integration type. --since/--until window must be < 31 days. In json/toon mode, rows carry every field; pass --fields to project a subset.", "Alerts", "EventReadList"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if ctx.Structured() && cmd.Flags().Changed("fields") && len(parseStringSlice(fields)) == 0 {
-					return fmt.Errorf("--fields must name at least one field")
+				if err := checkFieldsFlag(ctx, fields); err != nil {
+					return err
 				}
 
 				startTime, endTime, err := parseWindow(cmd, since, until, "")
