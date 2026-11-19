@@ -204,14 +204,18 @@ func TestRetiredMonitCommandsRejectBeforeRequest(t *testing.T) {
 	}
 }
 
-// sentToolParams runs monit-query against invokeRawStub and decodes the
-// params the request carried (numbers kept as json.Number).
+// sentToolParams runs monit-query (default format) against invokeRawStub and
+// decodes the params the request carried (numbers kept as json.Number); it
+// also returns stdout, which leads with the resolved window line.
 func sentToolParams(t *testing.T, args ...string) (map[string]any, string) {
 	t.Helper()
 	requests := invokeRawStub(t)
-	_, stderr, err := execCommandSplit(append([]string{"monit-query", "42", "--tool", "prometheus.query", "--json"}, args...)...)
+	stdout, stderr, err := execCommandSplit(append([]string{"monit-query", "42", "--tool", "prometheus.query"}, args...)...)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if stderr != "" {
+		t.Fatalf("stderr not empty: %q", stderr)
 	}
 	raw := <-requests
 	var sent struct {
@@ -222,7 +226,7 @@ func sentToolParams(t *testing.T, args ...string) (map[string]any, string) {
 	if err := dec.Decode(&sent); err != nil {
 		t.Fatal(err)
 	}
-	return sent.Params, stderr
+	return sent.Params, stdout
 }
 
 func TestMonitQueryWindowFlags(t *testing.T) {
@@ -239,15 +243,15 @@ func TestMonitQueryWindowFlags(t *testing.T) {
 		{"since and until into existing execution",
 			[]string{"--params", `{"expr":"rate(http_requests_total{code=~\"5..\"}[5m]) > 0 < 10","execution":{"kind":"range","max_data_points":240}}`, "--since", from, "--until", to},
 			map[string]string{"kind": "range", "max_data_points": "240", "from_ms": "1767333600000", "to_ms": "1767337200000"},
-			"note: window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00 (1h, "},
+			"window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00 (1h, "},
 		{"until only is an instant",
 			[]string{"--params", `{"expr":"up","execution":{"kind":"instant"}}`, "--until", to},
 			map[string]string{"kind": "instant", "to_ms": "1767337200000", "from_ms": ""},
-			"note: instant 2026-01-02T15:00:00+08:00"},
+			"instant 2026-01-02T15:00:00+08:00"},
 		{"since keeps a to_ms from params",
 			[]string{"--params", `{"expr":"up","execution":{"kind":"window","to_ms":1767337200000}}`, "--since", from},
 			map[string]string{"kind": "window", "from_ms": "1767333600000", "to_ms": "1767337200000"},
-			"note: window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00"},
+			"window 2026-01-02T14:00:00+08:00..2026-01-02T15:00:00+08:00"},
 		{"until keeps a from_ms from params",
 			[]string{"--params", `{"expr":"up","execution":{"kind":"window","from_ms":1767333600000}}`, "--until", to},
 			map[string]string{"kind": "window", "from_ms": "1767333600000", "to_ms": "1767337200000"},
@@ -255,16 +259,16 @@ func TestMonitQueryWindowFlags(t *testing.T) {
 		{"params without execution get one without kind",
 			[]string{"--params", `{"expr":"up"}`, "--since", from, "--until", to},
 			map[string]string{"kind": "", "from_ms": "1767333600000", "to_ms": "1767337200000"},
-			"note: window "},
+			"window "},
 		{"no params at all",
 			[]string{"--since", from, "--until", to},
 			map[string]string{"kind": "", "from_ms": "1767333600000", "to_ms": "1767337200000"},
-			"note: window "},
+			"window "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			saveAndResetGlobals(t)
 			pinClock(t, time.Date(2026, 1, 2, 8, 0, 0, 0, time.UTC))
-			params, stderr := sentToolParams(t, tc.args...)
+			params, stdout := sentToolParams(t, tc.args...)
 			execution, _ := params["execution"].(map[string]any)
 			for key, want := range tc.execution {
 				got, present := execution[key]
@@ -278,8 +282,10 @@ func TestMonitQueryWindowFlags(t *testing.T) {
 					t.Errorf("execution.%s = %v, want %s", key, got, want)
 				}
 			}
-			if !strings.Contains(stderr, tc.note) {
-				t.Errorf("stderr %q lacks %q", stderr, tc.note)
+			first := strings.SplitN(stdout, "\n", 2)[0]
+			isWindow := strings.HasPrefix(first, "window ") || strings.HasPrefix(first, "instant ")
+			if !isWindow || !strings.Contains(first, tc.note) {
+				t.Errorf("first stdout line %q lacks %q", first, tc.note)
 			}
 		})
 	}

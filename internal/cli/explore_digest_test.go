@@ -247,14 +247,14 @@ func TestExploreDigest(t *testing.T) {
 			"samples: 5, sorted by value descending\n",
 			"non-finite or non-numeric values: 2\n",
 			"  +Inf     {instance=\"node-5:9100\", service=\"cart\"}\n  1234567  {instance=\"node-4:9100\", service=\"search\"}\n  12.5     ",
-			"  NaN      {instance=\"node-3:9100\", service=\"search\"}\ncomplete result: rerun with --output-format json\n",
+			"  NaN      {instance=\"node-3:9100\", service=\"search\"}\n" + samplesFooter,
 		}, []string{"median"}},
 		{"samples_many", []string{
-			"samples: showing 20 of 30, sorted by value descending\n" +
+			"samples: 30, sorted by value descending\n" +
 				"common labels: {__name__=\"http_requests_in_flight\", job=\"api\", namespace=\"shop\"}\n" +
-				"all 30 finite values: min 0, median 3.625, max 7.25\n" +
 				"  7.25  {pod=\"orders-29\"}\n",
-		}, []string{"orders-09\"", "job=\"api\"}\n"}},
+			"  0     {pod=\"orders-00\"}\n" + samplesFooter,
+		}, []string{"showing", "median"}},
 		{"time_series", []string{
 			"time_series: 3 series (3 frames), sorted by max descending; step 20s\n" +
 				"common labels: {job=\"api\", namespace=\"shop\"}\n" +
@@ -291,24 +291,23 @@ func TestExploreDigest(t *testing.T) {
 			"logs: 8 entries (applied_limit 20, has_more true), first 2026-01-02T11:00:00+08:00, last 2026-01-02T11:00:07+08:00\n",
 			"constant fields (same in every entry):\n  level=info\n  service=checkout\n",
 			"entries (varying fields):\n  2026-01-02T11:00:00+08:00 msg=\"order 1000 placed\" status=500\n",
-			"  2026-01-02T11:00:07+08:00 msg=\"order 1007 placed\" status=200\ncomplete result: rerun with --output-format json\n",
+			"  2026-01-02T11:00:07+08:00 msg=\"order 1007 placed\" status=200\n" + logsFooter,
 		}, []string{"_time", "few distinct values"}},
 		{"logs_fat", []string{
 			"constant fields (same in every entry):\n  container=app\n  method=GET\n  namespace=shop\n  service=checkout\n",
 			"entries (varying fields):\n  2026-01-02T11:00:00+08:00 message=\"GET /api/orders/5000 completed\" bytes=512 ",
-			"item quantity excee…(+995 chars)\" bytes=704 ",
-			" trace_id=4bf92f3577b34da6a3ce929d0e0e0003 …(+1 more field)\n",
+			"item quantity…(+572 chars)\" …(+11 more fields)\n",
 			"; projecting fewer fields in the query narrows each entry\n",
 		}, []string{"few distinct values", "_time="}},
 		{"logs_level", []string{
 			"constant fields (same in every entry):\n  service=payments\nfields with few distinct values:\n  level: info (20), error (10), warn (10)\nentries (varying fields):\n",
-			"  2026-01-02T11:09:45+08:00 msg=\"payment attempt 39\" level=error order_id=ord-70039\ncomplete result: rerun with --output-format json\n",
+			"  2026-01-02T11:09:45+08:00 msg=\"payment attempt 39\" level=error order_id=ord-70039\n" + logsFooter,
 		}, []string{"msg: ", "order_id: ", "projecting"}},
 		{"logs_lowcard_limits", []string{
 			"fields with few distinct values, showing 8 of 10:\n  f00: a (15), b (15)\n",
 		}, []string{"f08: ", "note: ", "id: "}},
 		{"logs_meta_budget", []string{"constant fields (same in every entry), showing ", " of 40:\n", "entries (varying fields):\n"}, nil},
-		{"logs_long", []string{"logs: 500 entries", "fields with few distinct values:\n  status: 200 (375), 500 (125)\n", "entries (varying fields), showing ", " of 500:", "…(+", "; projecting fewer fields"}, nil},
+		{"logs_long", []string{"logs: 500 entries", "fields with few distinct values:\n  status: 200 (375), 500 (125)\n", "entries (varying fields), showing ", " of 500:", "; projecting fewer fields"}, nil},
 		{"logs_int_ts", []string{"logs: 1 entry (applied_limit 1, has_more false), first 2026-01-02T11:00:00+08:00", "constant fields (same in every entry):\n  msg=ready\n"}, nil},
 		{"empty_samples", []string{"query succeeded: no samples matched in the window\n"}, []string{"complete result"}},
 		{"empty_frames", []string{"query succeeded: no series or rows matched in the window\n"}, []string{"complete result"}},
@@ -316,7 +315,7 @@ func TestExploreDigest(t *testing.T) {
 		{"empty_logs", []string{"query succeeded: no log entries matched in the window\n"}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, ok := exploreDigest(fixtures[tc.name])
+			got, ok := exploreDigest(fixtures[tc.name], "")
 			if !ok {
 				t.Fatal("digest declined an explore_result.v1 result")
 			}
@@ -336,7 +335,7 @@ func TestExploreDigest(t *testing.T) {
 					t.Errorf("unexpected %q in:\n%s", w, got)
 				}
 			}
-			again, _ := exploreDigest(fixtures[tc.name])
+			again, _ := exploreDigest(fixtures[tc.name], "")
 			if again != got {
 				t.Error("digest is not deterministic")
 			}
@@ -351,7 +350,7 @@ func TestExploreDigestDeclines(t *testing.T) {
 		"unknown kind":    `{"format":"explore_result.v1","result":{"kind":"heatmap"}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, ok := exploreDigest(&flashduty.DatasourceToolResult{Data: json.RawMessage(data)}); ok {
+			if _, ok := exploreDigest(&flashduty.DatasourceToolResult{Data: json.RawMessage(data)}, ""); ok {
 				t.Fatal("digest rendered a result it should leave to the generic renderer")
 			}
 		})
@@ -429,7 +428,7 @@ func evenTimes(n int, step time.Duration) []time.Time {
 
 func mustDigest(t *testing.T, out *flashduty.DatasourceToolResult) string {
 	t.Helper()
-	got, ok := exploreDigest(out)
+	got, ok := exploreDigest(out, "")
 	if !ok {
 		t.Fatal("digest declined an explore_result.v1 result")
 	}
@@ -458,7 +457,7 @@ func TestExploreDigestZeroSpanSeries(t *testing.T) {
 		"[1] {}\n" +
 		"    max 13 at 2026-01-02T11:00:00+08:00, min 1 at 2026-01-02T11:00:00+08:00\n" +
 		"    avg 7, first 1, last 13\n" +
-		digestFooter
+		framesFooter
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -549,7 +548,7 @@ func TestExploreDigestDescendingAxis(t *testing.T) {
 		"    max 23 at 2026-01-02T12:55:00+08:00, min 0 at 2026-01-02T11:00:00+08:00\n" +
 		"    avg 11.5, first 0, last 23\n" +
 		"    shape (bucket start → max, 10m buckets): 11:00 1 | 11:10 3 | 11:20 5 | 11:30 7 | 11:40 9 | 11:50 11 | 12:00 13 | 12:10 15 | 12:20 17 | 12:30 19 | 12:40 21 | 12:50 23\n" +
-		digestFooter
+		framesFooter
 	if got != want {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -577,7 +576,7 @@ func TestExploreDigestSharedBudget(t *testing.T) {
 	got := mustDigest(t, framesFixture(t, frames...))
 	for _, w := range []string{
 		"time_series: showing 15 of 20 series",
-		"table 1/3: 120 rows × 6 columns not shown\n(2 more table frames, 240 rows, not shown)\n" + digestFooter,
+		"table 1/3: 120 rows × 6 columns not shown\n(2 more table frames, 240 rows, not shown)\n" + framesFooter,
 	} {
 		if !strings.Contains(got, w) {
 			t.Fatalf("missing %q in:\n%s", w, got)
@@ -677,7 +676,7 @@ func TestExploreDigestHeaderCountsTowardBudget(t *testing.T) {
 		samples[i] = map[string]any{"labels": map[string]string{"description": shared["description"], "pod": fmt.Sprintf("orders-%03d-%s", i, strings.Repeat("p", 250))}, "value": i}
 	}
 	got := mustDigest(t, exploreFixture(t, map[string]any{"kind": "samples", "samples": samples}, nil))
-	body := strings.TrimSuffix(got, digestFooter)
+	body := strings.TrimSuffix(got, samplesFooter)
 	if len(body) > digestBudget {
 		t.Fatalf("body is %d bytes, budget %d", len(body), digestBudget)
 	}
@@ -691,7 +690,7 @@ func TestExploreDigestTimeSeriesWithoutValues(t *testing.T) {
 		map[string]any{"name": "time", "type": "time", "values": stamps},
 		map[string]any{"name": "host", "type": "string", "values": []any{"a", "b"}},
 	}})
-	if got, ok := exploreDigest(onlyStrings); ok {
+	if got, ok := exploreDigest(onlyStrings, ""); ok {
 		t.Fatalf("time axis without values rendered as a digest:\n%s", got)
 	}
 	mixed := mustDigest(t, framesFixture(t, map[string]any{"kind": "time_series", "fields": []any{
@@ -721,5 +720,175 @@ func TestEscapeTextFormatCharacters(t *testing.T) {
 	}
 	if got := escapeText("plain café"); got != "plain café" {
 		t.Fatalf("printable text altered: %s", got)
+	}
+}
+
+func equalSamples(n int) *flashduty.DatasourceToolResult {
+	samples := make([]any, n)
+	for i := range samples {
+		// Reverse insertion order so the output order comes from the sort.
+		samples[i] = map[string]any{"labels": map[string]string{"__name__": fmt.Sprintf("metric_%04d", n-1-i)}, "value": 1}
+	}
+	raw, _ := json.Marshal(map[string]any{"format": "explore_result.v1", "result": map[string]any{"kind": "samples", "samples": samples}})
+	return &flashduty.DatasourceToolResult{Data: raw}
+}
+
+// Samples are limited by the byte budget only; equal values order by label.
+func TestExploreDigestSamplesFitBySize(t *testing.T) {
+	got := mustDigest(t, equalSamples(120))
+	lines := strings.Split(got, "\n")
+	if lines[0] != "samples: 120, sorted by value descending" {
+		t.Fatalf("header %q", lines[0])
+	}
+	for i := range 120 {
+		if want := fmt.Sprintf(`  1  {__name__="metric_%04d"}`, i); lines[1+i] != want {
+			t.Fatalf("line %d = %q, want %q", 1+i, lines[1+i], want)
+		}
+	}
+
+	got = mustDigest(t, equalSamples(2000))
+	if !strings.HasPrefix(got, "samples: showing ") || !strings.Contains(got, " of 2000, sorted by value descending\nall 2000 finite values: min 1, median 1, max 1\n") ||
+		!strings.Contains(got, "  1  {__name__=\"metric_0000\"}\n") {
+		t.Fatalf("cut not stated:\n%.600s", got)
+	}
+}
+
+func messageEntries(msg string) *flashduty.DatasourceToolResult {
+	entries := make([]any, 2)
+	for i := range entries {
+		entries[i] = map[string]any{"timestamp_ns": fmt.Sprint(digestT0.Add(time.Duration(i) * time.Second).UnixNano()),
+			"fields": map[string]any{"message": fmt.Sprintf("%d %s", i, msg), "pod": fmt.Sprintf("orders-%d", i), "trace_id": fmt.Sprintf("trace-%d", i)}}
+	}
+	raw, _ := json.Marshal(map[string]any{"format": "explore_result.v1", "result": map[string]any{"kind": "logs", "applied_limit": 2, "has_more": false, "entries": entries}})
+	return &flashduty.DatasourceToolResult{Data: raw}
+}
+
+// The message field is limited only by the entry line; other fields take the
+// room that is left.
+func TestExploreDigestLogMessageFirstClaim(t *testing.T) {
+	pinClock(t, digestT0)
+	prefix := "[ERROR][2026-01-02 03:00:00.000][order_service.go:217] "
+	msg500 := prefix + strings.Repeat("x", 500-len(prefix))
+	got := mustDigest(t, messageEntries(msg500))
+	if !strings.Contains(got, `  2026-01-02T11:00:00+08:00 message="0 `+msg500+`" pod=orders-0 trace_id=trace-0`+"\n") {
+		t.Fatalf("500-char message not printed whole:\n%s", got)
+	}
+
+	got = mustDigest(t, messageEntries(prefix+strings.Repeat("y", 5000)))
+	for _, line := range strings.Split(got, "\n") {
+		if !strings.HasPrefix(line, "  2026-") {
+			continue
+		}
+		if len(line) > digestLogLineCap || !strings.Contains(line, `chars)" …(+2 more fields)`) || !strings.Contains(line, prefix) {
+			t.Fatalf("long message not cut at the line cap with markers (%d bytes): %s", len(line), line)
+		}
+	}
+	if !strings.Contains(got, "; projecting fewer fields in the query narrows each entry\n") {
+		t.Fatalf("footer misses the projection hint:\n%s", got)
+	}
+}
+
+// The window line leads the digest and counts toward its bound.
+func TestExploreDigestWindowLineLeads(t *testing.T) {
+	window := "window 2026-01-02T09:00:00+08:00..2026-01-02T11:00:00+08:00 (2h, ended now)"
+	got, ok := exploreDigest(equalSamples(2000), window)
+	if !ok || !strings.HasPrefix(got, window+"\nsamples: showing ") || len(got) > 8192 {
+		t.Fatalf("window line missing or bound exceeded (%d bytes):\n%.300s", len(got), got)
+	}
+	empty, _ := exploreDigest(equalSamples(0), window)
+	if empty != window+"\nquery succeeded: no samples matched in the window\n" {
+		t.Fatalf("empty result: %q", empty)
+	}
+}
+
+// Each footer's path resolves against the --output-format json output of a
+// result of its kind, so the advertised projection matches the real shape.
+func TestExploreDigestFooterPathsResolve(t *testing.T) {
+	pinClock(t, digestT0)
+	fixtures := digestFixtures(t)
+	for _, tc := range []struct {
+		fixture, footer string
+	}{
+		{"samples", samplesFooter},
+		{"time_series", framesFooter},
+		{"table", tablesFooter},
+		{"logs", logsFooter},
+	} {
+		t.Run(tc.fixture, func(t *testing.T) {
+			digest, _ := exploreDigest(fixtures[tc.fixture], "")
+			if !strings.HasSuffix(digest, tc.footer) {
+				t.Fatalf("digest does not end with the %s footer:\n%s", tc.fixture, digest)
+			}
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			result := *fixtures[tc.fixture]
+			result.DatasourceID, result.Tool = 42, "prometheus.query"
+			stub.data = &result
+			stdout, _, err := execCommandSplit("monit-query", "42", "--tool", "prometheus.query", "--output-format", "json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc any
+			if err := json.Unmarshal([]byte(stdout), &doc); err != nil {
+				t.Fatalf("json output: %v", err)
+			}
+			path := tc.footer[strings.Index(tc.footer, "(")+1 : strings.LastIndex(tc.footer, ")")]
+			resolveFooterPath(t, doc, path)
+		})
+	}
+}
+
+// resolveFooterPath checks a footer path "<.a.b[].c[]> | .x, .y, .f[\"<name>\"]":
+// every array on the way is non-empty, and every projected key is present on
+// at least one element (an object key for the bracket form).
+func resolveFooterPath(t *testing.T, doc any, path string) {
+	t.Helper()
+	walk, projections, ok := strings.Cut(path, " | ")
+	if !ok {
+		t.Fatalf("path %q has no projection", path)
+	}
+	nodes := []any{doc}
+	for _, step := range strings.Split(strings.TrimPrefix(walk, "."), ".") {
+		key, each := strings.CutSuffix(step, "[]")
+		var next []any
+		for _, n := range nodes {
+			obj, ok := n.(map[string]any)
+			if !ok {
+				t.Fatalf("%q: %v is not an object", step, n)
+			}
+			v, present := obj[key]
+			if !present {
+				t.Fatalf("%q: key %q missing in %v", path, key, obj)
+			}
+			if !each {
+				next = append(next, v)
+				continue
+			}
+			arr, ok := v.([]any)
+			if !ok || len(arr) == 0 {
+				t.Fatalf("%q: %q is not a non-empty array", path, key)
+			}
+			next = append(next, arr...)
+		}
+		nodes = next
+	}
+	for _, proj := range strings.Split(projections, ", ") {
+		key, bracket, _ := strings.Cut(strings.TrimPrefix(proj, "."), "[")
+		found := false
+		for _, n := range nodes {
+			v, present := n.(map[string]any)[key]
+			if !present {
+				continue
+			}
+			if bracket != "" {
+				if _, isObj := v.(map[string]any); !isObj {
+					t.Fatalf("%q: %q is not an object", path, key)
+				}
+			}
+			found = true
+		}
+		if !found {
+			t.Fatalf("%q: projection %q matches no element", path, proj)
+		}
 	}
 }

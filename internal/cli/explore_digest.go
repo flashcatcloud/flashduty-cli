@@ -23,13 +23,11 @@ import (
 const (
 	digestBudget     = 6400
 	digestLineCap    = 1536
-	digestMaxSeries  = 20
-	digestMaxSamples = 20
 	digestBuckets    = 12
 	digestCellCap    = 200
 	digestFieldCap   = 200
 	digestLabelCap   = 300
-	digestFooter     = "complete result: rerun with --output-format json\n"
+	digestValueWidth = 24 // widest value column the samples list aligns to
 
 	// Logs: entries own the budget; the constant and distribution sections
 	// together get at most digestLogMetaBudget. A field distribution is shown
@@ -79,11 +77,23 @@ type exploreField struct {
 	Values []any             `json:"values"`
 }
 
+// Footers name where each kind's data sits in the --output-format json
+// result (DatasourceToolResult.data → ExploreData.result), so the complete
+// result can be projected without first dumping it to learn its shape.
+const (
+	digestFooterPrefix = "complete result: rerun with --output-format json"
+	samplesFooter      = digestFooterPrefix + " (.data.result.samples[] | .labels, .value)\n"
+	framesFooter       = digestFooterPrefix + " (.data.result.frames[].fields[] | .name, .labels, .values)\n"
+	tablesFooter       = digestFooterPrefix + " (.data.result.frames[].fields[] | .name, .values)\n" // table fields carry no labels
+	logsFooter         = digestFooterPrefix + ` (.data.result.entries[] | .timestamp_ns, .fields["<name>"])` + "\n"
+)
+
 // exploreDigest renders a query tool's explore_result.v1 as a bounded
-// plain-text digest. ok is false for any other result (diagnostic tools, an
+// plain-text digest, led by window (the resolved query window line) when it
+// is non-empty. ok is false for any other result (diagnostic tools, an
 // unknown result kind, a shape it cannot read): the caller then prints the
 // result the usual way.
-func exploreDigest(out *flashduty.DatasourceToolResult) (string, bool) {
+func exploreDigest(out *flashduty.DatasourceToolResult, window string) (string, bool) {
 	if out == nil {
 		return "", false
 	}
@@ -94,6 +104,9 @@ func exploreDigest(out *flashduty.DatasourceToolResult) (string, bool) {
 		return "", false
 	}
 	d := &digest{}
+	if window != "" {
+		d.line("%s", capLine(window))
+	}
 	if out.Truncated != nil {
 		d.line("note: result truncated by the server: %s", escapeText(capText(out.Truncated.Reason, digestFieldCap)))
 	}
@@ -122,14 +135,14 @@ func (d *digest) line(format string, a ...any) {
 	d.b.WriteByte('\n')
 }
 
-// fit returns how many of items (at most limit) fit in the remaining budget
-// after reserve bytes still to be written ahead of them. The first section to
-// print items gets at least one; later sections may get none.
-func (d *digest) fit(items []string, limit, reserve int) int {
+// fit returns how many of items fit in the remaining budget after reserve
+// bytes still to be written ahead of them. The first section to print items
+// gets at least one; later sections may get none.
+func (d *digest) fit(items []string, reserve int) int {
 	used := d.b.Len() + reserve
 	n := 0
 	for _, it := range items {
-		if n == limit || ((n > 0 || d.shown) && used+len(it)+1 > digestBudget) {
+		if (n > 0 || d.shown) && used+len(it)+1 > digestBudget {
 			break
 		}
 		used += len(it) + 1
@@ -152,8 +165,8 @@ func (d *digest) nothing(what string) {
 	d.line("query succeeded: no %s matched in the window", what)
 }
 
-func (d *digest) footer() {
-	d.b.WriteString(digestFooter)
+func (d *digest) footer(footer string) {
+	d.b.WriteString(footer)
 }
 
 // --- samples ---
@@ -198,8 +211,8 @@ func (d *digest) samples(r *exploreResult) bool {
 		return all[i].id < all[j].id
 	})
 	width := 0
-	for _, s := range all[:min(len(all), digestMaxSamples)] {
-		width = max(width, utf8.RuneCountInString(sampleValue(s)))
+	for _, s := range all {
+		width = max(width, min(utf8.RuneCountInString(sampleValue(s)), digestValueWidth))
 	}
 	lines := make([]string, len(all))
 	for i, s := range all {
@@ -222,7 +235,7 @@ func (d *digest) samples(r *exploreResult) bool {
 		nonFinite = fmt.Sprintf("non-finite or non-numeric values: %d", n)
 	}
 	header := fmt.Sprintf("samples: showing %d of %d, sorted by value descending", len(all), len(all))
-	shown := d.fit(lines, digestMaxSamples, linesLen(append(meta, header, summary, nonFinite)))
+	shown := d.fit(lines, linesLen(append(meta, header, summary, nonFinite)))
 	if shown < len(all) {
 		d.line("samples: showing %d of %d, sorted by value descending", shown, len(all))
 	} else {
@@ -236,7 +249,7 @@ func (d *digest) samples(r *exploreResult) bool {
 		d.line("%s", nonFinite)
 	}
 	d.items(lines[:shown])
-	d.footer()
+	d.footer(samplesFooter)
 	return true
 }
 
@@ -318,7 +331,11 @@ func (d *digest) frames(r *exploreResult) bool {
 		d.line("(%s, %s, not shown)", plural(len(tables)-i-1, "more table frame"), plural(rest, "row"))
 		break
 	}
-	d.footer()
+	if len(series) > 0 {
+		d.footer(framesFooter)
+	} else {
+		d.footer(tablesFooter)
+	}
 	return true
 }
 
@@ -435,7 +452,7 @@ func (d *digest) timeSeries(r *exploreResult, series []digestSeries, frames int)
 		tail += "; step " + numberText(*step) + "s"
 	}
 	longest := fmt.Sprintf("time_series: showing %d of %d series", len(series), len(series)) + tail
-	shown := d.fit(blocks, digestMaxSeries, linesLen(append(meta, longest)))
+	shown := d.fit(blocks, linesLen(append(meta, longest)))
 	head := fmt.Sprintf("time_series: %d series", len(series))
 	if shown < len(series) {
 		head = fmt.Sprintf("time_series: showing %d of %d series", shown, len(series))
@@ -605,7 +622,7 @@ func (d *digest) table(fields []exploreField, i, total int) bool {
 		lines[row] = capLine(strings.Join(cells, " | "))
 	}
 	colLine := capLine("  " + strings.Join(names, " | "))
-	shown := d.fit(lines, rows, len(colLine)+100)
+	shown := d.fit(lines, len(colLine)+100)
 	if d.shown && shown == 0 && (rows > 0 || d.b.Len()+len(colLine)+100 > digestBudget) {
 		d.line("%s: %d rows × %d columns not shown", label, rows, len(fields))
 		return false
@@ -701,7 +718,7 @@ func (d *digest) logs(r *exploreResult) bool {
 			}
 		}
 	}
-	varying = messageFirst(varying)
+	varying, message := messageFirst(varying)
 
 	d.line("logs: %s (applied_limit %s, has_more %s), first %s, last %s",
 		plural(len(entries), "entry"), limit, hasMore, formatLocal(times[0]), formatLocal(times[len(times)-1]))
@@ -712,24 +729,11 @@ func (d *digest) logs(r *exploreResult) bool {
 	lines := make([]string, len(entries))
 	dropped := false
 	for i, e := range entries {
-		line := "  " + formatLocal(times[i])
-		var parts []string
-		for _, name := range varying {
-			if raw, present := e.Fields[name]; present {
-				parts = append(parts, fieldName(name)+"="+logValue(rawText(raw)))
-			}
-		}
-		for j, part := range parts {
-			if j > 0 && len(line)+1+len(part) > digestLogLineCap {
-				line += " …(+" + plural(len(parts)-j, "more field") + ")"
-				dropped = true
-				break
-			}
-			line += " " + part
-		}
-		lines[i] = capLine(line)
+		line, cut := logEntryLine(times[i], e.Fields, varying, message)
+		lines[i] = line
+		dropped = dropped || cut
 	}
-	shown := d.fit(lines, len(lines), 150)
+	shown := d.fit(lines, 150)
 	if shown < len(entries) {
 		d.line("entries (varying fields), showing %d of %d:", shown, len(entries))
 	} else {
@@ -737,11 +741,55 @@ func (d *digest) logs(r *exploreResult) bool {
 	}
 	d.items(lines[:shown])
 	if shown < len(entries) || dropped {
-		d.b.WriteString(strings.TrimSuffix(digestFooter, "\n") + "; projecting fewer fields in the query narrows each entry\n")
+		d.footer(strings.TrimSuffix(logsFooter, "\n") + "; projecting fewer fields in the query narrows each entry\n")
 	} else {
-		d.footer()
+		d.footer(logsFooter)
 	}
 	return true
+}
+
+// logEntryLine renders one entry within digestLogLineCap bytes: the
+// timestamp, then the message field (when the entry has one) limited only by
+// the line, then the other varying fields, each capped at digestFieldCap, in
+// whatever room is left. cut reports whether any field was left out.
+func logEntryLine(ts time.Time, fields map[string]any, varying []string, message string) (string, bool) {
+	const markerRoom = 24 // " …(+NN more fields)"
+	line := "  " + formatLocal(ts)
+	omitted := 0
+	for _, name := range varying {
+		raw, present := fields[name]
+		if !present {
+			continue
+		}
+		prefix := " " + fieldName(name) + "="
+		if name == message {
+			line += prefix + fitLogValue(rawText(raw), digestLogLineCap-markerRoom-len(line)-len(prefix))
+			continue
+		}
+		part := prefix + logValue(rawText(raw))
+		if len(line)+len(part) > digestLogLineCap-markerRoom {
+			omitted++
+			continue
+		}
+		line += part
+	}
+	if omitted > 0 {
+		line += " …(+" + plural(omitted, "more field") + ")"
+	}
+	return capLine(line), omitted > 0
+}
+
+// fitLogValue renders v as logValue does, but limited to room bytes instead
+// of digestFieldCap characters; the "(+N chars)" marker states any cut.
+func fitLogValue(v string, room int) string {
+	limit := utf8.RuneCountInString(v)
+	for {
+		out := logValueCap(v, limit)
+		if len(out) <= room || limit == 0 {
+			return out
+		}
+		limit -= max(1, min(limit, len(out)-room))
+	}
 }
 
 // lowCardinality reports whether a field's value distribution is worth a
@@ -759,17 +807,17 @@ func lowCardinality(f *logField, entries int) bool {
 	return true
 }
 
-// messageFirst moves the first conventional message field to the front;
-// names is sorted and stays so otherwise.
-func messageFirst(names []string) []string {
+// messageFirst moves the first conventional message field to the front and
+// names it; names is sorted and stays so otherwise.
+func messageFirst(names []string) ([]string, string) {
 	for _, m := range logMessageFields {
 		for i, n := range names {
 			if n == m {
-				return append([]string{m}, append(names[:i:i], names[i+1:]...)...)
+				return append([]string{m}, append(names[:i:i], names[i+1:]...)...), m
 			}
 		}
 	}
-	return names
+	return names, ""
 }
 
 // fieldGroup prints a titled list of field lines while they fit the
@@ -829,7 +877,11 @@ func numberText(n json.Number) string {
 // logValue truncates a field value and quotes it when it would not read as
 // one token.
 func logValue(v string) string {
-	v = capText(v, digestFieldCap)
+	return logValueCap(v, digestFieldCap)
+}
+
+func logValueCap(v string, limit int) string {
+	v = capText(v, limit)
 	if v == "" || strings.ContainsAny(v, " \"=") || hasControl(v) {
 		return strconv.Quote(v)
 	}

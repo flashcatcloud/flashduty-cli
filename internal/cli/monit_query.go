@@ -40,7 +40,7 @@ Query tools are '<type>.query' where '<type>' is one of 'prometheus', 'mysql', '
 
 --since/--until write the query window into params.execution (from_ms/to_ms) so it need not be computed by hand: --since alone ends the window now, --until alone sets an instant evaluation time. A flag whose field the params already carry is rejected.
 
-By default a query result (data.format 'explore_result.v1') prints as a bounded plain-text digest: per-series min/max with timestamps, average, first/last and a coarse shape for time series; sorted values for instant samples; rows for tables; constant and varying fields for logs. Every cut states its counts. Use --output-format json (or toon) for the complete result. Diagnostic tool results print as before.`, "DataSources", "ToolsInvoke"),
+By default a query result (data.format 'explore_result.v1') prints as a bounded plain-text digest: per-series min/max with timestamps, average, first/last and a coarse shape for time series; sorted values for instant samples; rows for tables; constant and varying fields for logs. The first line states the resolved window, rows are limited by size only, every cut states its counts, and the last line gives the jq path to the data in the JSON form. Use --output-format json (or toon) for the complete result; those formats print the result alone. Diagnostic tool results print as before.`, "DataSources", "ToolsInvoke"),
 		Example: `  flashduty monit-query 12345 --tool prometheus.query --params '{"expr":"up","execution":{"kind":"instant"}}' --until 2026-01-02T15:04:05+08:00
   flashduty monit-query 12345 --tool prometheus.query --params '{"expr":"rate(http_requests_total[5m])","execution":{"kind":"range","max_data_points":240}}' --since 2h
   flashduty monit-query 12345 --tool prometheus.query --params '{"expr":"up","execution":{"kind":"range","max_data_points":240}}' --since 2026-01-02T14:00:00+08:00 --until 2026-01-02T15:00:00+08:00 --output-format json
@@ -69,15 +69,23 @@ By default a query result (data.format 'explore_result.v1') prints as a bounded 
 				if cmd.Flags().Changed("account-id") {
 					req.AccountID = uint64(accountID)
 				}
-				noteToolWindow(cmd.ErrOrStderr(), params)
 				out, _, err := ctx.Client.DataSources.ToolsInvoke(cmdContext(ctx.Cmd), req)
 				if err != nil {
 					return err
 				}
+				// json/toon print the result alone. The default format
+				// leads with the resolved window on stdout, so it is kept
+				// when stderr is discarded and never mixed into JSON.
 				if ctx.Format == output.FormatTable {
-					if digest, ok := exploreDigest(out); ok {
+					window := toolWindowLine(params)
+					if digest, ok := exploreDigest(out, window); ok {
 						_, err := io.WriteString(ctx.Writer, digest)
 						return err
+					}
+					if window != "" {
+						if _, err := io.WriteString(ctx.Writer, window+"\n"); err != nil {
+							return err
+						}
 					}
 				}
 				return printGenericResult(ctx, out, nil, listDefaults{})
