@@ -273,7 +273,7 @@ List incidents
 
 ### list-by-ids <incident-id> [<id2>...]
 List incidents by IDs
-- `<incident-ids>` (positional, required) stringSlice — Incident IDs to query; obtain them from 'POST /incident/list'.
+- `<incident-ids>` (positional, required) stringSlice — Incident IDs to query, at most 100 per call; obtain them from 'POST /incident/list'.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); account_locale (string); account_name (string); account_time_zone (string); ack_time (string); active_alert_cnt (integer); ai_summary (string); alert_cnt (integer); alert_event_cnt (integer); alerts (array<object>); assigned_to (object); channel_id (integer); channel_name (string); channel_status (string); close_time (string); closer (object); closer_id (integer); created_at (string); creator (object); creator_id (integer); data_source_id (integer); data_source_ids (array<integer>); data_source_type (string); data_source_types (array<string>); dedup_key (string); deleted_at (string); description (string); detail_url (string); end_time (string); equals_md5 (string); ever_muted (boolean); fields (object); frequency (string); group_method (string); has_unfinished_work_item (boolean); images (array<object>); impact (string); incident_id (string); incident_severity (string); incident_status (string); integration_id (integer); integration_ids (array<integer>); integration_type (string); integration_types (array<string>); labels (object); last_time (string); links (array<object>); manual_overrides (array<string>); num (string); owner (object); owner_id (integer); post_mortem_id (string); progress (string); reporter_email (string); resolution (string); responders (array<object>); root_cause (string); silence_url (string); snoozed_before (string); start_time (string); team_id (integer); title (string); updated_at (string)
 
 ### merge <target_id>
@@ -321,10 +321,11 @@ Resolve incident
 - `--summary` string — Form summary recorded as a timeline comment. Accepted only when the resolution form contains a summary element.
 - body-only (`--data`): custom_fields (object); images (array<object>)
 
-### responder-add <person-id> [<id2>...]
+### responder-add <incident-id>
 Add incident responder
-- `--incident-id` string (required) — Incident ID (MongoDB ObjectID).
-- `<person-ids>` (positional, required) intSlice — Member IDs to add as responders. IDs that are already responders, or that do not exist in the account, are skipped.
+- `<incident-id>` (positional, required) string — Incident ID (MongoDB ObjectID).
+- `--person-ids` intSlice — Member IDs to add as responders (at most 100). IDs that are already responders, or that do not exist in the account, are skipped.
+- `--team-ids` intSlice — Team IDs whose members are added as responders (at most 20). Each team is expanded to its enabled members, merged with 'person_ids', and the result is capped at 100 responders.
 - body-only (`--data`): notify (object)
 
 ### sdp-request-list

@@ -413,6 +413,7 @@ Stream a session's full event transcript as NDJSON
 
 ### session-get <session-id>
 Get session detail
+- `--include-credits-usage` bool — Set 'true' to fill 'credits_usage_nano' on the returned session. Omitted or 'false' skips the credit aggregation and leaves the field out of the response.
 - `--limit` int64 — Page size for events; takes precedence over 'num_recent_events'. 0 uses the server default (100). (0-1000)
 - `--num-recent-events` int64 — Legacy page size: number of most-recent events to return. Superseded by 'limit' when both are set; 0 uses the server default (100). (0-1000)
 - `--search-after-ctx` string — Opaque keyset cursor from a previous response; pass it back to fetch the next older page. (≤4096 chars)

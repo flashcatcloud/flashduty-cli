@@ -326,7 +326,7 @@ Request fields:
   --rule-name string (required) — Rule name, 1 to 39 characters. (1-39 chars)
   --template-id string (required) — Notification template ID (24-character hex); obtain it from 'POST /template/list'. Must exist.
   filters (object, via --data) — Incident conditions (OR of AND groups), matched against the incident the alert was grouped into, not against the alert. Keys: 'title', 'description', 'severity' (alias 'incident_severity', 'alert_severity'), 'status' (alias 'incident_status', 'alert_status'), 'dedup_key', 'integration_id' (alias 'data_source_id'), or any 'labels.<name>'. Omit or leave empty to match every incident in the channel.
-  layers (array<object>, via --data) (required) — Escalation levels in order; the incident starts at the first level.
+  layers (array<object>, via --data) (required) — Escalation levels in order; the incident starts at the first level. At least one level is required.
     - escalate_window (integer) — Minutes to wait after this level's first notification before escalating to the next level, 0–720. Ignored on the last level. (0-720)
     - force_escalate (boolean) — When true, escalate even after the incident has been acknowledged ('Processing'). When false, escalation stops once the incident is acknowledged. Closed or snoozed incidents never escalate.
     - max_times (integer) — Total notifications sent in this level, including the first, 0–6; '0' and '1' both notify once. (0-6)
@@ -345,7 +345,7 @@ Request fields:
         - settings (object) (required) — Type-specific settings, such as the robot's webhook token or the app's chat IDs; 'feishu_app' and 'dingtalk_app' require it. To see the exact shape for a type, configure one in the console and read it back with 'POST /channel/escalate/rule/info'. 'token' and 'verify_token' are removed from the response when the caller cannot edit the channel.
         - type (string) (required) — Delivery type: - 'feishu', 'dingtalk', 'wecom', 'slack', 'telegram', 'zoom': a group robot (incoming webhook) of that IM. - 'feishu_app', 'dingtalk_app', 'slack_app', 'teams_app': group chats reached through the corresponding IM app integration. [feishu, dingtalk, wecom, slack, telegram, zoom, feishu_app, dingtalk_app, slack_app, teams_app]
   time_filters (array<object>, via --data) — Recurring time windows during which the rule can match; omit or leave empty to match at any time.
-    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
     - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
     - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
     - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -603,7 +603,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Rule status: 'enabled' means active, 'disabled' means paused, 'deleted' is soft-deleted (possible only from the detail endpoint; lists never return deleted rules). [enabled, disabled, deleted]
   - template_id (string) (required) — Notification template ID (24-character hex); see 'POST /template/list'.
   - time_filters (array<object>) (required) — Recurring time windows during which the rule can match; empty means at any time.
-    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
     - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
     - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
     - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -686,7 +686,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) (required) — Rule status: 'enabled' means active, 'disabled' means paused, 'deleted' is soft-deleted (possible only from the detail endpoint; lists never return deleted rules). [enabled, disabled, deleted]
     - template_id (string) (required) — Notification template ID (24-character hex); see 'POST /template/list'.
     - time_filters (array<object>) (required) — Recurring time windows during which the rule can match; empty means at any time.
-      - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+      - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
       - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
       - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
       - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -829,7 +829,7 @@ Request fields:
         - settings (object) (required) — Type-specific settings, such as the robot's webhook token or the app's chat IDs; 'feishu_app' and 'dingtalk_app' require it. To see the exact shape for a type, configure one in the console and read it back with 'POST /channel/escalate/rule/info'. 'token' and 'verify_token' are removed from the response when the caller cannot edit the channel.
         - type (string) (required) — Delivery type: - 'feishu', 'dingtalk', 'wecom', 'slack', 'telegram', 'zoom': a group robot (incoming webhook) of that IM. - 'feishu_app', 'dingtalk_app', 'slack_app', 'teams_app': group chats reached through the corresponding IM app integration. [feishu, dingtalk, wecom, slack, telegram, zoom, feishu_app, dingtalk_app, slack_app, teams_app]
   time_filters (array<object>, via --data) — Recurring time windows during which the rule can match. Replaces the stored windows; omit or leave empty to match at any time.
-    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
     - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
     - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
     - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -1609,7 +1609,7 @@ Request fields:
     - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
     - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
   time_filters (array<object>, via --data) — Recurring silence windows. Set exactly one of 'time_filters' or 'time_filter'.
-    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
     - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
     - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
     - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -1856,7 +1856,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
       - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
     - time_filters (array<object>) (required) — Recurring silence windows. Empty when the rule uses a one-off 'time_filter'.
-      - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+      - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
       - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
       - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
       - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.
@@ -1926,7 +1926,7 @@ Request fields:
     - end_time (integer) (required) — Window end, Unix timestamp in seconds. Must be greater than 0.
     - start_time (integer) (required) — Window start, Unix timestamp in seconds. Must be greater than 0 and less than 'end_time'.
   time_filters (array<object>, via --data) — Recurring time windows. Mutually exclusive with 'time_filter'.
-    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx'). When set, the window applies only on the calendar's workdays or days off, as chosen by 'is_off'.
+    - cal_id (string) — Service calendar ID from 'POST /calendar/list' (for example 'cal.xxxx', or a shared calendar such as 'zh-cn.exchange.us'). When set, the window applies only on the calendar's workdays or days off as chosen by 'is_off', and 'start' / 'end' are read in that calendar's timezone — for a trading calendar, the exchange's — so the window means the same thing wherever the service runs.
     - end (string) (required) — Window end, 'HH:MM', inclusive ('23:59' lasts to midnight).
     - is_off (boolean) — Used with 'cal_id': 'true' applies the window only on the calendar's days off, 'false' only on its workdays.
     - repeat (array<integer>) — Days of the week the window applies on: '0' = Sunday … '6' = Saturday. Empty means every day.

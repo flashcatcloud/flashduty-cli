@@ -269,6 +269,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - recovery_check_times (integer) — Recover after the recovery condition is met this many times; minimum 1 when enabled.
       - severity (string) — Severity of no-data alerts, case-sensitive; required when the per-series check is enabled. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration. See 'AlertRuleThresholdV2'.
+      - absent_counts_as_normal (boolean) — Count an active instance that is missing from every condition query of a successful round as one normal round, instead of freezing the instance in its current state. Only valid with 'recovery_mode' 'condition_clear' or 'expression_match'; omitting it keeps the freeze-on-absence behavior of existing rules. For an enabled rule, every registered monit-edge in the clusters the rule matches must be v0.77.0 or later, otherwise saving the rule fails with 'InvalidParameter'.
       - alerting_check_times (integer) — Fire after the alert condition is met this many times; when enabled, minimum 1 and maximum 10000. Combined with 'alerting_window_size' it means at least N hits within the last M evaluations.
       - alerting_window_size (integer) — Optional sliding window size M: fire only when the condition is met at least 'alerting_check_times' times within the last M evaluations. Omit for consecutive mode (N consecutive hits). Must satisfy 'alerting_check_times' <= M <= 10000.
       - critical (string) — Critical threshold expression referencing query results as '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; when enabled at least one of the three severities must be set.
@@ -513,6 +514,7 @@ Request fields:
       - recovery_check_times (integer) — Recover after the recovery condition is met this many times; minimum 1 when enabled.
       - severity (string) — Severity of no-data alerts, case-sensitive; required when the per-series check is enabled. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration. See 'AlertRuleThresholdV2'.
+      - absent_counts_as_normal (boolean) — Count an active instance that is missing from every condition query of a successful round as one normal round, instead of freezing the instance in its current state. Only valid with 'recovery_mode' 'condition_clear' or 'expression_match'; omitting it keeps the freeze-on-absence behavior of existing rules. For an enabled rule, every registered monit-edge in the clusters the rule matches must be v0.77.0 or later, otherwise saving the rule fails with 'InvalidParameter'.
       - alerting_check_times (integer) — Fire after the alert condition is met this many times; when enabled, minimum 1 and maximum 10000. Combined with 'alerting_window_size' it means at least N hits within the last M evaluations.
       - alerting_window_size (integer) — Optional sliding window size M: fire only when the condition is met at least 'alerting_check_times' times within the last M evaluations. Omit for consecutive mode (N consecutive hits). Must satisfy 'alerting_check_times' <= M <= 10000.
       - critical (string) — Critical threshold expression referencing query results as '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; when enabled at least one of the three severities must be set.
@@ -602,6 +604,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - recovery_check_times (integer) — Recover after the recovery condition is met this many times; minimum 1 when enabled.
       - severity (string) — Severity of no-data alerts, case-sensitive; required when the per-series check is enabled. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration. See 'AlertRuleThresholdV2'.
+      - absent_counts_as_normal (boolean) — Count an active instance that is missing from every condition query of a successful round as one normal round, instead of freezing the instance in its current state. Only valid with 'recovery_mode' 'condition_clear' or 'expression_match'; omitting it keeps the freeze-on-absence behavior of existing rules. For an enabled rule, every registered monit-edge in the clusters the rule matches must be v0.77.0 or later, otherwise saving the rule fails with 'InvalidParameter'.
       - alerting_check_times (integer) — Fire after the alert condition is met this many times; when enabled, minimum 1 and maximum 10000. Combined with 'alerting_window_size' it means at least N hits within the last M evaluations.
       - alerting_window_size (integer) — Optional sliding window size M: fire only when the condition is met at least 'alerting_check_times' times within the last M evaluations. Omit for consecutive mode (N consecutive hits). Must satisfy 'alerting_check_times' <= M <= 10000.
       - critical (string) — Critical threshold expression referencing query results as '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; when enabled at least one of the three severities must be set.
@@ -815,7 +818,7 @@ Delete multiple alert rules in a single request.
 API: POST /monit/rule/delete/batch (monit-rule-write-delete-batch)
 
 Request fields:
-  --ids []int (required) — IDs of the alert rules to delete; must contain at least one ID. Get them from 'POST /monit/rule/list/basic'.
+  --ids []int (required) — IDs of the alert rules to delete; must contain 1 to 100 IDs. Get them from 'POST /monit/rule/list/basic'.
 `,
 		Example: `  flashduty monit rule-delete-batch --data '{"ids":[50001,50002]}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -841,7 +844,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the alert rules to delete; must contain at least one ID. Get them from 'POST /monit/rule/list/basic'. (required)")
+	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the alert rules to delete; must contain 1 to 100 IDs. Get them from 'POST /monit/rule/list/basic'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -882,7 +885,7 @@ Request fields:
   --ds-type string — Datasource type identifier. Enabled rules must use a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'. Effective only when 'fields' includes 'ds_type'.
   --enabled bool — Whether the rule is enabled. Setting it to 'false' makes the server clean up the rule's active alerts. Effective only when 'fields' includes 'enabled'.
   --fields []string (required) — Names of the fields to update. Each listed field takes the value of the same-named request field, and is set to its zero value when that value is omitted; values sent for unlisted fields are ignored. An unknown name fails the whole call with 'InvalidParameter'. [labels, ds_type, ds_list, ds_ids, enabled, debug_log_enabled, cron_pattern, timezone, delay_seconds, enabled_times, annotations, description, channel_ids, repeat_interval, repeat_total]
-  --ids []int (required) — IDs of the rules to update; must contain at least one ID.
+  --ids []int (required) — IDs of the rules to update; must contain 1 to 100 IDs.
   --repeat-interval int — Interval in seconds between repeated alert notifications; values below 1 fall back to 3600, maximum 2147483647. Effective only when 'fields' includes 'repeat_interval'.
   --repeat-total int — Maximum number of repeated notifications; values below 1 fall back to 3, maximum 2147483647. Effective only when 'fields' includes 'repeat_total'.
   --timezone string — Timezone the rule runs in, as an IANA name (e.g. 'Asia/Shanghai', 'UTC'); empty falls back to 'Asia/Shanghai'. Effective only when 'fields' includes 'timezone'.
@@ -976,7 +979,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 	cmd.Flags().StringVar(&fDsType, "ds-type", "", "Datasource type identifier. Enabled rules must use a type that supports alerting: 'prometheus', 'elasticsearch', 'loki', 'clickhouse', 'mysql', 'oracle', 'postgres', 'sls', 'tencent_cls', 'victorialogs'. Effective only when 'fields' includes 'ds_type'.")
 	cmd.Flags().BoolVar(&fEnabled, "enabled", false, "Whether the rule is enabled. Setting it to 'false' makes the server clean up the rule's active alerts. Effective only when 'fields' includes 'enabled'.")
 	cmd.Flags().StringSliceVar(&fFields, "fields", nil, "Names of the fields to update. Each listed field takes the value of the same-named request field, and is set to its zero value when that value is omitted; values sent for unlisted fields are ignored. An unknown name fails the whole call with 'InvalidParameter'. (required) [labels, ds_type, ds_list, ds_ids, enabled, debug_log_enabled, cron_pattern, timezone, delay_seconds, enabled_times, annotations, description, channel_ids, repeat_interval, repeat_total]")
-	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the rules to update; must contain at least one ID. (required)")
+	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the rules to update; must contain 1 to 100 IDs. (required)")
 	cmd.Flags().Int64Var(&fRepeatInterval, "repeat-interval", 0, "Interval in seconds between repeated alert notifications; values below 1 fall back to 3600, maximum 2147483647. Effective only when 'fields' includes 'repeat_interval'.")
 	cmd.Flags().Int64Var(&fRepeatTotal, "repeat-total", 0, "Maximum number of repeated notifications; values below 1 fall back to 3, maximum 2147483647. Effective only when 'fields' includes 'repeat_total'.")
 	cmd.Flags().StringVar(&fTimezone, "timezone", "", "Timezone the rule runs in, as an IANA name (e.g. 'Asia/Shanghai', 'UTC'); empty falls back to 'Asia/Shanghai'. Effective only when 'fields' includes 'timezone'.")
@@ -999,7 +1002,7 @@ API: POST /monit/rule/move (monit-rule-write-move)
 
 Request fields:
   --dest-folder-id int (required) — Destination folder ID, from 'POST /monit/folder/list'. Must be non-zero; a folder that does not exist or that the caller cannot manage fails the whole call with 'AccessDenied'.
-  --ids []int (required) — IDs of the rules to move; must contain at least one ID.
+  --ids []int (required) — IDs of the rules to move; must contain 1 to 100 IDs.
 
 Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '.[]'', NOT '.items[]'):
   - message (string) (required) — Outcome for this rule. On success it is empty for '/monit/rule/update/fields' and a localized success text ('Move successfully' / '移动成功') for '/monit/rule/move'; on failure it carries the error message.
@@ -1033,7 +1036,7 @@ Response fields ('data' is a TOP-LEVEL array of these row objects — pipe 'jq '
 		},
 	}
 	cmd.Flags().Int64Var(&fDestFolderID, "dest-folder-id", 0, "Destination folder ID, from 'POST /monit/folder/list'. Must be non-zero; a folder that does not exist or that the caller cannot manage fails the whole call with 'AccessDenied'. (required)")
-	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the rules to move; must contain at least one ID. (required)")
+	cmd.Flags().IntSliceVar(&fIDs, "ids", nil, "IDs of the rules to move; must contain 1 to 100 IDs. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1142,6 +1145,7 @@ Request fields:
       - recovery_check_times (integer) — Recover after the recovery condition is met this many times; minimum 1 when enabled.
       - severity (string) — Severity of no-data alerts, case-sensitive; required when the per-series check is enabled. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration. See 'AlertRuleThresholdV2'.
+      - absent_counts_as_normal (boolean) — Count an active instance that is missing from every condition query of a successful round as one normal round, instead of freezing the instance in its current state. Only valid with 'recovery_mode' 'condition_clear' or 'expression_match'; omitting it keeps the freeze-on-absence behavior of existing rules. For an enabled rule, every registered monit-edge in the clusters the rule matches must be v0.77.0 or later, otherwise saving the rule fails with 'InvalidParameter'.
       - alerting_check_times (integer) — Fire after the alert condition is met this many times; when enabled, minimum 1 and maximum 10000. Combined with 'alerting_window_size' it means at least N hits within the last M evaluations.
       - alerting_window_size (integer) — Optional sliding window size M: fire only when the condition is met at least 'alerting_check_times' times within the last M evaluations. Omit for consecutive mode (N consecutive hits). Must satisfy 'alerting_check_times' <= M <= 10000.
       - critical (string) — Critical threshold expression referencing query results as '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; when enabled at least one of the three severities must be set.
@@ -1231,6 +1235,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
       - recovery_check_times (integer) — Recover after the recovery condition is met this many times; minimum 1 when enabled.
       - severity (string) — Severity of no-data alerts, case-sensitive; required when the per-series check is enabled. [Critical, Warning, Info]
     - check_threshold (object) — Threshold check configuration. See 'AlertRuleThresholdV2'.
+      - absent_counts_as_normal (boolean) — Count an active instance that is missing from every condition query of a successful round as one normal round, instead of freezing the instance in its current state. Only valid with 'recovery_mode' 'condition_clear' or 'expression_match'; omitting it keeps the freeze-on-absence behavior of existing rules. For an enabled rule, every registered monit-edge in the clusters the rule matches must be v0.77.0 or later, otherwise saving the rule fails with 'InvalidParameter'.
       - alerting_check_times (integer) — Fire after the alert condition is met this many times; when enabled, minimum 1 and maximum 10000. Combined with 'alerting_window_size' it means at least N hits within the last M evaluations.
       - alerting_window_size (integer) — Optional sliding window size M: fire only when the condition is met at least 'alerting_check_times' times within the last M evaluations. Omit for consecutive mode (N consecutive hits). Must satisfy 'alerting_check_times' <= M <= 10000.
       - critical (string) — Critical threshold expression referencing query results as '$<query>' or '$<query>.<value_field>', e.g. '$A > 90'; when enabled at least one of the three severities must be set.

@@ -74,7 +74,7 @@ flashduty calendar event-delete <cal-id> --start-at 2026-01-10 --end-at 2026-01-
 Create calendar
 - `--cal-name` string (required) — Calendar display name; must be unique within the account. (1-39 chars)
 - `--description` string — Calendar description. (≤499 chars)
-- `--extra-cal-ids` stringSlice — Additional public-holiday calendar IDs to inherit events from (for example zh-cn.china.official).
+- `--extra-cal-ids` stringSlice — Additional public calendar IDs to inherit events from — 'region.official.holiday' IDs such as 'zh-cn.china.official', plus at most one 'exchange.holiday' calendar. Linking an exchange calendar sets this calendar's 'timezone' to the exchange's, overriding the value you send; linking two of them returns 'InvalidParameter'.
 - `--team-id` int64 — Owning team ID; '0' or omitted means no team. A nonzero ID must be a team of the account.
 - `--timezone` string — IANA timezone, e.g. 'America/New_York'. Defaults to 'Asia/Shanghai' when empty; an invalid name returns 'InvalidParameter'.
 - `--workdays` intSlice — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working.
@@ -93,11 +93,11 @@ Delete calendar event
 
 ### event-list <cal-id>
 List calendar events
-- `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
+- `<cal-id>` (positional, required) string — Calendar ID, obtained from 'POST /calendar/list'. A calendar listed there with 'kind' = 'exchange.holiday' is accepted too, so a trading calendar can be read directly.
 - `--day` int64 — Day (1-31). 0 means no day filter. (0-31)
 - `--month` int64 — Month (1-12). 0 means no month filter. (0-12)
 - `--year` int64 — Year. Defaults to the current year when omitted. (min 2023)
-- response: `{items: [...], days, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); created_at (string); creator_id (integer); description (string); end_at (string); event_id (string); is_off (boolean); start_at (string); summary (string); updated_at (string)
+- response: `{items: [...], days, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); created_at (string); creator_id (integer); day_end (string); description (string); end_at (string); event_id (string); is_off (boolean); start_at (string); summary (string); updated_at (string)
 
 ### event-upsert <cal-id>
 Upsert calendar event
@@ -117,7 +117,7 @@ Get calendar info
 
 ### list
 List calendars
-- `--kind` string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'personal' queries account-created calendars. · enum: region.official.holiday | personal
+- `--kind` string — Calendar kind filter; defaults to personal when empty. 'region.official.holiday' queries public regional holiday calendars (filtered by the caller's locale); 'exchange.holiday' queries the shared stock-exchange calendars, whose 'cal_id' a rule may read directly; 'personal' queries account-created calendars. · enum: region.official.holiday | exchange.holiday | personal
 - `--no-locale` bool — Disable locale filtering when listing public-holiday calendars.
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); cal_id (string); cal_name (string); created_at (string); creator_id (integer); description (string); extra_cal_ids (array<string>); kind (string); status (string); team_id (integer); timezone (string); updated_at (string); updated_by (integer); workdays (array<integer>)
 
@@ -126,7 +126,7 @@ Update calendar
 - `<cal-id>` (positional, required) string — Calendar ID; obtain it from 'POST /calendar/list'.
 - `--cal-name` string — New calendar name; must be unique within the account. (1-39 chars)
 - `--description` string — New description. (≤499 chars)
-- `--extra-cal-ids` stringSlice — Public holiday calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday'). When sent, replaces the stored list; an empty array removes them all; omit to keep it.
+- `--extra-cal-ids` stringSlice — Public calendar IDs to inherit events from (see 'POST /calendar/list' with 'kind' = 'region.official.holiday' or 'exchange.holiday'); at most one of them may be an 'exchange.holiday' calendar, and linking one sets 'timezone' to the exchange's. When sent, replaces the stored list; an empty array removes them all; omit to keep it.
 - `--team-id` int64 — New owning team ID; obtain it from 'POST /team/list'. '0' removes the team; a nonzero ID must be a team of the account.
 - `--timezone` string — New IANA timezone, e.g. 'Asia/Shanghai'; an invalid name returns 'InvalidParameter'.
 - `--workdays` intSlice — Weekly working days, '0' = Sunday … '6' = Saturday. Days not listed are non-working days. When empty, no weekday is treated as non-working. When sent, replaces the stored list; omit to keep it.
