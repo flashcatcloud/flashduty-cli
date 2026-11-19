@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -393,5 +394,71 @@ func TestAlertMergeResolvesShortIncidentID(t *testing.T) {
 	}
 	if got := (*bodies)[1]["incident_id"]; got != testFullID {
 		t.Errorf("incident_id = %#v, want %q", got, testFullID)
+	}
+}
+
+// TestIncidentWriteNotesShortIDResolution: a write given a short id states on
+// stderr which incident it resolved to before acting; stdout is what a full
+// id prints.
+func TestIncidentWriteNotesShortIDResolution(t *testing.T) {
+	pinClock(t, time.Date(2026, 1, 2, 7, 0, 0, 0, time.UTC))
+	match := incidentItem(testFullID, testShortID, "High error rate")
+	match["start_time"] = time.Date(2026, 1, 2, 6, 0, 0, 0, time.UTC).Unix()
+	note := "resolved " + testShortID + " → " + testFullID + ` "High error rate" started 2026-01-02T14:00:00+08:00` + "\n"
+	for _, args := range [][]string{
+		{"incident", "close"},
+		{"incident", "ack"},
+		{"incident", "remove", "--force"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			shortIDStub(t, match)
+			fullOut, fullErr, err := execCommandSplit(append(args, testFullID)...)
+			if err != nil {
+				t.Fatalf("full id: %v", err)
+			}
+			saveAndResetGlobals(t)
+			shortIDStub(t, match)
+			out, errOut, err := execCommandSplit(append(args, testShortID)...)
+			if err != nil {
+				t.Fatalf("short id: %v", err)
+			}
+			if out != fullOut {
+				t.Errorf("stdout = %q, want %q (as for the full id)", out, fullOut)
+			}
+			if errOut != note+fullErr {
+				t.Errorf("stderr = %q, want %q", errOut, note+fullErr)
+			}
+		})
+	}
+}
+
+// TestIncidentReadNoShortIDNote: a read resolves a short id silently.
+func TestIncidentReadNoShortIDNote(t *testing.T) {
+	for _, args := range [][]string{{"incident", "timeline"}, {"incident", "alert-list"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+			_, errOut, err := execCommandSplit(append(args, testShortID)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(errOut, "resolved ") {
+				t.Errorf("stderr = %q, want no resolution note on a read", errOut)
+			}
+		})
+	}
+}
+
+// TestResolvedPrompt: a confirmation prompt names the incidents short ids
+// resolved to.
+func TestResolvedPrompt(t *testing.T) {
+	ctx := &RunContext{resolved: []string{`resolved 311510 → 6a12a4502f0a2396b3311510 "High error rate" started 2026-01-02T14:00:00+08:00`}}
+	want := `resolved 311510 → 6a12a4502f0a2396b3311510 "High error rate" started 2026-01-02T14:00:00+08:00` + "\nAre you sure?"
+	if got := resolvedPrompt(ctx, "Are you sure?"); got != want {
+		t.Errorf("prompt = %q, want %q", got, want)
+	}
+	if got := resolvedPrompt(&RunContext{}, "Are you sure?"); got != "Are you sure?" {
+		t.Errorf("prompt without short ids = %q", got)
 	}
 }

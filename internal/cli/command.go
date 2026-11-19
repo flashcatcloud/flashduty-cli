@@ -21,6 +21,10 @@ type RunContext struct {
 	Writer  io.Writer
 	Printer output.Printer
 	Format  output.Format
+
+	// resolved holds one line per short incident id the arguments resolved
+	// to (see runIncidentCommand), for a confirmation prompt to show.
+	resolved []string
 }
 
 // Structured reports whether output should be a machine-readable dump (JSON or

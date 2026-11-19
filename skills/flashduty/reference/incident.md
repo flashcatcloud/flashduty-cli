@@ -4,7 +4,7 @@ Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders
 
 ## Route here when
 
-"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). Post-mortem reports (复盘) have their own card: `reference/postmortem.md`. Every verb that takes an incident id (positional, `--incident-id(s)`, `--source`, or `--data`) accepts either the 24-char `incident_id` or the 6-char `num` shown in the UI: a num resolves through a 30-day lookback; one that matches several incidents fails listing the candidates and nothing is sent; for an incident older than 30 days use its full id.
+"告警 / 故障 / 事件 / 响应 / 值班 / incident / page / outage / triage / acknowledge / resolve / snooze / escalate" → **incident**, NOT `alert` (alert = deduplicated signal; incident = actionable item responders work). NOT `insight` (metrics/MTTA/MTTR). Post-mortem reports (复盘) have their own card: `reference/postmortem.md`. Every verb that takes an incident id (positional, `--incident-id(s)`, `--source`, or `--data`) accepts either the 24-char `incident_id` or the 6-char `num` shown in the UI: a num resolves through a 30-day lookback; one that matches several incidents fails listing the candidates and nothing is sent; a write states on stderr which incident (full id, title, start time) each num resolved to before acting; for an incident older than 30 days use its full id.
 
 ## Intent → verb
 

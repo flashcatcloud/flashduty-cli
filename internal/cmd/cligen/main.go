@@ -1067,6 +1067,21 @@ var incidentIDWires = map[string]bool{
 	"source_incident_ids": true,
 }
 
+// readsIncidentOp reports whether an incident operation only reads: its
+// operationId says read, or its path ends in a read verb. Every other
+// incident operation that takes an incident id changes the incident, so a
+// short id it was given is stated on stderr before the request is sent.
+func readsIncidentOp(o specOp) bool {
+	if strings.Contains(o.OpID, "-read-") {
+		return true
+	}
+	switch o.Path[strings.LastIndex(o.Path, "/")+1:] {
+	case "list", "info", "feed", "detail", "list-by-ids":
+		return true
+	}
+	return false
+}
+
 // opAliases maps an operationId to extra cobra aliases its generated command
 // should accept, keyed like positionalOverride. Generated verbs are path-derived
 // (channelInfo → "info"), which diverges from the get/detail spelling curated
@@ -1385,7 +1400,11 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 				}
 			}
 			if len(wires) > 0 {
-				fmt.Fprintf(&b, "\t\t\t\tif err := genResolveIncidentIDs(ctx, body, %s); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", strings.Join(wires, ", "))
+				use := "writesIncidents"
+				if readsIncidentOp(o) {
+					use = "readsIncidents"
+				}
+				fmt.Fprintf(&b, "\t\t\t\tif err := genResolveIncidentIDs(ctx, body, %s, %s); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", use, strings.Join(wires, ", "))
 			}
 		}
 		for _, f := range o.Fields {

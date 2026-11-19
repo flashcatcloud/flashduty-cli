@@ -127,7 +127,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.GetWarRoomDefaultObserversRequest)
@@ -251,7 +251,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ServiceDeskPlusRequestListRequest)
@@ -384,7 +384,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.AckIncidentRequest)
@@ -527,7 +527,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListIncidentAlertsRequest)
@@ -599,7 +599,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id", "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id", "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.AssignIncidentRequest)
@@ -666,7 +666,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.CommentIncidentRequest)
@@ -1067,7 +1067,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.DoIncidentCustomActionRequest)
@@ -1119,7 +1119,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.DisableIncidentMergeRequest)
@@ -1314,7 +1314,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListIncidentFeedRequest)
@@ -1376,7 +1376,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ResetIncidentFieldRequest)
@@ -1598,7 +1598,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.IncidentInfoRequest)
@@ -1933,7 +1933,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListIncidentsRequest)
@@ -2174,7 +2174,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListIncidentsByIDsRequest)
@@ -2250,7 +2250,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "source_incident_ids", "target_incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "source_incident_ids", "target_incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.MergeIncidentsRequest)
@@ -2475,7 +2475,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListPastIncidentsRequest)
@@ -2785,7 +2785,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.RemoveIncidentRequest)
@@ -2841,7 +2841,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.ReopenIncidentRequest)
@@ -2923,7 +2923,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.UpdateIncidentFieldsRequest)
@@ -3005,7 +3005,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.ResolveIncidentRequest)
@@ -3074,7 +3074,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.AddIncidentResponderRequest)
@@ -3132,7 +3132,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.SnoozeIncidentRequest)
@@ -3184,7 +3184,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.UnackIncidentRequest)
@@ -3235,7 +3235,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.WakeIncidentRequest)
@@ -3302,7 +3302,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.CreateWarRoomRequest)
@@ -3367,7 +3367,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.DeleteWarRoomRequest)
@@ -3504,7 +3504,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListWarRoomsRequest)
@@ -3592,7 +3592,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.BindWorkItemPostMortemRequest)
@@ -3906,7 +3906,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.CreateWorkItemRequest)
@@ -4103,7 +4103,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, readsIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.ListWorkItemRequest)
@@ -4587,7 +4587,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_ids"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_ids"); err != nil {
 					return err
 				}
 				req := new(flashduty.InitPostMortemRequest)

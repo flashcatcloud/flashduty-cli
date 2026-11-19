@@ -386,7 +386,7 @@ Request fields:
 				if err != nil {
 					return err
 				}
-				if err := genResolveIncidentIDs(ctx, body, "incident_id"); err != nil {
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.AlertMergeRequest)
