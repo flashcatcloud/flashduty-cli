@@ -15,7 +15,7 @@
 
 - **覆盖全部公开 API。** 每个公开的 Flashduty API 都有对应命令，由 OpenAPI 规范经 [go-flashduty](https://github.com/flashcatcloud/go-flashduty) SDK 生成。故障、告警、值班、状态页等常用流程另有手写命令，flag 更短，表格更易读。
 - **命令名可预测。** API 路径直接对应命令：`POST /incident/merge` 是 `flashduty incident merge`，`POST /status-page/change/create` 是 `flashduty status-page change-create`。
-- **适合脚本和 Agent。** 输出支持 `table`、`json`、`toon`（紧凑格式，更省 token）。列表分页有大小上限，被裁剪时会明确标出。`--fields` 只返回需要的字段。
+- **适合脚本和 Agent。** 输出支持 `table`、`json`、`toon`（紧凑格式，更省 token）。结构化输出包含 API 返回的全部行和字段。`--fields` 只返回需要的字段。
 - **单个二进制。** 支持 macOS、Linux、Windows 的 amd64 和 arm64。`flashduty update` 原地升级。
 
 ## 安装
@@ -145,7 +145,7 @@ flashduty config set base_url URL  # 修改 API 地址
 - **JSON**（`--json`）：给 `jq` 和脚本用，例如 `flashduty incident list --json | jq '.[].title'`。
 - **TOON**（`--output-format toon`）：[Token-Oriented Object Notation](https://github.com/toon-format/toon-go)。JSON 每行都重复字段名，TOON 不重复，列表输出的 token 少得多。LLM 或 Agent 读取输出时用它。
 
-每一页结构化列表最大 16 KiB。被裁剪的页会在 stderr 上提示，列表的返回体里也会带 `"truncated": true`。同时带 `"emitted_rows": N` 表示只返回了前 N 行：用更小的 `--limit` 重新请求，直到拿到的行数达到 `total`。不带 `emitted_rows` 表示行都在，但长字段被截断：用 `--fields` 缩小字段范围。
+结构化输出（`json`/`toon`）不做裁剪：返回页的每一行、每个字段都完整输出。只要部分字段时用 `--fields`。列表一次输出一页；`total` 或 `has_next_page` 表明还有更多时，stderr 会提示，用 `--page` 取后面的页。
 
 按时间范围查询的命令会在 stderr 上打印实际发出的时间窗口（本地时区），例如 `note: window 2026-10-08T14:00:00+08:00..2026-10-09T14:00:00+08:00 (1d, ended now)`；stdout 仍是纯 `json`/`toon`。`incident list --progress Triggered,Processing` 和 `alert list --active` 在没给 `--since` 时默认查最近 30 天，因为未关闭的记录可能早于一天。
 

@@ -32,7 +32,7 @@ func TestIncidentCardAvoidsUnboundedStructuredHotFlows(t *testing.T) {
 		"incident timeline <primary-incident-id> --output-format toon",
 	} {
 		if strings.Contains(body, command) {
-			t.Errorf("incident hot flow must use the compact default instead of %q", command)
+			t.Errorf("incident hot flow must use the default table instead of full-record %q", command)
 		}
 	}
 
@@ -45,6 +45,6 @@ func TestIncidentCardAvoidsUnboundedStructuredHotFlows(t *testing.T) {
 		t.Fatal("incident card is missing the section after full fault analysis")
 	}
 	if strings.Contains(summary, `incident timeline "$ID" --output-format toon`) {
-		t.Error("full fault analysis must use timeline's compact default; structured timeline is reserved for comment read-back")
+		t.Error("full fault analysis must use timeline's default table; structured timeline is reserved for comment read-back")
 	}
 }
