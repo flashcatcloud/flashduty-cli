@@ -59,45 +59,103 @@ func TestTimeVarNames(t *testing.T) {
 	}
 }
 
-func TestTimeFlagAliases(t *testing.T) {
-	withTime := map[string]bool{"start_time": true, "end_time": true}
-
-	// The canonical pair gets the curated dialect's spellings.
-	aliases, collision := timeFlagAliases([]scalarField{
-		{Wire: "start_time", Kind: "int"},
-		{Wire: "end_time", Kind: "int"},
-		{Wire: "limit", Kind: "int"},
-	}, withTime)
-	if collision != "" || aliases["start_time"] != "since" || aliases["end_time"] != "until" {
-		t.Errorf("canonical pair: got aliases=%v collision=%q", aliases, collision)
+func TestFindTimeRange(t *testing.T) {
+	const (
+		secs = "Window start, Unix seconds."
+		ms   = "Window start, Unix epoch milliseconds."
+	)
+	op := func(path string, fields map[string]string, tree ...schemaField) (specOp, []scalarField, map[string]specField) {
+		o := specOp{Path: path, ReqTree: tree}
+		var scalars []scalarField
+		byWire := map[string]specField{}
+		for wire, desc := range fields {
+			scalars = append(scalars, scalarField{Wire: wire, Kind: "int"})
+			byWire[wire] = specField{Wire: wire, Desc: desc}
+		}
+		return o, scalars, byWire
 	}
-
-	// A millisecond start_time (isTime false) is NOT aliased: it has no
-	// duration/date parsing for the alias to share.
-	aliases, collision = timeFlagAliases([]scalarField{{Wire: "start_time", Kind: "int"}}, map[string]bool{})
-	if collision != "" || len(aliases) != 0 {
-		t.Errorf("non-relative-time start_time: got aliases=%v collision=%q", aliases, collision)
+	cases := []struct {
+		name   string
+		path   string
+		fields map[string]string
+		tree   []schemaField
+		want   timeRange
+		wantOK bool
+	}{
+		{"seconds start/end_time", "/x/list", map[string]string{"start_time": secs, "end_time": secs, "limit": ""},
+			nil, timeRange{Start: "start_time", End: "end_time", Where: "--data or --start-time/--end-time"}, true},
+		{"millisecond start/end_time", "/x/list", map[string]string{"start_time": ms, "end_time": ms},
+			nil, timeRange{Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, true},
+		{"bare start/end", "/x/info", map[string]string{"start": "", "end": ""},
+			nil, timeRange{Start: "start", End: "end", Where: "--data or --start/--end"}, true},
+		{"after/before ms", "/x/run/list", map[string]string{"started_after_ms": "Lower bound, Unix milliseconds.", "started_before_ms": "Upper bound, Unix milliseconds."},
+			nil, timeRange{Start: "started_after_ms", End: "started_before_ms", Millis: true, Where: "--data or --started-after-ms/--started-before-ms"}, true},
+		{"*_at_start/end_seconds", "/x/list", map[string]string{"created_at_start_seconds": "", "created_at_end_seconds": ""},
+			nil, timeRange{Start: "created_at_start_seconds", End: "created_at_end_seconds", Where: "--data or --created-at-start-seconds/--created-at-end-seconds"}, true},
+		{"nested from_ms/to_ms", "/x/run", nil,
+			[]schemaField{{Wire: "time", Type: "object", Children: []schemaField{
+				{Wire: "from_ms", Type: "integer", Desc: "Start as a Unix timestamp in milliseconds."},
+				{Wire: "to_ms", Type: "integer", Desc: "End as a Unix timestamp in milliseconds."},
+			}}},
+			timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, true},
+		{"durations are not a window", "/x/list", map[string]string{"seconds_to_ack_from": "Lower bound, in seconds.", "seconds_to_ack_to": "Upper bound, in seconds."},
+			nil, timeRange{}, false},
+		{"units must match", "/x/list", map[string]string{"start_time": secs, "end_time": ms},
+			nil, timeRange{}, false},
+		{"start without end", "/x/list", map[string]string{"start_time": secs},
+			nil, timeRange{}, false},
+		{"create stores a schedule", "/x/create", map[string]string{"start_time": secs, "end_time": secs},
+			nil, timeRange{}, false},
+		{"update stores a schedule", "/x/update", map[string]string{"start": "", "end": ""},
+			nil, timeRange{}, false},
+		{"two pairs are ambiguous", "/x/list", map[string]string{"start_time": secs, "end_time": secs},
+			[]schemaField{{Wire: "time", Type: "object", Children: []schemaField{
+				{Wire: "from_ms", Type: "integer", Desc: "Unix timestamp in milliseconds."},
+				{Wire: "to_ms", Type: "integer", Desc: "Unix timestamp in milliseconds."},
+			}}},
+			timeRange{}, false},
+		{"array items are not a window", "/x/list", nil,
+			[]schemaField{{Wire: "rows", Type: "array<object>", Children: []schemaField{
+				{Wire: "from_ms", Type: "integer", Desc: "Unix timestamp in milliseconds."},
+				{Wire: "to_ms", Type: "integer", Desc: "Unix timestamp in milliseconds."},
+			}}},
+			timeRange{}, false},
 	}
-
-	// Other time-flag names (start/end, *_at_seconds) are not start-time/end-time.
-	aliases, collision = timeFlagAliases([]scalarField{
-		{Wire: "start", Kind: "int"},
-		{Wire: "close_at_seconds", Kind: "int"},
-	}, map[string]bool{"start": true, "close_at_seconds": true})
-	if collision != "" || len(aliases) != 0 {
-		t.Errorf("other time flags: got aliases=%v collision=%q", aliases, collision)
+	for _, c := range cases {
+		o, scalars, byWire := op(c.path, c.fields, c.tree...)
+		got, ok := findTimeRange(o, scalars, byWire)
+		if ok != c.wantOK || got != c.want {
+			t.Errorf("%s: got (%+v, %v), want (%+v, %v)", c.name, got, ok, c.want, c.wantOK)
+		}
 	}
+}
 
-	// Collision guard: a spec-defined since/until param suppresses aliasing for
-	// the whole command rather than shadowing the real flag.
+func TestIsUnixMillisField(t *testing.T) {
+	cases := []struct {
+		kind, desc string
+		want       bool
+	}{
+		{"int", "End of the query window, Unix epoch milliseconds.", true},
+		{"int", "Start of the time range, Unix timestamp in milliseconds.", true},
+		{"int", "Window end time in Unix milliseconds.", true},
+		{"int", "Minimum time-bucket width in milliseconds.", false},
+		{"int", "Window start, Unix seconds.", false},
+		{"string", "Unix epoch milliseconds.", false},
+	}
+	for _, c := range cases {
+		if got := isUnixMillisField(c.kind, c.desc); got != c.want {
+			t.Errorf("isUnixMillisField(%q, %q) = %v, want %v", c.kind, c.desc, got, c.want)
+		}
+	}
+}
+
+func TestHasSinceUntilField(t *testing.T) {
+	if hasSinceUntilField([]scalarField{{Wire: "start_time"}, {Wire: "limit"}}) {
+		t.Error("no since/until field reported as present")
+	}
 	for _, name := range []string{"since", "until"} {
-		aliases, collision = timeFlagAliases([]scalarField{
-			{Wire: "start_time", Kind: "int"},
-			{Wire: "end_time", Kind: "int"},
-			{Wire: name, Kind: "string"},
-		}, withTime)
-		if collision != name || aliases != nil {
-			t.Errorf("collision on %q: got aliases=%v collision=%q", name, aliases, collision)
+		if !hasSinceUntilField([]scalarField{{Wire: "start_time"}, {Wire: name}}) {
+			t.Errorf("spec field %q not detected", name)
 		}
 	}
 }

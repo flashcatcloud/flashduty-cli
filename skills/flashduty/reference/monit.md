@@ -65,6 +65,8 @@ Get dashboard outline
 ### dashboard-panel-preview
 Preview draft panel
 - `--max-data-points` int64 — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
+- `--since` string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): context (object) (required); panel (object) (required); selections (object); time (object) (required); variables (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: budget (object); display (object); panel_id (string); refs (array<object>); run_state (string); time (object); variables (object)
 
@@ -74,6 +76,8 @@ Run dashboard panel
 - `--max-data-points` int64 — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
 - `--panel-id` string (required) — ID of the panel to execute. It must belong to the dashboard, otherwise the call returns 'TargetNotFound' (HTTP 404).
 - `--revision` int64 — Revision guard. When set (non-zero) it must equal the dashboard's current revision, otherwise the call fails with 'DashboardRevisionConflict' (HTTP 409). Omit or send 0 to skip the check.
+- `--since` string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): time (object) (required); variables (object)
 - response: single object (`data` unwrapped to the top level) — fields: budget (object); dashboard_id (string); display (object); panel_id (string); refs (array<object>); revision (integer); run_state (string); time (object); variables (object)
 
@@ -101,17 +105,23 @@ Resolve panel queries
 - `--max-data-points` int64 — Target maximum number of points per series, used to compute the step and render the built-in time variables. 2–5000; omit or send null for the default of 100. (2-5000)
 - `<panel-ids>` (positional, required) stringSlice — Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call.
 - `--preserve-builtin-variables` bool — Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.
+- `--since` string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): time (object) (required); variables (object)
 - response: single object (`data` unwrapped to the top level) — fields: dashboard_id (string); panels (array<object>); revision (integer); time (object); variables (object)
 
 ### dashboard-runtime-variables-preview
 Preview draft variables
+- `--since` string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): context (object) (required); selections (object); time (object) (required); variables (array<object>) (required)
 - response: single object (`data` unwrapped to the top level) — fields: selections (object); variables (array<object>)
 
 ### dashboard-runtime-variables-resolve <dashboard-id>
 Resolve dashboard variables
 - `<dashboard-id>` (positional, required) string — Canonical UUIDv7 of the dashboard.
+- `--since` string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): time (object) (required); variables (object)
 - response: single object (`data` unwrapped to the top level) — fields: dashboard_id (string); revision (integer); selections (object); variables (array<object>)
 

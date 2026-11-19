@@ -739,6 +739,7 @@ func genAutomationsRunReadListCmd() *cobra.Command {
 	var fStartedBeforeMs int64
 	var fStatus string
 	var fTriggerKind string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "automation-run-list <rule-id>",
 		Short: "List Automation runs",
@@ -757,6 +758,8 @@ Request fields:
   --started-before-ms int — Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)
   --status string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]
   --trigger-kind string — Trigger filter: 'schedule' schedule trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' On-call incident trigger, 'war_room_created' war room trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident, war_room_created]
+  --since string — Window start, written to started_after_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --started-after-ms/--started-before-ms also sets is an error.
+  --until string — Window end, written to started_before_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - runs (array<object>) (required) — Array of run records for the given 'rule_id', filtered by the request's status/trigger-kind/time-range and paginated.
@@ -821,6 +824,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "started_after_ms", End: "started_before_ms", Millis: true, Where: "--data or --started-after-ms/--started-before-ms"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.AutomationRunListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -841,6 +847,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fStartedBeforeMs, "started-before-ms", 0, "Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. [queued, running, retrying, succeeded, partial, failed, skipped, abandoned, blocked]")
 	cmd.Flags().StringVar(&fTriggerKind, "trigger-kind", "", "Trigger filter: 'schedule' schedule trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' On-call incident trigger, 'war_room_created' war room trigger; omit for no filter. [schedule, debug, manual, http_post, oncall_incident, war_room_created]")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to started_after_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --started-after-ms/--started-before-ms also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to started_before_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

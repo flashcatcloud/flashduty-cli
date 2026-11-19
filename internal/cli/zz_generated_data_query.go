@@ -12,6 +12,7 @@ func genDataQueryQueryCmd() *cobra.Command {
 	var dataJSON string
 	var fEndTime int64
 	var fStartTime int64
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "data-query",
 		Short: "Query RUM data",
@@ -24,6 +25,8 @@ API: POST /rum/data/query (rum-read-data-query)
 Request fields:
   --end-time int (required) — End of the query window, Unix epoch milliseconds. Maximum 31-day span.
   --start-time int (required) — Start of the query window, Unix epoch milliseconds.
+  --since string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   queries (array<object>, via --data) (required) — Queries to execute concurrently. 1 to 10 queries are allowed.
     - cumulative (boolean) — Set to 'true' to get a time series of a single 'COUNT' or 'SUM' as the increments of its running total: each bucket holds only what the bucket adds, so the running sum ends at the aggregate over the range. Requires 'format' 'time_series' and exactly one select field, 'COUNT(...)' or 'SUM(...)', with an alias; a statement with 'SELECT DISTINCT', 'GROUP BY', 'HAVING' or 'LIMIT' makes the whole request fail with 'InvalidParameter'. 'COUNT(DISTINCT x)' is accepted and counts each 'x' in its first bucket only. The query always runs unsampled, so the response carries no 'sampling'.
     - devices_on (string) — Keeps a 'crash_ledger' query to the devices counted on that table over the same range: 'active_devices' keeps only devices with an active-device record ('device_key'), 'sessions' only devices with a session ('usr_anonymous_id'). Use it on a crash count that is divided by a device count so the numerator counts the same devices as the denominator. Only supported when 'sql' reads 'crash_ledger'; another table, or a value outside the two, fails that query with 'InvalidParameter'. [active_devices, sessions]
@@ -52,6 +55,9 @@ Request fields:
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.RUMDataQueryRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -66,6 +72,8 @@ Request fields:
 	}
 	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "End of the query window, Unix epoch milliseconds. Maximum 31-day span. (required)")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Start of the query window, Unix epoch milliseconds. (required)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

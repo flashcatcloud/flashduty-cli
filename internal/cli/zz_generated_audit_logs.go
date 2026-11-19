@@ -49,7 +49,6 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 func genAuditLogsSearchCmd() *cobra.Command {
 	var dataJSON string
 	var fEndTime string
-	var fUntil string
 	var fIsDangerous bool
 	var fIsWrite bool
 	var fLimit int64
@@ -58,7 +57,7 @@ func genAuditLogsSearchCmd() *cobra.Command {
 	var fRequestID string
 	var fSearchAfterCtx string
 	var fStartTime string
-	var fSince string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search audit logs",
@@ -78,6 +77,8 @@ Request fields:
   --request-id string — Filter to a single request by its unique request ID.
   --search-after-ctx string — Opaque pagination cursor returned by the previous response. Leave empty for the first page.
   --start-time string (required) — Start of the search window, Unix epoch seconds. Exclusive — entries at exactly this second are not included. (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - docs (array<object>) — Audit log entries for this page, newest first. Omitted when the page is empty.
@@ -104,15 +105,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty audit search --data '{"end_time":1712707200,"limit":20,"operations":["template:write:create","template:write:delete"],"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if okEndTime {
 						body["end_time"] = vEndTime
@@ -146,6 +146,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.AuditSearchRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -158,8 +161,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Inclusive. Must be after 'start_time'; maximum span 90 days. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Inclusive. Must be after 'start_time'; maximum span 90 days. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIsDangerous, "is-dangerous", false, "When true, return only high-risk (dangerous) operations.")
 	cmd.Flags().BoolVar(&fIsWrite, "is-write", false, "When true, return only write operations; when false, return only read operations.")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size, 0–99. Omit or set to 0 to let the server choose the page size (it may return every matching entry). (0-99)")
@@ -167,8 +169,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().Int64Var(&fPersonID, "person-id", 0, "Filter by the operator's member ID (get IDs from 'POST /member/list'). Pass the account ID to match actions performed by the account principal itself.")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "Filter to a single request by its unique request ID.")
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque pagination cursor returned by the previous response. Leave empty for the first page.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Exclusive — entries at exactly this second are not included. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Exclusive — entries at exactly this second are not included. (required) (min 1) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

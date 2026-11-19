@@ -154,6 +154,16 @@ func newInsightIncidentsCmd() *cobra.Command {
 	return cmd
 }
 
+// insightExportRange is the window incident-export's --since/--until write,
+// in the same dialect as the generated insight verbs (see timeRange).
+var insightExportRange = timeRange{Start: "start_time", End: "end_time", Where: "--data or --start-time/--end-time"}
+
+const (
+	insightTimeForms   = " Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds."
+	insightExportSince = "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error."
+	insightExportUntil = "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future."
+)
+
 // newInsightIncidentExportCmd exports the filtered incident analytics list as
 // CSV. It replaces the generated incident-export command (same flags) because
 // the export endpoint answers a one-shot CSV with no pagination cursor and
@@ -169,7 +179,7 @@ func newInsightIncidentExportCmd() *cobra.Command {
 	var fAsc bool
 	var fChannelIDs []int
 	var fDescriptionHTMLToText bool
-	var fEndTime int64
+	var fEndTime string
 	var fExportFields []string
 	var fIncidentIDs []string
 	var fIncludeEverMuted bool
@@ -182,15 +192,16 @@ func newInsightIncidentExportCmd() *cobra.Command {
 	var fSecondsToCloseFrom int64
 	var fSecondsToCloseTo int64
 	var fSeverities []string
-	var fStartTime int64
+	var fStartTime string
 	var fTeamIDs []int
 	var fTimeZone string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "incident-export",
 		Short: "Export insight incidents",
 		Long: `Export insight incidents.
 
-Export the filtered incident analytics list as a CSV file (to stdout; redirect with '> file.csv'). CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. --start-time/--end-time take Unix seconds.
+Export the filtered incident analytics list as a CSV file (to stdout; redirect with '> file.csv'). CSV headers and formatted values use the request locale, falling back to the member locale and then the account locale. Set the window with --since/--until (or --start-time/--end-time): a duration (30d, 24h), 'now', RFC3339, a date, or Unix seconds.
 
 The export endpoint returns a one-shot CSV and caps its row count server-side, so a wide window may come back truncated. After writing, this command compares the CSV data-row count against the incident-list total for the same filter: on a shortfall the partial CSV is still written, a 'rows=N' line (the actual written data-row count) goes to stderr, and the command exits non-zero stating written vs total — narrow the window and retry.
 
@@ -200,7 +211,7 @@ Request fields:
   --asc bool
   --channel-ids []int
   --description-html-to-text bool
-  --end-time int
+  --end-time string` + insightTimeForms + `
   --export-fields []string
   --incident-ids []string
   --include-ever-muted bool
@@ -213,14 +224,25 @@ Request fields:
   --seconds-to-close-from int
   --seconds-to-close-to int
   --severities []string
-  --start-time int
+  --start-time string` + insightTimeForms + `
   --team-ids []int
   --time-zone string
+  --since string — ` + insightExportSince + `
+  --until string — ` + insightExportUntil + `
   fields (JSON, via --data)
   labels (JSON, via --data)`,
-		Example: `  flashduty insight incident-export --start-time 1712000000 --end-time 1712604800 > incidents.csv`,
+		Example: `  flashduty insight incident-export --since 7d > incidents.csv
+  flashduty insight incident-export --since 2026-04-01 --until 2026-04-08 > incidents.csv`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
+				if err != nil {
+					return err
+				}
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
+				if err != nil {
+					return err
+				}
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("asc") {
 						body["asc"] = fAsc
@@ -231,8 +253,8 @@ Request fields:
 					if cmd.Flags().Changed("description-html-to-text") {
 						body["description_html_to_text"] = fDescriptionHTMLToText
 					}
-					if cmd.Flags().Changed("end-time") {
-						body["end_time"] = fEndTime
+					if okEndTime {
+						body["end_time"] = vEndTime
 					}
 					if cmd.Flags().Changed("export-fields") {
 						body["export_fields"] = fExportFields
@@ -270,8 +292,8 @@ Request fields:
 					if cmd.Flags().Changed("severities") {
 						body["severities"] = fSeverities
 					}
-					if cmd.Flags().Changed("start-time") {
-						body["start_time"] = fStartTime
+					if okStartTime {
+						body["start_time"] = vStartTime
 					}
 					if cmd.Flags().Changed("team-ids") {
 						body["team_ids"] = fTeamIDs
@@ -282,6 +304,9 @@ Request fields:
 					return nil
 				})
 				if err != nil {
+					return err
+				}
+				if err := genApplyRange(cmd, body, insightExportRange, fSince, fUntil); err != nil {
 					return err
 				}
 				req := new(flashduty.InsightFilter)
@@ -308,7 +333,7 @@ Request fields:
 					return fmt.Errorf("insight incident-export: wrote %d rows but cannot verify completeness against /insight/incident/list: %w", rows, err)
 				}
 				if int64(rows) < total {
-					return fmt.Errorf("insight incident-export: incomplete export — wrote %d of %d incidents matching the filter; narrow the time window (--start-time/--end-time) and retry", rows, total)
+					return fmt.Errorf("insight incident-export: incomplete export — wrote %d of %d incidents matching the filter; narrow the time window (--since/--until) and retry", rows, total)
 				}
 				return nil
 			})
@@ -317,7 +342,7 @@ Request fields:
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Request field ")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Request field ")
 	cmd.Flags().BoolVar(&fDescriptionHTMLToText, "description-html-to-text", false, "Request field ")
-	cmd.Flags().Int64Var(&fEndTime, "end-time", 0, "Request field ")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds."+insightTimeForms)
 	cmd.Flags().StringSliceVar(&fExportFields, "export-fields", nil, "Request field ")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Request field ")
 	cmd.Flags().BoolVar(&fIncludeEverMuted, "include-ever-muted", false, "Request field ")
@@ -330,9 +355,11 @@ Request fields:
 	cmd.Flags().Int64Var(&fSecondsToCloseFrom, "seconds-to-close-from", 0, "Request field ")
 	cmd.Flags().Int64Var(&fSecondsToCloseTo, "seconds-to-close-to", 0, "Request field ")
 	cmd.Flags().StringSliceVar(&fSeverities, "severities", nil, "Request field ")
-	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Request field ")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds."+insightTimeForms)
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Request field ")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "Request field ")
+	cmd.Flags().StringVar(&fSince, "since", "", insightExportSince)
+	cmd.Flags().StringVar(&fUntil, "until", "", insightExportUntil)
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -278,6 +278,7 @@ func genSchedulesInfoCmd() *cobra.Command {
 	var fEnd string
 	var fScheduleID int64
 	var fStart string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "info <schedule-id>",
 		Short: "Get schedule info",
@@ -291,6 +292,8 @@ Request fields:
   --end string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --schedule-id int (required) — Schedule ID; obtain it from 'POST /schedule/list'.
   --start string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
+  --until string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - account_id (integer) (required) — ID of the account that owns the schedule.
@@ -423,6 +426,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start", End: "end", Millis: false, Where: "--data or --start/--end"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ScheduleInfoRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -438,6 +444,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().StringVar(&fEnd, "end", "", "Preview end timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().Int64Var(&fScheduleID, "schedule-id", 0, "Schedule ID; obtain it from 'POST /schedule/list'. (required)")
 	cmd.Flags().StringVar(&fStart, "start", "", "Preview start timestamp (Unix seconds, 10 digits). (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -601,6 +609,7 @@ func genSchedulesListCmd() *cobra.Command {
 	var fQuery string
 	var fStart string
 	var fTeamIDs []int
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List schedules",
@@ -620,6 +629,8 @@ Request fields:
   --query string — Substring matched against the schedule name or description.
   --start string — Window start, 10-digit Unix seconds. Send together with 'end' to compute layers and shifts. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Only schedules owned by these teams. With 'is_my_team' or 'is_my_manage', only the teams the caller belongs to are kept.
+  --since string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
+  --until string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Schedules on this page; an empty array when none match.
@@ -766,6 +777,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start", End: "end", Millis: false, Where: "--data or --start/--end"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ScheduleListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -787,6 +801,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fQuery, "query", "", "Substring matched against the schedule name or description.")
 	cmd.Flags().StringVar(&fStart, "start", "", "Window start, 10-digit Unix seconds. Send together with 'end' to compute layers and shifts. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Only schedules owned by these teams. With 'is_my_team' or 'is_my_manage', only the teams the caller belongs to are kept.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -803,6 +819,7 @@ func genSchedulesPreviewCmd() *cobra.Command {
 	var fStatus int64
 	var fTeamID int64
 	var fTimeZone string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "preview",
 		Short: "Preview schedule",
@@ -823,6 +840,8 @@ Request fields:
   --status int — '0' = enabled, '1' = disabled. On update, omitting it keeps the current state. On create it takes precedence over 'disabled'.
   --team-id int — ID of the owning team; obtain it from 'POST /team/list'. On create, omitting it leaves the schedule without a team ('0'); on update, omitting it keeps the current team.
   --time-zone string — IANA time zone in which the schedule's wall-clock rules are evaluated, for example 'Asia/Shanghai' or 'UTC'; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Set on create (default: evaluated in 'Asia/Shanghai'); immutable afterwards — on update send nothing or the current value. On preview it sets the evaluation time zone.
+  --since string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
+  --until string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
   layers (array<object>, via --data) — Rotation layers. Required in practice: on update the list replaces all existing layers, so omitting it deletes every layer.
     - account_id (integer) (required) — ID of the account that owns the layer. Set by the server.
     - create_at (integer) (required) — Creation timestamp (Unix seconds).
@@ -1025,6 +1044,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start", End: "end", Millis: false, Where: "--data or --start/--end"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ScheduleUpsertRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1047,6 +1069,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fStatus, "status", 0, "'0' = enabled, '1' = disabled. On update, omitting it keeps the current state. On create it takes precedence over 'disabled'.")
 	cmd.Flags().Int64Var(&fTeamID, "team-id", 0, "ID of the owning team; obtain it from 'POST /team/list'. On create, omitting it leaves the schedule without a team ('0'); on update, omitting it keeps the current team.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone in which the schedule's wall-clock rules are evaluated, for example 'Asia/Shanghai' or 'UTC'; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Set on create (default: evaluated in 'Asia/Shanghai'); immutable afterwards — on update send nothing or the current value. On preview it sets the evaluation time zone.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1055,6 +1079,7 @@ func genSchedulesSelfCmd() *cobra.Command {
 	var dataJSON string
 	var fEnd string
 	var fStart string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "self",
 		Short: "List my schedules",
@@ -1067,6 +1092,8 @@ API: POST /schedule/self (scheduleSelf)
 Request fields:
   --end string (required) — Window end (Unix seconds, 10 digits). Required. Must be within 45 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --start string (required) — Window start (Unix seconds, 10 digits). Required. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
+  --until string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Matching schedules; an empty array when none match.
@@ -1191,6 +1218,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start", End: "end", Millis: false, Where: "--data or --start/--end"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ScheduleSelfRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1205,6 +1235,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().StringVar(&fEnd, "end", "", "Window end (Unix seconds, 10 digits). Required. Must be within 45 days of start. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStart, "start", "", "Window start (Unix seconds, 10 digits). Required. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

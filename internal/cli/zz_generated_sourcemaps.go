@@ -24,6 +24,7 @@ func genSourcemapsListCmd() *cobra.Command {
 	var fType string
 	var fUuid string
 	var fVersions []string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List sourcemaps",
@@ -48,6 +49,8 @@ Request fields:
   --type string — Platform whose symbol store to list. Defaults to 'browser' when omitted; any other value returns an empty list. | Value | Store listed | |---|---| | 'browser' | JavaScript sourcemaps (shared store; excludes HarmonyOS ArkTS and React Native rows) | | 'android' | ProGuard/R8 mapping files; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbol files | | 'miniprogram' | WeChat mini program sourcemaps | | 'react-native' | React Native JS sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | [browser, android, ios, miniprogram, react-native, harmony, flutter, electron]
   --uuid string — iOS only. Substring filter on the dSYM UUID; upper-cased and stripped of hyphens before matching. Max 200 characters. (≤200 chars)
   --versions []string — Filter by version strings. Up to 100 values.
+  --since string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) — Sourcemap records of the current page. Omitted when empty.
@@ -117,6 +120,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.SourcemapListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -143,6 +149,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fType, "type", "", "Platform whose symbol store to list. Defaults to 'browser' when omitted; any other value returns an empty list. | Value | Store listed | |---|---| | 'browser' | JavaScript sourcemaps (shared store; excludes HarmonyOS ArkTS and React Native rows) | | 'android' | ProGuard/R8 mapping files; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbol files | | 'miniprogram' | WeChat mini program sourcemaps | | 'react-native' | React Native JS sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | [browser, android, ios, miniprogram, react-native, harmony, flutter, electron]")
 	cmd.Flags().StringVar(&fUuid, "uuid", "", "iOS only. Substring filter on the dSYM UUID; upper-cased and stripped of hyphens before matching. Max 200 characters. (≤200 chars)")
 	cmd.Flags().StringSliceVar(&fVersions, "versions", nil, "Filter by version strings. Up to 100 values.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

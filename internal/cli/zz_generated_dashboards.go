@@ -11,6 +11,7 @@ import (
 func genDashboardsPanelReadPreviewCmd() *cobra.Command {
 	var dataJSON string
 	var fMaxDataPoints int64
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "dashboard-panel-preview",
 		Short: "Preview draft panel",
@@ -22,6 +23,8 @@ API: POST /monit/dashboard/panel/preview (monit-dashboard-panel-read-preview)
 
 Request fields:
   --max-data-points int — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
+  --since string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   context (object, via --data) (required) — Where an unsaved draft panel or variable set belongs. 'existing' targets a stored dashboard, 'new' a folder that does not contain one yet — the two are mutually exclusive.
     - dashboard_id (string) — Required for 'existing', forbidden for 'new'. The caller must have access to the dashboard's folder.
     - folder_id (integer) — Required for 'new', forbidden for 'existing'. Must be a folder the caller can access, otherwise the call returns 'FolderNotFound' (HTTP 404). (min 1)
@@ -179,6 +182,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.DashboardPanelPreviewRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -192,6 +198,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -202,6 +210,7 @@ func genDashboardsPanelReadRunCmd() *cobra.Command {
 	var fMaxDataPoints int64
 	var fPanelID string
 	var fRevision int64
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "dashboard-panel-run",
 		Short: "Run dashboard panel",
@@ -216,6 +225,8 @@ Request fields:
   --max-data-points int — Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)
   --panel-id string (required) — ID of the panel to execute. It must belong to the dashboard, otherwise the call returns 'TargetNotFound' (HTTP 404).
   --revision int — Revision guard. When set (non-zero) it must equal the dashboard's current revision, otherwise the call fails with 'DashboardRevisionConflict' (HTTP 409). Omit or send 0 to skip the check.
+  --since string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
     - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
     - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
@@ -293,6 +304,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.DashboardPanelRunRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -309,6 +323,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series for 'range' queries; the server derives the query step from it. 2–5000; omit or send null for the default of 100. (2-5000)")
 	cmd.Flags().StringVar(&fPanelID, "panel-id", "", "ID of the panel to execute. It must belong to the dashboard, otherwise the call returns 'TargetNotFound' (HTTP 404). (required)")
 	cmd.Flags().Int64Var(&fRevision, "revision", 0, "Revision guard. When set (non-zero) it must equal the dashboard's current revision, otherwise the call fails with 'DashboardRevisionConflict' (HTTP 409). Omit or send 0 to skip the check.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -319,6 +335,7 @@ func genDashboardsQueryReadResolveCmd() *cobra.Command {
 	var fMaxDataPoints int64
 	var fPanelIDs []string
 	var fPreserveBuiltinVariables bool
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "dashboard-runtime-queries-resolve <panel-id> [<id2>...]",
 		Short: "Resolve panel queries",
@@ -333,6 +350,8 @@ Request fields:
   --max-data-points int — Target maximum number of points per series, used to compute the step and render the built-in time variables. 2–5000; omit or send null for the default of 100. (2-5000)
   --panel-ids []string (required) — Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call.
   --preserve-builtin-variables bool — Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.
+  --since string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
     - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
     - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
@@ -387,6 +406,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.DashboardQueriesResolveRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -403,6 +425,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	cmd.Flags().Int64Var(&fMaxDataPoints, "max-data-points", 0, "Target maximum number of points per series, used to compute the step and render the built-in time variables. 2–5000; omit or send null for the default of 100. (2-5000)")
 	cmd.Flags().StringSliceVar(&fPanelIDs, "panel-ids", nil, "Panels to resolve, 1–100 unique IDs. A panel that does not exist yields an 'error' arm rather than failing the call. (required)")
 	cmd.Flags().BoolVar(&fPreserveBuiltinVariables, "preserve-builtin-variables", false, "Keep built-in time variables verbatim in the resolved expressions so a caller with its own execution window can render them; user variables are still resolved.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1048,6 +1072,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 
 func genDashboardsVariableReadPreviewCmd() *cobra.Command {
 	var dataJSON string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "dashboard-runtime-variables-preview",
 		Short: "Preview draft variables",
@@ -1058,6 +1083,8 @@ Resolve a draft variable set that is not stored in any dashboard.
 API: POST /monit/dashboard/runtime/variables/preview (monit-dashboard-variable-read-preview)
 
 Request fields:
+  --since string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   context (object, via --data) (required) — Where an unsaved draft panel or variable set belongs. 'existing' targets a stored dashboard, 'new' a folder that does not contain one yet — the two are mutually exclusive.
     - dashboard_id (string) — Required for 'existing', forbidden for 'new'. The caller must have access to the dashboard's folder.
     - folder_id (integer) — Required for 'new', forbidden for 'existing'. Must be a folder the caller can access, otherwise the call returns 'FolderNotFound' (HTTP 404). (min 1)
@@ -1130,6 +1157,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.DashboardVariablesPreviewRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1142,6 +1172,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 			})
 		},
 	}
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1149,6 +1181,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genDashboardsVariableReadResolveCmd() *cobra.Command {
 	var dataJSON string
 	var fDashboardID string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "dashboard-runtime-variables-resolve <dashboard-id>",
 		Short: "Resolve dashboard variables",
@@ -1160,6 +1193,8 @@ API: POST /monit/dashboard/runtime/variables/resolve (monit-dashboard-variable-r
 
 Request fields:
   --dashboard-id string (required) — Canonical UUIDv7 of the dashboard.
+  --since string — Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   time (object, via --data) (required) — Absolute evaluation window. Both bounds are Unix timestamps in milliseconds, 'from_ms' must be less than 'to_ms', and neither may exceed the JavaScript safe integer limit.
     - from_ms (integer) (required) — Start of the window as a Unix timestamp in milliseconds. Must be 0 or greater and less than 'to_ms'. (0-9007199254740991)
     - to_ms (integer) (required) — End of the window as a Unix timestamp in milliseconds. Must be greater than 'from_ms'; 'instant' queries are evaluated at this time. (1-9007199254740991)
@@ -1202,6 +1237,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "time", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.DashboardVariablesResolveRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1215,6 +1253,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDashboardID, "dashboard-id", "", "Canonical UUIDv7 of the dashboard. (required)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to time.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to time.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

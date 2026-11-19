@@ -243,10 +243,12 @@ List Automation runs
 - `--page` int64 — Page number, 1-based.
 - `<rule-id>` (positional, required) string — Target rule ID, from the list returned by 'POST /safari/automation/rule/list'.
 - `--search-after-ctx` string
+- `--since` string — Window start, written to started_after_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --started-after-ms/--started-before-ms also sets is an error.
 - `--started-after-ms` int64 — Start-time lower bound, Unix milliseconds. Values below the 180-day run-history retention floor are clamped to it (that floor is also the default when omitted). (min 0)
 - `--started-before-ms` int64 — Start-time upper bound, Unix milliseconds. Must be greater than or equal to the effective 'started_after_ms'; a value below the retention floor yields an empty result. (min 0)
 - `--status` string — Run status filter: 'queued', 'running', 'retrying', 'succeeded', 'partial' (partially succeeded), 'failed', 'skipped' (e.g. rule or trigger no longer valid), 'abandoned' (stale run terminated by the system), 'blocked' (terminal; produced output but a connector is waiting on a human authorization); omit for no filter. · enum: queued | running | retrying | succeeded | partial | failed | skipped | abandoned | blocked
 - `--trigger-kind` string — Trigger filter: 'schedule' schedule trigger, 'debug' debug run, 'manual' manual run, 'http_post' HTTP POST trigger, 'oncall_incident' On-call incident trigger, 'war_room_created' war room trigger; omit for no filter. · enum: schedule | debug | manual | http_post | oncall_incident | war_room_created
+- `--until` string — Window end, written to started_before_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - response: single object (`data` unwrapped to the top level) — fields: runs (array<object>); total (integer)
 
 ### automation-template-list

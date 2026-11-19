@@ -33,12 +33,10 @@ Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `applicatio
 # 1. find the app (application_id is a string)
 flashduty rum application-list --query "checkout" --output-format toon
 
-# 2. list open errors in the last 7 days (both time flags required, MILLISECOND epoch)
-NOW=$(date +%s000)
-WEEK_AGO=$(( $(date +%s) - 604800 ))000
+# 2. list open errors in the last 7 days (--since alone ends the window now)
 flashduty rum issue-list \
   --application-ids <application_id> \
-  --start-time $WEEK_AGO --end-time $NOW \
+  --since 7d \
   --statuses for_review --orderby error_count \
   --output-format toon
 
@@ -219,7 +217,9 @@ Update dashboard
 ### data-query
 Query RUM data
 - `--end-time` int64 (required) — End of the query window, Unix epoch milliseconds. Maximum 31-day span.
+- `--since` string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--start-time` int64 (required) — Start of the query window, Unix epoch milliseconds.
+- `--until` string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): queries (array<object>) (required)
 
 ### error-ingestion-rules-create <application-id>
@@ -281,9 +281,11 @@ Count facet value distribution
 - `--kind` string — Symbol kind, used only when 'scope' is 'sourcemap' and only meaningful for 'android'/'harmony': 'mapping' (default) selects ProGuard/R8 mappings or ArkTS sourcemaps, 'native' selects native .so symbols. · enum: mapping | native
 - `--limit` int64 — Maximum number of top values to return. Default 100, maximum 100. (max 100)
 - `--scope` string (required) — RUM data scope to query. One of: | Value | Meaning | |---|---| | 'session' | User sessions | | 'view' | Page views | | 'action' | User actions | | 'error' | Error events | | 'resource' | Resource loads | | 'long_task' | Long tasks | | 'vital' | Performance vitals (Web Vitals, etc.) | | 'issue' | Aggregated error-tracking issues | | 'sourcemap' | Sourcemap / symbol files | · enum: session | view | action | error | resource | long_task | vital | issue | sourcemap
+- `--since` string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--sql` string — Bare SQL 'WHERE' condition (without the 'WHERE' keyword) for extra filtering, such as 'env = 'prod''. Any occurrence of 'SELECT' is rejected.
 - `--start-time` int64 (required) — Start of the time range, Unix epoch milliseconds.
 - `--type` string — Symbol-store platform, used only when 'scope' is 'sourcemap'. Defaults to 'browser' when omitted; 'web' and 'javascript' are accepted aliases of 'browser'. | Value | Store queried | |---|---| | 'browser' / 'web' / 'javascript' | JavaScript sourcemaps (excluding HarmonyOS ArkTS and React Native rows) | | 'android' | Android ProGuard/R8 mappings; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbols | | 'miniprogram' | WeChat mini program sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | | 'react-native' | React Native JS sourcemaps | · enum: browser | web | javascript | android | ios | miniprogram | harmony | flutter | electron | react-native
+- `--until` string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): facet_value (any)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: count (integer); facet_value (any)
 
@@ -307,12 +309,14 @@ Export issues as CSV
 - `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
 - `--page` int64 — Page number (1-based). Ignored by the export — the first 100 matching rows are always read. (min 1)
 - `--search-after-ctx` string
+- `--since` string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--sql` string — SQL-style WHERE condition for advanced filtering, without the 'WHERE' keyword (for example 'error_count > 100'). Field names must be fields of the 'issue' scope; any text containing 'SELECT' is rejected. Cannot be used with 'dql'.
 - `--start-time` int64 (required) — Start of the time range, Unix timestamp in milliseconds (a value that looks like seconds is rejected). Issues are matched by creation time unless 'by_intersection' is 'true'.
 - `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
 - `--time-zone` string — IANA time zone used to render the CSV time columns and the file name, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'. An unknown zone name returns 'InvalidParameter'.
+- `--until` string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 
 ### issue-info <issue-id>
 Get issue detail
@@ -331,11 +335,13 @@ List issues
 - `--orderby` string — Sort field; defaults to 'updated_at' when omitted. | Value | Meaning | |---|---| | 'created_at' | Issue creation time | | 'updated_at' | Last update time | | 'session_count' | Affected session count | | 'error_count' | Error occurrence count | | 'severity' | Severity rank ('Critical' > 'Warning' > 'Info') | · enum: created_at | updated_at | session_count | error_count | severity
 - `--page` int64 — Page number (1-based). Default: 1. (min 1)
 - `--search-after-ctx` string
+- `--since` string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--sql` string — SQL-style WHERE condition for advanced filtering, without the 'WHERE' keyword (for example 'error_count > 100'). Field names must be fields of the 'issue' scope; any text containing 'SELECT' is rejected. Cannot be used with 'dql'.
 - `--start-time` int64 (required) — Start of the time range, Unix timestamp in milliseconds (a value that looks like seconds is rejected). Issues are matched by creation time unless 'by_intersection' is 'true'.
 - `--statuses` stringSlice — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | · enum: for_review | reviewed | ignored | resolved
 - `--suspected-causes` stringSlice — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | · enum: api.failed_request | network.error | code.exception | code.invalid_object_access | code.invalid_argument | unknown
 - `--team-ids` intSlice — Filter by team IDs. Get team IDs via 'POST /team/list'.
+- `--until` string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: age (integer); application_id (string); application_name (string); created_at (string); error (object); error_count (integer); first_seen (object); is_crash (boolean); issue_id (string); last_seen (object); regression (object); resolve_mode (string); resolved_at (string); resolved_by (integer); service (string); session_count (integer); severity (string); status (string); suspected_cause (object); team_id (integer); updated_at (string); versions (array<string>)
 
 ### issue-preset-severity-rules-create <application-id>
@@ -444,7 +450,7 @@ Regression: a `resolved` issue that recurs gets a `regression{}` object on its r
 
 ## Gotchas
 
-- **`issue-list` time flags are MILLISECOND epoch, both required.** Use `--start-time` / `--end-time` (NOT `--since`/`--until`, NOT seconds). Max range 183 days. Example: `$(date +%s)000` converts a seconds epoch to ms.
+- **Set RUM windows with `--since` / `--until`** (`7d`, `now`, RFC3339, a date, Unix seconds/ms) on `issue-list`, `issue-export`, `data-query` and `facet-count`; the CLI writes the wire's MILLISECOND `start_time`/`end_time`, so never compute epoch ms by hand. `--start-time` / `--end-time` still take raw epoch milliseconds; setting the same end both ways is an error. `issue-list` allows at most 183 days.
 - **`application_id` ≠ `issue_id`.** `issue_id` comes from `issue-list` — never pass an `application_id` where `issue_id` is expected.
 - **`application-create <team-id>` can be passed positionally or via `--team-id`** — both work; positional is shorter. Same pattern on `application-delete`, `application-info`, `application-update`, `issue-info`, `issue-update`: each takes its primary id either as the bare positional shown in the fence heading, or via the matching `--application-id`/`--issue-id` flag. `application-infos` only has the plural `--application-ids` as its flag alternative (comma-separated, vs space-separated positionals). If both positional and flag are given, the flag wins. `application-list` and `issue-list` are all-flags.
 - **`alerting` and `tracing` are nested objects** — configure them via `--data '{"alerting":{...},"tracing":{...}}'`; there are no flat flags for their sub-fields. Scalar flags (`--application-name`, `--type`, …) override matching `--data` keys.
@@ -457,11 +463,9 @@ Regression: a `resolved` issue that recurs gets a `regression{}` object on its r
 ```bash
 # Find the worst unreviewed crash in the "payment" app this week, then mark it resolved
 APP_ID=$(flashduty rum application-list --query "payment" --output-format json | jq -r '.items[0].application_id')
-NOW=$(date +%s000)
-WEEK_AGO=$(( $(date +%s) - 604800 ))000
 flashduty rum issue-list \
   --application-ids "$APP_ID" \
-  --start-time $WEEK_AGO --end-time $NOW \
+  --since 7d \
   --statuses for_review --orderby session_count \
   --limit 1 --output-format json | jq -r '.items[0].issue_id'
 # → paste the returned issue_id below

@@ -20,8 +20,7 @@ Prereq: `SKILL.md` read. These verbs are read-only/debugging helpers. They do no
 flashduty sourcemap list \
   --type browser \
   --services checkout-web \
-  --start-time 1712000000000 \
-  --end-time 1712700000000 \
+  --since 30d \
   --output-format toon
 
 # 2. Enrich the minified stack trace. Use --data for multiline stack payloads.
@@ -44,8 +43,10 @@ List sourcemaps
 - `--query` string — Free-text substring match. Matches 'minified_url' for the JS stores (browser/react-native/harmony/miniprogram), 'build_id' for android/flutter/electron and harmony with 'kind=native', or 'uuid' for ios (case-insensitive, hyphens ignored). (≤200 chars)
 - `--search-after-ctx` string
 - `--services` stringSlice — Filter by service names. Up to 100 values.
+- `--since` string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--start-time` int64 (required) — Start of upload time range, Unix epoch milliseconds. Must be > 0 and before 'end_time'.
 - `--type` string — Platform whose symbol store to list. Defaults to 'browser' when omitted; any other value returns an empty list. | Value | Store listed | |---|---| | 'browser' | JavaScript sourcemaps (shared store; excludes HarmonyOS ArkTS and React Native rows) | | 'android' | ProGuard/R8 mapping files; with 'kind=native', Android NDK .so symbols | | 'ios' | iOS dSYM symbol files | | 'miniprogram' | WeChat mini program sourcemaps | | 'react-native' | React Native JS sourcemaps | | 'harmony' | HarmonyOS ArkTS sourcemaps; with 'kind=native', HarmonyOS .so symbols | | 'flutter' | Flutter Dart AOT symbols | | 'electron' | Electron Breakpad symbols | · enum: browser | android | ios | miniprogram | react-native | harmony | flutter | electron
+- `--until` string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - `--uuid` string — iOS only. Substring filter on the dSYM UUID; upper-cased and stripped of hyphens before matching. Max 200 characters. (≤200 chars)
 - `--versions` stringSlice — Filter by version strings. Up to 100 values.
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: created_at (string); git_commit_sha (string); git_repository_url (string); key (string); metadata (object); minified_path (string); minified_url (string); service (string); size (integer); sourcemap_path (string); type (string); updated_at (string); version (string)

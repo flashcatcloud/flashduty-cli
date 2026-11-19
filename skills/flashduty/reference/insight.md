@@ -30,34 +30,30 @@ Do **not** hand-aggregate from `alert list` / `incident list` — `insight` does
 ## Hot flow — weekly SRE review
 
 ```bash
-# account-level roll-up for past 30 days
-flashduty insight account --start-time 30d --end-time now --output-format toon
+# account-level roll-up for past 30 days (--until defaults to now)
+flashduty insight account --since 30d --output-format toon
 
 # per-team and per-channel breakdowns (same flags)
-flashduty insight team    --start-time 30d --end-time now --output-format toon
-flashduty insight channel --start-time 30d --end-time now --output-format toon
+flashduty insight team    --since 30d --output-format toon
+flashduty insight channel --since 30d --output-format toon
 
 # who responded slowest (per-responder MTTA)
-flashduty insight responder --start-time 30d --end-time now --output-format toon
+flashduty insight responder --since 30d --output-format toon
 
 # top-10 noisiest check sources this week
 flashduty insight top-alerts --label check --since 7d --output-format toon
 
-# per-incident list with MTTA/MTTR (uses --since not --start-time)
+# per-incident list with MTTA/MTTR
 flashduty insight incidents --since 30d --limit 50 --output-format toon
 ```
 
 ## Hot flow — 月报 CSV export
 
 ```bash
-# incident-export takes epoch seconds ONLY (int64, not relative strings)
-S=$(date -v-30d +%s); E=$(date +%s)
-flashduty insight incident-export --start-time $S --end-time $E > incidents.csv
-
-# responder/channel/team-export accept relative strings
-flashduty insight responder-export --start-time 30d --end-time now > responders.csv
-flashduty insight channel-export   --start-time 30d --end-time now > channels.csv
-flashduty insight team-export      --start-time 30d --end-time now > teams.csv
+flashduty insight incident-export  --since 30d > incidents.csv
+flashduty insight responder-export --since 30d > responders.csv
+flashduty insight channel-export   --since 30d > channels.csv
+flashduty insight team-export      --since 30d > teams.csv
 ```
 
 <!-- GENERATED:insight START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
@@ -81,12 +77,12 @@ Get account-level insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); mean_seconds_to_close (number); noise_reduction_pct (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_alert_cnt (integer); total_alert_event_cnt (integer); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_auto_closed (integer); total_incidents_closed (integer); total_incidents_escalated (integer); total_incidents_manually_closed (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_closed (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); total_seconds_to_close (integer); ts (string)
 
@@ -111,12 +107,12 @@ Get top-K alerts grouped by check or resource
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: hours (string); label (string); total_alert_cnt (integer); total_alert_event_cnt (integer)
 
@@ -139,12 +135,12 @@ Get channel insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
 
@@ -167,12 +163,12 @@ Export channel insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 
 ### incident-export
@@ -180,7 +176,7 @@ Export insight incidents
 - `--asc` bool
 - `--channel-ids` intSlice
 - `--description-html-to-text` bool
-- `--end-time` int64
+- `--end-time` string — Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--export-fields` stringSlice
 - `--incident-ids` stringSlice
 - `--include-ever-muted` bool
@@ -193,9 +189,11 @@ Export insight incidents
 - `--seconds-to-close-from` int64
 - `--seconds-to-close-to` int64
 - `--severities` stringSlice
-- `--start-time` int64
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+- `--start-time` string — Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice
 - `--time-zone` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (JSON); labels (JSON)
 
 ### incident-list
@@ -219,11 +217,11 @@ List insight incidents
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgements (integer); active_alert_cnt (integer); alert_cnt (integer); alert_event_cnt (integer); assigned_to (object); assignments (integer); channel_id (integer); channel_name (string); closed_by (string); closer_id (integer); closer_name (string); created_at (string); creator_id (integer); creator_name (string); description (string); engaged_seconds (integer); escalations (integer); ever_muted (boolean); fields (object); frequency (string); hours (string); incident_id (string); interruptions (integer); labels (object); manual_escalations (integer); notifications (integer); owner_id (integer); owner_name (string); progress (string); reassignments (integer); responders (array<object>); seconds_to_ack (integer); seconds_to_close (integer); severity (string); snoozed_before (string); team_id (integer); team_name (string); timeout_escalations (integer); title (string)
 
@@ -255,12 +253,12 @@ Get responder insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: acknowledgement_pct (number); channel_id (integer); channel_name (string); hours (string); mean_seconds_to_ack (number); responder_id (integer); responder_name (string); team_id (integer); team_name (string); total_engaged_seconds (integer); total_incident_cnt (integer); total_incidents_acknowledged (integer); total_incidents_escalated (integer); total_incidents_manually_escalated (integer); total_incidents_reassigned (integer); total_incidents_timeout_escalated (integer); total_interruptions (integer); total_notifications (integer); total_seconds_to_ack (integer); ts (string)
 
@@ -283,12 +281,12 @@ Export responder insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 
 ### team
@@ -310,12 +308,12 @@ Get team insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 - response: same shape as `account` above
 
@@ -338,12 +336,12 @@ Export team insight
 - `--seconds-to-close-from` int64 — Lower bound (inclusive) on time-to-close, in seconds. (min 0)
 - `--seconds-to-close-to` int64 — Upper bound (exclusive) on time-to-close, in seconds. Must be greater than 'seconds_to_close_from' when both are set: the incident list and export reject such a range with 'InvalidParameter', and other endpoints return an empty result. (min 0)
 - `--severities` stringSlice — Filter by severity: 'Critical', 'Warning', 'Info', or 'Ok'. At most 3 entries. · enum: Critical | Warning | Info | Ok
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--split-hours` bool — When 'true', each bucket is further split into 'work', 'sleep' and 'off' hours, returned as separate rows with 'hours' set.
 - `--start-time` string (required) — Start time, Unix seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Filter by team IDs. At most 100 entries.
 - `--time-zone` string — IANA time zone (for example 'Asia/Shanghai' or 'UTC') used to cut 'aggregate_unit' buckets; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Defaults to UTC. '/insight/incident/export' uses it to render times, falling back to the account time zone and then 'Asia/Shanghai'.
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): fields (object); labels (object)
 
 ### top-alerts
@@ -356,29 +354,27 @@ Query top alert sources by label
 
 <!-- GENERATED:insight END -->
 
-## Time-flag families (critical — wrong name = unknown flag error)
+## Time window
 
-Two families with **identical value syntax** but different flag names:
+Every `insight` command takes `--since` / `--until`: a duration before now (`30d`, `24h`), `now`, `+7d`, RFC3339, a date, or Unix seconds/ms. Never compute epoch seconds by hand.
 
-| flag names | required? | commands |
-|---|---|---|
-| `--since` / `--until` | optional (defaults: `7d` / `now`) | `top-alerts`, `incidents` |
-| `--start-time` / `--end-time` | **both required** | all others (`account`, `alert-topk-by-label`, `channel`, `channel-export`, `incident-export`, `incident-list`, `responder`, `responder-export`, `team`, `team-export`) |
+| command | without `--since` |
+|---|---|
+| `top-alerts`, `incidents` | defaults `--since 7d` / `--until now` |
+| all others (`account`, `alert-topk-by-label`, `channel`, `channel-export`, `incident-export`, `incident-list`, `responder`, `responder-export`, `team`, `team-export`) | the window is required; `--since` alone ends it now |
 
-Both families accept: relative duration (`30d`, `24h`), `now`, `+7d`, a date, or Unix seconds — **except** `incident-export`, which takes **epoch seconds only** for `--start-time`/`--end-time` (flag type is int64).
+The others also keep `--start-time` / `--end-time` (same value forms). Setting a window end through both `--since`/`--until` and `--start-time`/`--end-time` or `--data` is an error, not a silent pick.
 
 ## Gotchas
 
-- **Two time-flag families.** Passing `--since` to an `--start-time` command (or vice-versa) fails with `unknown flag`. See the table above.
-- **`incident-export --start-time`/`--end-time` are epoch seconds only**, not relative strings — use `$(date -v-30d +%s)`. All other `--start-time` commands accept `30d`/`now`.
 - **`top-alerts --label`** only accepts `check` or `resource`. Any other value (e.g. `integration_name`) returns HTTP 400.
 - **Export commands output raw CSV, not JSON.** Redirect to a file; dumping CSV into context burns tokens and is unreadable. No `--limit`/`--page` — exports emit the full filtered set.
-- **`insight incidents` and `incident-list` are siblings**, not the same. `incidents` uses `--since`/`--until`, paginates, and is token-light. `incident-list` uses `--start-time`/`--end-time`, adds `--severities`/`--responder-ids`/`--query`/cursor (`--search-after-ctx`), and is the filterable variant.
+- **`insight incidents` and `incident-list` are siblings**, not the same. `incidents` paginates and is token-light. `incident-list` adds `--severities`/`--responder-ids`/`--query`/cursor (`--search-after-ctx`), and is the filterable variant.
 - **All `insight` commands hit the OLAP backend.** HTTP 500 means the backend is down — report it, do not retry.
 - **Empty result is authoritative.** A zero-row response means no matching data for that scope/window — do not widen filters or re-query with shifted keywords.
-- **A window-over-window claim (day-over-day, WoW) needs one call spanning every window compared.** A `--since 1d` / narrow `--start-time` call only proves that one range — reporting other days, or a delta against a prior period no call touched, is the SKILL.md "未查询" fabrication, not a finding. Use `--aggregate-unit day|week|month` on a `--start-time`/`--end-time` range wide enough to cover every window you're comparing — one call, bucketed, so every number is real.
+- **A window-over-window claim (day-over-day, WoW) needs one call spanning every window compared.** A `--since 1d` call only proves that one range — reporting other days, or a delta against a prior period no call touched, is the SKILL.md "未查询" fabrication, not a finding. Use `--aggregate-unit day|week|month` on a `--since`/`--until` range wide enough to cover every window you're comparing — one call, bucketed, so every number is real.
 - **`--aggregate-unit`** (on `account`, `alert-topk-by-label`, `channel`, `responder`, `team` and their exports) splits results into time buckets: `day` / `week` / `month`. When set, the window must span ≥24 h; `day` additionally caps the range at 31 days.
-- **`top-alerts` and `alert-topk-by-label` return the same top-K breakdown** (`label`, `hours`, `total_alert_cnt`, `total_alert_event_cnt`) — `alert-topk-by-label` is the superset (adds `--team-ids`/`--channel-ids`/severity filters and `--start-time`/`--end-time`). Pick one; don't call both for the same question.
+- **`top-alerts` and `alert-topk-by-label` return the same top-K breakdown** (`label`, `hours`, `total_alert_cnt`, `total_alert_event_cnt`) — `alert-topk-by-label` is the superset (adds `--team-ids`/`--channel-ids`/severity filters). Pick one; don't call both for the same question.
 - **`responder` has no `--limit`/`--page`** — one call returns every responder's rollup for the account. For account-wide load analysis, use that single response; don't cap it and re-fetch for the rest.
 - **Iterating on a `jq` filter? Save `--json` once, then re-run `jq` against the saved file.** Each `flashduty insight ...` invocation is a real backend query — re-running the whole command per filter tweak multiplies OLAP load for nothing and risks a timeout on a heavy window.
 
@@ -390,7 +386,7 @@ flashduty insight alert-topk-by-label \
   --label check \
   --k 20 \
   --orderby total_alert_event_cnt \
-  --start-time 7d --end-time now \
+  --since 7d \
   --output-format toon
 # → returns label, total_alert_cnt, total_alert_event_cnt per check
 # Drill into a specific team: add --team-ids <id>

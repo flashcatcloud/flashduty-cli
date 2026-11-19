@@ -896,6 +896,7 @@ func genIntegrationsListCmd() *cobra.Command {
 	var fSearchAfterCtx string
 	var fStartTime int64
 	var fStatus string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "history-list",
 		Short: "List webhook delivery history",
@@ -916,6 +917,8 @@ Request fields:
   --search-after-ctx string — Opaque cursor returned by a previous call for fetching the next page.
   --start-time int (required) — Window start time in Unix milliseconds. (1000000000000-9999999999999)
   --status string — Filter by delivery status: 'success' or 'failed'. [success, failed]
+  --since string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Webhook delivery records on the current page.
@@ -978,6 +981,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ListWebhookHistoryRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1000,6 +1006,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Opaque cursor returned by a previous call for fetching the next page.")
 	cmd.Flags().Int64Var(&fStartTime, "start-time", 0, "Window start time in Unix milliseconds. (required) (1000000000000-9999999999999)")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by delivery status: 'success' or 'failed'. [success, failed]")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

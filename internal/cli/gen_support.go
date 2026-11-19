@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -722,37 +721,6 @@ func genParseTimeFlag(cmd *cobra.Command, name, raw string) (val int64, ok bool,
 		return 0, false, fmt.Errorf("invalid --%s: %w", name, err)
 	}
 	return v, true, nil
-}
-
-// genParseTimeFlagAlias parses a relative-time flag that cligen emitted with an
-// alias spelling (generated --start-time ↔ --since, --end-time ↔ --until):
-//
-//   - exactly one spelling set → that spelling's value is used;
-//   - both spellings set to the same raw value → accepted silently;
-//   - both spellings set to different raw values → a loud conflict error, in
-//     the style of the CLI's other flag-conflict errors.
-//
-// The winning spelling's value then goes through genParseTimeFlag, so both
-// spellings accept the identical duration/date/Unix-seconds forms and a parse
-// error names the spelling the user actually typed.
-func genParseTimeFlagAlias(cmd *cobra.Command, name, alias, raw, aliasRaw string) (val int64, ok bool, err error) {
-	switch {
-	case cmd.Flags().Changed(name) && cmd.Flags().Changed(alias) && raw != aliasRaw:
-		return 0, false, fmt.Errorf("--%s and --%s disagree (%q vs %q); set only one spelling, or use the same value", alias, name, aliasRaw, raw)
-	case cmd.Flags().Changed(alias):
-		name, raw = alias, aliasRaw
-	}
-	return genParseTimeFlag(cmd, name, raw)
-}
-
-// genNoteWindow announces a generated verb's resolved --start-time/--end-time
-// window (see noteWindow), when both flags were given. A side left to --data
-// or to the server's default was not resolved by the CLI, so nothing is
-// announced rather than half a window.
-func genNoteWindow(cmd *cobra.Command, start, end int64, both bool) {
-	if both {
-		noteWindow(cmd.ErrOrStderr(), time.Unix(start, 0), time.Unix(end, 0), "")
-	}
 }
 
 // genGroup finds an existing subcommand named `name` under parent, or creates a
