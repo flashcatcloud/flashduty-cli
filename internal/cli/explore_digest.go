@@ -199,26 +199,41 @@ func (d *digest) samples(r *exploreResult) bool {
 	})
 	width := 0
 	for _, s := range all[:min(len(all), digestMaxSamples)] {
-		width = max(width, len(sampleValue(s)))
+		width = max(width, utf8.RuneCountInString(sampleValue(s)))
 	}
 	lines := make([]string, len(all))
 	for i, s := range all {
 		lines[i] = capLine(fmt.Sprintf("  %-*s  %s", width, sampleValue(s), capText(s.id, digestLabelCap)))
 	}
-	shown := d.fit(lines, digestMaxSamples, 200)
-	header := fmt.Sprintf("samples: %d, sorted by value descending", len(all))
-	if shown < len(all) {
-		header = fmt.Sprintf("samples: showing %d of %d, sorted by value descending", shown, len(all))
+	// Header lines are built first so the body is fitted against their real
+	// length. The value summary is included whenever a cut is possible.
+	var meta []string
+	if line := commonLabelsLine(common); line != "" {
+		meta = append(meta, line)
 	}
-	d.line("%s", header)
-	d.commonLabels(common)
-	if shown < len(all) && len(finite) > 0 {
+	summary := ""
+	if len(finite) > 0 {
 		sort.Float64s(finite)
-		d.line("all %d finite values: min %s, median %s, max %s", len(finite),
+		summary = fmt.Sprintf("all %d finite values: min %s, median %s, max %s", len(finite),
 			fmtNum(finite[0]), fmtNum(median(finite)), fmtNum(finite[len(finite)-1]))
 	}
-	if nonFinite := len(all) - len(finite); nonFinite > 0 {
-		d.line("non-finite or non-numeric values: %d", nonFinite)
+	nonFinite := ""
+	if n := len(all) - len(finite); n > 0 {
+		nonFinite = fmt.Sprintf("non-finite or non-numeric values: %d", n)
+	}
+	header := fmt.Sprintf("samples: showing %d of %d, sorted by value descending", len(all), len(all))
+	shown := d.fit(lines, digestMaxSamples, linesLen(append(meta, header, summary, nonFinite)))
+	if shown < len(all) {
+		d.line("samples: showing %d of %d, sorted by value descending", shown, len(all))
+	} else {
+		d.line("samples: %d, sorted by value descending", len(all))
+	}
+	d.items(meta)
+	if shown < len(all) && summary != "" {
+		d.line("%s", summary)
+	}
+	if nonFinite != "" {
+		d.line("%s", nonFinite)
 	}
 	d.items(lines[:shown])
 	d.footer()
@@ -343,7 +358,7 @@ func frameSeries(fields []exploreField) ([]digestSeries, bool) {
 	times = sorted
 	var out []digestSeries
 	for _, f := range fields {
-		if f.Type == "time" {
+		if f.Type == "time" || f.Type == "string" || f.Type == "bool" {
 			continue
 		}
 		if len(f.Values) != len(times) {
@@ -367,6 +382,11 @@ func frameSeries(fields []exploreField) ([]digestSeries, bool) {
 			s.hasFinite = true
 		}
 		out = append(out, s)
+	}
+	// A frame with points but no value field is not "no data"; leave it to
+	// the generic rendering.
+	if len(out) == 0 && len(times) > 0 {
+		return nil, false
 	}
 	return out, true
 }
@@ -400,21 +420,28 @@ func (d *digest) timeSeries(r *exploreResult, series []digestSeries, frames int)
 	for i, s := range series {
 		blocks[i] = seriesBlock(i+1, s, shared)
 	}
-	shown := d.fit(blocks, digestMaxSeries, 400)
+	// Header lines are built first so the body is fitted against their real
+	// length.
+	var meta []string
+	if line := commonLabelsLine(common); line != "" {
+		meta = append(meta, line)
+	}
+	if shared {
+		s := series[0]
+		meta = append(meta, fmt.Sprintf("all series: %s, %s .. %s", plural(len(s.times), "point"), formatLocal(s.times[0]), formatLocal(s.times[len(s.times)-1])))
+	}
+	tail := " (" + plural(frames, "frame") + "), sorted by max descending"
+	if step := r.Execution.EffectiveStepSeconds; step != nil {
+		tail += "; step " + numberText(*step) + "s"
+	}
+	longest := fmt.Sprintf("time_series: showing %d of %d series", len(series), len(series)) + tail
+	shown := d.fit(blocks, digestMaxSeries, linesLen(append(meta, longest)))
 	head := fmt.Sprintf("time_series: %d series", len(series))
 	if shown < len(series) {
 		head = fmt.Sprintf("time_series: showing %d of %d series", shown, len(series))
 	}
-	head += " (" + plural(frames, "frame") + "), sorted by max descending"
-	if step := r.Execution.EffectiveStepSeconds; step != nil {
-		head += "; step " + step.String() + "s"
-	}
-	d.line("%s", head)
-	d.commonLabels(common)
-	if shared {
-		s := series[0]
-		d.line("all series: %s, %s .. %s", plural(len(s.times), "point"), formatLocal(s.times[0]), formatLocal(s.times[len(s.times)-1]))
-	}
+	d.line("%s", head+tail)
+	d.items(meta)
 	d.items(blocks[:shown])
 }
 
@@ -624,7 +651,7 @@ func (d *digest) logs(r *exploreResult) bool {
 	}
 	limit := "unknown"
 	if r.Result.AppliedLimit != nil {
-		limit = r.Result.AppliedLimit.String()
+		limit = numberText(*r.Result.AppliedLimit)
 	}
 	hasMore := "unknown"
 	if r.Result.HasMore != nil {
@@ -665,12 +692,12 @@ func (d *digest) logs(r *exploreResult) bool {
 		case f.echoesTS:
 		case f.present == len(entries) && len(f.counts) == 1:
 			for v := range f.counts {
-				constants = append(constants, capLine("  "+escapeText(f.name)+"="+logValue(v)))
+				constants = append(constants, capLine("  "+fieldName(f.name)+"="+logValue(v)))
 			}
 		default:
 			varying = append(varying, f.name)
 			if lowCardinality(f, len(entries)) {
-				lowCard = append(lowCard, capLine("  "+escapeText(f.name)+": "+valueCounts(f, len(entries))))
+				lowCard = append(lowCard, capLine("  "+fieldName(f.name)+": "+valueCounts(f, len(entries))))
 			}
 		}
 	}
@@ -689,7 +716,7 @@ func (d *digest) logs(r *exploreResult) bool {
 		var parts []string
 		for _, name := range varying {
 			if raw, present := e.Fields[name]; present {
-				parts = append(parts, escapeText(name)+"="+logValue(rawText(raw)))
+				parts = append(parts, fieldName(name)+"="+logValue(rawText(raw)))
 			}
 		}
 		for j, part := range parts {
@@ -700,7 +727,7 @@ func (d *digest) logs(r *exploreResult) bool {
 			}
 			line += " " + part
 		}
-		lines[i] = line
+		lines[i] = capLine(line)
 	}
 	shown := d.fit(lines, len(lines), 150)
 	if shown < len(entries) {
@@ -787,6 +814,16 @@ func valueCounts(f *logField, entries int) string {
 		parts = append(parts, fmt.Sprintf("absent (%d)", missing))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// fieldName caps and escapes a log field name.
+func fieldName(name string) string {
+	return escapeText(capText(name, digestFieldCap))
+}
+
+// numberText caps a server-reported number literal for display.
+func numberText(n json.Number) string {
+	return capText(n.String(), 24)
 }
 
 // logValue truncates a field value and quotes it when it would not read as
@@ -938,10 +975,20 @@ func withoutLabels(labels, drop map[string]string) map[string]string {
 	return out
 }
 
-func (d *digest) commonLabels(common map[string]string) {
-	if len(common) > 0 {
-		d.line("%s", capLine("common labels: "+labelString(common)))
+func commonLabelsLine(common map[string]string) string {
+	if len(common) == 0 {
+		return ""
 	}
+	return capLine("common labels: " + labelString(common))
+}
+
+// linesLen is the byte length of lines once printed one per line.
+func linesLen(lines []string) int {
+	n := 0
+	for _, l := range lines {
+		n += len(l) + 1
+	}
+	return n
 }
 
 // labelString renders a label set as {k="v", ...} sorted by key.
@@ -990,7 +1037,7 @@ func hasControl(s string) bool {
 	if !utf8.ValidString(s) {
 		return true
 	}
-	return strings.IndexFunc(s, unicode.IsControl) >= 0
+	return strings.IndexFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0
 }
 
 // capText truncates s to limit runes, stating how many were cut.

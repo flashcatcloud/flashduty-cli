@@ -276,7 +276,7 @@ func TestExploreDigest(t *testing.T) {
 		}, []string{"shape"}},
 		{"time_series_seconds", []string{"    points: 11:00:00 1 | 11:00:20 2 | 11:00:40 3\n"}, nil},
 		{"time_series_overnight", []string{"(bucket start → max, 2h10m buckets): 01-02T11:00 1 | 01-02T13:10 2 | ", " | 01-03T00:00 7 | ", " | 01-03T10:50 12\n"}, nil},
-		{"time_series_many", []string{"time_series: showing 17 of 134 series (134 frames), sorted by max descending\n", "[1] {service=\"svc-133\"}\n", "[17] {service=\"svc-117\"}\n"}, []string{"svc-116", "common labels"}},
+		{"time_series_many", []string{"time_series: showing 18 of 134 series (134 frames), sorted by max descending\n", "[1] {service=\"svc-133\"}\n", "[18] {service=\"svc-116\"}\n"}, []string{"svc-115", "common labels"}},
 		{"time_series_unaligned", []string{
 			"time_series: 2 series (2 frames), sorted by max descending\n[1] {service=\"search\"}  3 points, 2026-01-02T11:00:00+08:00 .. 2026-01-02T11:02:00+08:00\n",
 			"[2] {service=\"checkout\"}  13 points, 2026-01-02T11:00:00+08:00 .. 2026-01-02T11:12:00+08:00\n",
@@ -323,8 +323,8 @@ func TestExploreDigest(t *testing.T) {
 			if strings.HasPrefix(tc.name, "empty") && strings.Count(got, "\n") != 1 {
 				t.Errorf("empty result should print one line, got %q", got)
 			}
-			if len(got) > 8500 {
-				t.Errorf("digest is %d bytes, want ≤ 8500", len(got))
+			if len(got) > 8192 {
+				t.Errorf("digest is %d bytes, want ≤ 8192", len(got))
 			}
 			for _, w := range tc.want {
 				if !strings.Contains(got, w) {
@@ -433,8 +433,8 @@ func mustDigest(t *testing.T, out *flashduty.DatasourceToolResult) string {
 	if !ok {
 		t.Fatal("digest declined an explore_result.v1 result")
 	}
-	if len(got) > 8500 {
-		t.Errorf("digest is %d bytes, want ≤ 8500", len(got))
+	if len(got) > 8192 {
+		t.Errorf("digest is %d bytes, want ≤ 8192", len(got))
 	}
 	return got
 }
@@ -576,9 +576,8 @@ func TestExploreDigestSharedBudget(t *testing.T) {
 	frames = append(frames, table, table, table)
 	got := mustDigest(t, framesFixture(t, frames...))
 	for _, w := range []string{
-		"time_series: showing 14 of 20 series",
-		"table 1/3: 120 rows × 6 columns, showing 4 of 120 rows\n",
-		"table 2/3: 120 rows × 6 columns not shown\n(1 more table frame, 120 rows, not shown)\n" + digestFooter,
+		"time_series: showing 15 of 20 series",
+		"table 1/3: 120 rows × 6 columns not shown\n(2 more table frames, 240 rows, not shown)\n" + digestFooter,
 	} {
 		if !strings.Contains(got, w) {
 			t.Fatalf("missing %q in:\n%s", w, got)
@@ -617,5 +616,110 @@ func TestExploreDigestSharedAxisComparesEveryPoint(t *testing.T) {
 		timedFrame(map[string]string{"service": "b"}, b, []any{4, 5, 6})))
 	if strings.Contains(got, "all series") || !strings.Contains(got, "[1] {service=\"b\"}  3 points, ") {
 		t.Fatalf("differing axes reported as shared:\n%s", got)
+	}
+}
+
+// A hostile result cannot push the digest past its bound: an enormous field
+// name and number literals, and long label pairs shared by every series.
+func TestExploreDigestHostileResultStaysBounded(t *testing.T) {
+	pinClock(t, digestT0)
+	huge := strings.Repeat("9", 5000)
+	hugeName := strings.Repeat("n", 200000)
+	entries := make([]any, 3)
+	for i := range entries {
+		entries[i] = map[string]any{"timestamp_ns": fmt.Sprint(digestT0.Add(time.Duration(i) * time.Second).UnixNano()),
+			"fields": map[string]any{hugeName: fmt.Sprint(i), "msg": strings.Repeat("m", 5000)}}
+	}
+	shared := map[string]string{}
+	for k := range 30 {
+		shared[fmt.Sprintf("label_%02d_%s", k, strings.Repeat("k", 100))] = strings.Repeat("v", 1000)
+	}
+	frames := make([]any, 30)
+	for i := range frames {
+		labels := map[string]string{"service": fmt.Sprintf("svc-%02d", i)}
+		for k, v := range shared {
+			labels[k] = v
+		}
+		frames[i] = timedFrame(labels, evenTimes(40, time.Minute), rampValues(40, float64(i), 1, -1, 0))
+	}
+	for name, in := range map[string]*flashduty.DatasourceToolResult{
+		"logs": exploreFixture(t, map[string]any{"kind": "logs", "applied_limit": json.Number(huge), "has_more": true, "entries": entries}, nil),
+		"series": exploreFixture(t, map[string]any{"kind": "frames", "frames": frames},
+			map[string]any{"execution": map[string]any{"kind": "range", "effective_step_seconds": json.Number(huge)}}),
+		"samples": exploreFixture(t, map[string]any{"kind": "samples", "samples": func() []any {
+			out := make([]any, 30)
+			for i := range out {
+				labels := map[string]string{"pod": fmt.Sprint(i)}
+				for k, v := range shared {
+					labels[k] = v
+				}
+				out[i] = map[string]any{"labels": labels, "value": i}
+			}
+			return out
+		}()}, nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := mustDigest(t, in)
+			if strings.Contains(got, strings.Repeat("9", 100)) || strings.Contains(got, strings.Repeat("n", 300)) {
+				t.Fatalf("uncapped text in digest:\n%.2000s", got)
+			}
+		})
+	}
+}
+
+// Header lines are fitted against their real length: the body never pushes
+// the digest past the budget plus one forced item.
+func TestExploreDigestHeaderCountsTowardBudget(t *testing.T) {
+	pinClock(t, digestT0)
+	shared := map[string]string{"description": strings.Repeat("d", 1400)}
+	samples := make([]any, 200)
+	for i := range samples {
+		samples[i] = map[string]any{"labels": map[string]string{"description": shared["description"], "pod": fmt.Sprintf("orders-%03d-%s", i, strings.Repeat("p", 250))}, "value": i}
+	}
+	got := mustDigest(t, exploreFixture(t, map[string]any{"kind": "samples", "samples": samples}, nil))
+	body := strings.TrimSuffix(got, digestFooter)
+	if len(body) > digestBudget {
+		t.Fatalf("body is %d bytes, budget %d", len(body), digestBudget)
+	}
+}
+
+// A time_series frame whose only fields are its time axis and non-numeric
+// columns is declined, not reported as empty; string fields are not series.
+func TestExploreDigestTimeSeriesWithoutValues(t *testing.T) {
+	stamps := []any{"2026-01-02T03:00:00Z", "2026-01-02T03:01:00Z"}
+	onlyStrings := framesFixture(t, map[string]any{"kind": "time_series", "fields": []any{
+		map[string]any{"name": "time", "type": "time", "values": stamps},
+		map[string]any{"name": "host", "type": "string", "values": []any{"a", "b"}},
+	}})
+	if got, ok := exploreDigest(onlyStrings); ok {
+		t.Fatalf("time axis without values rendered as a digest:\n%s", got)
+	}
+	mixed := mustDigest(t, framesFixture(t, map[string]any{"kind": "time_series", "fields": []any{
+		map[string]any{"name": "time", "type": "time", "values": stamps},
+		map[string]any{"name": "host", "type": "string", "values": []any{"a", "b"}},
+		map[string]any{"name": "ok", "type": "bool", "values": []any{true, false}},
+		map[string]any{"name": "value", "type": "float", "labels": map[string]string{"job": "api"}, "values": []any{1, 2}},
+	}}))
+	if !strings.Contains(mixed, "time_series: 1 series (1 frame)") || strings.Contains(mixed, "host") || strings.Contains(mixed, "non-finite") {
+		t.Fatalf("non-numeric fields rendered as series:\n%s", mixed)
+	}
+}
+
+func TestExploreDigestSampleWidthCountsRunes(t *testing.T) {
+	got := mustDigest(t, exploreFixture(t, map[string]any{"kind": "samples", "samples": []any{
+		map[string]any{"labels": map[string]string{"pod": "a"}, "value": 1},
+		map[string]any{"labels": map[string]string{"pod": "b"}, "value": "écrit"},
+	}}, nil))
+	if !strings.Contains(got, "  1      {pod=\"a\"}\n  écrit  {pod=\"b\"}\n") {
+		t.Fatalf("value column misaligned:\n%s", got)
+	}
+}
+
+func TestEscapeTextFormatCharacters(t *testing.T) {
+	if got := escapeText("abc\u202edef"); got != `"abc\u202edef"` {
+		t.Fatalf("bidi override not escaped: %s", got)
+	}
+	if got := escapeText("plain café"); got != "plain café" {
+		t.Fatalf("printable text altered: %s", got)
 	}
 }

@@ -114,16 +114,16 @@ func resolveToolParams(flag string) (json.RawMessage, error) {
 	}
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.UseNumber()
-	var obj map[string]any
-	if err := decoder.Decode(&obj); err != nil {
+	var value any
+	if err := decoder.Decode(&value); err != nil {
 		return nil, fmt.Errorf("invalid --params JSON: %w", err)
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
 		return nil, fmt.Errorf("invalid --params JSON: expected one JSON object")
 	}
-	if obj == nil {
-		return nil, fmt.Errorf("invalid --params JSON: expected an object")
+	if _, ok := value.(map[string]any); !ok {
+		return nil, fmt.Errorf("--params must be a JSON object")
 	}
 	return json.RawMessage(raw), nil
 }
@@ -135,12 +135,18 @@ func resolveToolParams(flag string) (json.RawMessage, error) {
 // exact (UseNumber) and leaves '<', '>' and '&' in query text unescaped;
 // execution.kind is never invented.
 func applyToolWindow(params json.RawMessage, since, until string, setSince, setUntil bool) (json.RawMessage, error) {
+	if setSince && strings.TrimSpace(since) == "" {
+		return nil, fmt.Errorf("invalid --since: empty value")
+	}
+	if setUntil && strings.TrimSpace(until) == "" {
+		return nil, fmt.Errorf("invalid --until: empty value")
+	}
 	obj := map[string]any{}
 	if len(params) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(params))
 		dec.UseNumber()
 		if err := dec.Decode(&obj); err != nil {
-			return nil, fmt.Errorf("invalid --params JSON: %w", err)
+			return nil, fmt.Errorf("--params must be a JSON object to apply --since/--until")
 		}
 	}
 	execution := map[string]any{}

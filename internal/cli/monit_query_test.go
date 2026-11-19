@@ -119,7 +119,8 @@ func TestMonitQueryToolInvokeRejectsBadInputBeforeRequest(t *testing.T) {
 		{"zero datasource id", []string{"monit-query", "0", "--tool", "prometheus.query"}, "datasource-id"},
 		{"malformed params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "{oops"}, "--params"},
 		{"null params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "null"}, "--params"},
-		{"array params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "[1,2]"}, "--params"},
+		{"array params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "[1,2]"}, "--params must be a JSON object"},
+		{"string params", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", `"up"`}, "--params must be a JSON object"},
 		{"trailing params value", []string{"monit-query", "42", "--tool", "prometheus.query", "--params", "{} {}"}, "--params"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -332,6 +333,9 @@ func TestMonitQueryWindowFlagsRejectBeforeRequest(t *testing.T) {
 			[]string{"inverted window"}},
 		{"bad since", []string{"--since", "yesterday-ish"}, []string{"invalid --since"}},
 		{"execution not an object", []string{"--params", `{"execution":"range"}`, "--since", "1h"}, []string{"execution must be an object"}},
+		{"empty since", []string{"--params", `{"expr":"up"}`, "--since", ""}, []string{"invalid --since: empty value"}},
+		{"empty until", []string{"--params", `{"expr":"up"}`, "--until", " "}, []string{"invalid --until: empty value"}},
+		{"array params with window", []string{"--params", `[1]`, "--since", "1h"}, []string{"--params must be a JSON object"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			saveAndResetGlobals(t)
@@ -363,5 +367,12 @@ func TestMonitQueryNoWindowFlagsForwardsParamsVerbatim(t *testing.T) {
 	}
 	if raw := <-requests; !strings.Contains(raw, `"params":`+params) {
 		t.Fatalf("params not forwarded verbatim: %s", raw)
+	}
+}
+
+func TestApplyToolWindowRejectsNonObjectParams(t *testing.T) {
+	_, err := applyToolWindow(json.RawMessage(`[1]`), "1h", "", true, false)
+	if err == nil || err.Error() != "--params must be a JSON object to apply --since/--until" {
+		t.Fatalf("error = %v", err)
 	}
 }
