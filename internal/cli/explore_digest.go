@@ -107,6 +107,9 @@ func exploreDigest(out *flashduty.DatasourceToolResult, window string) (string, 
 	if window != "" {
 		d.line("%s", capLine(window))
 	}
+	if out.Summary != nil && *out.Summary != "" {
+		d.line("summary: %s", escapeText(capText(*out.Summary, digestFieldCap)))
+	}
 	if out.Truncated != nil {
 		d.line("note: result truncated by the server: %s", escapeText(capText(out.Truncated.Reason, digestFieldCap)))
 	}
@@ -619,7 +622,7 @@ func (d *digest) table(fields []exploreField, i, total int) bool {
 				cells[c] = tableCell(f.Values[row], f.Type)
 			}
 		}
-		lines[row] = capLine(strings.Join(cells, " | "))
+		lines[row] = capLine("  " + strings.Join(cells, " | "))
 	}
 	colLine := capLine("  " + strings.Join(names, " | "))
 	shown := d.fit(lines, len(colLine)+100)
@@ -636,9 +639,7 @@ func (d *digest) table(fields []exploreField, i, total int) bool {
 		d.line("%s: %d rows × %d columns", label, rows, len(fields))
 	}
 	d.line("%s", colLine)
-	for _, l := range lines[:shown] {
-		d.line("  %s", l)
-	}
+	d.items(lines[:shown])
 	return true
 }
 
@@ -718,7 +719,7 @@ func (d *digest) logs(r *exploreResult) bool {
 			}
 		}
 	}
-	varying, message := messageFirst(varying)
+	varying, message := messageFirst(varying, byName)
 
 	d.line("logs: %s (applied_limit %s, has_more %s), first %s, last %s",
 		plural(len(entries), "entry"), limit, hasMore, formatLocal(times[0]), formatLocal(times[len(times)-1]))
@@ -780,16 +781,33 @@ func logEntryLine(ts time.Time, fields map[string]any, varying []string, message
 }
 
 // fitLogValue renders v as logValue does, but limited to room bytes instead
-// of digestFieldCap characters; the "(+N chars)" marker states any cut.
+// of digestFieldCap characters; the "(+N chars)" marker states any cut. It
+// keeps the most characters whose rendering fits, so multi-byte text fills
+// the room as ASCII does.
 func fitLogValue(v string, room int) string {
-	limit := utf8.RuneCountInString(v)
-	for {
-		out := logValueCap(v, limit)
-		if len(out) <= room || limit == 0 {
+	runes := utf8.RuneCountInString(v)
+	if out := logValueCap(v, runes); len(out) <= room {
+		return out
+	}
+	// The rendered length grows with the character limit except where the
+	// marker's count loses a digit or a cut drops the need for quoting, so
+	// search for the largest fitting limit, then step down past any such
+	// wobble.
+	lo, hi := 0, runes-1
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if len(logValueCap(v, mid)) <= room {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	for ; lo > 0; lo-- {
+		if out := logValueCap(v, lo); len(out) <= room {
 			return out
 		}
-		limit -= max(1, min(limit, len(out)-room))
 	}
+	return logValueCap(v, 0)
 }
 
 // lowCardinality reports whether a field's value distribution is worth a
@@ -807,17 +825,22 @@ func lowCardinality(f *logField, entries int) bool {
 	return true
 }
 
-// messageFirst moves the first conventional message field to the front and
-// names it; names is sorted and stays so otherwise.
-func messageFirst(names []string) ([]string, string) {
+// messageFirst moves the conventional message field present in the most
+// entries to the front and names it, ties going to the earlier name in
+// logMessageFields; names is sorted and stays so otherwise.
+func messageFirst(names []string, byName map[string]*logField) ([]string, string) {
+	best, at := "", -1
 	for _, m := range logMessageFields {
 		for i, n := range names {
-			if n == m {
-				return append([]string{m}, append(names[:i:i], names[i+1:]...)...), m
+			if n == m && (at < 0 || byName[m].present > byName[best].present) {
+				best, at = m, i
 			}
 		}
 	}
-	return names, ""
+	if at < 0 {
+		return names, ""
+	}
+	return append([]string{best}, append(names[:at:at], names[at+1:]...)...), best
 }
 
 // fieldGroup prints a titled list of field lines while they fit the

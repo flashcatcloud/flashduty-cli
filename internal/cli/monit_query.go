@@ -102,8 +102,8 @@ By default a query result (data.format 'explore_result.v1') prints as a bounded 
 	cmd.Flags().StringVar(&tool, "tool", "", "Single tool name prefixed by the datasource type: a query tool '<type>.query' or an Edge-defined diagnostic tool (e.g. 'mysql.overview'). (required)")
 	_ = cmd.MarkFlagRequired("tool")
 	cmd.Flags().StringVar(&paramsFlag, "params", "", "Tool-specific JSON parameters as inline JSON, or - to read stdin. Omitted means the params field is not sent (the server treats it as {}); explicit null is invalid. Numbers are sent byte-exact, so epoch-millisecond values above 2^53 keep their digits.")
-	cmd.Flags().StringVar(&since, "since", "", "Window start written to params execution.from_ms: duration before now (30m, 2h, 7d), RFC3339, date, datetime, or unix seconds/ms. Without --until the window ends now.")
-	cmd.Flags().StringVar(&until, "until", "", "Window end written to params execution.to_ms (same formats as --since). Alone it sets an instant evaluation time.")
+	cmd.Flags().StringVar(&since, "since", "", "Window start written to params execution.from_ms: duration before now (30m, 2h, 7d), RFC3339, date, datetime, or unix seconds/ms; one-second precision. Without --until the window ends now.")
+	cmd.Flags().StringVar(&until, "until", "", "Window end written to params execution.to_ms (same formats and one-second precision as --since). Alone it sets an instant evaluation time.")
 	cmd.Flags().Int64Var(&accountID, "account-id", 0, "Optional consistency check; must equal the authenticated account.")
 	return cmd
 }

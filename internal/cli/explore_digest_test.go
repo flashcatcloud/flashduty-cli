@@ -641,8 +641,17 @@ func TestExploreDigestHostileResultStaysBounded(t *testing.T) {
 		}
 		frames[i] = timedFrame(labels, evenTimes(40, time.Minute), rampValues(40, float64(i), 1, -1, 0))
 	}
+	tinyRows := func(typ string, v any) *flashduty.DatasourceToolResult {
+		values := make([]any, 5000)
+		for i := range values {
+			values[i] = v
+		}
+		return framesFixture(t, map[string]any{"kind": "table", "fields": []any{map[string]any{"name": "c", "type": typ, "values": values}}})
+	}
 	for name, in := range map[string]*flashduty.DatasourceToolResult{
-		"logs": exploreFixture(t, map[string]any{"kind": "logs", "applied_limit": json.Number(huge), "has_more": true, "entries": entries}, nil),
+		"tiny string rows": tinyRows("string", "1"),
+		"tiny int rows":    tinyRows("number", 1),
+		"logs":             exploreFixture(t, map[string]any{"kind": "logs", "applied_limit": json.Number(huge), "has_more": true, "entries": entries}, nil),
 		"series": exploreFixture(t, map[string]any{"kind": "frames", "frames": frames},
 			map[string]any{"execution": map[string]any{"kind": "range", "effective_step_seconds": json.Number(huge)}}),
 		"samples": exploreFixture(t, map[string]any{"kind": "samples", "samples": func() []any {
@@ -785,6 +794,78 @@ func TestExploreDigestLogMessageFirstClaim(t *testing.T) {
 	}
 	if !strings.Contains(got, "; projecting fewer fields in the query narrows each entry\n") {
 		t.Fatalf("footer misses the projection hint:\n%s", got)
+	}
+}
+
+// A multi-byte message fills the room of its line as an ASCII one does, and
+// a long one keeps a prefix before the marker.
+func TestExploreDigestLogMessageMultiByte(t *testing.T) {
+	pinClock(t, digestT0)
+	for _, tc := range []struct {
+		runes, atLeast int
+		cut            bool
+	}{{300, 150, true}, {6000, 150, true}, {100, 100, false}} {
+		got := mustDigest(t, messageEntries(strings.Repeat("日", tc.runes)))
+		if !utf8.ValidString(got) {
+			t.Fatalf("%d runes: digest is not valid UTF-8", tc.runes)
+		}
+		for _, line := range strings.Split(got, "\n") {
+			if !strings.HasPrefix(line, "  2026-") {
+				continue
+			}
+			if kept := strings.Count(line, "日"); kept < tc.atLeast || len(line) > digestLogLineCap {
+				t.Fatalf("%d runes: kept %d characters in %d bytes: %s", tc.runes, kept, len(line), line)
+			}
+			if strings.Contains(line, " chars)") != tc.cut {
+				t.Fatalf("%d runes: cut marker presence wrong: %s", tc.runes, line)
+			}
+		}
+	}
+}
+
+// The message field is the conventional name present in the most entries;
+// a name earlier in the convention wins only on a tie.
+func TestExploreDigestMessageFieldMostPresent(t *testing.T) {
+	pinClock(t, digestT0)
+	entries := make([]any, 6)
+	for i := range entries {
+		fields := map[string]any{"message": fmt.Sprintf("request %d done", i), "pod": fmt.Sprintf("orders-%d", i)}
+		if i == 0 {
+			fields["_msg"] = "start"
+		}
+		entries[i] = map[string]any{"timestamp_ns": fmt.Sprint(digestT0.Add(time.Duration(i) * time.Second).UnixNano()), "fields": fields}
+	}
+	got := mustDigest(t, exploreFixture(t, map[string]any{"kind": "logs", "applied_limit": 6, "has_more": false, "entries": entries}, nil))
+	for i := 1; i < 6; i++ {
+		want := fmt.Sprintf(` message="request %d done" pod=orders-%d`+"\n", i, i)
+		if !strings.Contains(got, want) {
+			t.Fatalf("entry %d does not lead with message:\n%s", i, got)
+		}
+	}
+	if !strings.Contains(got, `+08:00 message="request 0 done" _msg=start pod=orders-0`+"\n") {
+		t.Fatalf("entry 0 does not lead with message:\n%s", got)
+	}
+}
+
+// A result summary is one line after the window line, counted toward the
+// bound; an empty summary prints nothing.
+func TestExploreDigestSummaryLine(t *testing.T) {
+	window := "window 2026-01-02T09:00:00+08:00..2026-01-02T11:00:00+08:00 (2h, ended now)"
+	in := equalSamples(2000)
+	summary := "2000 samples\nfrom " + strings.Repeat("s", 5000)
+	in.Summary = &summary
+	got, ok := exploreDigest(in, window)
+	lines := strings.SplitN(got, "\n", 3)
+	if !ok || len(lines) < 3 || lines[0] != window || !strings.HasPrefix(lines[1], `summary: "2000 samples\nfrom sss`) ||
+		!strings.HasSuffix(lines[1], `chars)"`) || !strings.HasPrefix(lines[2], "samples: showing ") || len(got) > 8192 {
+		t.Fatalf("summary line missing, unescaped or unbounded (%d bytes):\n%.600s", len(got), got)
+	}
+	for _, empty := range []*string{nil, new(string)} {
+		in.Summary = empty
+		got, _ = exploreDigest(in, window)
+		if strings.Contains(got, "summary: ") {
+			t.Fatalf("empty summary printed:\n%.300s", got)
+		}
 	}
 }
 
