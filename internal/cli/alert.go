@@ -321,8 +321,9 @@ func newAlertTimelineCmd() *cobra.Command {
 // containing backticks, $(...), or quotes must never be typed into a shell
 // argument. Everything else (positional alert IDs, --alert-ids, --incident-id,
 // --owner-id, --title, --data) mirrors the generated command byte-for-byte via
-// the same genAssembleBody/genBindBody request-building helpers, so this is a
-// pure flag-source swap, not a behavior change. Registering it here (curated
+// the same genAssembleBody/genBindBody request-building helpers; the one
+// addition is that a 6-char short incident id in incident_id resolves to the
+// full id, as on the incident commands (genResolveIncidentIDs). Registering it here (curated
 // commands are added before registerGenerated runs, see root.go) makes
 // genAddLeaf skip attaching the generated "merge" leaf under this same name.
 func newAlertMergeCmd() *cobra.Command {
@@ -383,6 +384,9 @@ Request fields:
 					return nil
 				})
 				if err != nil {
+					return err
+				}
+				if err := genResolveIncidentIDs(ctx, body, writesIncidents, "incident_id"); err != nil {
 					return err
 				}
 				req := new(flashduty.AlertMergeRequest)

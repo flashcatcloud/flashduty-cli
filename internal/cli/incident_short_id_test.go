@@ -2,7 +2,9 @@ package cli
 
 import (
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 const (
@@ -221,4 +223,242 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// shortIDStub answers /incident/list with matches (the short-id lookup) and
+// every other path with an empty list, recording each request in order.
+func shortIDStub(t *testing.T, matches ...map[string]any) (paths *[]string, bodies *[]map[string]any) {
+	t.Helper()
+	stub := newGFStub(t)
+	var mu sync.Mutex
+	var p []string
+	var b []map[string]any
+	stub.dataForPath = func(path string, body map[string]any) any {
+		mu.Lock()
+		p = append(p, path)
+		b = append(b, body)
+		mu.Unlock()
+		if path == "/incident/list" {
+			return incidentListData(matches...)
+		}
+		return map[string]any{"items": []any{}, "total": 0}
+	}
+	return &p, &b
+}
+
+// incidentIDCommands are incident subcommands taking one incident id, with
+// the endpoint and body field the id reaches.
+var incidentIDCommands = []struct {
+	args  []string
+	path  string
+	field string
+}{
+	{[]string{"incident", "alerts"}, "/incident/alert/list", "incident_id"},
+	{[]string{"incident", "timeline"}, "/incident/feed", "incident_id"},
+	{[]string{"incident", "similar"}, "/incident/past/list", "incident_id"},
+	{[]string{"incident", "feed"}, "/incident/feed", "incident_id"},
+	{[]string{"incident", "war-room", "list"}, "/incident/war-room/list", "incident_id"},
+	{[]string{"incident", "alert-list"}, "/incident/alert/list", "incident_id"},
+	{[]string{"incident", "past-list"}, "/incident/past/list", "incident_id"},
+}
+
+// TestIncidentSubcommandsResolveShortID: each subcommand resolves a short id
+// through /incident/list and sends the full id.
+func TestIncidentSubcommandsResolveShortID(t *testing.T) {
+	for _, c := range incidentIDCommands {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			paths, bodies := shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+			if _, err := execCommand(append(c.args, testShortID)...); err != nil {
+				t.Fatalf("execCommand: %v", err)
+			}
+			if len(*paths) < 2 || (*paths)[0] != "/incident/list" || (*paths)[1] != c.path {
+				t.Fatalf("paths = %v, want /incident/list then %s", *paths, c.path)
+			}
+			if got := (*bodies)[1][c.field]; got != testFullID {
+				t.Errorf("%s = %#v, want %q", c.field, got, testFullID)
+			}
+		})
+	}
+}
+
+// TestIncidentSubcommandsFullIDNoLookup: a full id is sent as given, with no
+// /incident/list request.
+func TestIncidentSubcommandsFullIDNoLookup(t *testing.T) {
+	for _, c := range incidentIDCommands {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			paths, bodies := shortIDStub(t)
+			if _, err := execCommand(append(c.args, testFullID)...); err != nil {
+				t.Fatalf("execCommand: %v", err)
+			}
+			if len(*paths) == 0 || (*paths)[0] != c.path {
+				t.Fatalf("paths = %v, want %s first", *paths, c.path)
+			}
+			for _, p := range *paths {
+				if p == "/incident/list" {
+					t.Fatalf("paths = %v: a full id must not be looked up", *paths)
+				}
+			}
+			if got := (*bodies)[0][c.field]; got != testFullID {
+				t.Errorf("%s = %#v, want %q", c.field, got, testFullID)
+			}
+		})
+	}
+}
+
+// TestIncidentMultiIDAmbiguousShortIDSendsNothing: when one of several ids is
+// an ambiguous short id, a write command reports the candidates and sends no
+// write — for curated and generated commands, ids given positionally or in
+// --data.
+func TestIncidentMultiIDAmbiguousShortIDSendsNothing(t *testing.T) {
+	other := "64f0c0ffee0123456789beef"
+	for _, args := range [][]string{
+		{"incident", "close", testFullID, testShortID},
+		{"incident", "ack", testFullID, testShortID},
+		{"incident", "ack", "--data", `{"incident_ids":["` + testFullID + `","` + testShortID + `"]}`},
+		{"incident", "merge", testFullID, "--source", testShortID},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			paths, _ := shortIDStub(t,
+				incidentItem(testFullID, testShortID, "High error rate"),
+				incidentItem(other, testShortID, "Disk almost full"))
+			_, err := execCommand(args...)
+			if err == nil || !strings.Contains(err.Error(), testFullID) || !strings.Contains(err.Error(), other) ||
+				!strings.Contains(err.Error(), "Disk almost full") {
+				t.Fatalf("want an error listing both candidates, got %v", err)
+			}
+			if want := []string{"/incident/list"}; !equalStrings(*paths, want) {
+				t.Errorf("paths = %v, want %v (no write on ambiguity)", *paths, want)
+			}
+		})
+	}
+}
+
+// TestIncidentMultiIDShortIDsResolve: every short id of a multi-id write is
+// resolved before the single write request.
+func TestIncidentMultiIDShortIDsResolve(t *testing.T) {
+	saveAndResetGlobals(t)
+	paths, bodies := shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+	if _, err := execCommand("incident", "snooze", testShortID, "64f0c0ffee0123456789abcd", "--duration", "30m"); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if want := []string{"/incident/list", "/incident/snooze"}; !equalStrings(*paths, want) {
+		t.Fatalf("paths = %v, want %v", *paths, want)
+	}
+	if got := stringsField((*bodies)[1], "incident_ids"); !equalStrings(got, []string{testFullID, "64f0c0ffee0123456789abcd"}) {
+		t.Errorf("incident_ids = %v", got)
+	}
+}
+
+// TestIncidentFlagErrorsBeforeShortIDLookup: flag validation fails before the
+// short-id lookup, so a flag error costs no request and is not masked by a
+// lookup error.
+func TestIncidentFlagErrorsBeforeShortIDLookup(t *testing.T) {
+	many := strings.TrimSuffix(strings.Repeat(testFullID+",", 101), ",")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"incident", "snooze", testShortID, "--duration", "bogus"}, "invalid --duration"},
+		{[]string{"incident", "merge", testShortID, "--source", many}, "--source accepts at most 100"},
+		{[]string{"incident", "reassign", testShortID, "--person", "abc"}, "invalid --person"},
+		{[]string{"incident", "similar", testShortID, "--fields", ",", "--output-format", "json"}, "--fields must name"},
+		{[]string{"incident", "detail", testShortID, "--fields", ",", "--output-format", "json"}, "--fields must name"},
+	} {
+		t.Run(strings.Join(c.args[:2], " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			_, err := execCommand(c.args...)
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("err = %v, want %q", err, c.want)
+			}
+			if stub.requests != 0 {
+				t.Errorf("%d requests, want 0", stub.requests)
+			}
+		})
+	}
+}
+
+// TestAlertMergeResolvesShortIncidentID: alert merge resolves a short id in
+// --incident-id like the incident commands.
+func TestAlertMergeResolvesShortIncidentID(t *testing.T) {
+	saveAndResetGlobals(t)
+	paths, bodies := shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+	if _, err := execCommand("alert", "merge", "a00000000000000000000001", "--incident-id", testShortID); err != nil {
+		t.Fatalf("execCommand: %v", err)
+	}
+	if want := []string{"/incident/list", "/alert/merge"}; !equalStrings(*paths, want) {
+		t.Fatalf("paths = %v, want %v", *paths, want)
+	}
+	if got := (*bodies)[1]["incident_id"]; got != testFullID {
+		t.Errorf("incident_id = %#v, want %q", got, testFullID)
+	}
+}
+
+// TestIncidentWriteNotesShortIDResolution: a write given a short id states on
+// stderr which incident it resolved to before acting; stdout is what a full
+// id prints.
+func TestIncidentWriteNotesShortIDResolution(t *testing.T) {
+	pinClock(t, time.Date(2026, 1, 2, 7, 0, 0, 0, time.UTC))
+	match := incidentItem(testFullID, testShortID, "High error rate")
+	match["start_time"] = time.Date(2026, 1, 2, 6, 0, 0, 0, time.UTC).Unix()
+	note := "resolved " + testShortID + " → " + testFullID + ` "High error rate" started 2026-01-02T14:00:00+08:00` + "\n"
+	for _, args := range [][]string{
+		{"incident", "close"},
+		{"incident", "ack"},
+		{"incident", "remove", "--force"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			shortIDStub(t, match)
+			fullOut, fullErr, err := execCommandSplit(append(args, testFullID)...)
+			if err != nil {
+				t.Fatalf("full id: %v", err)
+			}
+			saveAndResetGlobals(t)
+			shortIDStub(t, match)
+			out, errOut, err := execCommandSplit(append(args, testShortID)...)
+			if err != nil {
+				t.Fatalf("short id: %v", err)
+			}
+			if out != fullOut {
+				t.Errorf("stdout = %q, want %q (as for the full id)", out, fullOut)
+			}
+			if errOut != note+fullErr {
+				t.Errorf("stderr = %q, want %q", errOut, note+fullErr)
+			}
+		})
+	}
+}
+
+// TestIncidentReadNoShortIDNote: a read resolves a short id silently.
+func TestIncidentReadNoShortIDNote(t *testing.T) {
+	for _, args := range [][]string{{"incident", "timeline"}, {"incident", "alert-list"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+			_, errOut, err := execCommandSplit(append(args, testShortID)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(errOut, "resolved ") {
+				t.Errorf("stderr = %q, want no resolution note on a read", errOut)
+			}
+		})
+	}
+}
+
+// TestResolvedPrompt: a confirmation prompt names the incidents short ids
+// resolved to.
+func TestResolvedPrompt(t *testing.T) {
+	ctx := &RunContext{resolved: []string{`resolved 311510 → 6a12a4502f0a2396b3311510 "High error rate" started 2026-01-02T14:00:00+08:00`}}
+	want := `resolved 311510 → 6a12a4502f0a2396b3311510 "High error rate" started 2026-01-02T14:00:00+08:00` + "\nAre you sure?"
+	if got := resolvedPrompt(ctx, "Are you sure?"); got != want {
+		t.Errorf("prompt = %q, want %q", got, want)
+	}
+	if got := resolvedPrompt(&RunContext{}, "Are you sure?"); got != "Are you sure?" {
+		t.Errorf("prompt without short ids = %q", got)
+	}
 }
