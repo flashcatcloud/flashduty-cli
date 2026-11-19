@@ -208,11 +208,12 @@ Upsert status page section
 ### subscriber-export <page-id>
 Export subscribers
 - `--component-ids` stringSlice — Optional component IDs to filter subscribers by.
+- `--method` string — Optional subscription method filter. Public pages support 'email', 'slack', or 'teams'; omitted exports all public channels. · enum: email | im | slack | teams
 - `<page-id>` (positional, required) int64 — Status page ID; obtain it from 'GET /status-page/list'.
 
 ### subscriber-import <page-id>
 Import subscribers
-- `--method` string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. · enum: email | im
+- `--method` string (required) — Subscription method. 'email' and 'teams' (Microsoft Teams Workflows webhook URLs) apply to public pages; 'im' applies to internal pages. · enum: email | im | teams
 - `<page-id>` (positional, required) int64 — Target status page ID; obtain it from 'GET /status-page/list'.
 - body-only (`--data`): subscribers (array<object>)
 
@@ -220,9 +221,10 @@ Import subscribers
 List status page subscribers
 - `--component-ids` string — Comma-separated component IDs to filter subscribers by.
 - `--limit` int64 — Page size (1-100). (1-100)
+- `--method` string — Optional subscription method filter ('email', 'slack', 'teams' for public pages; 'im' for internal pages). Omit on public pages to return all public subscribers. · enum: email | im | slack | teams
 - `--page` int64 — Page number (1-based). (min 1)
 - `<page-id>` (positional, required) int64 — Status page ID.
-- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: all (boolean); components (array<object>); locale (string); method (string); recipient (string)
+- response: `{items: [...], has_next_page, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: all (boolean); components (array<object>); display_meta (object); locale (string); method (string); recipient (string)
 
 ### template-delete
 Delete status page template

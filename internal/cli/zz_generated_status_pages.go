@@ -55,6 +55,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - subscription (object) (required) — Subscription channel toggles.
       - email (boolean) (required) — Whether email subscription is enabled.
       - im (boolean) (required) — Whether IM subscription is enabled.
+      - slack (boolean) — Whether Slack channel subscription is enabled (public pages only).
+      - teams (boolean) — Whether Microsoft Teams Workflows subscription is enabled (public pages only).
     - template_preference (string) — Event template mode used when publishing events in the console: 'message' (status descriptions: per-status texts) or 'pre_defined' (full status updates: complete examples with title, status, and description). Omitted when never set; the console then uses 'message'. [pre_defined, message]
     - type (string) (required) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
     - url_name (string) (required) — URL-safe slug of the page, unique among the account's pages of the same type.
@@ -984,9 +986,11 @@ Request fields:
   custom_links (array<object>, via --data) — Custom navigation links shown on the status page.
     - key (string) — Link text shown on the page.
     - value (string) — URL the link text points to, such as 'https://www.example.com'.
-  subscription (object, via --data) — Subscription channel toggles; both default to 'false'. A public page can enable only 'email' and an internal page only 'im'.
+  subscription (object, via --data) — Subscription channel toggles; all default to 'false'. A public page may enable 'email', 'slack', and 'teams', while an internal page may enable only 'im'.
     - email (boolean) (required) — Whether email subscription is enabled.
     - im (boolean) (required) — Whether IM subscription is enabled.
+    - slack (boolean) — Whether Slack channel subscription is enabled (public pages only).
+    - teams (boolean) — Whether Microsoft Teams Workflows subscription is enabled (public pages only).
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
   - page_id (integer) (required) — Created status page ID.
@@ -1220,6 +1224,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - subscription (object) (required) — Subscription channel toggles.
     - email (boolean) (required) — Whether email subscription is enabled.
     - im (boolean) (required) — Whether IM subscription is enabled.
+    - slack (boolean) — Whether Slack channel subscription is enabled (public pages only).
+    - teams (boolean) — Whether Microsoft Teams Workflows subscription is enabled (public pages only).
   - template_preference (string) — Event template mode used when publishing events in the console: 'message' (status descriptions: per-status texts) or 'pre_defined' (full status updates: complete examples with title, status, and description). Omitted when never set; the console then uses 'message'. [pre_defined, message]
   - type (string) (required) — Page visibility type. 'public' pages are accessible to anyone and use email subscriptions; 'internal' pages are restricted to account members and use IM subscriptions. [public, internal]
   - url_name (string) (required) — URL-safe slug of the page, unique among the account's pages of the same type.
@@ -1266,7 +1272,7 @@ func genStatusPagesMigrateEmailSubscribersCmd() *cobra.Command {
 		Short: "Migrate email subscribers",
 		Long: `Migrate email subscribers.
 
-Start a migration job that imports email subscribers from an Atlassian Statuspage into an existing Flashduty status page.
+Start a migration job that imports email subscribers (and best-effort Microsoft Teams Workflows channel subscribers) from an Atlassian Statuspage into an existing Flashduty status page.
 
 API: POST /status-page/migrate-email-subscribers (statusPageMigrateEmailSubscribers)
 
@@ -1610,6 +1616,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 func genStatusPagesSubscriberExportCmd() *cobra.Command {
 	var dataJSON string
 	var fComponentIDs []string
+	var fMethod string
 	var fPageID int64
 	cmd := &cobra.Command{
 		Use:   "subscriber-export <page-id>",
@@ -1622,6 +1629,7 @@ API: POST /status-page/subscriber/export (statusPageSubscriberExport)
 
 Request fields:
   --component-ids []string — Optional component IDs to filter subscribers by.
+  --method string — Optional subscription method filter. Public pages support 'email', 'slack', or 'teams'; omitted exports all public channels. [email, im, slack, teams]
   --page-id int (required) — Status page ID; obtain it from 'GET /status-page/list'.
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
@@ -1634,6 +1642,9 @@ Request fields:
 					}
 					if cmd.Flags().Changed("component-ids") {
 						body["component_ids"] = fComponentIDs
+					}
+					if cmd.Flags().Changed("method") {
+						body["method"] = fMethod
 					}
 					if cmd.Flags().Changed("page-id") {
 						body["page_id"] = fPageID
@@ -1656,6 +1667,7 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringSliceVar(&fComponentIDs, "component-ids", nil, "Optional component IDs to filter subscribers by.")
+	cmd.Flags().StringVar(&fMethod, "method", "", "Optional subscription method filter. Public pages support 'email', 'slack', or 'teams'; omitted exports all public channels. [email, im, slack, teams]")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1675,7 +1687,7 @@ Bulk import subscribers into a status page without sending confirmation emails.
 API: POST /status-page/subscriber/import (statusPageSubscriberImport)
 
 Request fields:
-  --method string (required) — Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. [email, im]
+  --method string (required) — Subscription method. 'email' and 'teams' (Microsoft Teams Workflows webhook URLs) apply to public pages; 'im' applies to internal pages. [email, im, teams]
   --page-id int (required) — Target status page ID; obtain it from 'GET /status-page/list'.
   subscribers (array<object>, via --data) — Subscribers to import. Each recipient's existing subscriptions on this page are replaced; an empty or omitted list does nothing.
     - all (boolean) — When 'true', the subscriber receives notifications for all components and events, and 'component_ids'/'change_ids' are ignored. Must be 'true' when both lists are empty.
@@ -1715,7 +1727,7 @@ Request fields:
 			})
 		},
 	}
-	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' is only valid for public pages; 'im' is only valid for internal pages. (required) [email, im]")
+	cmd.Flags().StringVar(&fMethod, "method", "", "Subscription method. 'email' and 'teams' (Microsoft Teams Workflows webhook URLs) apply to public pages; 'im' applies to internal pages. (required) [email, im, teams]")
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Target status page ID; obtain it from 'GET /status-page/list'. (required)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -1725,6 +1737,7 @@ func genStatusPagesSubscriberListCmd() *cobra.Command {
 	var dataJSON string
 	var fPageID int64
 	var fComponentIDs string
+	var fMethod string
 	var fP int64
 	var fLimit int64
 	cmd := &cobra.Command{
@@ -1739,6 +1752,7 @@ API: GET /status-page/subscriber/list (statusPageSubscriberList)
 Request fields:
   --page-id int (required) — Status page ID.
   --component-ids string — Comma-separated component IDs to filter subscribers by.
+  --method string — Optional subscription method filter ('email', 'slack', 'teams' for public pages; 'im' for internal pages). Omit on public pages to return all public subscribers. [email, im, slack, teams]
   --page int — Page number (1-based). (min 1)
   --limit int — Page size (1-100). (1-100)
 
@@ -1755,9 +1769,17 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - name (string) (required) — Component display name.
       - order_id (integer) — Display order within its section. Omitted when 0.
       - section_id (string) — Parent section ID. Omitted when the component sits at the top level.
+    - display_meta (object) — Non-sensitive channel display metadata returned for Slack and Teams subscribers.
+      - channel_id (string) — Slack channel ID.
+      - channel_name (string) — Slack channel name.
+      - provider (string) — Webhook provider identifier (e.g. 'power_automate', 'power_platform').
+      - team_id (string) — Slack workspace ID.
+      - team_name (string) — Slack workspace name.
+      - webhook_host (string) — Microsoft Teams Workflows webhook hostname.
+      - webhook_tail (string) — Short non-secret identifier for distinguishing Teams webhooks on the same host.
     - locale (string) — Preferred locale for notifications. Omitted when empty.
-    - method (string) (required) — Subscription notification method. 'email' is email subscription (public pages); 'im' is IM subscription (internal pages). Determined by the page type. [email, im]
-    - recipient (string) (required) — Subscriber recipient: email address for public pages, user ID for internal pages.
+    - method (string) (required) — Subscription notification method ('email', 'slack', 'teams' for public pages; 'im' for internal pages). [email, im, slack, teams]
+    - recipient (string) (required) — Subscriber recipient: email address for email, redacted channel workspace or webhook host for Slack/Teams, or user ID for internal pages.
   - total (integer) (required) — Total matching subscribers.
 `,
 		Args: requireBodyFieldOrExactArg("page_id", "page-id"),
@@ -1772,6 +1794,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 					}
 					if cmd.Flags().Changed("component-ids") {
 						body["component_ids"] = fComponentIDs
+					}
+					if cmd.Flags().Changed("method") {
+						body["method"] = fMethod
 					}
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -1798,6 +1823,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	}
 	cmd.Flags().Int64Var(&fPageID, "page-id", 0, "Status page ID. (required)")
 	cmd.Flags().StringVar(&fComponentIDs, "component-ids", "", "Comma-separated component IDs to filter subscribers by.")
+	cmd.Flags().StringVar(&fMethod, "method", "", "Optional subscription method filter ('email', 'slack', 'teams' for public pages; 'im' for internal pages). Omit on public pages to return all public subscribers. [email, im, slack, teams]")
 	cmd.Flags().Int64Var(&fP, "page", 0, "Page number (1-based). (min 1)")
 	cmd.Flags().Int64Var(&fLimit, "limit", 0, "Page size (1-100). (1-100)")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
@@ -2031,9 +2057,11 @@ Request fields:
   custom_links (array<object>, via --data) — Custom navigation links shown on the status page. Omit or pass an empty array to keep the current links.
     - key (string) — Link text shown on the page.
     - value (string) — URL the link text points to, such as 'https://www.example.com'.
-  subscription (object, via --data) — Subscription channel toggles. A public page can enable only 'email' and an internal page only 'im'. Omit or pass null to keep the existing value.
+  subscription (object, via --data) — Subscription channel toggles. A public page may enable 'email', 'slack', and 'teams', while an internal page may enable only 'im'. Omit or pass null to keep the existing value.
     - email (boolean) (required) — Whether email subscription is enabled.
     - im (boolean) (required) — Whether IM subscription is enabled.
+    - slack (boolean) — Whether Slack channel subscription is enabled (public pages only).
+    - teams (boolean) — Whether Microsoft Teams Workflows subscription is enabled (public pages only).
 `,
 		Args:    requireBodyFieldOrExactArg("page_id", "page-id"),
 		Example: `  flashduty status-page update --data '{"contact_info":"mailto:support@example.com","name":"Flashduty Status Page (Updated)","page_header":"Updated status page header","page_id":5750613685214}'`,
